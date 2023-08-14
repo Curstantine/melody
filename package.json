@@ -1,5 +1,12 @@
 {
+	"scripts": {
+		"dev": "concurrently --names app,backend \"pnpm --filter app run dev\" \"neu run --frontend-lib-dev -- --window-enable-inspector\""
+	},
 	"devDependencies": {
-		"@types/node": "^20.5.0"
+		"@types/node": "^20.5.0",
+		"@typescript-eslint/eslint-plugin": "^6.3.0",
+		"@typescript-eslint/parser": "^6.3.0",
+		"concurrently": "^8.2.0",
+		"eslint": "^8.47.0"
 	}
 }

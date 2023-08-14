@@ -27,6 +27,12 @@ export default defineConfig<Theme>({
 	],
 	transformers: [transformerDirectives(), transformerVariantGroup()],
 	theme: {
+		colors: {
+			background: {
+				1: "var(--color-bg-1)",
+				2: "var(--color-bg-2)",
+			},
+		},
 		fontFamily: {
 			"explorer": "TASA Explorer Regular, system-ui",
 			"explorer-medium": "TASA Explorer Medium, system-ui",
