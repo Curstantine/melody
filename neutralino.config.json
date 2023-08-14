@@ -1,0 +1,35 @@
+{
+	"applicationId": "moe.curstantine.melody",
+	"version": "0.1.0",
+	"defaultMode": "window",
+	"documentRoot": "/app/dist/",
+	"url": "/",
+	"enableServer": true,
+	"enableNativeAPI": true,
+	"nativeAllowList": [
+		"app.*",
+		"filesystem.readDirectory"
+	],
+	"modes": {
+		"window": {
+			"title": "melody",
+			"width": 800,
+			"height": 500,
+			"minWidth": 400,
+			"minHeight": 200,
+			"icon": "/app/dist/logo.svg"
+		}
+	},
+	"cli": {
+		"binaryName": "melody",
+		"resourcesPath": "/app/dist",
+		"extensionsPath": "/extensions/",
+		"binaryVersion": "4.10.0",
+		"clientVersion": "3.8.2",
+		"clientLibrary": "/app/public/neutralino.js",
+		"frontendLibrary": {
+			"patchFile": "/app/index.html",
+			"devUrl": "http://localhost:5173"
+		}
+	}
+}
