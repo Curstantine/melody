@@ -1,0 +1,30 @@
+@font-face {
+	font-family: "TASA Explorer Bold";
+	src: url("tasaexplorer-bold-webfont.woff2") format("woff2"), url("tasaexplorer-bold-webfont.woff") format("woff");
+	font-weight: normal;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "TASA Explorer Medium";
+	src: url("tasaexplorer-medium-webfont.woff2") format("woff2"),
+		url("tasaexplorer-medium-webfont.woff") format("woff");
+	font-weight: normal;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "TASA Explorer Regular";
+	src: url("tasaexplorer-regular-webfont.woff2") format("woff2"),
+		url("tasaexplorer-regular-webfont.woff") format("woff");
+	font-weight: normal;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "TASA Explorer Semibold";
+	src: url("tasaexplorer-semibold-webfont.woff2") format("woff2"),
+		url("tasaexplorer-semibold-webfont.woff") format("woff");
+	font-weight: normal;
+	font-style: normal;
+}

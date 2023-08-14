@@ -10,10 +10,15 @@
 	},
 	"dependencies": {
 		"@neutralinojs/lib": "^3.11.0",
-		"solid-js": "^1.7.8"
+		"solid-js": "^1.7.8",
+		"unocss": "^0.55.0"
 	},
 	"devDependencies": {
+		"@iconify-json/material-symbols": "^1.1.55",
+		"@iconify/types": "^2.0.0",
+		"@unocss/reset": "^0.55.0",
 		"typescript": "^5.0.2",
+		"unocss-preset-theme": "^0.9.1",
 		"vite": "^4.4.5",
 		"vite-plugin-solid": "^2.7.0"
 	}

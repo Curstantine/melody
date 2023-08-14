@@ -1,5 +1,4 @@
 import { filesystem } from "@neutralinojs/lib";
-import "./App.css";
 import { createSignal, For } from "solid-js";
 
 function App() {
