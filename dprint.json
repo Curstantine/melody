@@ -5,7 +5,9 @@
 	"newLineKind": "lf",
 	"excludes": [
 		"**/node_modules",
-		"**/*-lock.json"
+		"**/*-lock.json",
+		"**/dist/",
+		"**/target/"
 	],
 	"plugins": [
 		"https://plugins.dprint.dev/typescript-0.86.1.wasm",

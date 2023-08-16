@@ -1,4 +1,4 @@
-import { app, events, window } from "@neutralinojs/lib";
+import { appWindow } from "@tauri-apps/api/window";
 import { createSignal, onMount } from "solid-js";
 import type { JSX } from "solid-js/jsx-runtime";
 import { Portal } from "solid-js/web";
@@ -6,62 +6,39 @@ import { Portal } from "solid-js/web";
 export default function TitleBar() {
 	const [isMaximized, setMaximizeStatus] = createSignal(false);
 
-	const titlebarRef = document.getElementById("titlebar")!;
 	let draggableRef: HTMLDivElement | undefined;
 
 	onMount(() => {
-		window.isMaximized()
-			.then((status) => setMaximizeStatus(status))
+		appWindow.isMaximized()
+			.then((maximized) => setMaximizeStatus(maximized))
 			.catch((e) => console.error(e));
-
-		window.setDraggableRegion(draggableRef!);
-
-		draggableRef!.addEventListener("mousemove", async (e) => {
-			if (e.buttons === 1 && await window.isMaximized()) {
-				await contextuallyMaximize();
-			}
-		});
-
-		draggableRef!.addEventListener("dblclick", async (e) => {
-			if (e.buttons !== 1) return;
-			contextuallyMaximize();
-		});
-
-		events.on("windowClose", close);
 	});
 
-	const contextuallyMaximize = async () => {
-		if (isMaximized()) {
-			await window.unmaximize();
-			return setMaximizeStatus(false);
-		}
-
-		await window.maximize();
-		setMaximizeStatus(true);
+	const toggleMaximize = async () => {
+		await appWindow.toggleMaximize();
 	};
 
 	const minimize = async () => {
-		try {
-			await window.minimize();
-		} catch (e) {
-			console.error(e);
-		}
+		await appWindow.minimize();
 	};
 
-	const close = () => {
-		app.exit(0);
+	const close = async () => {
+		await appWindow.close();
 	};
 
 	return (
-		<Portal mount={titlebarRef}>
+		<Portal mount={document.getElementById("titlebar")!}>
 			<div class="flex items-center justify-between h-9 inset-x-0 border-b-1 border-b-solid border-b-border ">
-				<div ref={draggableRef!} class="flex-1 ">
+				<div data-tauri-drag-region ref={draggableRef!} class="flex-1 inline-flex items-center h-full">
 					<span class="pl-4 select-none text-sm font-medium">Melody</span>
 				</div>
 				<div class="inline-flex">
-					<TitleBarButton icon="i-material-minimize" type="common" onClick={minimize} />
-					<TitleBarButton icon="i-material-maximize" type="common" onClick={contextuallyMaximize} />
-					<TitleBarButton icon="i-material-close" type="close" onClick={close} />
+					<TitleBarButton icon="i-mdi-minimize" onClick={minimize} />
+					<TitleBarButton
+						icon={isMaximized() ? "i-mdi-window-restore" : "i-mdi-window-maximize"}
+						onClick={toggleMaximize}
+					/>
+					<TitleBarButton type="close" icon="i-symbols-close" onClick={close} />
 				</div>
 			</div>
 		</Portal>
@@ -73,23 +50,21 @@ type TitleBarButtonProps = {
 	type?: "common" | "close";
 	onClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
 };
-const TitleBarButton = ({ icon, type = "common", onClick }: TitleBarButtonProps) => {
+const TitleBarButton = (props: TitleBarButtonProps) => {
 	return (
 		<button
 			class="inline-flex items-center justify-center w-12 h-full duration-200 transition-colors"
 			classList={{
 				"hover:bg-titlebar-button-common-hover active:bg-titlebar-button-common-active disabled:bg-titlebar-button-common-disabled":
-					type === "common",
+					props.type === "common",
 				"hover:bg-titlebar-button-close-hover active:bg-titlebar-button-close-active disabled:bg-titlebar-button-close-disabled":
-					type === "close",
+					props.type === "close",
 			}}
-			onClick={onClick}
+			onClick={props.onClick}
 		>
 			<span
-				class="h-5 w-5"
-				classList={{
-					[icon]: true,
-				}}
+				class="h-4 w-4"
+				classList={{ [props.icon]: true }}
 			/>
 		</button>
 	);

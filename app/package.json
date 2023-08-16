@@ -1,7 +1,6 @@
 {
 	"name": "app",
 	"private": true,
-	"version": "0.0.0",
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
@@ -9,7 +8,8 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@neutralinojs/lib": "^3.11.0",
+		"@iconify-json/mdi": "^1.1.54",
+		"@tauri-apps/api": "^1.4.0",
 		"solid-js": "^1.7.8",
 		"unocss": "^0.55.0"
 	},

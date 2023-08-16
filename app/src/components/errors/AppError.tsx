@@ -4,7 +4,7 @@ type Props = {
 	reset: () => void;
 };
 
-export default function AppError({ error,  }: Props) {
+export default function AppError({ error }: Props) {
 	return (
 		<div class="flex h-full w-full ">
 			{error}

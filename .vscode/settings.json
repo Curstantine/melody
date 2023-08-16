@@ -1,6 +1,9 @@
 {
 	"editor.rulers": [120],
 	"editor.defaultFormatter": "dprint.dprint",
+	"[rust]": {
+		"editor.defaultFormatter": "rust-lang.rust-analyzer"
+	},
 
 	"licenser.author": "Curstantine",
 	"licenser.license": "MIT",
@@ -11,10 +14,9 @@
 	"cSpell.words": [
 		"curstantine",
 		"Iconify",
-		"neutralino",
-		"neutralinojs",
 		"stylesheet",
 		"TASA",
+		"tauri",
 		"titlebar",
 		"unmaximize",
 		"unocss"

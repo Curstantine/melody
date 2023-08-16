@@ -1,10 +1,11 @@
 {
 	"scripts": {
-		"dev": "concurrently --names app,backend \"pnpm --filter app run dev\" \"sleep 4 && neu run --frontend-lib-dev -- --window-enable-inspector\"",
+		"dev": "pnpm --filter app run dev",
 		"build": "pnpm --filter app run build && neu build",
 		"preview": "pnpm --filter app build && neu run -- --window-enable-inspector"
 	},
 	"devDependencies": {
+		"@tauri-apps/cli": "^1.4.0",
 		"@types/node": "^20.5.0",
 		"@typescript-eslint/eslint-plugin": "^6.3.0",
 		"@typescript-eslint/parser": "^6.3.0",

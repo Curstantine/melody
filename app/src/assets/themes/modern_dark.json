@@ -1,4 +1,5 @@
 {
+	"$schema": "./schema.json",
 	"name": "Modern Dark",
 	"mode": "dark",
 	"colors": {
