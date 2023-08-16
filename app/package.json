@@ -8,6 +8,7 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
+		"@iconify-json/mdi": "^1.1.54",
 		"@tauri-apps/api": "^1.4.0",
 		"solid-js": "^1.7.8",
 		"unocss": "^0.55.0"

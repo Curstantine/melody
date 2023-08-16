@@ -21,7 +21,8 @@ export default defineConfig<Theme>({
 		presetUno({}),
 		presetIcons({
 			collections: {
-				material: importIconCollection("material-symbols"),
+				symbols: importIconCollection("material-symbols"),
+				mdi: importIconCollection("mdi"),
 			},
 		}),
 	],
