@@ -1,4 +1,3 @@
-import { app, events, window } from "@neutralinojs/lib";
 import { createSignal, onMount } from "solid-js";
 import type { JSX } from "solid-js/jsx-runtime";
 import { Portal } from "solid-js/web";
@@ -10,46 +9,46 @@ export default function TitleBar() {
 	let draggableRef: HTMLDivElement | undefined;
 
 	onMount(() => {
-		window.isMaximized()
-			.then((status) => setMaximizeStatus(status))
-			.catch((e) => console.error(e));
+		// window.isMaximized()
+		// 	.then((status) => setMaximizeStatus(status))
+		// 	.catch((e) => console.error(e));
 
-		window.setDraggableRegion(draggableRef!);
+		// window.setDraggableRegion(draggableRef!);
 
-		draggableRef!.addEventListener("mousemove", async (e) => {
-			if (e.buttons === 1 && await window.isMaximized()) {
-				await contextuallyMaximize();
-			}
-		});
+		// draggableRef!.addEventListener("mousemove", async (e) => {
+		// 	if (e.buttons === 1 && await window.isMaximized()) {
+		// 		await contextuallyMaximize();
+		// 	}
+		// });
 
-		draggableRef!.addEventListener("dblclick", async (e) => {
-			if (e.buttons !== 1) return;
-			contextuallyMaximize();
-		});
+		// draggableRef!.addEventListener("dblclick", async (e) => {
+		// 	if (e.buttons !== 1) return;
+		// 	contextuallyMaximize();
+		// });
 
-		events.on("windowClose", close);
+		// events.on("windowClose", close);
 	});
 
 	const contextuallyMaximize = async () => {
 		if (isMaximized()) {
-			await window.unmaximize();
+			// await window.unmaximize();
 			return setMaximizeStatus(false);
 		}
 
-		await window.maximize();
+		// await window.maximize();
 		setMaximizeStatus(true);
 	};
 
 	const minimize = async () => {
 		try {
-			await window.minimize();
+			// await window.minimize();
 		} catch (e) {
 			console.error(e);
 		}
 	};
 
 	const close = () => {
-		app.exit(0);
+		// app.exit(0);
 	};
 
 	return (
