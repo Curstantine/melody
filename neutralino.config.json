@@ -8,6 +8,7 @@
 	"enableNativeAPI": true,
 	"nativeAllowList": [
 		"app.*",
+		"window.*",
 		"filesystem.readDirectory"
 	],
 	"modes": {
@@ -15,9 +16,15 @@
 			"title": "melody",
 			"width": 800,
 			"height": 500,
-			"minWidth": 400,
-			"minHeight": 200,
-			"icon": "/app/dist/logo.svg"
+			"minWidth": 800,
+			"minHeight": 500,
+			"icon": "/app/dist/logo.svg",
+			"enableInspector": true,
+			"borderless": true,
+			"maximize": false,
+			"hidden": false,
+			"resizable": true,
+			"exitProcessOnClose": false
 		}
 	},
 	"cli": {

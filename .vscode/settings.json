@@ -5,12 +5,18 @@
 	"licenser.author": "Curstantine",
 	"licenser.license": "MIT",
 	"licenser.projectName": "Melody",
+
+	"unocss.root": ["./app"],
+
 	"cSpell.words": [
 		"curstantine",
 		"Iconify",
 		"neutralino",
+		"neutralinojs",
 		"stylesheet",
 		"TASA",
+		"titlebar",
+		"unmaximize",
 		"unocss"
 	]
 }

@@ -1,21 +1,11 @@
-import { filesystem } from "@neutralinojs/lib";
-import { createSignal, For } from "solid-js";
+import { initialize as initializeTheme } from "@/utils/themes";
 
 function App() {
-	const [files, setFiles] = createSignal<string[]>([]);
-
-	filesystem.readDirectory("./")
-		.then((x) => setFiles(x.map((y) => y.entry)))
-		.catch(console.error);
+	initializeTheme();
 
 	return (
 		<>
-			<h1>Lol</h1>
-			<ul>
-				<For each={files()}>
-					{(item) => <li>{item}</li>}
-				</For>
-			</ul>
+			<span>no</span>
 		</>
 	);
 }

@@ -1,6 +1,8 @@
 {
 	"scripts": {
-		"dev": "concurrently --names app,backend \"pnpm --filter app run dev\" \"neu run --frontend-lib-dev -- --window-enable-inspector\""
+		"dev": "concurrently --names app,backend \"pnpm --filter app run dev\" \"sleep 4 && neu run --frontend-lib-dev -- --window-enable-inspector\"",
+		"build": "pnpm --filter app run build && neu build",
+		"preview": "pnpm --filter app build && neu run -- --window-enable-inspector"
 	},
 	"devDependencies": {
 		"@types/node": "^20.5.0",

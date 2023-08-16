@@ -1,0 +1,17 @@
+{
+	"name": "Modern Dark",
+	"mode": "dark",
+	"colors": {
+		"border": "#2B2B2B",
+		"background.main": "#181818",
+		"background.secondary": "#1f1f1f",
+
+		"titlebar.background": "#181818",
+		"titlebar.button.close.background.hover": "#ff5c57",
+		"titlebar.button.close.background.active": "#ff5c57",
+		"titlebar.button.close.background.disabled": "#ff5c57",
+		"titlebar.button.common.background.hover": "#ffbd2e",
+		"titlebar.button.common.background.active": "#ffbd2e",
+		"titlebar.button.common.background.disabled": "#ffbd2e"
+	}
+}

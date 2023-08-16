@@ -1,15 +1,19 @@
-@import "./assets/themes/index.css";
 @import "./assets/fonts/TASA_Explorer/stylesheet.css";
 @import "./assets/fonts/TASA_Orbiter/stylesheet.css";
 
 :root {
 	font-family: "TASA Orbiter Deck Regular", system-ui, sans-serif;
-
-	color-scheme: light dark;
-
 	/* font-synthesis: none; */
 	/* text-rendering: optimizeLegibility; */
 	/* -webkit-font-smoothing: antialiased; */
 	/* -moz-osx-font-smoothing: grayscale; */
 	/* -webkit-text-size-adjust: 100%; */
+}
+
+body {
+	--at-apply: bg-background-main;
+}
+
+#titlebar {
+	--at-apply: bg-titlebar-background select-none;
 }
