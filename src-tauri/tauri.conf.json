@@ -11,7 +11,28 @@
 	},
 	"tauri": {
 		"allowlist": {
-			"all": false
+			"window": {
+				"all": false,
+				"close": true,
+				"create": true,
+				"hide": true,
+				"maximize": true,
+				"minimize": true,
+				"setClosable": true,
+				"setCursorGrab": true,
+				"setCursorIcon": true,
+				"unmaximize": true,
+				"unminimize": true,
+
+				"setFocus": false,
+				"setFullscreen": false,
+				"setPosition": false,
+				"setSize": false,
+				"setTitle": false,
+
+				"show": true,
+				"startDragging": true
+			}
 		},
 		"bundle": {
 			"active": true,
@@ -56,9 +77,11 @@
 			{
 				"title": "Melody",
 				"width": 800,
+				"minWidth": 800,
 				"height": 600,
-				"fullscreen": false,
-				"resizable": true
+				"minHeight": 600,
+				"resizable": true,
+				"decorations": false
 			}
 		]
 	}
