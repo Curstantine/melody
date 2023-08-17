@@ -7,6 +7,7 @@
 		"mode": { "$ref": "#/definitions/ThemeMode" },
 		"colors": {
 			"type": "object",
+			"additionalProperties": false,
 			"properties": {
 				"border": { "type": "string", "format": "color-hex" },
 				"background.main": { "type": "string", "format": "color-hex" },
@@ -15,10 +16,8 @@
 				"titlebar.background": { "type": "string", "format": "color-hex" },
 				"titlebar.button.close.background.hover": { "type": "string", "format": "color-hex" },
 				"titlebar.button.close.background.active": { "type": "string", "format": "color-hex" },
-				"titlebar.button.close.background.disabled": { "type": "string", "format": "color-hex" },
 				"titlebar.button.common.background.hover": { "type": "string", "format": "color-hex" },
-				"titlebar.button.common.background.active": { "type": "string", "format": "color-hex" },
-				"titlebar.button.common.background.disabled": { "type": "string", "format": "color-hex" }
+				"titlebar.button.common.background.active": { "type": "string", "format": "color-hex" }
 			}
 		}
 	},

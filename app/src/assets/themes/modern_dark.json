@@ -8,11 +8,9 @@
 		"background.secondary": "#1f1f1f",
 
 		"titlebar.background": "#181818",
-		"titlebar.button.close.background.hover": "#ff5c57",
-		"titlebar.button.close.background.active": "#ff5c57",
-		"titlebar.button.close.background.disabled": "#ff5c57",
-		"titlebar.button.common.background.hover": "#ffbd2e",
-		"titlebar.button.common.background.active": "#ffbd2e",
-		"titlebar.button.common.background.disabled": "#ffbd2e"
+		"titlebar.button.close.background.hover": "#D41223",
+		"titlebar.button.close.background.active": "#D41223",
+		"titlebar.button.common.background.hover": "#303030",
+		"titlebar.button.common.background.active": "#303030"
 	}
 }

@@ -1,5 +1,5 @@
 import { appWindow } from "@tauri-apps/api/window";
-import { createSignal, onMount } from "solid-js";
+import { createSignal, mergeProps, onMount } from "solid-js";
 import type { JSX } from "solid-js/jsx-runtime";
 import { Portal } from "solid-js/web";
 
@@ -32,7 +32,7 @@ export default function TitleBar() {
 				<div data-tauri-drag-region ref={draggableRef!} class="flex-1 inline-flex items-center h-full">
 					<span class="pl-4 select-none text-sm font-medium">Melody</span>
 				</div>
-				<div class="inline-flex">
+				<div class="inline-flex h-full">
 					<TitleBarButton icon="i-mdi-minimize" onClick={minimize} />
 					<TitleBarButton
 						icon={isMaximized() ? "i-mdi-window-restore" : "i-mdi-window-maximize"}
@@ -50,7 +50,9 @@ type TitleBarButtonProps = {
 	type?: "common" | "close";
 	onClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
 };
-const TitleBarButton = (props: TitleBarButtonProps) => {
+const TitleBarButton = (_props: TitleBarButtonProps) => {
+	const props = mergeProps({ type: "common" }, _props);
+
 	return (
 		<button
 			class="inline-flex items-center justify-center w-12 h-full duration-200 transition-colors"
