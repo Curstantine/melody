@@ -1,11 +1,12 @@
 export type ThemeColorBackground = "background.main" | "background.secondary";
 
 export type ThemeColorButtonStateVariants = "hover" | "active" | "disabled";
+export type ThemeColorButton = `background.${ThemeColorButtonStateVariants}`;
 
 export type ThemeColorTitleBar =
 	| "titlebar.background"
-	| `titlebar.button.close.${ThemeColorButtonStateVariants}`
-	| `titlebar.button.common.${ThemeColorButtonStateVariants}`;
+	| `titlebar.button.close.${ThemeColorButton}`
+	| `titlebar.button.common.${ThemeColorButton}`;
 
 export type ThemeColorKeys =
 	| ThemeColorBackground

@@ -1,4 +1,4 @@
-import { ThemeColorKeys, ThemeData } from "@/types/themes";
+import type { ThemeColorKeys, ThemeData } from "@/types/themes";
 
 const templateTheme = "modern_dark";
 
@@ -9,7 +9,7 @@ export async function initialize() {
 		themeName = window.matchMedia("(prefers-color-scheme: dark)").matches ? templateTheme : templateTheme;
 	}
 
-	loadTheme(themeName);
+	await loadTheme(themeName);
 }
 
 /**
@@ -21,14 +21,19 @@ export async function initialize() {
  */
 export async function loadTheme(themeId: string) {
 	const data = await import(`../assets/themes/${themeId}.json`) as ThemeData;
-	const { style } = document.documentElement;
 
-	style.setProperty("--theme-name", data.name);
-	style.setProperty("color-scheme", data.mode);
+	const styleElement = document.head.querySelector<HTMLStyleElement>("style#theme-declarations")!;
+	const declarations = Object.entries(data.colors).map(([key, value]) => {
+		console.log(key, value);
+		return `${themeBindings[key as ThemeColorKeys]}: ${value};`;
+	});
 
-	for (const [key, value] of Object.entries(data.colors)) {
-		style.setProperty(themeBindings[key as ThemeColorKeys], value);
-	}
+	// This allows us to atomically change every declaration, so animations and transitions wouldn't break.
+	styleElement.innerHTML = `:root {
+		--theme-name: ${data.name};
+		color-scheme: ${data.mode};
+		${declarations.join("\n")}
+	}`;
 
 	// localStorage.setItem("theme", themeId);
 }
@@ -39,10 +44,10 @@ const themeBindings: Record<ThemeColorKeys, string> = {
 	"background.secondary": "--theme-background-secondary",
 
 	"titlebar.background": "--theme-titlebar-background",
-	"titlebar.button.close.active": "--theme-titlebar-button-close-active",
-	"titlebar.button.close.hover": "--theme-titlebar-button-close-hover",
-	"titlebar.button.close.disabled": "--theme-titlebar-button-close-disabled",
-	"titlebar.button.common.active": "--theme-titlebar-button-common-active",
-	"titlebar.button.common.hover": "--theme-titlebar-button-common-hover",
-	"titlebar.button.common.disabled": "--theme-titlebar-button-common-disabled",
+	"titlebar.button.close.background.active": "--theme-titlebar-button-close-active",
+	"titlebar.button.close.background.hover": "--theme-titlebar-button-close-hover",
+	"titlebar.button.close.background.disabled": "--theme-titlebar-button-close-disabled",
+	"titlebar.button.common.background.active": "--theme-titlebar-button-common-active",
+	"titlebar.button.common.background.hover": "--theme-titlebar-button-common-hover",
+	"titlebar.button.common.background.disabled": "--theme-titlebar-button-common-disabled",
 };
