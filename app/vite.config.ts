@@ -1,3 +1,5 @@
+/// <reference types="vitest" />
+
 import { resolve as resolvePath } from "node:path";
 import UnoCSS from "unocss/vite";
 import { defineConfig } from "vite";
@@ -12,5 +14,16 @@ export default defineConfig({
 				replacement: resolvePath("src"),
 			},
 		],
+	},
+	test: {
+		environment: "jsdom",
+		globals: true,
+		deps: {
+			optimizer: {
+				web: {
+					include: ["src/**/*.ts", "src/**/*.tsx"],
+				},
+			},
+		},
 	},
 });

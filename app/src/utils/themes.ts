@@ -1,4 +1,6 @@
 import type { ThemeColorKeys, ThemeData } from "@/types/themes";
+import { Theme } from "unocss/preset-uno";
+import { createNestedPropertyValue, mergeDeep } from "./general";
 
 const templateTheme = "modern_dark";
 
@@ -23,10 +25,9 @@ export async function loadTheme(themeId: string) {
 	const data = await import(`../assets/themes/${themeId}.json`) as ThemeData;
 
 	const styleElement = document.head.querySelector<HTMLStyleElement>("style#theme-declarations")!;
-	const declarations = Object.entries(data.colors).map(([key, value]) => {
-		console.log(key, value);
-		return `${themeBindings[key as ThemeColorKeys]}: ${value};`;
-	});
+	const declarations = Object.entries(data.colors).map(([key, value]) =>
+		`${themeBindings[key as ThemeColorKeys]}: ${value};`
+	);
 
 	// This allows us to atomically change every declaration, so animations and transitions wouldn't break.
 	styleElement.innerHTML = `:root {
@@ -36,6 +37,20 @@ export async function loadTheme(themeId: string) {
 	}`;
 
 	// localStorage.setItem("theme", themeId);
+}
+
+/**
+ * Should only really be used as part of unocss preset plugin to add definitions for the extensible themes.
+ */
+export function prepareUnoThemePaletteDefinitions(): Theme["colors"] {
+	const obj: Record<string, Record<string, unknown>> = {};
+
+	for (const [key, value] of Object.entries(themeBindings)) {
+		const splits = key.split(".");
+		obj[key] = createNestedPropertyValue(splits, `var(${value})`);
+	}
+
+	return mergeDeep({}, ...Object.values(obj)) as Theme["colors"];
 }
 
 export const themeBindings: Record<ThemeColorKeys, string> = {

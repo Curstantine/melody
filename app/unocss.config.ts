@@ -2,6 +2,7 @@ import type { IconifyJSON } from "@iconify/types";
 import {
 	Awaitable,
 	defineConfig,
+	Preset,
 	presetIcons,
 	presetUno,
 	transformerDirectives,
@@ -9,10 +10,21 @@ import {
 } from "unocss";
 import type { Theme } from "unocss/preset-uno";
 
+import { prepareUnoThemePaletteDefinitions } from "./src/utils/themes";
+
 const importIconCollection = (name: string): () => Awaitable<IconifyJSON> => {
 	return async () => {
 		const { default: icons } = await import(`@iconify-json/${name}/icons.json`);
 		return icons;
+	};
+};
+
+const prepareThemePalette = (): Preset<Theme> => {
+	return {
+		name: "theme-palette",
+		theme: {
+			colors: prepareUnoThemePaletteDefinitions(),
+		},
 	};
 };
 
@@ -25,32 +37,33 @@ export default defineConfig<Theme>({
 				mdi: importIconCollection("mdi"),
 			},
 		}),
+		prepareThemePalette(),
 	],
 	transformers: [transformerDirectives(), transformerVariantGroup()],
 	theme: {
-		colors: {
-			border: "var(--theme-border)",
-			background: {
-				"main": "var(--theme-background-main)",
-				"secondary": "var(--theme-background-secondary)",
-			},
-			titlebar: {
-				background: "var(--theme-titlebar-background)",
-				border: "var(--theme-titlebar-border)",
-				button: {
-					close: {
-						hover: "var(--theme-titlebar-button-close-hover)",
-						active: "var(--theme-titlebar-button-close-active)",
-						disabled: "var(--theme-titlebar-button-close-disabled)",
-					},
-					common: {
-						hover: "var(--theme-titlebar-button-common-hover)",
-						active: "var(--theme-titlebar-button-common-active)",
-						disabled: "var(--theme-titlebar-button-common-disabled)",
-					},
-				},
-			},
-		},
+		// colors: {
+		// 	border: "var(--theme-border)",
+		// 	background: {
+		// 		"main": "var(--theme-background-main)",
+		// 		"secondary": "var(--theme-background-secondary)",
+		// 	},
+		// 	titlebar: {
+		// 		background: "var(--theme-titlebar-background)",
+		// 		border: "var(--theme-titlebar-border)",
+		// 		button: {
+		// 			close: {
+		// 				hover: "var(--theme-titlebar-button-close-hover)",
+		// 				active: "var(--theme-titlebar-button-close-active)",
+		// 				disabled: "var(--theme-titlebar-button-close-disabled)",
+		// 			},
+		// 			common: {
+		// 				hover: "var(--theme-titlebar-button-common-hover)",
+		// 				active: "var(--theme-titlebar-button-common-active)",
+		// 				disabled: "var(--theme-titlebar-button-common-disabled)",
+		// 			},
+		// 		},
+		// 	},
+		// },
 		fontFamily: {
 			"explorer": "TASA Explorer Regular, system-ui",
 			"explorer-medium": "TASA Explorer Medium, system-ui",
