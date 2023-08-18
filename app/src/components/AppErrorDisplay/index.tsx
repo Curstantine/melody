@@ -4,14 +4,18 @@ import { Show } from "solid-js";
 import { Portal } from "solid-js/web";
 
 export default function AppErrorDisplay() {
-	const [appErrorData] = useAppErrorContext();
+	const [appErrorData, setAppError] = useAppErrorContext();
+
+	const onDismiss = () => {
+		if (appErrorData()?.dismissible) return setAppError(null);
+	};
 
 	return (
 		<Portal mount={document.getElementById("root")!}>
 			<Show when={appErrorData()}>
 				{(appError) => (
 					<div class="absolute inset-0 flex items-center justify-center bg-black/20 px-4">
-						<AppErrorDisplayCard {...appError()} />
+						<AppErrorDisplayCard data={appError()} onDismiss={onDismiss} />
 					</div>
 				)}
 			</Show>

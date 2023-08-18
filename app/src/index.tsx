@@ -10,7 +10,7 @@ import App from "@/App";
 const root = document.getElementById("root");
 
 render(() => (
-	<ErrorBoundary fallback={<div>Something went wrong</div>}>
+	<ErrorBoundary fallback={err => err}>
 		<App />
 	</ErrorBoundary>
 ), root!);
