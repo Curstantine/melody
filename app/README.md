@@ -1,28 +1,19 @@
-## Usage
+# Melody
 
-```bash
-$ npm install # or pnpm install or yarn install
-```
+[WIP] Standalone cross-platform music player.
 
-### Learn more on the [Solid Website](https://solidjs.com) and come chat with us on our [Discord](https://discord.com/invite/solidjs)
+## Features
 
-## Available Scripts
+- [] Extensible plugin support.
+- [] Theming support.
+- [] Niche features like re-encoding and tagging.
 
-In the project directory, you can run:
+## Prerequisites
 
-### `npm run dev`
+- `pnpm >=8.x.x`
+- `rustc >= 1.71.1`
 
-Runs the app in the development mode.<br>
-Open [http://localhost:5173](http://localhost:5173) to view it in the browser.
+## Development
 
-### `npm run build`
-
-Builds the app for production to the `dist` folder.<br>
-It correctly bundles Solid in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.<br>
-Your app is ready to be deployed!
-
-## Deployment
-
-Learn more about deploying your application with the [documentations](https://vitejs.dev/guide/static-deploy.html)
+1. Run `pnpm i` in the workspace root.
+2. Run `pnpm tauri dev` to start the initial build and consequent dev builds.

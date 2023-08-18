@@ -2,7 +2,7 @@
 	"folders": [
 		{
 			"name": "App",
-			"path": "app/",
+			"path": "app/"
 		},
 		{
 			"name": "Tauri",
@@ -10,8 +10,8 @@
 		},
 		{
 			"name": "Root",
-			"path": ".",
-		},
+			"path": "."
+		}
 	],
 	"settings": {
 		"editor.rulers": [120],
@@ -19,14 +19,12 @@
 		"[rust]": {
 			"editor.defaultFormatter": "rust-lang.rust-analyzer"
 		},
-	
+
 		"licenser.author": "Curstantine",
 		"licenser.license": "MIT",
 		"licenser.projectName": "Melody",
-		
-		"unocss.root": [
-			"./app/",
-		],
+
+		"unocss.root": ["app/"],
 
 		"cSpell.words": [
 			"curstantine",
@@ -36,7 +34,8 @@
 			"tauri",
 			"titlebar",
 			"unmaximize",
-			"unocss"
+			"unocss",
+			"dprint"
 		]
 	}
 }

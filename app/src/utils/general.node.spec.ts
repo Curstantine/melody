@@ -1,5 +1,5 @@
 import { expect, suite, test } from "vitest";
-import { isObject, mergeDeep, createNestedPropertyValue } from "./general";
+import { createNestedPropertyValue, isObject, mergeDeep } from "./general.node";
 
 suite("isObject", () => {
 	test("should return true if the item is an object", () => {

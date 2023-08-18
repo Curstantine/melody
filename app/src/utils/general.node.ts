@@ -1,3 +1,8 @@
+/*
+ * This file should be shareable between the vite build, and local node scripts.
+ * Do not use references to path aliases in this file.
+ */
+
 export function isObject(item: unknown): boolean {
 	return !!(item && typeof item === "object" && !Array.isArray(item));
 }

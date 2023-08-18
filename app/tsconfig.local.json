@@ -6,5 +6,10 @@
 		"moduleResolution": "bundler",
 		"allowSyntheticDefaultImports": true
 	},
-	"include": ["vite.config.ts"]
+	"include": [
+		"unocss.config.ts",
+		"plugins/*.ts",
+		"src/utils/**/*.ts",
+		"src/types/**/*.ts"
+	]
 }

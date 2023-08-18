@@ -9,6 +9,11 @@
 		"**/dist/",
 		"**/target/"
 	],
+	"json": {
+		"associations": [
+			"*.code-workspace"
+		]
+	},
 	"plugins": [
 		"https://plugins.dprint.dev/typescript-0.86.1.wasm",
 		"https://plugins.dprint.dev/json-0.17.4.wasm",

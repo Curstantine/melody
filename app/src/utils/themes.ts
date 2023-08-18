@@ -1,11 +1,8 @@
-import { Theme } from "unocss/preset-uno";
-
 import type { ThemeColorKeys, ThemeData } from "@/types/themes";
 
 import ThemeError from "@/errors/themes";
 import Result from "@/utils/result";
-
-import { createNestedPropertyValue, mergeDeep } from "./general";
+import { themeBindings } from "@/utils/themes.node";
 
 const templateTheme = "modern_dar";
 const defaultThemeId = "modern_dark";
@@ -49,29 +46,3 @@ export async function loadTheme(themeId: string) {
 
 	// localStorage.setItem("theme", themeId);
 }
-
-/**
- * Should only really be used as part of unocss preset plugin to add definitions for the extensible themes.
- */
-export function prepareUnoThemePaletteDefinitions(): Theme["colors"] {
-	const obj: Record<string, Record<string, unknown>> = {};
-
-	for (const [key, value] of Object.entries(themeBindings)) {
-		const splits = key.split(".");
-		obj[key] = createNestedPropertyValue(splits, `var(${value})`);
-	}
-
-	return mergeDeep({}, ...Object.values(obj)) as Theme["colors"];
-}
-
-export const themeBindings: Record<ThemeColorKeys, string> = {
-	"border": "--theme-border",
-	"background.main": "--theme-background-main",
-	"background.secondary": "--theme-background-secondary",
-
-	"titlebar.background": "--theme-titlebar-background",
-	"titlebar.button.close.background.active": "--theme-titlebar-button-close-active",
-	"titlebar.button.close.background.hover": "--theme-titlebar-button-close-hover",
-	"titlebar.button.common.background.active": "--theme-titlebar-button-common-active",
-	"titlebar.button.common.background.hover": "--theme-titlebar-button-common-hover",
-};

@@ -2,7 +2,6 @@ import type { IconifyJSON } from "@iconify/types";
 import {
 	Awaitable,
 	defineConfig,
-	Preset,
 	presetIcons,
 	presetUno,
 	transformerDirectives,
@@ -10,21 +9,12 @@ import {
 } from "unocss";
 import type { Theme } from "unocss/preset-uno";
 
-import { prepareUnoThemePaletteDefinitions } from "./src/utils/themes";
+import presetThemePalette from "./plugins/preset-theme-palette";
 
 const importIconCollection = (name: string): () => Awaitable<IconifyJSON> => {
 	return async () => {
 		const { default: icons } = await import(`@iconify-json/${name}/icons.json`);
 		return icons;
-	};
-};
-
-const presetThemePalette = (): Preset<Theme> => {
-	return {
-		name: "theme-palette",
-		theme: {
-			colors: prepareUnoThemePaletteDefinitions(),
-		},
 	};
 };
 
