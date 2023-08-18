@@ -13,11 +13,24 @@
 				"background.main": { "type": "string", "format": "color-hex" },
 				"background.secondary": { "type": "string", "format": "color-hex" },
 
+				"text.1": { "type": "string", "format": "color-hex" },
+				"text.2": { "type": "string", "format": "color-hex" },
+
 				"titlebar.background": { "type": "string", "format": "color-hex" },
 				"titlebar.button.close.background.hover": { "type": "string", "format": "color-hex" },
 				"titlebar.button.close.background.active": { "type": "string", "format": "color-hex" },
 				"titlebar.button.common.background.hover": { "type": "string", "format": "color-hex" },
-				"titlebar.button.common.background.active": { "type": "string", "format": "color-hex" }
+				"titlebar.button.common.background.active": { "type": "string", "format": "color-hex" },
+
+				"modal.error.border": { "type": "string", "format": "color-hex" },
+				"modal.error.text.primary": { "type": "string", "format": "color-hex" },
+
+				"button.error.background.idle": { "type": "string", "format": "color-hex" },
+				"button.error.background.hover": { "type": "string", "format": "color-hex" },
+				"button.error.background.active": { "type": "string", "format": "color-hex" },
+				"button.error.text.idle": { "type": "string", "format": "color-hex" },
+				"button.error.text.hover": { "type": "string", "format": "color-hex" },
+				"button.error.text.active": { "type": "string", "format": "color-hex" }
 			}
 		}
 	},

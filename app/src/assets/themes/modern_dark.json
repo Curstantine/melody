@@ -7,10 +7,23 @@
 		"background.main": "#181818",
 		"background.secondary": "#1f1f1f",
 
+		"text.1": "#ffffff",
+		"text.2": "#cecece",
+
 		"titlebar.background": "#181818",
 		"titlebar.button.close.background.hover": "#D41223",
 		"titlebar.button.close.background.active": "#D41223",
 		"titlebar.button.common.background.hover": "#303030",
-		"titlebar.button.common.background.active": "#303030"
+		"titlebar.button.common.background.active": "#303030",
+
+		"modal.error.border": "#BE003B",
+		"modal.error.text.primary": "#FC2069",
+
+		"button.error.background.hover": "#FF0053",
+		"button.error.background.idle": "#EC004C",
+		"button.error.background.active": "#BE003B",
+		"button.error.text.hover": "#FFFFFF",
+		"button.error.text.idle": "#FFECED",
+		"button.error.text.active": "#FFB2B8"
 	}
 }

@@ -1,0 +1,4 @@
+.card {
+	--at-apply: max-h-xl max-w-xl min-h-36 w-full flex flex-col rounded p-6 bg-background-secondary border-solid
+		border-b-4 border-modal-error-border;
+}

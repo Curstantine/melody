@@ -1,19 +1,22 @@
-import { AppError } from "@/types/errors";
 import { Show } from "solid-js";
+
+import { AppError } from "@/types/errors";
+
+import styles from "./styles/card.module.css";
 
 export default function AppErrorDisplayCard(props: AppError) {
 	return (
-		<div class="max-h-xl max-w-xl min-h-36 w-full flex flex-col rounded bg-background-secondary p-4">
-			<span class="text-2xl font-orbiter-display-medium">
+		<div class={styles.card}>
+			<span class="text-2xl font-orbiter-display-medium text-modal-error-text-primary leading-tight">
 				{props.error.message}
 			</span>
 			<Show when={props.error.context}>
-				{(contextString) => <span>{contextString()}</span>}
+				{(contextString) => <span class="text-text-2 leading-tight">{contextString()}</span>}
 			</Show>
 			<Show when={props.dismissible}>
-				<div class="flex-1" />
+				<div class="flex-1 min-h-8" />
 				<div class="flex items-end justify-end">
-					<button>Dismiss</button>
+					<button class="button-error">Dismiss</button>
 				</div>
 			</Show>
 		</div>
