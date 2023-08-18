@@ -32,6 +32,9 @@ importers:
       '@iconify-json/mdi':
         specifier: ^1.1.54
         version: 1.1.54
+      '@solidjs/router':
+        specifier: ^0.8.3
+        version: 0.8.3(solid-js@1.7.8)
       '@tauri-apps/api':
         specifier: ^1.4.0
         version: 1.4.0
@@ -65,7 +68,7 @@ importers:
         version: 5.1.6
       unocss-preset-theme:
         specifier: ^0.9.1
-        version: 0.9.1(@unocss/core@0.55.0)
+        version: 0.9.1(@unocss/core@0.55.1)
       vite:
         specifier: ^4.4.5
         version: 4.4.5(@types/node@20.5.0)
@@ -772,6 +775,14 @@ packages:
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
     dev: true
 
+  /@solidjs/router@0.8.3(solid-js@1.7.8):
+    resolution: {integrity: sha512-oJuqQo10rVTiQYhe1qXIG1NyZIZ2YOwHnlLc8Xx+g/iJhFCJo1saLOIrD/Dkh2fpIaIny5ZMkz1cYYqoTYGJbg==}
+    peerDependencies:
+      solid-js: ^1.5.3
+    dependencies:
+      solid-js: 1.7.8
+    dev: false
+
   /@tauri-apps/api@1.4.0:
     resolution: {integrity: sha512-Jd6HPoTM1PZSFIzq7FB8VmMu3qSSyo/3lSwLpoapW+lQ41CL5Dow2KryLg+gyazA/58DRWI9vu/XpEeHK4uMdw==}
     engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
@@ -1258,6 +1269,7 @@ packages:
 
   /@unocss/core@0.55.0:
     resolution: {integrity: sha512-TcTugpuhsv6OwMsP3iFIG8FVc9N5JzkojIGNAKF8I2WBftZ//3QcpEHiHc1mH3MlPYfJgUvCcT6/Gad55qmHzg==}
+    dev: false
 
   /@unocss/core@0.55.1:
     resolution: {integrity: sha512-hZffURZtvH72UvobL9anzE1t7PDldBa89fxWVIsjLb8KHReNfcOv8uEepce0ODUfGrdWPbij017XG/HY5YUexg==}
@@ -3708,12 +3720,12 @@ packages:
     engines: {node: '>= 4.0.0'}
     dev: true
 
-  /unocss-preset-theme@0.9.1(@unocss/core@0.55.0):
+  /unocss-preset-theme@0.9.1(@unocss/core@0.55.1):
     resolution: {integrity: sha512-QykLqjG5peIABYlWKL5K+Z1759NvjaXnkBO9nKX/E5lMtre0S8KIgP28Nhc4+ehzuZekEJNdhfRS0nzBxajS2Q==}
     peerDependencies:
       '@unocss/core': '>= 0.52.0'
     dependencies:
-      '@unocss/core': 0.55.0
+      '@unocss/core': 0.55.1
       '@unocss/preset-mini': 0.54.3
     dev: true
 
