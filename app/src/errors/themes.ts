@@ -15,7 +15,7 @@ export default class ThemeError implements LocalError {
 	static missingTheme(id: string): ThemeError {
 		return new ThemeError(
 			ThemeError.codes.MISSING_THEME,
-			"Theme not found",
+			"Theme not found!",
 			`Couldn't find a theme with id: ${id}`,
 		);
 	}

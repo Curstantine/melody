@@ -8,12 +8,17 @@
 	/* -webkit-font-smoothing: antialiased; */
 	/* -moz-osx-font-smoothing: grayscale; */
 	/* -webkit-text-size-adjust: 100%; */
+	--at-apply: h-[100vh] overflow-hidden;
 }
 
 body {
-	--at-apply: bg-background-main;
+	--at-apply: bg-background-main h-[100vh];
 }
 
 #titlebar {
 	--at-apply: bg-titlebar-background select-none;
+}
+
+#root {
+	--at-apply: relative h-full;
 }

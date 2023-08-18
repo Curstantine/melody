@@ -1,19 +1,21 @@
 import { appWindow } from "@tauri-apps/api/window";
 import { createSignal, onMount } from "solid-js";
 
-import AppErrorDisplay from "@/components/AppErrorDisplay";
-import TitleBar from "@/components/TitleBar";
 import { AppErrorContext } from "@/contexts/errors";
-import { LocalError } from "@/types/errors";
+import type { AppError } from "@/types/errors";
 import { initialize as initializeTheme } from "@/utils/themes";
 
+import AppErrorDisplay from "@/components/AppErrorDisplay";
+import TitleBar from "@/components/TitleBar";
+
 export default function App() {
-	const [appError, setAppError] = createSignal<LocalError | null>(null);
+	const [appError, setAppError] = createSignal<AppError | null>(null);
 
 	onMount(async () => {
 		const themeResult = await initializeTheme();
 		if (themeResult.isErr) {
-			setAppError(themeResult.unwrapErr());
+			const error: AppError = { dismissible: true, error: themeResult.unwrapErr() };
+			setAppError(error);
 		}
 
 		appWindow.show();
