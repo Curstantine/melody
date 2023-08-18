@@ -1,4 +1,4 @@
 module.exports = {
-	extends: "../.eslintrc.js",
+	extends: ["../.eslintrc.js", "@unocss"],
 	plugins: ["solid"],
 };

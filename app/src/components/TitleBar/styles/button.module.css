@@ -1,0 +1,11 @@
+.button_common {
+    --at-apply:
+        hover:bg-titlebar-button-common-background-hover
+        active:bg-titlebar-button-common-background-active;
+}
+
+.button_close {
+    --at-apply:
+        hover:bg-titlebar-button-close-background-hover
+        active:bg-titlebar-button-close-background-active;
+}

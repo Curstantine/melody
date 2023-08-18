@@ -1,17 +1,28 @@
-import type { ThemeColorKeys, ThemeData } from "@/types/themes";
 import { Theme } from "unocss/preset-uno";
+
+import type { ThemeColorKeys, ThemeData } from "@/types/themes";
+
+import ThemeError from "@/errors/themes";
+import Result from "@/utils/result";
+
 import { createNestedPropertyValue, mergeDeep } from "./general";
 
-const templateTheme = "modern_dark";
+const templateTheme = "modern_dar";
+const defaultThemeId = "modern_dark";
 
-export async function initialize() {
-	let themeName = localStorage.getItem("theme");
-
-	if (!themeName) {
-		themeName = window.matchMedia("(prefers-color-scheme: dark)").matches ? templateTheme : templateTheme;
+export async function initialize(): Promise<Result<void, ThemeError>> {
+	let themeId = localStorage.getItem("theme");
+	if (!themeId) {
+		themeId = window.matchMedia("(prefers-color-scheme: dark)").matches ? templateTheme : templateTheme;
 	}
 
-	await loadTheme(themeName);
+	return await Result.runAsync(
+		async () => await loadTheme(themeId!),
+		() => {
+			loadTheme(defaultThemeId);
+			return ThemeError.missingTheme(themeId!);
+		},
+	);
 }
 
 /**

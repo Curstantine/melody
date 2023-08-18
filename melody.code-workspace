@@ -5,6 +5,10 @@
 			"path": "app/",
 		},
 		{
+			"name": "Tauri",
+			"path": "src-tauri/"
+		},
+		{
 			"name": "Root",
 			"path": ".",
 		},
@@ -21,7 +25,7 @@
 		"licenser.projectName": "Melody",
 		
 		"unocss.root": [
-			"./app",
+			"./app/",
 		],
 
 		"cSpell.words": [

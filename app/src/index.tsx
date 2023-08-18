@@ -6,14 +6,11 @@ import "@/index.css";
 import "@unocss/reset/tailwind.css";
 
 import App from "@/App";
-import AppError from "@/components/errors/AppError";
-import TitleBar from "@/components/TitleBar";
 
 const root = document.getElementById("root");
 
 render(() => (
-	<ErrorBoundary fallback={AppError}>
-		<TitleBar />
+	<ErrorBoundary fallback={<div>Something went wrong</div>}>
 		<App />
 	</ErrorBoundary>
 ), root!);

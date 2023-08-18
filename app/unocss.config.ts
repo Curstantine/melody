@@ -19,7 +19,7 @@ const importIconCollection = (name: string): () => Awaitable<IconifyJSON> => {
 	};
 };
 
-const prepareThemePalette = (): Preset<Theme> => {
+const presetThemePalette = (): Preset<Theme> => {
 	return {
 		name: "theme-palette",
 		theme: {
@@ -37,33 +37,10 @@ export default defineConfig<Theme>({
 				mdi: importIconCollection("mdi"),
 			},
 		}),
-		prepareThemePalette(),
+		presetThemePalette(),
 	],
 	transformers: [transformerDirectives(), transformerVariantGroup()],
 	theme: {
-		// colors: {
-		// 	border: "var(--theme-border)",
-		// 	background: {
-		// 		"main": "var(--theme-background-main)",
-		// 		"secondary": "var(--theme-background-secondary)",
-		// 	},
-		// 	titlebar: {
-		// 		background: "var(--theme-titlebar-background)",
-		// 		border: "var(--theme-titlebar-border)",
-		// 		button: {
-		// 			close: {
-		// 				hover: "var(--theme-titlebar-button-close-hover)",
-		// 				active: "var(--theme-titlebar-button-close-active)",
-		// 				disabled: "var(--theme-titlebar-button-close-disabled)",
-		// 			},
-		// 			common: {
-		// 				hover: "var(--theme-titlebar-button-common-hover)",
-		// 				active: "var(--theme-titlebar-button-common-active)",
-		// 				disabled: "var(--theme-titlebar-button-common-disabled)",
-		// 			},
-		// 		},
-		// 	},
-		// },
 		fontFamily: {
 			"explorer": "TASA Explorer Regular, system-ui",
 			"explorer-medium": "TASA Explorer Medium, system-ui",
