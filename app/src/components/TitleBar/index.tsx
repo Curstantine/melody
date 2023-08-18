@@ -31,7 +31,7 @@ export default function TitleBar() {
 		<Portal mount={document.getElementById("titlebar")!}>
 			<div class="inset-x-0 h-9 flex items-center justify-between border-b-1 border-b-border border-b-solid">
 				<div data-tauri-drag-region ref={draggableRef!} class="h-full inline-flex flex-1 items-center">
-					<span class="select-none pl-4 text-sm font-medium">Melody</span>
+					<span class="select-none pl-4 text-sm font-orbiter-deck-medium">Melody</span>
 				</div>
 				<div class="h-full inline-flex">
 					<TitleBarButton icon="i-mdi-minimize" onClick={minimize} />
