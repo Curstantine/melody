@@ -9,7 +9,7 @@ import { initialize as initializeTheme } from "@/utils/themes";
 import AppErrorDisplay from "@/components/AppErrorDisplay";
 import TitleBar from "@/components/TitleBar";
 
-import Home from "@/pages/home";
+import Home from "@/pages/setup";
 
 export default function App() {
 	const [appError, setAppError] = createSignal<AppError | null>(null);

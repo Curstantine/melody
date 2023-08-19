@@ -9,6 +9,7 @@
 
 		"text.1": "#ffffff",
 		"text.2": "#cecece",
+		"text.3": "#a0a0a0",
 
 		"titlebar.background": "#181818",
 		"titlebar.button.close.background.hover": "#D41223",
@@ -24,6 +25,8 @@
 		"button.error.background.active": "#BE003B",
 		"button.error.text.hover": "#FFFFFF",
 		"button.error.text.idle": "#FFECED",
-		"button.error.text.active": "#FFB2B8"
+		"button.error.text.active": "#FFB2B8",
+
+		"input.border": "#ffffff1f"
 	}
 }

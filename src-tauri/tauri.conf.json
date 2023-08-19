@@ -11,6 +11,9 @@
 	},
 	"tauri": {
 		"allowlist": {
+			"path": {
+				"all": true
+			},
 			"window": {
 				"all": false,
 				"close": true,
@@ -32,6 +35,14 @@
 
 				"show": true,
 				"startDragging": true
+			},
+			"dialog": {
+				"all": true,
+				"ask": true,
+				"confirm": true,
+				"message": true,
+				"open": true,
+				"save": true
 			}
 		},
 		"bundle": {

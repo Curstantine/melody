@@ -5,13 +5,24 @@
 
 import type { ThemeColorKeys } from "../types/themes";
 
+export const durations = {
+	standard: 300,
+	emphasized: 500,
+};
+
+export const easingFunctions = {
+	emphasized: "cubic-bezier(0.4, 0.0, 0.2, 1.0)",
+	standard: "cubic-bezier(0.2, 0.0, 0, 1.0)",
+};
+
 export const themeBindings: Record<ThemeColorKeys, string> = {
 	"border": "--theme-border",
 	"background.main": "--theme-background-main",
 	"background.secondary": "--theme-background-secondary",
 
-	"text.1": "--theme-text-l1",
-	"text.2": "--theme-text-l2",
+	"text.1": "--theme-text-1",
+	"text.2": "--theme-text-2",
+	"text.3": "--theme-text-3",
 
 	"titlebar.background": "--theme-titlebar-background",
 	"titlebar.button.close.background.active": "--theme-titlebar-button-close-active",
@@ -28,4 +39,6 @@ export const themeBindings: Record<ThemeColorKeys, string> = {
 	"button.error.text.idle": "--theme-button-error-text-idle",
 	"button.error.text.hover": "--theme-button-error-text-hover",
 	"button.error.text.active": "--theme-button-error-text-active",
+
+	"input.border": "--theme-input-border",
 };

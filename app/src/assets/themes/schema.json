@@ -15,6 +15,7 @@
 
 				"text.1": { "type": "string", "format": "color-hex" },
 				"text.2": { "type": "string", "format": "color-hex" },
+				"text.3": { "type": "string", "format": "color-hex" },
 
 				"titlebar.background": { "type": "string", "format": "color-hex" },
 				"titlebar.button.close.background.hover": { "type": "string", "format": "color-hex" },
@@ -30,7 +31,9 @@
 				"button.error.background.active": { "type": "string", "format": "color-hex" },
 				"button.error.text.idle": { "type": "string", "format": "color-hex" },
 				"button.error.text.hover": { "type": "string", "format": "color-hex" },
-				"button.error.text.active": { "type": "string", "format": "color-hex" }
+				"button.error.text.active": { "type": "string", "format": "color-hex" },
+
+				"input.border": { "type": "string", "format": "color-hex" }
 			}
 		}
 	},

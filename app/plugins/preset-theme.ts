@@ -2,7 +2,7 @@ import type { Preset } from "unocss";
 import type { Theme } from "unocss/preset-uno";
 
 import { createNestedPropertyValue, mergeDeep } from "../src/utils/general.node";
-import { themeBindings } from "../src/utils/themes.node";
+import { durations, easingFunctions, themeBindings } from "../src/utils/themes.node";
 
 export default function presetTheme(): Preset<Theme> {
 	return {
@@ -10,6 +10,11 @@ export default function presetTheme(): Preset<Theme> {
 		theme: {
 			colors: prepareUnoColorDefinitions(),
 			fontFamily: prepareUnoFontDefinitions(),
+			easing: easingFunctions,
+			duration: {
+				emphasized: `${durations.emphasized}ms`,
+				standard: `${durations.standard}ms`,
+			},
 		},
 	};
 }
