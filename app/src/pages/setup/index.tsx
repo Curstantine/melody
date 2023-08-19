@@ -60,6 +60,7 @@ function SetupLibraryView(props: SetupLibraryViewProps) {
 				<ClickableInput
 					onClick={openLibraryLocation}
 					value={libraryLocation()}
+					placeholder="The magical place where your library will be stored..."
 					icon="i-symbols-folder-outline-rounded"
 				/>
 

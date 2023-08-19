@@ -18,7 +18,8 @@ export type ThemeColorModal =
 
 export type ThemeColorButton = `button.error.${ThemeColorButtonComponent}`;
 
-export type ThemeColorInput = "input.border";
+export type ThemeColorInputStateVariants = "idle" | "active";
+export type ThemeColorInput = `input.border.${ThemeColorInputStateVariants}`;
 
 export type ThemeColorKeys =
 	| ThemeColorBackground

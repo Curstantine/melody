@@ -27,6 +27,7 @@
 		"button.error.text.idle": "#FFECED",
 		"button.error.text.active": "#FFB2B8",
 
-		"input.border": "#ffffff1f"
+		"input.border.idle": "#ffffff1f",
+		"input.border.active": "#ffffff3f"
 	}
 }

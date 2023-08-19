@@ -33,7 +33,8 @@
 				"button.error.text.hover": { "type": "string", "format": "color-hex" },
 				"button.error.text.active": { "type": "string", "format": "color-hex" },
 
-				"input.border": { "type": "string", "format": "color-hex" }
+				"input.border.idle": { "type": "string", "format": "color-hex" },
+				"input.border.active": { "type": "string", "format": "color-hex" }
 			}
 		}
 	},

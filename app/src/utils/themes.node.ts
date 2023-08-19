@@ -40,5 +40,6 @@ export const themeBindings: Record<ThemeColorKeys, string> = {
 	"button.error.text.hover": "--theme-button-error-text-hover",
 	"button.error.text.active": "--theme-button-error-text-active",
 
-	"input.border": "--theme-input-border",
+	"input.border.idle": "--theme-input-border-idle",
+	"input.border.active": "--theme-input-border-active",
 };
