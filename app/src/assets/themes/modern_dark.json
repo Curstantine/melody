@@ -10,6 +10,7 @@
 		"text.1": "#ffffff",
 		"text.2": "#cecece",
 		"text.3": "#a0a0a0",
+		"text.error": "#FC2069",
 
 		"titlebar.background": "#181818",
 		"titlebar.button.close.background.hover": "#D41223",

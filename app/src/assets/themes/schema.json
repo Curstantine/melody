@@ -16,6 +16,7 @@
 				"text.1": { "type": "string", "format": "color-hex" },
 				"text.2": { "type": "string", "format": "color-hex" },
 				"text.3": { "type": "string", "format": "color-hex" },
+				"text.error": { "type": "string", "format": "color-hex" },
 
 				"titlebar.background": { "type": "string", "format": "color-hex" },
 				"titlebar.button.close.background.hover": { "type": "string", "format": "color-hex" },

@@ -3,7 +3,9 @@ import { homeDir } from "@tauri-apps/api/path";
 import { createSignal, Match, Switch } from "solid-js";
 
 import ClickableInput from "@/components/Input/ClickableInput";
+import TextInput from "@/components/Input/TextInput";
 import CreateLibraryView from "@/pages/setup/create";
+import { validateLibraryName } from "@/utils/validators";
 
 export default function Setup() {
 	const [page, setPage] = createSignal(0);
@@ -28,6 +30,7 @@ type SetupLibraryViewProps = {
 
 function SetupLibraryView(props: SetupLibraryViewProps) {
 	const [libraryLocation, setLibraryLocation] = createSignal<string | null>(null);
+	const [libraryName, setLibraryName] = createSignal<string | null>(null);
 
 	/*
 	 * NOTE(Curstantine):
@@ -56,15 +59,22 @@ function SetupLibraryView(props: SetupLibraryViewProps) {
 			</span>
 
 			<div class="my-8 flex flex-col">
-				<span class="pb-1 text-sm font-orbiter-deck">Library location</span>
+				<span class="pb-1 text-sm font-orbiter-deck">Location</span>
 				<ClickableInput
-					onClick={openLibraryLocation}
 					value={libraryLocation()}
+					onClick={openLibraryLocation}
 					placeholder="The magical place where your library will be stored..."
 					icon="i-symbols-folder-outline-rounded"
 				/>
 
-				<span class="mt-4 pb-1 text-sm font-orbiter-deck">Library info</span>
+				<span class="mt-4 pb-1 text-sm font-orbiter-deck">Name</span>
+				<TextInput
+					value={libraryName() ?? ""}
+					onChange={(e) => setLibraryName(e)}
+					placeholder="The name of your library..."
+					icon="i-symbols-badge-outline-rounded"
+					validation={validateLibraryName}
+				/>
 			</div>
 
 			<div class="flex flex-row b-t-1 b-t-border pt-2">

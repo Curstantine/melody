@@ -23,6 +23,7 @@ export const themeBindings: Record<ThemeColorKeys, string> = {
 	"text.1": "--theme-text-1",
 	"text.2": "--theme-text-2",
 	"text.3": "--theme-text-3",
+	"text.error": "--theme-text-error",
 
 	"titlebar.background": "--theme-titlebar-background",
 	"titlebar.button.close.background.active": "--theme-titlebar-button-close-active",
