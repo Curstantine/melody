@@ -4,9 +4,9 @@
 
 ## Features
 
-- [] Theming support.
-- [] Extensible plugin support.
-- [] Niche features like re-encoding and tagging.
+- [ ] Theming support.
+- [ ] Extensible plugin support.
+- [ ] Niche features like re-encoding and tagging.
 
 ## Prerequisites
 
