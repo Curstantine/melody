@@ -24,18 +24,18 @@ export default function TextInput(props: Props) {
 	};
 
 	return (
-		<div class="b-input-border-idle relative h-10 inline-flex items-center b-1 rounded px-2 text-text-2">
+		<div class="relative h-10 inline-flex items-center b-1 b-input-border-idle rounded px-2 text-text-2">
 			<Show when={props.icon}>{(icon) => <div class="h-5 w-5" classList={{ [icon()]: true }} />}</Show>
 			<input
 				type="text"
-				class="absolute inset-0 bg-transparent pl-9 outline-none focus:placeholder:text-transparent"
+				class="absolute inset-0 bg-transparent pl-9 outline-none placeholder:(tracking-tight font-orbiter-text text-text-3) focus:placeholder:text-transparent"
 				placeholder={props.placeholder}
 				value={props.value}
 				onInput={onChange}
 			/>
 			<Show when={validationError()}>
 				{(error) => (
-					<span class="text-text-error absolute inset-x-0 text-sm font-orbiter-text -bottom-6">
+					<span class="absolute inset-x-0 text-sm font-orbiter-text text-text-error -bottom-6">
 						{error()}
 					</span>
 				)}

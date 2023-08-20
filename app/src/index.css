@@ -8,17 +8,20 @@
 	/* -webkit-font-smoothing: antialiased; */
 	/* -moz-osx-font-smoothing: grayscale; */
 	/* -webkit-text-size-adjust: 100%; */
-	--at-apply: h-[100vh] overflow-hidden;
+}
+
+html {
+	--at-apply: h-[100vh] max-h-[100vh];
 }
 
 body {
-	--at-apply: bg-background-main h-[100vh];
+	--at-apply: h-full max-h-[100vh] bg-background-secondary;
+}
+
+#root {
+	height: calc(100vh - 2.25rem);
 }
 
 #titlebar {
 	--at-apply: bg-titlebar-background select-none;
-}
-
-#root {
-	--at-apply: relative h-full;
 }

@@ -29,6 +29,7 @@ type SetupLibraryViewProps = {
 };
 
 function SetupLibraryView(props: SetupLibraryViewProps) {
+	const [mode, setMode] = createSignal<"create" | "recover">("create");
 	const [libraryLocation, setLibraryLocation] = createSignal<string | null>(null);
 	const [libraryName, setLibraryName] = createSignal<string | null>(null);
 
@@ -48,11 +49,12 @@ function SetupLibraryView(props: SetupLibraryViewProps) {
 		});
 
 		if (!result) return;
+		setMode("create");
 		setLibraryLocation(Array.isArray(result) ? result[0] : result);
 	};
 
 	return (
-		<div class="max-w-xl w-full flex flex-col rounded bg-background-secondary p-4">
+		<div class="max-w-xl w-full flex flex-col b-1 b-border rounded p-4">
 			<span class="text-2xl leading-tight font-orbiter-display text-text-1">Setup your library</span>
 			<span class="leading-tight font-orbiter-text text-text-2">
 				Start by creating a library or recovering an existing one.
@@ -63,7 +65,7 @@ function SetupLibraryView(props: SetupLibraryViewProps) {
 				<ClickableInput
 					value={libraryLocation()}
 					onClick={openLibraryLocation}
-					placeholder="The magical place where your library will be stored..."
+					placeholder="The magical place where your library will be stored"
 					icon="i-symbols-folder-outline-rounded"
 				/>
 
@@ -71,15 +73,21 @@ function SetupLibraryView(props: SetupLibraryViewProps) {
 				<TextInput
 					value={libraryName() ?? ""}
 					onChange={(e) => setLibraryName(e)}
-					placeholder="The name of your library..."
+					placeholder="The name of your library"
 					icon="i-symbols-badge-outline-rounded"
 					validation={validateLibraryName}
 				/>
 			</div>
 
-			<div class="flex flex-row b-t-1 b-t-border pt-2">
-				<button class="button-layout" onClick={() => props.setPage(1)}>Create</button>
-				<button class="button-layout">Recover</button>
+			<div class="inline-flex justify-end">
+				<Switch>
+					<Match when={mode() === "create"}>
+						<button class="button-layout" onClick={() => props.setPage(1)}>Create</button>
+					</Match>
+					<Match when={mode() === "recover"}>
+						<button class="button-layout">Recover</button>
+					</Match>
+				</Switch>
 			</div>
 		</div>
 	);
