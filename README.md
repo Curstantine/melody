@@ -1,12 +1,19 @@
 # Melody
 
-Standalone Music player.
+[WIP] Standalone cross-platform music player.
 
 ## Features
 
-- Few UI transitions.
+- [] Theming support.
+- [] Extensible plugin support.
+- [] Niche features like re-encoding and tagging.
+
+## Prerequisites
+
+- `pnpm >=8.x.x`
+- `rustc >= 1.71.1`
 
 ## Development
 
-1. Download the dependencies: `pnpm i`
-2. Run `pnpm tauri dev`
+1. Run `pnpm i` in the workspace root.
+2. Run `pnpm tauri dev` to start the initial build and consequent dev builds.
