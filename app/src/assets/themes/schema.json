@@ -9,7 +9,9 @@
 			"type": "object",
 			"additionalProperties": false,
 			"properties": {
-				"border": { "type": "string", "format": "color-hex" },
+				"border.main": { "type": "string", "format": "color-hex" },
+				"border.secondary": { "type": "string", "format": "color-hex" },
+
 				"background.main": { "type": "string", "format": "color-hex" },
 				"background.secondary": { "type": "string", "format": "color-hex" },
 

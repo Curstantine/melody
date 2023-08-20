@@ -15,7 +15,7 @@ html {
 }
 
 body {
-	--at-apply: h-full max-h-[100vh] bg-background-secondary;
+	--at-apply: h-full max-h-[100vh] bg-background-main;
 }
 
 #root {

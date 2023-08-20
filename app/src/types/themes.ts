@@ -1,3 +1,4 @@
+export type ThemeColorBorder = "border.main" | "border.secondary";
 export type ThemeColorBackground = "background.main" | "background.secondary";
 export type ThemeColorText = "text.1" | "text.2" | "text.3" | "text.error";
 
@@ -22,13 +23,13 @@ export type ThemeColorInputStateVariants = "idle" | "active";
 export type ThemeColorInput = `input.border.${ThemeColorInputStateVariants}`;
 
 export type ThemeColorKeys =
+	| ThemeColorBorder
 	| ThemeColorBackground
 	| ThemeColorText
 	| ThemeColorTitleBar
 	| ThemeColorModal
 	| ThemeColorButton
-	| ThemeColorInput
-	| "border";
+	| ThemeColorInput;
 
 export type ThemeColors = Record<ThemeColorKeys, string>;
 

@@ -54,7 +54,7 @@ function SetupLibraryView(props: SetupLibraryViewProps) {
 	};
 
 	return (
-		<div class="max-w-xl w-full flex flex-col b-1 b-border rounded p-4">
+		<div class="max-w-xl w-full flex flex-col b-1 b-border-main rounded p-4">
 			<span class="text-2xl leading-tight font-orbiter-display text-text-1">Setup your library</span>
 			<span class="leading-tight font-orbiter-text text-text-2">
 				Start by creating a library or recovering an existing one.

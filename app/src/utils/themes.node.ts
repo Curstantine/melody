@@ -16,7 +16,8 @@ export const easingFunctions = {
 };
 
 export const themeBindings: Record<ThemeColorKeys, string> = {
-	"border": "--theme-border",
+	"border.main": "--theme-border-main",
+	"border.secondary": "--theme-border-secondary",
 	"background.main": "--theme-background-main",
 	"background.secondary": "--theme-background-secondary",
 
