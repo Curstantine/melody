@@ -23,6 +23,13 @@
 		"modal.error.border": "#BE003B",
 		"modal.error.text.primary": "#FC2069",
 
+		"button.primary.background.hover": "#0083e7",
+		"button.primary.background.idle": "#0078d4",
+		"button.primary.background.active": "#004578",
+		"button.primary.text.hover": "#FFFFFF",
+		"button.primary.text.idle": "#E6F7FF",
+		"button.primary.text.active": "#B3E0FF",
+
 		"button.error.background.hover": "#FF0053",
 		"button.error.background.idle": "#EC004C",
 		"button.error.background.active": "#BE003B",

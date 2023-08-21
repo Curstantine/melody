@@ -17,7 +17,9 @@ export type ThemeColorModal =
 	| "modal.error.border"
 	| "modal.error.text.primary";
 
-export type ThemeColorButton = `button.error.${ThemeColorButtonComponent}`;
+export type ThemeColorButton =
+	| `button.primary.${ThemeColorButtonComponent}`
+	| `button.error.${ThemeColorButtonComponent}`;
 
 export type ThemeColorInputStateVariants = "idle" | "active";
 export type ThemeColorInput = `input.border.${ThemeColorInputStateVariants}`;

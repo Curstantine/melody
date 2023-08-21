@@ -3,7 +3,7 @@ import { createSignal, type JSX, Show } from "solid-js";
 
 type Props = {
 	value: string;
-	onChange: (value: string) => void;
+	onInput: (value: string) => void;
 	icon?: string;
 	prefix?: string;
 	placeholder?: string;
@@ -13,14 +13,14 @@ type Props = {
 export default function TextInput(props: Props) {
 	const [validationError, setValidationError] = createSignal<string | null>(null);
 
-	const onChange: JSX.EventHandler<HTMLInputElement, Event> = (e) => {
+	const onInput: JSX.EventHandler<HTMLInputElement, Event> = (e) => {
 		const val = e.currentTarget.value;
 		const supposedErr = props.validation?.call(null, val) || null;
 
 		if (supposedErr) setValidationError(supposedErr);
 		else setValidationError(null);
 
-		props.onChange(val);
+		props.onInput(val);
 	};
 
 	return (
@@ -31,7 +31,7 @@ export default function TextInput(props: Props) {
 				class="absolute inset-0 bg-transparent pl-9 outline-none placeholder:(tracking-tight font-orbiter-text text-text-3) focus:placeholder:text-transparent"
 				placeholder={props.placeholder}
 				value={props.value}
-				onInput={onChange}
+				onInput={onInput}
 			/>
 			<Show when={validationError()}>
 				{(error) => (

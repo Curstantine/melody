@@ -29,6 +29,13 @@
 				"modal.error.border": { "type": "string", "format": "color-hex" },
 				"modal.error.text.primary": { "type": "string", "format": "color-hex" },
 
+				"button.primary.background.idle": { "type": "string", "format": "color-hex" },
+				"button.primary.background.hover": { "type": "string", "format": "color-hex" },
+				"button.primary.background.active": { "type": "string", "format": "color-hex" },
+				"button.primary.text.idle": { "type": "string", "format": "color-hex" },
+				"button.primary.text.hover": { "type": "string", "format": "color-hex" },
+				"button.primary.text.active": { "type": "string", "format": "color-hex" },
+
 				"button.error.background.idle": { "type": "string", "format": "color-hex" },
 				"button.error.background.hover": { "type": "string", "format": "color-hex" },
 				"button.error.background.active": { "type": "string", "format": "color-hex" },

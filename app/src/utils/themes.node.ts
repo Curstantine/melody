@@ -35,6 +35,13 @@ export const themeBindings: Record<ThemeColorKeys, string> = {
 	"modal.error.border": "--theme-modal-error-border",
 	"modal.error.text.primary": "--theme-modal-error-text-primary",
 
+	"button.primary.background.idle": "--theme-button-primary-idle",
+	"button.primary.background.hover": "--theme-button-primary-hover",
+	"button.primary.background.active": "--theme-button-primary-active",
+	"button.primary.text.idle": "--theme-button-primary-text-idle",
+	"button.primary.text.hover": "--theme-button-primary-text-hover",
+	"button.primary.text.active": "--theme-button-primary-text-active",
+
 	"button.error.background.idle": "--theme-button-error-idle",
 	"button.error.background.hover": "--theme-button-error-hover",
 	"button.error.background.active": "--theme-button-error-active",
