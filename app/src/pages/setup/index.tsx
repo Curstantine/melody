@@ -1,34 +1,31 @@
 import { open } from "@tauri-apps/api/dialog";
+import { readDir } from "@tauri-apps/api/fs";
 import { homeDir } from "@tauri-apps/api/path";
-import { createEffect, createSignal, Match, Switch } from "solid-js";
+import { createEffect, createSignal } from "solid-js";
 
-import ClickableInput from "@/components/Input/ClickableInput";
-import TextInput from "@/components/Input/TextInput";
-import CreateLibraryView from "@/pages/setup/create";
+import { useForm } from "@/hooks/validator";
 import { validateLibraryName } from "@/utils/validators";
 
+import ClickableInput from "@/components/Input/ClickableInput";
+import InputError from "@/components/Input/InputError";
+import TextInput from "@/components/Input/TextInput";
+import Result from "@/utils/result";
+
 export default function Setup() {
-	const [page, setPage] = createSignal(0);
+	// const [page, setPage] = createSignal(0);
 
 	return (
 		<div class="h-full flex flex-col items-center justify-center px-6">
-			<Switch>
-				<Match when={page() === 0}>
-					<SetupLibraryView setPage={setPage} />
-				</Match>
-				<Match when={page() === 1}>
-					<CreateLibraryView goBack={() => setPage(0)} />
-				</Match>
-			</Switch>
+			<SetupLibraryView />
 		</div>
 	);
 }
 
-type SetupLibraryViewProps = {
-	setPage: (page: number) => void;
-};
+function SetupLibraryView() {
+	// @ts-expect-error submit is being used as a directive
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const { validate, submit, errors } = useForm();
 
-function SetupLibraryView(props: SetupLibraryViewProps) {
 	const [mode, setMode] = createSignal<"create" | "recover">();
 	const [valid, setValidation] = createSignal(false);
 
@@ -54,16 +51,27 @@ function SetupLibraryView(props: SetupLibraryViewProps) {
 			defaultPath: libraryLocation() ?? await homeDir(),
 		});
 
-		if (!result) return;
+		if (!result || typeof result !== "string") return;
 		setMode("create");
-		setLibraryLocation(Array.isArray(result) ? result[0] : result);
+
+		if (result.match(/(M|m)elody(\/|$)/)) {
+			setLibraryLocation(result);
+		} else if (result.endsWith("/")) {
+			setLibraryLocation(result + "Melody/");
+		} else {
+			setLibraryLocation(result + "/Melody/");
+		}
+
+		const files = await Result.runAsync(() => readDir(result), (e) => console.error(e));
+		console.log(files);
 	};
 
 	const onConfirm = () => {
+		console.log(errors);
 	};
 
 	return (
-		<form class="max-w-xl w-full flex flex-col b-1 b-border-main rounded p-4">
+		<form class="max-w-xl w-full flex flex-col b-1 b-border-main rounded p-4" use:submit={onConfirm}>
 			<span class="text-2xl leading-tight font-orbiter-display text-text-1">Setup your library</span>
 			<span class="leading-tight font-orbiter-text text-text-2">
 				Start by creating a library or recovering an existing one.
@@ -80,20 +88,19 @@ function SetupLibraryView(props: SetupLibraryViewProps) {
 
 				<span class="mt-4 pb-1 text-sm font-orbiter-deck">Name</span>
 				<TextInput
+					name="libraryName"
 					value={libraryName() ?? ""}
 					onInput={(e) => setLibraryName(e)}
 					placeholder="The name of your library"
 					icon="i-symbols-badge-outline-rounded"
-					validation={validateLibraryName}
+					validate={validate}
+					validators={[validateLibraryName]}
 				/>
+				<InputError message={errors["libraryName"]} />
 			</div>
 
 			<div class="h-10 inline-flex justify-end">
-				<button
-					class="button-primary"
-					classList={{ "opacity-50 select-none": !valid() }}
-					onClick={onConfirm}
-				>
+				<button type="submit" class="button-primary" disabled={!valid()}>
 					{mode() === "recover" ? "Recover" : "Create"}
 				</button>
 			</div>

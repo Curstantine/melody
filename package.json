@@ -1,8 +1,8 @@
 {
 	"scripts": {
 		"dev": "pnpm --filter app run dev",
-		"build": "pnpm --filter app run build && neu build",
-		"preview": "pnpm --filter app build && neu run -- --window-enable-inspector"
+		"build": "pnpm --filter app run build",
+		"preview": "pnpm --filter app build"
 	},
 	"devDependencies": {
 		"@tauri-apps/cli": "^1.4.0",

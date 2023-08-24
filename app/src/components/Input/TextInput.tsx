@@ -1,26 +1,23 @@
-import { Validator } from "@/types/validators";
-import { createSignal, type JSX, Show } from "solid-js";
+import { Show } from "solid-js";
+
+import type { Directive, Validator } from "@/types/validators";
 
 type Props = {
 	value: string;
 	onInput: (value: string) => void;
+	name?: string;
 	icon?: string;
 	prefix?: string;
 	placeholder?: string;
-	validation?: Validator<string>;
+	validate: Directive<HTMLInputElement, Validator[]>;
+	validators?: Validator[];
 };
 
 export default function TextInput(props: Props) {
-	const [validationError, setValidationError] = createSignal<string | null>(null);
-
-	const onInput: JSX.EventHandler<HTMLInputElement, Event> = (e) => {
-		const val = e.currentTarget.value;
-		const supposedErr = props.validation?.call(null, val) || null;
-
-		if (supposedErr) setValidationError(supposedErr);
-		else setValidationError(null);
-
-		props.onInput(val);
+	// @ts-expect-error submit is being used as a directive
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const validate: Directive<HTMLInputElement, Validator[]> = (el, validators) => {
+		return props.validate(el, validators);
 	};
 
 	return (
@@ -28,18 +25,13 @@ export default function TextInput(props: Props) {
 			<Show when={props.icon}>{(icon) => <div class="h-5 w-5" classList={{ [icon()]: true }} />}</Show>
 			<input
 				type="text"
+				name={props.name}
 				class="absolute inset-0 bg-transparent pl-9 outline-none placeholder:(tracking-tight font-orbiter-text text-text-3) focus:placeholder:text-transparent"
-				placeholder={props.placeholder}
 				value={props.value}
-				onInput={onInput}
+				placeholder={props.placeholder}
+				onInput={(e) => props.onInput(e.target.value)}
+				use:validate={props.validators}
 			/>
-			<Show when={validationError()}>
-				{(error) => (
-					<span class="absolute inset-x-0 text-sm font-orbiter-text text-text-error -bottom-6">
-						{error()}
-					</span>
-				)}
-			</Show>
 		</div>
 	);
 }

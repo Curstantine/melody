@@ -1,1 +1,4 @@
-export type Validator<T extends string | number> = (value: T) => string | null;
+export type Validator = (value: string | number) => string | null;
+
+export type Directive<E = HTMLElement, T = unknown> = (ref: E, accessor: () => T) => void;
+export type FormConfig = { element: HTMLInputElement; validators: Validator[] };

@@ -37,12 +37,20 @@
 				"startDragging": true
 			},
 			"dialog": {
-				"all": true,
+				"all": false,
 				"ask": true,
 				"confirm": true,
 				"message": true,
 				"open": true,
 				"save": true
+			},
+			"fs": {
+				"all": false,
+				"createDir": true,
+				"exists": true,
+				"readDir": true,
+				"readFile": true,
+				"writeFile": true
 			}
 		},
 		"bundle": {
