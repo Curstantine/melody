@@ -7,15 +7,23 @@ export default class Result<T, E> {
 		this.value = value;
 	}
 
-	get isOk(): boolean {
-		return this.error === null;
+	public isOk(): this is Result<T, never> {
+		return this.value !== null;
 	}
 
-	get isErr(): boolean {
+	public isErr(): this is Result<never, E> {
 		return this.error !== null;
 	}
 
-	unwrapErr(): E {
+	public unwrap(): T {
+		if (this.value === null) {
+			throw new Error("called `Result.unwrap()` on an `Err` value");
+		}
+
+		return this.value;
+	}
+
+	public unwrapErr(): E {
 		if (this.error === null) {
 			throw new Error("called `Result.unwrapErr()` on an `Ok` value");
 		}
@@ -23,15 +31,15 @@ export default class Result<T, E> {
 		return this.error;
 	}
 
-	static ok<T, E>(value: T): Result<T, E> {
+	public static ok<T, E>(value: T): Result<T, E> {
 		return new Result<T, E>(value, null);
 	}
 
-	static err<T, E>(error: E): Result<T, E> {
+	public static err<T, E>(error: E): Result<T, E> {
 		return new Result<T, E>(null, error);
 	}
 
-	static run<T, E>(fn: () => T, err: (e: unknown) => E): Result<T, E> {
+	public static run<T, E>(fn: () => T, err: (e: unknown) => E): Result<T, E> {
 		try {
 			return Result.ok(fn());
 		} catch (error) {
@@ -39,11 +47,14 @@ export default class Result<T, E> {
 		}
 	}
 
-	static async runAsync<T, E>(fn: () => Promise<T>, err: (e: unknown) => E): Promise<Result<T, E>> {
+	public static async runAsync<T, E>(
+		fn: () => Promise<T>,
+		err: null | ((e: unknown) => E) = null,
+	): Promise<Result<T, E>> {
 		try {
 			return Result.ok(await fn());
 		} catch (error) {
-			return Result.err(err(error));
+			return Result.err(err === null ? (error as E) : err(error));
 		}
 	}
 }
