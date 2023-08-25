@@ -17,7 +17,7 @@ export default function App() {
 
 	onMount(async () => {
 		const themeResult = await initializeTheme();
-		if (themeResult.isErr) {
+		if (themeResult.isErr()) {
 			const error: AppError = { dismissible: true, error: themeResult.unwrapErr() };
 			appModel.appError.set(error);
 		}

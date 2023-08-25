@@ -2,10 +2,10 @@ import { Show } from "solid-js";
 import { Portal } from "solid-js/web";
 
 import AppErrorDisplayCard from "@/components/AppErrorDisplay/Card";
-import { useAppModelContext } from "@/contexts/models";
+import { useAppModel } from "@/contexts/models";
 
 export default function AppErrorDisplay() {
-	const { appError } = useAppModelContext();
+	const { appError } = useAppModel();
 
 	const onDismiss = () => {
 		if (appError.get()?.dismissible) return appError.set(null);

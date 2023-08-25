@@ -13,6 +13,7 @@
 		"@solidjs/router": "^0.8.3",
 		"@tauri-apps/api": "^1.4.0",
 		"solid-js": "^1.7.8",
+		"ulid": "^2.3.0",
 		"unocss": "^0.55.0"
 	},
 	"devDependencies": {
