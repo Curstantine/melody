@@ -2,32 +2,6 @@ import { createStore, type SetStoreFunction } from "solid-js/store";
 
 import type { Directive, FormConfig, Validator } from "@/types/validators";
 
-function checkValid(
-	{ element, validators }: FormConfig,
-	setErrors: SetStoreFunction<Record<string, string>>,
-) {
-	return () => {
-		element.setCustomValidity("");
-		element.checkValidity();
-		let message = element.validationMessage;
-
-		if (!message) {
-			for (const validator of validators) {
-				const text = validator(element.value);
-				if (text !== null) {
-					element.setCustomValidity(text);
-					break;
-				}
-			}
-			message = element.validationMessage;
-		}
-
-		if (message) {
-			setErrors({ [element.name]: message });
-		}
-	};
-}
-
 export function useForm() {
 	const [errors, setErrors] = createStore<Record<string, string>>({});
 	const fields: Record<string, FormConfig> = {};
@@ -71,6 +45,29 @@ export function useForm() {
 	};
 
 	return { validate, submit, errors, setError };
+}
+
+function checkValid({ element, validators }: FormConfig, setErrors: SetStoreFunction<Record<string, string>>) {
+	return () => {
+		element.setCustomValidity("");
+		element.checkValidity();
+		let message = element.validationMessage;
+
+		if (!message) {
+			for (const validator of validators) {
+				const text = validator(element.value);
+				if (text !== null) {
+					element.setCustomValidity(text);
+					break;
+				}
+			}
+			message = element.validationMessage;
+		}
+
+		if (message) {
+			setErrors({ [element.name]: message });
+		}
+	};
 }
 
 declare module "solid-js" {

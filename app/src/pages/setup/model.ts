@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 
-import { useForm } from "@/hooks/validator";
+import { useForm } from "@/hooks/form";
 
 export default class SetupViewModel {
 	mode = createSignal<"create" | "recover">();

@@ -1,9 +1,10 @@
 import { ulid } from "ulid";
 
-import { LibraryManagerError } from "@/errors/models";
-import LibraryModel from "@/models/Library";
+import LibraryManagerError from "@/errors/models/LibraryManager";
 import Result from "@/utils/result";
 import { createSignalObject } from "@/utils/solid";
+
+import LibraryModel from "./Library";
 
 export default class LibraryManagerModel {
 	private _libraries = createSignalObject<string[]>([]);
