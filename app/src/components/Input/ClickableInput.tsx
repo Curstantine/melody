@@ -5,21 +5,23 @@ type Props = {
 	value: string | null;
 	icon?: string;
 	placeholder?: string;
+	class?: string;
 };
 
 export default function ClickableInput(props: Props) {
 	return (
-		<div class="relative h-10 inline-flex items-center b-1 b-input-border-idle rounded px-2 text-text-2">
-			<Show when={props.icon}>{(icon) => <div class="h-5 w-5" classList={{ [icon()]: true }} />}</Show>
-			<div onClick={props.onClick} class="absolute inset-0 bg-transparent outline-none" />
+		<div
+			onClick={props.onClick}
+			class="h-10 flex cursor-pointer items-center b-1 b-input-border-idle rounded px-2 tracking-tight font-orbiter-text text-text-2"
+			classList={{ [props.class ?? ""]: !!props.class }}
+		>
+			<Show when={props.icon}>{(icon) => <div class="h-5 w-5 pr-2" classList={{ [icon()]: true }} />}</Show>
 			<Switch>
 				<Match when={props.value}>
-					{(location) => <span class="pl-2 tracking-tight font-orbiter-text">{location()}</span>}
+					{(location) => <span class="select-none">{location()}</span>}
 				</Match>
 				<Match when={props.placeholder}>
-					{(placeholder) => (
-						<span class="pl-2 tracking-tight font-orbiter-text text-text-3">{placeholder()}</span>
-					)}
+					{(placeholder) => <span class="select-none text-text-3">{placeholder()}</span>}
 				</Match>
 			</Switch>
 		</div>

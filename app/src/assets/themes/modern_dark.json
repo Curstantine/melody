@@ -3,11 +3,11 @@
 	"name": "Modern Dark",
 	"mode": "dark",
 	"colors": {
-		"border.main": "#ffffff1f",
-		"border.secondary": "#ffffff15",
+		"border.main": "#ffffff15",
+		"border.secondary": "#ffffff1f",
 
-		"background.main": "#1f1f1f",
-		"background.secondary": "#181818",
+		"background.main": "#181818",
+		"background.secondary": "#1f1f1f",
 
 		"text.1": "#ffffff",
 		"text.2": "#cecece",

@@ -3,6 +3,7 @@
 
 :root {
 	font-family: "TASA Orbiter Deck Regular", system-ui, sans-serif;
+
 	/* font-synthesis: none; */
 	/* text-rendering: optimizeLegibility; */
 	/* -webkit-font-smoothing: antialiased; */
@@ -18,8 +19,12 @@ body {
 	--at-apply: h-full max-h-[100vh] bg-background-main;
 }
 
+button {
+	--at-apply: bg-transparent;
+}
+
 #root {
-	height: calc(100vh - 2.25rem);
+	height: calc(100vh - 2rem);
 }
 
 #titlebar {
