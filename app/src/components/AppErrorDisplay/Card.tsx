@@ -22,7 +22,7 @@ export default function AppErrorDisplayCard(props: Props) {
 			<Show when={props.data.dismissible}>
 				<div class="flex-1" />
 				<div class="mt-6 flex items-end justify-end">
-					<button class="button-layout button-error" onClick={props.onDismiss}>Dismiss</button>
+					<button class="button-template-error button-layout" onClick={props.onDismiss}>Dismiss</button>
 				</div>
 			</Show>
 		</div>

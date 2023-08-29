@@ -16,10 +16,10 @@ export default function LeadingClickableInput(props: Props) {
 			<Show when={props.showLeadingButton}>
 				<button
 					onClick={props.onLeadingButtonClick}
-					class="icon-button-layout h-8 min-w-8 bg-transparent"
+					class="h-8 min-w-8 icon-button-layout bg-transparent"
 					classList={{
-						"button-error": props.leadingButtonType === "error",
-						"button-primary": props.leadingButtonType === "primary",
+						"button-template-error": props.leadingButtonType === "error",
+						"button-template-primary": props.leadingButtonType === "primary",
 					}}
 				>
 					<div class="h-5 w-5 pr-2" classList={{ [props.leadingIcon]: true }} />

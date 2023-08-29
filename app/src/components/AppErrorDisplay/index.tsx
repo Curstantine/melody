@@ -12,10 +12,10 @@ export default function AppErrorDisplay() {
 	};
 
 	return (
-		<Portal mount={document.getElementById("root")!}>
+		<Portal mount={document.getElementById("modal-root")!}>
 			<Show when={appError.get()}>
 				{(appError) => (
-					<div class="absolute inset-0 flex items-center justify-center bg-black/20 px-4">
+					<div class="absolute inset-0 z-50 flex items-center justify-center bg-black/20 px-4">
 						<AppErrorDisplayCard data={appError()} onDismiss={onDismiss} />
 					</div>
 				)}

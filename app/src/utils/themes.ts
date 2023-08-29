@@ -4,8 +4,8 @@ import ThemeError from "@/errors/themes";
 import Result from "@/utils/result";
 import { themeBindings } from "@/utils/themes.node";
 
-const templateTheme = "modern_dark";
-const defaultThemeId = "modern_dark";
+const templateTheme = "dark";
+const defaultThemeId = "dark";
 
 export async function initialize(): Promise<Result<void, ThemeError>> {
 	let themeId = localStorage.getItem("theme");

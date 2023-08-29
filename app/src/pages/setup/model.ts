@@ -1,6 +1,6 @@
 import { open } from "@tauri-apps/api/dialog";
 import { homeDir } from "@tauri-apps/api/path";
-import { createSignal } from "solid-js";
+import { createEffect, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import { ulid } from "ulid";
 
@@ -9,12 +9,19 @@ import { useForm } from "@/hooks/form";
 export default class SetupViewModel {
 	mode = createSignal<"create" | "recover">();
 	name = createSignal<string | null>(null);
-	valid = createSignal<boolean>(false);
+	continuable = createSignal<boolean>(false);
 	scanLocations = createStore<Array<{ id: string; location: string | null }>>([]);
 	form = useForm();
 
 	constructor() {
 		this.addScanLocation();
+
+		const [, setContinuability] = this.continuable;
+
+		createEffect(() => {
+			const result = !(Object.values(this.form.errors).filter((x) => !!x).length > 0);
+			setContinuability(result);
+		});
 	}
 
 	public onConfirm = () => {};

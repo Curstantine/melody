@@ -11,7 +11,6 @@ export function useForm() {
 		const config: FormConfig = (fields[ref.name] = { element: ref, validators });
 
 		ref.onblur = checkValid(config, setErrors);
-
 		ref.oninput = () => {
 			if (!errors[ref.name]) return;
 			setErrors({ [ref.name]: undefined });

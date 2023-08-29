@@ -25,16 +25,9 @@ export default function presetTheme(): Preset<Theme> {
 				"inline-flex items-center justify-center",
 				"rounded transition-colors duration-standard ease-standard",
 			].join(" "),
-			"button-error": [
-				"bg-button-error-background-idle text-button-error-text-idle",
-				"hover:(bg-button-error-background-hover text-button-error-text-hover)",
-				"active:(bg-button-error-background-active text-button-error-text-active)",
-			].join(" "),
-			"button-primary": [
-				"bg-button-primary-background-idle text-button-primary-text-idle",
-				"hover:(bg-button-primary-background-hover text-button-primary-text-hover)",
-				"active:(bg-button-primary-background-active text-button-primary-text-active)",
-			].join(" "),
+			"button-template-lv-1": createButtonStyleShortcut("level1"),
+			"button-template-primary": createButtonStyleShortcut("primary"),
+			"button-template-error": createButtonStyleShortcut("error"),
 		},
 	};
 }
@@ -51,14 +44,23 @@ function prepareUnoColorDefinitions(): Theme["colors"] {
 }
 
 function prepareUnoFontDefinitions(): Theme["fontFamily"] {
-	const explorer = createFontVariants("TASA Explorer", "explorer");
 	const orbiter = {
 		deck: createFontVariants("TASA Orbiter Deck", "orbiter-deck"),
 		display: createFontVariants("TASA Orbiter Display", "orbiter-display"),
 		text: createFontVariants("TASA Orbiter Text", "orbiter-text"),
 	};
 
-	return mergeDeep({}, explorer, ...Object.values(orbiter)) as Theme["fontFamily"];
+	return mergeDeep({}, ...Object.values(orbiter)) as Theme["fontFamily"];
+}
+
+function createButtonStyleShortcut(name: string) {
+	const styles = [
+		`bg-button-${name}-background-idle text-button-${name}-text-idle`,
+		`hover:(bg-button-${name}-background-hover text-button-${name}-text-hover)`,
+		`active:(bg-button-${name}-background-active text-button-${name}-text-active)`,
+	];
+
+	return styles.join(" ");
 }
 
 const variantToFontStyleBind = {

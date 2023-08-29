@@ -26,6 +26,7 @@ function CreateView() {
 		mode: [mode],
 		name: [libraryName, setLibraryName],
 		scanLocations: [scanLocations],
+		continuable: [continuable],
 		// @ts-expect-error submit is being used as a directive
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		form: { validate, submit, errors, setError },
@@ -87,7 +88,7 @@ function CreateView() {
 			</div>
 
 			<div class="h-10 inline-flex justify-end">
-				<button type="submit" class="button-layout button-primary">
+				<button type="submit" class="button-template-primary button-layout" disabled={!continuable()}>
 					{mode() === "recover" ? "Recover" : "Create"}
 				</button>
 			</div>

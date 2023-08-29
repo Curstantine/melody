@@ -19,14 +19,15 @@
 	],
 
 	"cSpell.words": [
+		"Continuability",
 		"curstantine",
+		"dprint",
 		"Iconify",
 		"stylesheet",
 		"TASA",
 		"tauri",
 		"titlebar",
 		"unmaximize",
-		"unocss",
-		"dprint"
+		"unocss"
 	]
 }
