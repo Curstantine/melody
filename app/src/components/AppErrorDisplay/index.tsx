@@ -5,15 +5,15 @@ import AppErrorDisplayCard from "@/components/AppErrorDisplay/Card";
 import { useAppModel } from "@/contexts/models";
 
 export default function AppErrorDisplay() {
-	const { appError } = useAppModel();
+	const { appError: [appError, setAppError] } = useAppModel();
 
 	const onDismiss = () => {
-		if (appError.get()?.dismissible) return appError.set(null);
+		if (appError()?.dismissible) return setAppError(null);
 	};
 
 	return (
 		<Portal mount={document.getElementById("modal-root")!}>
-			<Show when={appError.get()}>
+			<Show when={appError()}>
 				{(appError) => (
 					<div class="absolute inset-0 z-50 flex items-center justify-center bg-black/20 px-4">
 						<AppErrorDisplayCard data={appError()} onDismiss={onDismiss} />

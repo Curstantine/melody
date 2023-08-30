@@ -3,16 +3,12 @@
 	"lineWidth": 120,
 	"indentWidth": 4,
 	"newLineKind": "lf",
-	"excludes": [
-		"**/node_modules",
-		"**/*-lock.json",
-		"**/dist/",
-		"**/target/"
-	],
+	"excludes": ["**/node_modules", "**/*-lock.json", "**/dist/", "**/target/"],
 	"json": {
-		"associations": [
-			"*.code-workspace"
-		]
+		"associations": ["*.code-workspace"]
+	},
+	"typescript": {
+		"quoteProps": "asNeeded"
 	},
 	"plugins": [
 		"https://plugins.dprint.dev/typescript-0.86.1.wasm",
