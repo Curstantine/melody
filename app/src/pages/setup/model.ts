@@ -24,7 +24,6 @@ export default class SetupViewModel {
 			const noEmptyLocations = locations.filter((x) => !x.location).length === 0;
 			const result = noErrors && noEmptyLocations;
 
-			console.log(result);
 			setContinuability(result);
 		});
 	}
