@@ -10,7 +10,8 @@ import TitleBar from "@/components/TitleBar";
 
 import { AppModelContext } from "@/contexts/models";
 import AppModel from "@/models/App";
-import Home from "@/pages/setup";
+import UIRoot from "@/pages";
+import Setup from "@/pages/setup";
 
 export default function App() {
 	const appModel = new AppModel();
@@ -31,7 +32,8 @@ export default function App() {
 				<TitleBar />
 				<AppErrorDisplay />
 				<Routes>
-					<Route path="/" component={Home} />
+					<Route path="/" component={UIRoot} />
+					<Route path="/setup" component={Setup} />
 				</Routes>
 			</AppModelContext.Provider>
 		</Router>
