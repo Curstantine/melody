@@ -17,9 +17,14 @@ export default class SetupViewModel {
 		this.addScanLocation();
 
 		const [, setContinuability] = this.continuable;
+		const [locations] = this.scanLocations;
 
 		createEffect(() => {
-			const result = !(Object.values(this.form.errors).filter((x) => !!x).length > 0);
+			const noErrors = Object.values(this.form.errors).filter((x) => !!x).length === 0;
+			const noEmptyLocations = locations.filter((x) => !x.location).length === 0;
+			const result = noErrors && noEmptyLocations;
+
+			console.log(result);
 			setContinuability(result);
 		});
 	}

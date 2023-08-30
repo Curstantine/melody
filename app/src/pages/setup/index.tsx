@@ -88,7 +88,7 @@ function CreateView() {
 			</div>
 
 			<div class="h-10 inline-flex justify-end">
-				<button type="submit" class="button-template-primary button-layout" disabled={!continuable()}>
+				<button type="submit" class="button-layout button-template-primary" disabled={!continuable()}>
 					{mode() === "recover" ? "Recover" : "Create"}
 				</button>
 			</div>
