@@ -1,42 +1,47 @@
+import { Accessor, createSignal } from "solid-js";
 import { ulid } from "ulid";
 
 import LibraryManagerError from "@/errors/models/LibraryManager";
 import Result from "@/utils/result";
-import { createSignalObject } from "@/utils/solid";
 
-import LibraryModel from "./Library";
+import LibraryModel from "@/models/Library";
 
 export default class LibraryManagerModel {
-	private _libraries = createSignalObject<string[]>([]);
-	private _current = createSignalObject<LibraryModel | null>(null);
+	private _libraries = createSignal<string[]>([]);
+	private _current = createSignal<LibraryModel | null>(null);
 
-	get libraries() {
-		return this._libraries.get;
+	get libraries(): Accessor<string[]> {
+		const [libraries] = this._libraries;
+		return libraries;
 	}
 
-	get current() {
-		return this._current.get;
+	get current(): Accessor<LibraryModel | null> {
+		const [current] = this._current;
+		return current;
 	}
 
 	public async setCurrent(id: string): Promise<Result<void, LibraryManagerError>> {
-		const library = this._libraries.get().find((library) => library === id);
+		const [, setCurrentSignal] = this._current;
 
+		const library = this.libraries().find((library) => library === id);
 		if (!library) {
 			return Result.err(LibraryManagerError.unknownLibrary(id));
 		}
 
 		/// TODO: Read the library from the database
-		this._current.set(new LibraryModel({ id, name: "Test", location: "Test" }));
+		const model = new LibraryModel({ id, name: "Test", location: "Test" });
+		setCurrentSignal(model);
 
 		return Result.ok(void 0);
 	}
 
 	public createLibrary(name: string, location: string): LibraryModel {
-		const id = ulid();
-		/// Create the library in the database
-		const library = new LibraryModel({ id, name, location });
+		const [, setLibrariesSignal] = this._libraries;
 
-		this._libraries.set((libraries) => [...libraries, id]);
+		const id = ulid();
+		const library = new LibraryModel({ id, name, location });
+		setLibrariesSignal((libraries) => [...libraries, id]);
+
 		return library;
 	}
 

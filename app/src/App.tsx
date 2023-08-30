@@ -2,13 +2,12 @@ import { Route, Router, Routes } from "@solidjs/router";
 import { appWindow } from "@tauri-apps/api/window";
 import { onMount } from "solid-js";
 
-import type { AppError } from "@/types/errors";
+import { AppModelContext } from "@/contexts/models";
 import { initialize as initializeTheme } from "@/utils/themes";
 
 import AppErrorDisplay from "@/components/AppErrorDisplay";
 import TitleBar from "@/components/TitleBar";
 
-import { AppModelContext } from "@/contexts/models";
 import AppModel from "@/models/App";
 import UIRoot from "@/pages";
 import Setup from "@/pages/setup";
@@ -17,10 +16,11 @@ export default function App() {
 	const appModel = new AppModel();
 
 	onMount(async () => {
+		const { appError: [, setAppError] } = appModel;
+
 		const themeResult = await initializeTheme();
 		if (themeResult.isErr()) {
-			const error: AppError = { dismissible: true, error: themeResult.unwrapErr() };
-			appModel.appError.set(error);
+			setAppError({ dismissible: true, error: themeResult.unwrapErr() });
 		}
 
 		appWindow.show();
