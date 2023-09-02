@@ -4,7 +4,7 @@ use crate::{database::Database, errors::Result};
 
 #[derive(Default)]
 pub struct AppState {
-	db: Mutex<Option<Database>>,
+	pub db: Mutex<Option<Database>>,
 }
 
 impl AppState {
