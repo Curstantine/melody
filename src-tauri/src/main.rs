@@ -10,12 +10,13 @@ mod database;
 mod errors;
 mod models;
 mod state;
+mod utils;
 
 fn main() {
 	tauri::Builder::default()
 		.manage(AppState::default())
 		.setup(setup)
-		.invoke_handler(tauri::generate_handler![commands::library::create,])
+		.invoke_handler(tauri::generate_handler![commands::library::create_library,])
 		.run(tauri::generate_context!())
 		.expect("error while running tauri application");
 }

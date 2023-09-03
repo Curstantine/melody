@@ -19,6 +19,7 @@
 	],
 
 	"cSpell.words": [
+		"bson",
 		"Continuability",
 		"curstantine",
 		"dprint",
@@ -28,7 +29,10 @@
 		"TASA",
 		"tauri",
 		"titlebar",
+		"unlisten",
 		"unmaximize",
-		"unocss"
-	]
+		"unocss",
+		"walkdir"
+	],
+	"rust-analyzer.showUnlinkedFileNotification": false
 }
