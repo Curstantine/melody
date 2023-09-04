@@ -7,6 +7,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug)]
 pub enum Error {
 	Io(std::io::Error, Option<String>),
+	TokioTask(tokio::task::JoinError),
 	Tauri(tauri::Error),
 	Descriptive(String),
 	Database(polodb_core::Error),
@@ -20,6 +21,7 @@ impl Serialize for Error {
 		let mut state = serializer.serialize_struct("Error", 3)?;
 		let (error_type, message, context) = match self {
 			Self::Io(error, context) => ("io", error.to_string(), context.clone()),
+			Self::TokioTask(error) => ("tokio_task", error.to_string(), None),
 			Self::Tauri(error) => ("tauri", error.to_string(), None),
 			Self::Descriptive(message) => ("descriptive", message.clone(), None),
 			Self::Database(error) => ("database", error.to_string(), None),
@@ -35,6 +37,12 @@ impl Serialize for Error {
 impl From<std::io::Error> for Error {
 	fn from(error: std::io::Error) -> Self {
 		Self::Io(error, None)
+	}
+}
+
+impl From<tokio::task::JoinError> for Error {
+	fn from(error: tokio::task::JoinError) -> Self {
+		Self::TokioTask(error)
 	}
 }
 
@@ -54,6 +62,7 @@ impl std::error::Error for Error {
 	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
 		match self {
 			Self::Io(error, _) => Some(error),
+			Self::TokioTask(error) => Some(error),
 			Self::Tauri(error) => Some(error),
 			Self::Database(error) => Some(error),
 			Self::Descriptive(_) => None,
@@ -66,6 +75,7 @@ impl Display for Error {
 		match self {
 			Self::Descriptive(message) => write!(f, "{}", message),
 			Self::Database(error) => write!(f, "Database error: {}", error),
+			Self::TokioTask(error) => write!(f, "Tokio task error: {}", error),
 			Self::Tauri(error) => write!(f, "Tauri error: {}", error),
 			Self::Io(source, context) => {
 				if let Some(context) = context {

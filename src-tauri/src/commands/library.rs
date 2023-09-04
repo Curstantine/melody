@@ -1,7 +1,9 @@
 use futures::StreamExt;
 use polodb_core::bson::doc;
+use tokio::{fs, task::JoinSet};
 
 use crate::{
+	constants::SUPPORTED_AUDIO_EXTENSIONS,
 	errors::{Error, Result},
 	models::{
 		library::{Library as LibraryModel, LibraryEvent, LibraryScanEventPayload},
@@ -28,16 +30,33 @@ pub async fn create_library(
 		return Err(Error::Descriptive(message));
 	}
 
-	let model = LibraryModel { name, scan_locations };
-	col.insert_one(&model)?;
+	let scan_clone_ref = scan_locations.clone();
+	tokio::task::spawn_blocking::<_, Result<()>>(move || {
+		col.insert_one(LibraryModel {
+			name,
+			scan_locations: scan_clone_ref,
+		})?;
 
-	for scan_location in &model.scan_locations {
+		Ok(())
+	})
+	.await??;
+
+	for scan_location in scan_locations {
 		// We could iterate on the stream, but I feel like it wouldn't make a big difference for the complexity of the implementation.
 		let paths = utils::fs::walkdir(scan_location).collect::<Vec<_>>().await;
 		let path_len = paths.len();
+		let mut sync_threads = JoinSet::<Result<()>>::new();
 
 		for (i, entry) in paths.into_iter().enumerate() {
 			let entry = entry?;
+			let path = entry.path();
+			let extension = match path.extension() {
+				Some(extension) if SUPPORTED_AUDIO_EXTENSIONS.contains(&extension.to_str().unwrap()) => {
+					extension.to_str().unwrap().to_string()
+				}
+				_ => continue,
+			};
+
 			let event = WindowEvent::new(
 				LibraryEvent::Scan,
 				LibraryScanEventPayload {
@@ -48,7 +67,15 @@ pub async fn create_library(
 			);
 
 			event.emit(&window)?;
+
+			let src = fs::File::open(path).await?.into_std().await;
+			sync_threads.spawn_blocking(move || {
+				utils::symphonia::read_track_meta(Box::new(src), Some(&extension))?;
+				Ok(())
+			});
 		}
+
+		while let Some(_) = sync_threads.join_next().await {}
 	}
 
 	Ok(())

@@ -6,6 +6,7 @@ use tauri::{App, Manager, State};
 use state::AppState;
 
 mod commands;
+mod constants;
 mod database;
 mod errors;
 mod models;
