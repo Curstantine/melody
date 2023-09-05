@@ -13,6 +13,12 @@ pub enum Error {
 	Database(polodb_core::Error),
 }
 
+impl Error {
+	pub fn descriptive(message: impl Into<String>) -> Self {
+		Self::Descriptive(message.into())
+	}
+}
+
 impl Serialize for Error {
 	/// Serializes this error to an externally consumable format.
 	///

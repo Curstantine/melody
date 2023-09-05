@@ -1,6 +1,6 @@
 use std::fs;
 
-use polodb_core::{Collection as PoolCollection, Database as PoolDatabase};
+use polodb_core::{Collection as PoloCollection, Database as PoloDatabase};
 
 use crate::{
 	errors::{Error, Result},
@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub struct Database {
-	inner: PoolDatabase,
+	inner: PoloDatabase,
 }
 
 impl Database {
@@ -32,7 +32,7 @@ impl Database {
 		}
 
 		let db_path = app_data_dir.join(Self::DB_FILE_NAME);
-		let database = PoolDatabase::open_file(db_path)?;
+		let database = PoloDatabase::open_file(db_path)?;
 
 		let collections = database.list_collection_names()?;
 		if collections.is_empty() {
@@ -43,7 +43,7 @@ impl Database {
 		Ok(Self { inner: database })
 	}
 
-	pub fn library(&self) -> PoolCollection<LibraryModel> {
+	pub fn library(&self) -> PoloCollection<LibraryModel> {
 		self.inner.collection::<LibraryModel>(Self::COL_LIBRARY)
 	}
 }
