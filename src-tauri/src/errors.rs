@@ -11,6 +11,9 @@ pub enum Error {
 	Tauri(tauri::Error),
 	Descriptive(String),
 	Database(polodb_core::Error),
+	Serde(serde_json::Error),
+	ParseInt(std::num::ParseIntError),
+	ChronoParse(chrono::ParseError),
 }
 
 impl Error {
@@ -26,11 +29,14 @@ impl Serialize for Error {
 	fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
 		let mut state = serializer.serialize_struct("Error", 3)?;
 		let (error_type, message, context) = match self {
-			Self::Io(error, context) => ("io", error.to_string(), context.clone()),
+			Self::Io(error, context) => ("io", error.to_string(), context.to_owned()),
 			Self::TokioTask(error) => ("tokio_task", error.to_string(), None),
 			Self::Tauri(error) => ("tauri", error.to_string(), None),
-			Self::Descriptive(message) => ("descriptive", message.clone(), None),
+			Self::Descriptive(message) => ("descriptive", message.to_string(), None),
 			Self::Database(error) => ("database", error.to_string(), None),
+			Self::Serde(error) => ("serde", error.to_string(), None),
+			Self::ParseInt(error) => ("parse_int", error.to_string(), None),
+			Self::ChronoParse(error) => ("chrono_parse", error.to_string(), None),
 		};
 
 		state.serialize_field("type", error_type)?;
@@ -64,6 +70,24 @@ impl From<polodb_core::Error> for Error {
 	}
 }
 
+impl From<serde_json::Error> for Error {
+	fn from(error: serde_json::Error) -> Self {
+		Self::Serde(error)
+	}
+}
+
+impl From<std::num::ParseIntError> for Error {
+	fn from(error: std::num::ParseIntError) -> Self {
+		Self::ParseInt(error)
+	}
+}
+
+impl From<chrono::ParseError> for Error {
+	fn from(error: chrono::ParseError) -> Self {
+		Self::ChronoParse(error)
+	}
+}
+
 impl std::error::Error for Error {
 	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
 		match self {
@@ -71,6 +95,9 @@ impl std::error::Error for Error {
 			Self::TokioTask(error) => Some(error),
 			Self::Tauri(error) => Some(error),
 			Self::Database(error) => Some(error),
+			Self::Serde(error) => Some(error),
+			Self::ParseInt(error) => Some(error),
+			Self::ChronoParse(error) => Some(error),
 			Self::Descriptive(_) => None,
 		}
 	}
@@ -83,6 +110,9 @@ impl Display for Error {
 			Self::Database(error) => write!(f, "Database error: {}", error),
 			Self::TokioTask(error) => write!(f, "Tokio task error: {}", error),
 			Self::Tauri(error) => write!(f, "Tauri error: {}", error),
+			Self::Serde(error) => write!(f, "Serde error: {}", error),
+			Self::ParseInt(error) => write!(f, "ParseInt error: {}", error),
+			Self::ChronoParse(error) => write!(f, "ChronoParse error: {}", error),
 			Self::Io(source, context) => {
 				if let Some(context) = context {
 					write!(f, "IO error: {}\nContext: {}", source, context)
