@@ -1,10 +1,12 @@
 use std::path::PathBuf;
 
+use bonsaidb::core::schema::Collection;
 use serde::{Deserialize, Serialize};
 
-use super::tauri::WindowEventType;
+use crate::models::tauri::WindowEventType;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Collection)]
+#[collection(name = "libraries")]
 pub struct Library {
 	pub name: String,
 	pub scan_locations: Vec<String>,

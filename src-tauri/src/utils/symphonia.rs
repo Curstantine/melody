@@ -9,8 +9,8 @@ use symphonia::core::{
 };
 
 use crate::{
+	database::models::release::ReleaseType,
 	errors::{Error, Result},
-	models::release::ReleaseType,
 };
 
 pub fn read_track_meta(source: Box<File>, extension: Option<&str>) -> Result<TempMeta> {

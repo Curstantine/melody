@@ -1,7 +1,9 @@
+use bonsaidb::core::schema::Collection;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Collection)]
+#[collection(name = "tracks")]
 pub struct Track {
 	pub title: String,
 	pub title_sort: Option<String>,

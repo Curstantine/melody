@@ -10,7 +10,7 @@ pub enum Error {
 	TokioTask(tokio::task::JoinError),
 	Tauri(tauri::Error),
 	Descriptive(String),
-	Database(polodb_core::Error),
+	Database(bonsaidb::local::Error),
 	Serde(serde_json::Error),
 	ParseInt(std::num::ParseIntError),
 	ChronoParse(chrono::ParseError),
@@ -64,8 +64,8 @@ impl From<tauri::Error> for Error {
 	}
 }
 
-impl From<polodb_core::Error> for Error {
-	fn from(error: polodb_core::Error) -> Self {
+impl From<bonsaidb::local::Error> for Error {
+	fn from(error: bonsaidb::local::Error) -> Self {
 		Self::Database(error)
 	}
 }

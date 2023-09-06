@@ -19,6 +19,7 @@
 	],
 
 	"cSpell.words": [
+		"bonsaidb",
 		"bson",
 		"chrono",
 		"Continuability",
@@ -30,6 +31,7 @@
 		"ORIGINALYEAR",
 		"polodb",
 		"RELEASETYPE",
+		"serde",
 		"stylesheet",
 		"TASA",
 		"tauri",

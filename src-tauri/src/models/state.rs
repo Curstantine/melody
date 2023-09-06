@@ -8,8 +8,8 @@ pub struct AppState {
 }
 
 impl AppState {
-	pub fn initialize(&self, app_handle: &tauri::AppHandle) -> Result<()> {
-		let db = Database::new(app_handle)?;
+	pub async fn initialize(&self, app_handle: &tauri::AppHandle) -> Result<()> {
+		let db = Database::new(app_handle).await?;
 		self.db.try_lock().unwrap().replace(db);
 
 		Ok(())

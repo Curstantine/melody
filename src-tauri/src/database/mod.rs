@@ -1,15 +1,17 @@
 use std::fs;
 
-use polodb_core::{Collection as PoloCollection, Database as PoloDatabase};
-
-use crate::{
-	errors::{Error, Result},
-	models::library::Library as LibraryModel,
+use bonsaidb::local::{
+	config::{Builder, StorageConfiguration},
+	AsyncDatabase as BonsaiDatabase,
 };
 
-pub struct Database {
-	inner: PoloDatabase,
-}
+use crate::errors::{Error, Result};
+
+use self::models::LocalSchema;
+
+pub mod models;
+
+pub struct Database(pub BonsaiDatabase);
 
 impl Database {
 	const DB_FILE_NAME: &str = "main.db";
@@ -18,7 +20,7 @@ impl Database {
 	/// Initialize the database.
 	///
 	/// This function should run in the context of tauri.
-	pub fn new(app_handle: &tauri::AppHandle) -> Result<Self> {
+	pub async fn new(app_handle: &tauri::AppHandle) -> Result<Self> {
 		let app_data_dir = app_handle
 			.path_resolver()
 			.app_data_dir()
@@ -31,19 +33,9 @@ impl Database {
 			_ => {}
 		}
 
-		let db_path = app_data_dir.join(Self::DB_FILE_NAME);
-		let database = PoloDatabase::open_file(db_path)?;
+		let db_conf = StorageConfiguration::new(app_data_dir.join(Self::DB_FILE_NAME));
+		let database = BonsaiDatabase::open::<LocalSchema>(db_conf).await?;
 
-		let collections = database.list_collection_names()?;
-		if collections.is_empty() {
-			database.create_collection("library")?;
-			database.create_collection("settings")?;
-		}
-
-		Ok(Self { inner: database })
-	}
-
-	pub fn library(&self) -> PoloCollection<LibraryModel> {
-		self.inner.collection::<LibraryModel>(Self::COL_LIBRARY)
+		Ok(Self(database))
 	}
 }

@@ -11,12 +11,18 @@ import TitleBar from "@/components/TitleBar";
 import AppModel from "@/models/App";
 import UIRoot from "@/pages";
 import Setup from "@/pages/setup";
+import { invoke } from "@/utils/tauri";
 
 export default function App() {
 	const appModel = new AppModel();
 
 	onMount(async () => {
 		const { appError: [, setAppError] } = appModel;
+
+		const setup = await invoke<void>("setup");
+		if (setup.isErr()) {
+			setAppError({ dismissible: true, error: setup.unwrapErr() });
+		}
 
 		const themeResult = await initializeTheme();
 		if (themeResult.isErr()) {

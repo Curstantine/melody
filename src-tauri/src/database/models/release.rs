@@ -1,3 +1,4 @@
+use bonsaidb::core::schema::Collection;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
@@ -36,7 +37,8 @@ impl ReleaseType {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Collection)]
+#[collection(name = "releases")]
 pub struct Release {
 	pub name: String,
 	pub name_sort: Option<String>,

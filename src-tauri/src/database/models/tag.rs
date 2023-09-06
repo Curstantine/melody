@@ -1,3 +1,4 @@
+use bonsaidb::core::schema::Collection;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -6,7 +7,8 @@ pub enum TagType {
 	Other,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Collection)]
+#[collection(name = "tags")]
 pub struct Tag {
 	pub name: String,
 
