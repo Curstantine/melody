@@ -5,12 +5,18 @@ use serde::{ser::SerializeStruct, Serialize};
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
+enum BonsaiError {
+	Local(bonsaidb::local::Error),
+	Core(bonsaidb::core::Error),
+}
+
+#[derive(Debug)]
 pub enum Error {
 	Io(std::io::Error, Option<String>),
 	TokioTask(tokio::task::JoinError),
 	Tauri(tauri::Error),
 	Descriptive(String),
-	Database(bonsaidb::local::Error),
+	Bonsai(BonsaiError),
 	Serde(serde_json::Error),
 	ParseInt(std::num::ParseIntError),
 	ChronoParse(chrono::ParseError),
@@ -33,10 +39,13 @@ impl Serialize for Error {
 			Self::TokioTask(error) => ("tokio_task", error.to_string(), None),
 			Self::Tauri(error) => ("tauri", error.to_string(), None),
 			Self::Descriptive(message) => ("descriptive", message.to_string(), None),
-			Self::Database(error) => ("database", error.to_string(), None),
 			Self::Serde(error) => ("serde", error.to_string(), None),
 			Self::ParseInt(error) => ("parse_int", error.to_string(), None),
 			Self::ChronoParse(error) => ("chrono_parse", error.to_string(), None),
+			Self::Bonsai(inner) => match inner {
+				BonsaiError::Local(error) => ("bonsai_local", error.to_string(), None),
+				BonsaiError::Core(error) => ("bonsai_core", error.to_string(), None),
+			},
 		};
 
 		state.serialize_field("type", error_type)?;
@@ -66,7 +75,19 @@ impl From<tauri::Error> for Error {
 
 impl From<bonsaidb::local::Error> for Error {
 	fn from(error: bonsaidb::local::Error) -> Self {
-		Self::Database(error)
+		Self::Bonsai(BonsaiError::Local(error))
+	}
+}
+
+impl From<bonsaidb::core::Error> for Error {
+	fn from(error: bonsaidb::core::Error) -> Self {
+		Self::Bonsai(BonsaiError::Core(error))
+	}
+}
+
+impl<T> From<bonsaidb::core::schema::InsertError<T>> for Error {
+	fn from(error: bonsaidb::core::schema::InsertError<T>) -> Self {
+		Self::Bonsai(BonsaiError::Core(error.error))
 	}
 }
 
@@ -94,11 +115,14 @@ impl std::error::Error for Error {
 			Self::Io(error, _) => Some(error),
 			Self::TokioTask(error) => Some(error),
 			Self::Tauri(error) => Some(error),
-			Self::Database(error) => Some(error),
 			Self::Serde(error) => Some(error),
 			Self::ParseInt(error) => Some(error),
 			Self::ChronoParse(error) => Some(error),
 			Self::Descriptive(_) => None,
+			Self::Bonsai(inner) => match inner {
+				BonsaiError::Local(error) => Some(error),
+				BonsaiError::Core(error) => Some(error),
+			},
 		}
 	}
 }
@@ -107,7 +131,6 @@ impl Display for Error {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
 			Self::Descriptive(message) => write!(f, "{}", message),
-			Self::Database(error) => write!(f, "Database error: {}", error),
 			Self::TokioTask(error) => write!(f, "Tokio task error: {}", error),
 			Self::Tauri(error) => write!(f, "Tauri error: {}", error),
 			Self::Serde(error) => write!(f, "Serde error: {}", error),
@@ -120,6 +143,10 @@ impl Display for Error {
 					write!(f, "IO error: {}", source)
 				}
 			}
+			Self::Bonsai(inner) => match inner {
+				BonsaiError::Local(error) => write!(f, "Bonsai local error: {}", error),
+				BonsaiError::Core(error) => write!(f, "Bonsai core error: {}", error),
+			},
 		}
 	}
 }

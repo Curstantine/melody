@@ -1,10 +1,14 @@
+use bonsaidb::core::{connection::AsyncConnection, schema::SerializedCollection};
 use futures::StreamExt;
 use tokio::{fs, task::JoinSet};
 
 use crate::{
 	constants::SUPPORTED_AUDIO_EXTENSIONS,
-	database::models::library::{Library as LibraryModel, LibraryEvent, LibraryScanEventPayload},
-	errors::Result,
+	database::{
+		models::library::{Library as LibraryModel, LibraryEvent, LibraryScanEventPayload},
+		views::library::LibraryByName,
+	},
+	errors::{Error, Result},
 	models::{state::AppState, tauri::WindowEvent},
 	utils::{
 		self,
@@ -23,23 +27,22 @@ pub async fn create_library(
 	let database = db_lock.as_ref().unwrap();
 	let database = &database.0;
 
-	// let matches = col.find_one(doc! { "name": name.clone() })?;
-	// if matches.is_some() {
-	// 	let message = format!("A library with the name {} already exists", name);
-	// 	return Err(Error::Descriptive(message));
-	// }
+	let docs = database
+		.view::<LibraryByName>()
+		.with_key(name.clone())
+		.query_with_docs()
+		.await?;
+	if !docs.is_empty() {
+		let message = format!("A library with the name {} already exists", name);
+		return Err(Error::Descriptive(message));
+	}
 
-	// We are better off cloning this value instead of using an Arc, Mutex or some pinning.
-	// let scan_clone_ref = scan_locations.clone();
-	// tokio::task::spawn_blocking::<_, Result<()>>(move || {
-	// 	col.insert_one(LibraryModel {
-	// 		name,
-	// 		scan_locations: scan_clone_ref,
-	// 	})?;
-
-	// 	Ok(())
-	// })
-	// .await??;
+	LibraryModel {
+		name,
+		scan_locations: scan_locations.clone(),
+	}
+	.push_into_async(database)
+	.await?;
 
 	for scan_location in scan_locations {
 		// We could iterate on the stream, but I feel like it wouldn't make a big difference for the complexity of the implementation.
@@ -72,7 +75,7 @@ pub async fn create_library(
 		}
 
 		while let Some(x) = sync_threads.join_next().await.transpose()? {
-			let meta = x?;
+			let _ = x?;
 		}
 	}
 

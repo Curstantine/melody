@@ -10,12 +10,12 @@ use crate::errors::{Error, Result};
 use self::models::LocalSchema;
 
 pub mod models;
+pub mod views;
 
 pub struct Database(pub BonsaiDatabase);
 
 impl Database {
 	const DB_FILE_NAME: &str = "main.db";
-	const COL_LIBRARY: &str = "library";
 
 	/// Initialize the database.
 	///
