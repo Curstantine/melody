@@ -28,7 +28,9 @@ impl Database {
 
 		match fs::create_dir_all(&app_data_dir) {
 			Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => {
-				return Err(Error::Io(e, Some("Failed to create app data directory".to_string())))
+				let mut error = Error::from(e);
+				error.set_context("Failed to create app data directory");
+				return Err(error);
 			}
 			_ => {}
 		}

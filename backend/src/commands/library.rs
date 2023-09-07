@@ -34,7 +34,7 @@ pub async fn create_library(
 		.await?;
 	if !docs.is_empty() {
 		let message = format!("A library with the name {} already exists", name);
-		return Err(Error::Descriptive(message));
+		return Err(Error::descriptive(message));
 	}
 
 	LibraryModel {
