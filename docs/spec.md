@@ -5,8 +5,9 @@ Contains the specification both the frontend and backend should follow. This doc
 - [Specification](#specification)
   - [Directories](#directories)
     - [Config Directory](#config-directory)
+    - [Data Directory](#data-directory)
   - [Persistence](#persistence)
-    - [Primary (SQLite)](#primary-sqlite)
+    - [Primary (BonsaiDB)](#primary-bonsaidb)
     - [Settings (TOML)](#settings-toml)
   - [Components](#components)
     - [Library](#library)
@@ -16,11 +17,19 @@ Contains the specification both the frontend and backend should follow. This doc
 
 ### Config Directory
 
-The config directory contains all the configuration and metadata files.
+The config directory contains all the files that are configurable by the user.
 
 Paths:
 
-- Linux: `${XDG_CONFIG_HOME}/melody/`
+- Linux: `${XDG_CONFIG_HOME}/moe.curstantine.melody/`
+
+### Data Directory
+
+The data directory contains all the files that are not user-editable, or are not meant to be edited by the user.
+
+Paths:
+
+- Linux: `${XDG_DATA_HOME}/moe.curstantine.melody/`
 
 ## Persistence
 
@@ -29,11 +38,13 @@ The data must stored in a way that it can be easily backed up and restored.
 
 All these persistence methods must be implemented only in the backend, which then can be accessed by the frontend using tauri's IPC.
 
-### Primary (SQLite)
+### Primary (BonsaiDB)
 
-Melody uses sqlite as its primary database.\
+Melody uses a local BonsaiDB instance as its primary database.\
 This database contains all the runtime data, such as libraries, playlists,
 queues, play counts, tracks, albums and artists.
+
+This is saved in the [`data_directory`](#data-directory) under `main.db`.
 
 ### Settings (TOML)
 
