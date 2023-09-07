@@ -53,6 +53,12 @@ impl Display for Error {
 	}
 }
 
+// impl std::error::Error for Error {
+// 	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+// 		self.source.as_ref().map(|boxed| boxed.as_ref() as _)
+// 	}
+// }
+
 impl From<std::io::Error> for Error {
 	fn from(error: std::io::Error) -> Self {
 		Self {
