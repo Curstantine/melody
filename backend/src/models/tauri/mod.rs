@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+pub mod library;
+
 #[derive(Serialize)]
 pub struct WindowEvent<T, P>
 where

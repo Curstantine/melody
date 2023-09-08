@@ -40,4 +40,15 @@ impl Database {
 
 		Ok(Self(database))
 	}
+
+	#[cfg(test)]
+	pub async fn testing() -> Result<Self> {
+		let db_dir = std::env::current_dir().unwrap().join("target/testing");
+		let db_conf = StorageConfiguration::default()
+			.path(db_dir.join(Self::DB_FILE_NAME))
+			.memory_only();
+		let database = BonsaiDatabase::open::<LocalSchema>(db_conf).await?;
+
+		Ok(Self(database))
+	}
 }

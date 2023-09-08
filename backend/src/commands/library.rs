@@ -4,12 +4,15 @@ use tokio::{fs, task::JoinSet};
 
 use crate::{
 	constants::SUPPORTED_AUDIO_EXTENSIONS,
-	database::{
-		models::library::{Library as LibraryModel, LibraryEvent, LibraryScanEventPayload},
-		views::library::LibraryByName,
-	},
+	database::{models::library::Library as LibraryModel, views::library::LibraryByName},
 	errors::{Error, Result},
-	models::{state::AppState, tauri::WindowEvent},
+	models::{
+		state::AppState,
+		tauri::{
+			library::{LibraryEvent, LibraryScanEventPayload},
+			WindowEvent,
+		},
+	},
 	utils::{
 		self,
 		symphonia::{read_track_meta, TempMeta},
