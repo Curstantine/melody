@@ -2,7 +2,7 @@ import { Show } from "solid-js";
 import { Portal } from "solid-js/web";
 
 import AppErrorDisplayCard from "@/components/AppErrorDisplay/Card";
-import { useAppModel } from "@/contexts/models";
+import { useAppModel } from "@/models/App";
 
 export default function AppErrorDisplay() {
 	const { appError: [appError, setAppError] } = useAppModel();

@@ -1,13 +1,14 @@
 import { For } from "solid-js";
 
-import { useSetupViewModel } from "@/contexts/models";
 import { validateLibraryName } from "@/utils/validators";
 
 import InputError from "@/components/Input/InputError";
 import LeadingClickableInput from "@/components/Input/LeadingClickableInput";
 import TextInput from "@/components/Input/TextInput";
 
-export default function CreateView() {
+import SetupCreateViewModel from "./create.model";
+
+export default function SetupCreateView() {
 	const {
 		mode: [mode],
 		name: [libraryName, setLibraryName],
@@ -20,7 +21,7 @@ export default function CreateView() {
 		onScanLocationFieldPress,
 		addScanLocation,
 		removeScanLocation,
-	} = useSetupViewModel();
+	} = new SetupCreateViewModel();
 
 	return (
 		<form

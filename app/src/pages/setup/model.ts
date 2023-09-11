@@ -1,87 +1,21 @@
-import { invoke } from "@tauri-apps/api";
-import { open } from "@tauri-apps/api/dialog";
-import { listen } from "@tauri-apps/api/event";
-import { homeDir } from "@tauri-apps/api/path";
-import { createEffect, createSignal } from "solid-js";
-import { createStore } from "solid-js/store";
-import { ulid } from "ulid";
+import { createContext, createSignal, useContext } from "solid-js";
 
-import { useForm } from "@/hooks/form";
-import type { LibraryGenericActionPayload } from "@/types/backend";
+import type { Props as ScanViewProps } from "@/pages/setup/views/scan";
 
 export default class SetupViewModel {
-	mode = createSignal<"create" | "recover">();
-	name = createSignal<string | null>(null);
-	continuable = createSignal<boolean>(false);
-	scanLocations = createStore<Array<{ id: string; location: string | null }>>([]);
-	form = useForm();
+	page = createSignal<"create" | "recover" | "scan">("create");
+	pageData: ScanViewProps | null = null;
 
 	constructor() {
-		this.addScanLocation();
-
-		const [, setContinuability] = this.continuable;
-		const [locations] = this.scanLocations;
-
-		createEffect(() => {
-			const noErrors = Object.values(this.form.errors).filter((x) => !!x).length === 0;
-			const noEmptyLocations = locations.filter((x) => !x.location).length === 0;
-			const result = noErrors && noEmptyLocations;
-
-			setContinuability(result);
-		});
+		this.goToScan.bind(this);
 	}
 
-	public onConfirm = async () => {
-		// const [mode] = this.mode;
-		const [name] = this.name;
-		const [locations] = this.scanLocations;
-
-		try {
-			const creationWorkflow = invoke("create_library", {
-				name: name(),
-				scanLocations: locations.map((i) => i.location),
-			});
-			const unlisten = await listen<LibraryGenericActionPayload>("library-scan", (payload) => {
-				console.log("library-scan", payload);
-			});
-
-			console.log(await creationWorkflow);
-			unlisten();
-		} catch (error) {
-			console.error(error);
-		}
-	};
-
-	public onScanLocationFieldPress = async (id: string, e?: MouseEvent) => {
-		e?.preventDefault();
-
-		const result = await open({
-			directory: true,
-			multiple: false,
-			defaultPath: await homeDir(),
-			title: "Select a location to add to scan paths.",
-		});
-
-		if (result === null || typeof result !== "string") return;
-		this.setScanLocation(id, result);
-	};
-
-	public addScanLocation = (e?: MouseEvent) => {
-		e?.preventDefault();
-
-		const [locations, setLocations] = this.scanLocations;
-		setLocations([...locations, { id: ulid(), location: null }]);
-	};
-
-	public removeScanLocation = (id: string, e?: MouseEvent) => {
-		e?.preventDefault();
-
-		const [locations, setLocations] = this.scanLocations;
-		setLocations(locations.filter((x) => x.id !== id));
-	};
-
-	public setScanLocation = (id: string, location: string) => {
-		const [, setLocation] = this.scanLocations;
-		setLocation((x) => x.id === id, "location", location);
-	};
+	public goToScan(libraryName: string, scanLocations: string[]) {
+		const [, setPage] = this.page;
+		this.pageData = { libraryName, scanLocations };
+		setPage("scan");
+	}
 }
+
+export const SetupViewContext = createContext<SetupViewModel>(undefined, { name: "SetupViewContext" });
+export const useSetupView = () => useContext(SetupViewContext)!;

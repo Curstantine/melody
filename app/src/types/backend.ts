@@ -4,3 +4,8 @@ export interface LibraryGenericActionPayload {
 	current: number;
 	path: string;
 }
+
+export interface LibraryCreateParameters {
+	name: string;
+	scanLocations: string[];
+}

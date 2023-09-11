@@ -1,16 +1,25 @@
-import { SetupViewModelContext } from "@/contexts/models";
+import { Match, Switch } from "solid-js";
 
-import SetupViewModel from "@/pages/setup/model";
-import CreateView from "@/pages/setup/views/create";
+import SetupViewModel, { SetupViewContext } from "@/pages/setup/model";
+import SetupCreateView from "@/pages/setup/views/create";
+import SetupScanView from "@/pages/setup/views/scan";
 
 export default function Setup() {
-	const viewModel = new SetupViewModel();
+	const model = new SetupViewModel();
+	const { page: [page], pageData } = model;
 
 	return (
-		<SetupViewModelContext.Provider value={viewModel}>
+		<SetupViewContext.Provider value={model}>
 			<div class="h-full flex flex-col items-center justify-center px-6">
-				<CreateView />
+				<Switch>
+					<Match when={page() === "create"}>
+						<SetupCreateView />
+					</Match>
+					<Match when={page() === "scan"}>
+						<SetupScanView {...pageData!} />
+					</Match>
+				</Switch>
 			</div>
-		</SetupViewModelContext.Provider>
+		</SetupViewContext.Provider>
 	);
 }
