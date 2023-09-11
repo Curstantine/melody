@@ -18,7 +18,14 @@ impl WindowEventType for LibraryEvent {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub struct LibraryScanEventPayload {
+pub enum LibraryActionType {
+	Reading,
+	Indexing,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct LibraryGenericActionPayload {
+	pub action_type: LibraryActionType,
 	pub total: u32,
 	pub current: u32,
 	pub path: PathBuf,

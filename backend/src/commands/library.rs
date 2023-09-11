@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use bonsaidb::core::{connection::AsyncConnection, schema::SerializedCollection};
 use futures::StreamExt;
 use tokio::{fs, task::JoinSet};
@@ -9,7 +11,7 @@ use crate::{
 	models::{
 		state::AppState,
 		tauri::{
-			library::{LibraryEvent, LibraryScanEventPayload},
+			library::{LibraryActionType, LibraryEvent, LibraryGenericActionPayload},
 			WindowEvent,
 		},
 	},
@@ -51,7 +53,7 @@ pub async fn create_library(
 		// We could iterate on the stream, but I feel like it wouldn't make a big difference for the complexity of the implementation.
 		let paths = utils::fs::walkdir(scan_location).collect::<Vec<_>>().await;
 		let path_len = paths.len();
-		let mut sync_threads = JoinSet::<Result<TempMeta>>::new();
+		let mut sync_threads = JoinSet::<Result<(PathBuf, TempMeta)>>::new();
 
 		for (i, entry) in paths.into_iter().enumerate() {
 			let entry = entry?;
@@ -65,7 +67,8 @@ pub async fn create_library(
 
 			WindowEvent::new(
 				LibraryEvent::Scan,
-				LibraryScanEventPayload {
+				LibraryGenericActionPayload {
+					action_type: LibraryActionType::Reading,
 					total: path_len as u32,
 					current: i as u32 + 1,
 					path: entry.path(),
@@ -73,12 +76,28 @@ pub async fn create_library(
 			)
 			.emit(&window)?;
 
-			let src = fs::File::open(path).await?.into_std().await;
-			sync_threads.spawn_blocking(move || read_track_meta(Box::new(src), Some(&extension)));
+			let src = fs::File::open(&path).await?.into_std().await;
+			sync_threads.spawn_blocking(move || {
+				let meta = read_track_meta(Box::new(src), Some(&extension))?;
+				Ok((path, meta))
+			});
 		}
 
+		let mut idx: u32 = 0;
 		while let Some(x) = sync_threads.join_next().await.transpose()? {
-			let _ = x?;
+			let (path, _) = x?;
+			idx += 1;
+
+			WindowEvent::new(
+				LibraryEvent::Scan,
+				LibraryGenericActionPayload {
+					action_type: LibraryActionType::Indexing,
+					total: path_len as u32,
+					current: idx,
+					path,
+				},
+			)
+			.emit(&window)?;
 		}
 	}
 

@@ -7,6 +7,7 @@ import { createStore } from "solid-js/store";
 import { ulid } from "ulid";
 
 import { useForm } from "@/hooks/form";
+import type { LibraryGenericActionPayload } from "@/types/backend";
 
 export default class SetupViewModel {
 	mode = createSignal<"create" | "recover">();
@@ -40,7 +41,7 @@ export default class SetupViewModel {
 				name: name(),
 				scanLocations: locations.map((i) => i.location),
 			});
-			const unlisten = await listen("library-scan", (payload) => {
+			const unlisten = await listen<LibraryGenericActionPayload>("library-scan", (payload) => {
 				console.log("library-scan", payload);
 			});
 
