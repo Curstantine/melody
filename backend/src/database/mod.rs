@@ -1,4 +1,4 @@
-use std::fs;
+use tokio::fs;
 
 use bonsaidb::local::{
 	config::{Builder, StorageConfiguration},
@@ -26,7 +26,7 @@ impl Database {
 			.app_data_dir()
 			.expect("App data dir was not found");
 
-		match fs::create_dir_all(&app_data_dir) {
+		match fs::create_dir_all(&app_data_dir).await {
 			Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => {
 				let mut error = Error::from(e);
 				error.set_context("Failed to create app data directory");
@@ -36,7 +36,17 @@ impl Database {
 		}
 
 		let db_conf = StorageConfiguration::new(app_data_dir.join(Self::DB_FILE_NAME));
-		let database = BonsaiDatabase::open::<LocalSchema>(db_conf).await?;
+		let database = match BonsaiDatabase::open::<LocalSchema>(db_conf).await {
+			Ok(db) => db,
+			Err(e) => match e {
+				bonsaidb::local::Error::Io(e) => {
+					let mut error = Error::from(e);
+					error.set_context("Failed to open the database file.");
+					return Err(error);
+				}
+				_ => return Err(Error::from(e)),
+			}
+		};
 
 		Ok(Self(database))
 	}
