@@ -37,9 +37,19 @@ impl Database {
 		let db_conf = StorageConfiguration::new(&db_file_path);
 		let database = match BonsaiDatabase::open::<LocalSchema>(db_conf).await {
 			Ok(db) => db,
-			Err(e) => {
-				return Err(Error::from(e).with_context("Came across an error while initializing the database"));
-			}
+			Err(e) => match e {
+				bonsaidb::local::Error::Io(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+					let context = format!(
+						"A database that doesn't match the expected constraints already exist at {:?}",
+						db_file_path
+					);
+					return Err(Error::from(e).with_context(context));
+				}
+				_ => {
+					let context = format!("Failed to open the database at {:?}", db_file_path);
+					return Err(Error::from(e).with_context(context));
+				}
+			},
 		};
 
 		Ok(Self(database))

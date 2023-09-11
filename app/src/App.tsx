@@ -21,7 +21,7 @@ export default function App() {
 
 		const setup = await invoke<void>("setup");
 		if (setup.isErr()) {
-			setAppError({ dismissible: true, error: setup.unwrapErr() });
+			setAppError({ dismissible: false, error: setup.unwrapErr() });
 		}
 
 		const themeResult = await initializeTheme();
