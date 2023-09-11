@@ -38,8 +38,9 @@ impl Error {
 		}
 	}
 
-	pub fn set_context(&mut self, context: impl Into<String>) {
+	pub fn with_context(mut self, context: impl Into<String>) -> Self {
 		self.context = Some(context.into());
+		self
 	}
 }
 
@@ -116,9 +117,14 @@ impl From<tauri::Error> for Error {
 
 impl From<bonsaidb::local::Error> for Error {
 	fn from(error: bonsaidb::local::Error) -> Self {
+		let (type_, message) = match &error {
+			bonsaidb::local::Error::Io(e) => (ErrorType::StdIo, e.to_string()),
+			_ => (ErrorType::BonsaiLocal, error.to_string()),
+		};
+
 		Self {
-			type_: ErrorType::BonsaiLocal,
-			message: error.to_string(),
+			type_,
+			message,
 			context: None,
 			source: Some(Box::new(error)),
 		}
@@ -138,12 +144,7 @@ impl From<bonsaidb::core::Error> for Error {
 
 impl<T: Debug + Send + 'static> From<bonsaidb::core::schema::InsertError<T>> for Error {
 	fn from(value: bonsaidb::core::schema::InsertError<T>) -> Self {
-		Self {
-			type_: ErrorType::BonsaiCore,
-			message: value.to_string(),
-			context: None,
-			source: Some(Box::new(value)),
-		}
+		Error::from(value.error).with_context(format!("Failed to insert:\n{:?}", value.contents))
 	}
 }
 

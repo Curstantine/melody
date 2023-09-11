@@ -28,23 +28,17 @@ impl Database {
 
 		match fs::create_dir_all(&app_data_dir).await {
 			Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => {
-				let mut error = Error::from(e);
-				error.set_context("Failed to create app data directory");
-				return Err(error);
+				return Err(Error::from(e).with_context("Failed to create the app data directory"));
 			}
 			_ => {}
 		}
 
-		let db_conf = StorageConfiguration::new(app_data_dir.join(Self::DB_FILE_NAME));
+		let db_file_path = app_data_dir.join(Self::DB_FILE_NAME);
+		let db_conf = StorageConfiguration::new(&db_file_path);
 		let database = match BonsaiDatabase::open::<LocalSchema>(db_conf).await {
 			Ok(db) => db,
-			Err(e) => match e {
-				bonsaidb::local::Error::Io(e) => {
-					let mut error = Error::from(e);
-					error.set_context("Failed to open the database file.");
-					return Err(error);
-				}
-				_ => return Err(Error::from(e)),
+			Err(e) => {
+				return Err(Error::from(e).with_context("Came across an error while initializing the database"));
 			}
 		};
 
