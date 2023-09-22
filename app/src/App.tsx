@@ -2,15 +2,15 @@ import { Route, Router, Routes } from "@solidjs/router";
 import { appWindow } from "@tauri-apps/api/window";
 import { onMount } from "solid-js";
 
+import AppModel, { AppModelContext } from "@/models/App";
+import { invoke } from "@/utils/tauri";
 import { initialize as initializeTheme } from "@/utils/themes";
 
 import AppErrorDisplay from "@/components/AppErrorDisplay";
 import TitleBar from "@/components/TitleBar";
 
-import AppModel, { AppModelContext } from "@/models/App";
 import UIRoot from "@/pages";
 import Setup from "@/pages/setup";
-import { invoke } from "@/utils/tauri";
 
 export default function App() {
 	const appModel = new AppModel();
