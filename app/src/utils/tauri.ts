@@ -4,7 +4,7 @@ import type { InvokeArgs } from "@tauri-apps/api/tauri";
 import BackendError from "@/errors/backend";
 import Result from "@/utils/result";
 
-export function invoke<T>(method: string, args?: InvokeArgs): Promise<Result<T, BackendError>> {
+export function invoke<K extends string, T>(method: K, args?: InvokeArgs): Promise<Result<T, BackendError>> {
 	return Result.runAsync(
 		async () => {
 			const response = await tauriInvoke<T>(method, args);

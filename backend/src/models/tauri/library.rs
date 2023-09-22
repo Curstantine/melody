@@ -12,7 +12,7 @@ pub enum LibraryEvent {
 impl WindowEventType for LibraryEvent {
 	fn get_event_name(&self) -> &'static str {
 		match self {
-			LibraryEvent::Scan => "library-scan",
+			LibraryEvent::Scan => "library_scan",
 		}
 	}
 }

@@ -1,6 +1,7 @@
 export type ThemeColorBorder = "border.main" | "border.secondary";
 export type ThemeColorBackground = "background.main" | "background.secondary";
 export type ThemeColorText = "text.1" | "text.2" | "text.3" | "text.error";
+export type ThemeColorLoader = "loader.background" | "loader.foreground";
 
 export type ThemeColorButtonStateVariants = "idle" | "hover" | "active";
 export type ThemeColorButtonComponent<S extends ThemeColorButtonStateVariants = ThemeColorButtonStateVariants> =
@@ -31,7 +32,8 @@ export type ThemeColorKeys =
 	| ThemeColorTitleBar
 	| ThemeColorModal
 	| ThemeColorButton
-	| ThemeColorInput;
+	| ThemeColorInput
+	| ThemeColorLoader;
 
 export type ThemeColors = Record<ThemeColorKeys, string>;
 

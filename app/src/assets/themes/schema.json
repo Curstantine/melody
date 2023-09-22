@@ -1,5 +1,5 @@
 {
-	"$schema": "http://json-schema.org/schema",
+	"$schema": "http://json-schema.org/draft-07/schema#",
 	"type": "object",
 	"required": ["name", "mode", "colors"],
 	"properties": {
@@ -44,7 +44,10 @@
 				"button.error.text.active": { "type": "string", "format": "color-hex" },
 
 				"input.border.idle": { "type": "string", "format": "color-hex" },
-				"input.border.active": { "type": "string", "format": "color-hex" }
+				"input.border.active": { "type": "string", "format": "color-hex" },
+
+				"loader.background": { "type": "string", "format": "color-hex" },
+				"loader.foreground": { "type": "string", "format": "color-hex" }
 			}
 		}
 	},

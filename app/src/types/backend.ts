@@ -1,3 +1,5 @@
+export type LibraryEvent = "library_scan";
+
 export interface LibraryGenericActionPayload {
 	action_type: "reading" | "indexing";
 	total: number;

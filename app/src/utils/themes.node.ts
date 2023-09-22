@@ -51,4 +51,7 @@ export const themeBindings: Record<ThemeColorKeys, string> = {
 
 	"input.border.idle": "--theme-input-border-idle",
 	"input.border.active": "--theme-input-border-active",
+
+	"loader.background": "--theme-loader-background",
+	"loader.foreground": "--theme-loader-foreground",
 };

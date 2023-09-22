@@ -38,6 +38,9 @@
 		"button.error.text.active": "#FFB2B8",
 
 		"input.border.idle": "#ffffff1f",
-		"input.border.active": "#ffffff3f"
+		"input.border.active": "#ffffff3f",
+
+		"loader.background": "#ffffff1f",
+		"loader.foreground": "#0078d4"
 	}
 }

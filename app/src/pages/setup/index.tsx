@@ -6,7 +6,7 @@ import SetupScanView from "@/pages/setup/views/scan";
 
 export default function Setup() {
 	const model = new SetupViewModel();
-	const { page: [page], pageData } = model;
+	const { page: [page] } = model;
 
 	return (
 		<SetupViewContext.Provider value={model}>
@@ -16,7 +16,7 @@ export default function Setup() {
 						<SetupCreateView />
 					</Match>
 					<Match when={page() === "scan"}>
-						<SetupScanView {...pageData!} />
+						<SetupScanView />
 					</Match>
 				</Switch>
 			</div>

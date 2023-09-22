@@ -1,24 +1,31 @@
-import { Show } from "solid-js";
+import { onMount, Show } from "solid-js";
 
+import CircularLoader from "@/components/Loader/Circular";
+import { useSetupView } from "@/pages/setup/model";
 import SetupScanViewModel from "@/pages/setup/views/scan.model";
 
-export type Props = {
-	libraryName: string;
-	scanLocations: string[];
-};
+export default function SetupScanView() {
+	const { pageData } = useSetupView();
 
-export default function SetupScanView(props: Props) {
-	const { payload: [payload] } = new SetupScanViewModel(props);
+	const viewModel = new SetupScanViewModel();
+	const { payload: [payload] } = viewModel;
+
+	onMount(() => {
+		if (!pageData) throw new Error("No page data");
+		viewModel.startScan(pageData.name, pageData.scanLocations);
+	});
 
 	return (
-		<Show when={payload()}>
-			{(payload) => (
-				<div class="flex flex-col items-center justify-center">
-					<span>{payload().action_type === "reading" ? "Reading" : "Indexing"}</span>
-					<span>{payload().path}</span>
-					<span>({payload().current}/{payload().total})</span>
-				</div>
-			)}
-		</Show>
+		<div class="flex flex-col items-center justify-center">
+			<Show when={payload()} fallback={<CircularLoader />}>
+				{(payload) => (
+					<>
+						<span>{payload().action_type === "reading" ? "Reading" : "Indexing"}</span>
+						<span>{payload().path}</span>
+						<span>({payload().current}/{payload().total})</span>
+					</>
+				)}
+			</Show>
+		</div>
 	);
 }

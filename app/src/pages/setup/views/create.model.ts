@@ -13,6 +13,7 @@ export default class SetupCreateViewModel {
 	continuable = createSignal<boolean>(false);
 	scanLocations = createStore<Array<{ id: string; location: string | null }>>([]);
 	form = useForm();
+	setupViewModel = useSetupView();
 
 	constructor() {
 		this.addScanLocation();
@@ -32,9 +33,7 @@ export default class SetupCreateViewModel {
 	public onConfirm = async () => {
 		const [name] = this.name;
 		const [locations] = this.scanLocations;
-		const setupViewModel = useSetupView();
-
-		setupViewModel.goToScan(name()!, locations.map((x) => x.location!));
+		this.setupViewModel.goToScan(name()!, locations.map((x) => x.location!));
 	};
 
 	public onScanLocationFieldPress = async (id: string, e?: MouseEvent) => {

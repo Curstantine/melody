@@ -1,18 +1,23 @@
 import { createContext, createSignal, useContext } from "solid-js";
 
-import type { Props as ScanViewProps } from "@/pages/setup/views/scan";
-
 export default class SetupViewModel {
 	page = createSignal<"create" | "recover" | "scan">("create");
-	pageData: ScanViewProps | null = null;
+	pageData: { name: string; scanLocations: string[] } | null = null;
 
 	constructor() {
 		this.goToScan.bind(this);
+		this.goToCreate.bind(this);
 	}
 
-	public goToScan(libraryName: string, scanLocations: string[]) {
+	public goToCreate() {
 		const [, setPage] = this.page;
-		this.pageData = { libraryName, scanLocations };
+		this.pageData = null;
+		setPage("create");
+	}
+
+	public goToScan(name: string, scanLocations: string[]) {
+		const [, setPage] = this.page;
+		this.pageData = { name, scanLocations };
 		setPage("scan");
 	}
 }
