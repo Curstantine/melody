@@ -1,5 +1,5 @@
 {
-	"$schema": "./schema.json",
+	"$schema": "../../../../resources/schemas/theme.json",
 	"name": "Default Dark",
 	"mode": "dark",
 	"colors": {

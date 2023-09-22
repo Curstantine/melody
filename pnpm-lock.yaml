@@ -38,6 +38,9 @@ importers:
       '@tauri-apps/api':
         specifier: ^1.4.0
         version: 1.4.0
+      preset-theme-unocss:
+        specifier: workspace:^
+        version: link:../packages/preset-theme-unocss
       solid-js:
         specifier: ^1.7.12
         version: 1.7.12
@@ -72,15 +75,77 @@ importers:
       typescript:
         specifier: ^5.2.2
         version: 5.2.2
-      unocss-preset-theme:
-        specifier: ^0.10.0
-        version: 0.10.0(@unocss/core@0.56.1)
       vite:
         specifier: ^4.4.9
         version: 4.4.9(@types/node@20.6.3)
       vite-plugin-solid:
         specifier: ^2.7.0
         version: 2.7.0(solid-js@1.7.12)(vite@4.4.9)
+      vitest:
+        specifier: ^0.34.5
+        version: 0.34.5(jsdom@22.1.0)
+
+  packages/config-unocss:
+    dependencies:
+      '@iconify-json/logos':
+        specifier: ^1.1.37
+        version: 1.1.37
+      '@iconify-json/material-symbols':
+        specifier: ^1.1.58
+        version: 1.1.58
+      '@iconify-json/mdi':
+        specifier: ^1.1.54
+        version: 1.1.54
+      unocss:
+        specifier: ^0.56.1
+        version: 0.56.1(postcss@8.4.30)(vite@4.4.9)
+      utils:
+        specifier: workspace:^
+        version: link:../utils
+    devDependencies:
+      '@iconify/types':
+        specifier: ^2.0.0
+        version: 2.0.0
+      '@types/node':
+        specifier: ^20.6.3
+        version: 20.6.3
+      typescript:
+        specifier: ^5.2.2
+        version: 5.2.2
+
+  packages/preset-theme-unocss:
+    dependencies:
+      '@iconify-json/logos':
+        specifier: ^1.1.37
+        version: 1.1.37
+      '@iconify-json/material-symbols':
+        specifier: ^1.1.58
+        version: 1.1.58
+      '@iconify-json/mdi':
+        specifier: ^1.1.54
+        version: 1.1.54
+      unocss:
+        specifier: ^0.56.1
+        version: 0.56.1(postcss@8.4.30)(vite@4.4.9)
+      utils:
+        specifier: workspace:^
+        version: link:../utils
+    devDependencies:
+      '@iconify/types':
+        specifier: ^2.0.0
+        version: 2.0.0
+      '@types/node':
+        specifier: ^20.6.3
+        version: 20.6.3
+      typescript:
+        specifier: ^5.2.2
+        version: 5.2.2
+
+  packages/utils:
+    devDependencies:
+      typescript:
+        specifier: ^5.2.2
+        version: 5.2.2
       vitest:
         specifier: ^0.34.5
         version: 0.34.5(jsdom@22.1.0)
@@ -662,11 +727,16 @@ packages:
     resolution: {integrity: sha512-ZnQMnLV4e7hDlUvw8H+U8ASL02SS2Gn6+9Ac3wGGLIe7+je2AeAOxPY+izIPJDfFDb7eDjev0Us8MO1iFRN8hA==}
     dev: true
 
+  /@iconify-json/logos@1.1.37:
+    resolution: {integrity: sha512-H2S8frTEznk6paX2kMzeUGn4KSiykghvO0b8UvEDd1fFFzt0WxCXpP1tBv67XaWK99e6JgA34hhv4lRGAm1hJg==}
+    dependencies:
+      '@iconify/types': 2.0.0
+    dev: false
+
   /@iconify-json/material-symbols@1.1.58:
     resolution: {integrity: sha512-SqFVzgu+ni25sSNquQZQOKgT6+VL4OkloGNOFr8NniPUBH5JsBuQAY/H1CJaXePHr8Wn3iQxezFzoKgIxj3WCQ==}
     dependencies:
       '@iconify/types': 2.0.0
-    dev: true
 
   /@iconify-json/mdi@1.1.54:
     resolution: {integrity: sha512-3QAsxte90EalbN2e8J30OqSSZz9qN2x+kmykQwsPahoW2dOtSvj+BR9YdiUd9A5XKk2nuU4UH5Gj/cq6WZ6CzQ==}
@@ -1256,6 +1326,7 @@ packages:
     engines: {node: '>=14'}
     dependencies:
       '@unocss/core': 0.56.1
+    dev: false
 
   /@unocss/scope@0.56.1:
     resolution: {integrity: sha512-qIq/JuibrVOAJw/TCUm54XwHRcDImgrb1abZVuaicFh6fjmpdOi/iglYxoFqXS5gusp0m2vNnOLbaBB4LrPf5Q==}
@@ -3490,15 +3561,6 @@ packages:
   /universalify@0.2.0:
     resolution: {integrity: sha512-CJ1QgKmNg3CwvAv/kOFmtnEN05f0D/cn9QntgNOQlQF9dgvVTHj3t+8JPdjqawCHk7V/KA+fbUqzZ9XWhcqPUg==}
     engines: {node: '>= 4.0.0'}
-    dev: true
-
-  /unocss-preset-theme@0.10.0(@unocss/core@0.56.1):
-    resolution: {integrity: sha512-Y3amyym65wQLeane4RT9i/Qu/VNlgurjiyGor75agSErJbhIXpAsRD63oXl2JsHZVX403WE3tY67BvyoUjO6cw==}
-    peerDependencies:
-      '@unocss/core': '>= 0.52.0'
-    dependencies:
-      '@unocss/core': 0.56.1
-      '@unocss/rule-utils': 0.56.1
     dev: true
 
   /unocss@0.56.1(postcss@8.4.30)(vite@4.4.9):

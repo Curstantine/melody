@@ -1,5 +1,5 @@
 import { expect, suite, test } from "vitest";
-import { createNestedPropertyValue, isObject, mergeDeep } from "./general.node";
+import { createNestedPropertyValue, isObject, mergeDeep } from "./index";
 
 suite("isObject", () => {
 	test("should return true if the item is an object", () => {
@@ -45,6 +45,14 @@ suite("mergeDeep", () => {
 			one: 1,
 			b: { c: 2, d: { e: 2 } },
 		});
+	});
+	test("should ignore all types except objects", () => {
+		const object = { a: 1, b: { c: 2, d: { e: 3 } } };
+		const object2 = [1, 2, 3];
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const result = mergeDeep(object, object2 as any);
+		expect(result).toStrictEqual(object);
 	});
 });
 

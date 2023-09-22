@@ -6,5 +6,5 @@
 		"moduleResolution": "bundler",
 		"allowSyntheticDefaultImports": true
 	},
-	"include": ["unocss.config.ts", "plugins/*.ts", "src/utils/**/*.ts", "src/types/**/*.ts"]
+	"include": ["vitest.config.ts"]
 }

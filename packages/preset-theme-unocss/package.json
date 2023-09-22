@@ -1,0 +1,18 @@
+{
+	"private": true,
+	"name": "preset-theme-unocss",
+	"version": "0.1.0",
+	"main": "./src/index.ts",
+	"dependencies": {
+		"@iconify-json/logos": "^1.1.37",
+		"@iconify-json/material-symbols": "^1.1.58",
+		"@iconify-json/mdi": "^1.1.54",
+		"unocss": "^0.56.1",
+		"utils": "workspace:^"
+	},
+	"devDependencies": {
+		"@iconify/types": "^2.0.0",
+		"@types/node": "^20.6.3",
+		"typescript": "^5.2.2"
+	}
+}
