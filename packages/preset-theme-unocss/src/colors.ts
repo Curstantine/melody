@@ -5,7 +5,6 @@ import themeSchema from "../../../resources/schemas/theme.json";
 
 export function getColorDefinitions(): Theme["colors"] {
 	const obj: Record<string, Record<string, unknown>> = {};
-
 	const properties = Object.keys(themeSchema.properties.colors.properties);
 
 	for (const key of properties) {
@@ -16,4 +15,20 @@ export function getColorDefinitions(): Theme["colors"] {
 	}
 
 	return mergeDeep({}, obj) as Theme["colors"];
+}
+
+export interface ThemeConfig {
+	name: string;
+	mode: "dark" | "light";
+	colors: Record<string, string>;
+}
+
+export function getCSSDefinitions(theme: ThemeConfig): string {
+	const declarations = Object.entries(theme.colors).map(([key, value]) => `--${key.replace(".", "-")}: ${value};`);
+
+	return `:root {
+		--theme-name: ${theme.name};
+		color-scheme: ${theme.mode};
+		${declarations.join("\n")}
+	}`;
 }

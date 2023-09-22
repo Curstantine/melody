@@ -2,7 +2,14 @@
 	"private": true,
 	"name": "preset-theme-unocss",
 	"version": "0.1.0",
-	"main": "./src/index.ts",
+	"exports": {
+		".": {
+			"import": "./src/index.ts"
+		},
+		"./colors": {
+			"import": "./src/colors.ts"
+		}
+	},
 	"dependencies": {
 		"@iconify-json/logos": "^1.1.37",
 		"@iconify-json/material-symbols": "^1.1.58",

@@ -1,8 +1,7 @@
-import type { ThemeColorKeys, ThemeData } from "@/types/themes";
+import { getCSSDefinitions, type ThemeConfig } from "preset-theme-unocss/colors";
 
 import ThemeError from "@/errors/themes";
 import Result from "@/utils/result";
-import { themeBindings } from "@/utils/themes.node";
 
 const templateTheme = "dark";
 const defaultThemeId = "dark";
@@ -30,17 +29,7 @@ export async function initialize(): Promise<Result<void, ThemeError>> {
  * @throws Error if the theme name couldn't be imported by vite's dynamic import
  */
 export async function loadTheme(themeId: string) {
-	const data = await import(`../assets/themes/${themeId}.json`) as ThemeData;
-
+	const data = await import(`../assets/themes/${themeId}.json`) as ThemeConfig;
 	const styleElement = document.head.querySelector<HTMLStyleElement>("style#theme-declarations")!;
-	const declarations = Object.entries(data.colors).map(([key, value]) =>
-		`${themeBindings[key as ThemeColorKeys]}: ${value};`
-	);
-
-	// This allows us to atomically change every declaration, so animations and transitions wouldn't break.
-	styleElement.innerHTML = `:root {
-		--theme-name: ${data.name};
-		color-scheme: ${data.mode};
-		${declarations.join("\n")}
-	}`;
+	styleElement.innerHTML = getCSSDefinitions(data);
 }
