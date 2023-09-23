@@ -24,7 +24,7 @@ export interface ThemeConfig {
 }
 
 export function getCSSDefinitions(theme: ThemeConfig): string {
-	const declarations = Object.entries(theme.colors).map(([key, value]) => `--${key.replace(".", "-")}: ${value};`);
+	const declarations = Object.entries(theme.colors).map(([key, value]) => `--${key.replaceAll(".", "-")}: ${value};`);
 
 	return `:root {
 		--theme-name: ${theme.name};
