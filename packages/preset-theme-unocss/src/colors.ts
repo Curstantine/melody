@@ -14,7 +14,7 @@ export function getColorDefinitions(): Theme["colors"] {
 		obj[key] = createNestedPropertyValue(splits, `var(--${cssVariable})`);
 	}
 
-	return mergeDeep({}, obj) as Theme["colors"];
+	return mergeDeep({}, ...Object.values(obj)) as Theme["colors"];
 }
 
 export interface ThemeConfig {

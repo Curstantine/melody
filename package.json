@@ -1,9 +1,9 @@
 {
 	"type": "module",
 	"scripts": {
-		"dev:app": "pnpm --filter app run dev",
-		"build:app": "pnpm --filter app run build",
-		"preview:app": "pnpm --filter app build"
+		"dev:app": "pnpm build:packages && pnpm --filter app run dev",
+		"build:app": "pnpm build:packages && pnpm --filter app run build",
+		"build:packages": "pnpm --filter \"./packages/*\" run build"
 	},
 	"devDependencies": {
 		"@tauri-apps/cli": "^1.4.0",

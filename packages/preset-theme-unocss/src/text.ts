@@ -10,7 +10,7 @@ export function prepareUnoFontDefinitions(): Theme["fontFamily"] {
 		text: createFontVariants("TASA Orbiter Text", "orbiter-text"),
 	};
 
-	return mergeDeep({}, orbiter) as Theme["fontFamily"];
+	return mergeDeep({}, ...Object.values(orbiter)) as Theme["fontFamily"];
 }
 
 function createFontVariants(

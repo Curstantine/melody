@@ -11,7 +11,6 @@ export default function presetTheme(): Preset<Theme> {
 		name: "preset-theme-unocss",
 		presets: [
 			presetUno({}),
-			presetTheme(),
 			presetIcons({
 				collections: iconCollection,
 			}),
