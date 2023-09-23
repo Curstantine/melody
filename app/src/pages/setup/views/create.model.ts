@@ -5,7 +5,7 @@ import { createStore } from "solid-js/store";
 import { ulid } from "ulid";
 
 import { useForm } from "@/hooks/form";
-import { useSetupView } from "@/pages/setup/model";
+import { useSetupView } from "@/pages/setup/index.model";
 
 export default class SetupCreateViewModel {
 	mode = createSignal<"create" | "recover">();

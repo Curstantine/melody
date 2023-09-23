@@ -4,7 +4,7 @@ import { createSignal } from "solid-js";
 import type { LibraryCreateParameters, LibraryEvent, LibraryGenericActionPayload } from "@/types/backend";
 import { invoke } from "@/utils/tauri";
 
-import { useSetupView } from "@/pages/setup/model";
+import { useSetupView } from "@/pages/setup/index.model";
 
 export default class SetupScanViewModel {
 	payload = createSignal<LibraryGenericActionPayload | null>(null);

@@ -1,7 +1,7 @@
 import { onMount, Show } from "solid-js";
 
 import CircularLoader from "@/components/Loader/Circular";
-import { useSetupView } from "@/pages/setup/model";
+import { useSetupView } from "@/pages/setup/index.model";
 import SetupScanViewModel from "@/pages/setup/views/scan.model";
 
 export default function SetupScanView() {

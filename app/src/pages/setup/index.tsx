@@ -1,6 +1,6 @@
 import { Match, Switch } from "solid-js";
 
-import SetupViewModel, { SetupViewContext } from "@/pages/setup/model";
+import SetupViewModel, { SetupViewContext } from "@/pages/setup/index.model";
 import SetupCreateView from "@/pages/setup/views/create";
 import SetupScanView from "@/pages/setup/views/scan";
 
