@@ -1,4 +1,4 @@
-import { For } from "solid-js";
+import { createEffect, For } from "solid-js";
 
 import { validateLibraryName } from "@/utils/validators";
 
@@ -13,7 +13,7 @@ export default function SetupCreateView() {
 		mode: [mode],
 		name: [libraryName, setLibraryName],
 		scanLocations: [scanLocations],
-		continuable: [continuable],
+		continuable: [continuable, setContinuability],
 		// @ts-expect-error submit is being used as a directive
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		form: { validate, submit, errors, setError },
@@ -22,6 +22,14 @@ export default function SetupCreateView() {
 		addScanLocation,
 		removeScanLocation,
 	} = new SetupCreateViewModel();
+
+	createEffect(() => {
+		const noErrors = Object.values(errors).filter((x) => !!x).length === 0;
+		const noEmptyLocations = scanLocations.filter((x) => !x.location).length === 0;
+		const result = noErrors && noEmptyLocations;
+
+		setContinuability(result);
+	});
 
 	return (
 		<form
@@ -69,7 +77,7 @@ export default function SetupCreateView() {
 						class="h-9 inline-flex items-center justify-center b-(2 border-secondary dotted) rounded bg-transparent text-text-2"
 					>
 						<div class="i-symbols-add-rounded mr-2 h-5 w-5" />
-						<span class="text-sm font-orbiter-deck">Add Scan Location</span>
+						<span class="text-sm font-orbiter-deck">Add scan location</span>
 					</button>
 				</div>
 			</div>

@@ -1,4 +1,5 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api";
+import { listen as tauriListen } from "@tauri-apps/api/event";
 import type { InvokeArgs } from "@tauri-apps/api/tauri";
 
 import BackendError from "@/errors/backend";
@@ -12,4 +13,8 @@ export function invoke<K extends string, T>(method: K, args?: InvokeArgs): Promi
 		},
 		(error) => BackendError.fromStupidError(error),
 	);
+}
+
+export async function listen<K extends string, T>(name: K, handler: Parameters<typeof tauriListen<T>>[1]) {
+	return await tauriListen<T>(name, handler);
 }

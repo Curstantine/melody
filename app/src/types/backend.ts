@@ -1,3 +1,4 @@
+export type LibraryCommand = "create_library";
 export type LibraryEvent = "library_scan";
 
 export interface LibraryGenericActionPayload {

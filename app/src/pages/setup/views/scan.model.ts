@@ -1,8 +1,12 @@
-import { listen } from "@tauri-apps/api/event";
 import { createSignal } from "solid-js";
 
-import type { LibraryCreateParameters, LibraryEvent, LibraryGenericActionPayload } from "@/types/backend";
-import { invoke } from "@/utils/tauri";
+import type {
+	LibraryCommand,
+	LibraryCreateParameters,
+	LibraryEvent,
+	LibraryGenericActionPayload,
+} from "@/types/backend";
+import { invoke, listen } from "@/utils/tauri";
 
 import { useSetupView } from "@/pages/setup/index.model";
 
@@ -17,12 +21,13 @@ export default class SetupScanViewModel {
 	public async startScan(name: string, scanLocations: string[]) {
 		try {
 			const [, setPayload] = this.payload;
-			const creationWorkflow = invoke<LibraryEvent, LibraryCreateParameters>("library_scan", {
+			const creationWorkflow = invoke<LibraryCommand, LibraryCreateParameters>("create_library", {
 				name,
 				scanLocations,
 			});
-			const unlisten = await listen<LibraryGenericActionPayload>("library-scan", (event) => {
+			const unlisten = await listen<LibraryEvent, LibraryGenericActionPayload>("library_scan", (event) => {
 				setPayload(event.payload);
+				console.log(event);
 			});
 
 			await creationWorkflow;
