@@ -1,11 +1,10 @@
 import { type Preset, presetIcons, presetUno } from "unocss";
 import type { Theme } from "unocss/preset-uno";
-import { mergeDeep } from "utils";
 
-import { getColorDefinitions } from "./colors";
-import { buttonShortcuts } from "./components";
-import { iconCollection } from "./icons";
-import { prepareUnoFontDefinitions } from "./text";
+import { getColorDefinitions } from "./colors.js";
+import { buttonShortcuts } from "./components.js";
+import { iconCollection } from "./icons.js";
+import { prepareUnoFontDefinitions } from "./text.js";
 
 export default function presetTheme(): Preset<Theme> {
 	return {
@@ -29,6 +28,6 @@ export default function presetTheme(): Preset<Theme> {
 				emphasized: "500ms",
 			},
 		},
-		shortcuts: mergeDeep({}, buttonShortcuts),
+		shortcuts: buttonShortcuts,
 	};
 }

@@ -2,12 +2,23 @@
 	"private": true,
 	"name": "preset-theme-unocss",
 	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"build": "unbuild"
+	},
+	"files": [
+		"dist"
+	],
+	"module": "dist/index.mjs",
+	"types": "dist/index.d.ts",
 	"exports": {
 		".": {
-			"import": "./src/index.ts"
+			"import": "./dist/index.mjs",
+			"types": "./dist/index.d.ts"
 		},
 		"./colors": {
-			"import": "./src/colors.ts"
+			"import": "./dist/colors.mjs",
+			"types": "./dist/colors.d.ts"
 		}
 	},
 	"dependencies": {
@@ -20,6 +31,7 @@
 	"devDependencies": {
 		"@iconify/types": "^2.0.0",
 		"@types/node": "^20.6.3",
-		"typescript": "^5.2.2"
+		"typescript": "^5.2.2",
+		"unbuild": "^2.0.0"
 	}
 }

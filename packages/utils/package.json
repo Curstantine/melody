@@ -1,12 +1,25 @@
 {
 	"name": "utils",
 	"version": "0.1.0",
-	"main": "./src/index.ts",
+	"type": "module",
 	"scripts": {
+		"build": "unbuild",
 		"test": "vitest"
+	},
+	"files": [
+		"dist"
+	],
+	"module": "dist/index.mjs",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.mjs",
+			"types": "./dist/index.d.ts"
+		}
 	},
 	"devDependencies": {
 		"typescript": "^5.2.2",
+		"unbuild": "^2.0.0",
 		"vitest": "^0.34.5"
 	}
 }

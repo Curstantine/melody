@@ -5,7 +5,7 @@
 	"newLineKind": "lf",
 	"excludes": ["**/node_modules", "**/*-lock.json", "**/dist/", "**/target/", "**/*.lock"],
 	"json": {
-		"associations": ["*.code-workspace"]
+		"associations": ["*.code-workspace", ".swcrc"]
 	},
 	"typescript": {
 		"quoteProps": "asNeeded"
