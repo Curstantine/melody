@@ -101,24 +101,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
-name = "app"
-version = "0.1.0"
-dependencies = [
- "bonsaidb",
- "chrono",
- "futures",
- "serde",
- "serde_json",
- "symphonia",
- "tauri",
- "tauri-build",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "ulid",
-]
-
-[[package]]
 name = "arc-bytes"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1977,6 +1959,24 @@ name = "matches"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
+
+[[package]]
+name = "melody_backend"
+version = "0.1.0"
+dependencies = [
+ "bonsaidb",
+ "chrono",
+ "futures",
+ "serde",
+ "serde_json",
+ "symphonia",
+ "tauri",
+ "tauri-build",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "ulid",
+]
 
 [[package]]
 name = "memchr"

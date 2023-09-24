@@ -1,13 +1,10 @@
 [package]
-name = "app"
+name = "melody_backend"
 version = "0.1.0"
-authors = ["you"]
-default-run = "app"
+authors = ["Curstantine <curstantine@gmail.com>"]
+default-run = "melody_backend"
 edition = "2021"
-license = ""
-repository = ""
 rust-version = "1.60"
-description = "A Tauri App"
 
 [build-dependencies]
 tauri-build = { version = "1.4.0", features = [] }

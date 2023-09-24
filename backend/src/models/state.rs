@@ -8,7 +8,6 @@ pub struct AppState {
 }
 
 impl AppState {
-	#[tracing::instrument(skip(self, app_handle))]
 	pub async fn initialize(&self, app_handle: &tauri::AppHandle) -> Result<()> {
 		let db = Database::new(app_handle).await?;
 		self.db.try_lock().unwrap().replace(db);
