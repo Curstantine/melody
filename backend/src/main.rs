@@ -1,6 +1,8 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use tracing::info;
+
 use models::state::AppState;
 
 mod commands;
@@ -11,6 +13,10 @@ mod models;
 mod utils;
 
 fn main() {
+	tracing_subscriber::fmt::init();
+
+	info!("Starting application");
+
 	tauri::Builder::default()
 		.manage(AppState::default())
 		.invoke_handler(tauri::generate_handler![

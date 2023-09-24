@@ -4,6 +4,7 @@ use bonsaidb::local::{
 	config::{Builder, StorageConfiguration},
 	AsyncDatabase as BonsaiDatabase,
 };
+use tracing::debug;
 
 use crate::errors::{Error, Result};
 
@@ -15,16 +16,19 @@ pub mod views;
 pub struct Database(pub BonsaiDatabase);
 
 impl Database {
-	const DB_FILE_NAME: &str = "main.db";
+	const DB_NAME: &str = "database";
 
 	/// Initialize the database.
 	///
 	/// This function should run in the context of tauri.
+	#[tracing::instrument(skip(app_handle))]
 	pub async fn new(app_handle: &tauri::AppHandle) -> Result<Self> {
 		let app_data_dir = app_handle
 			.path_resolver()
 			.app_data_dir()
 			.expect("App data dir was not found");
+
+		debug!("Found app data dir at {:?}", app_data_dir);
 
 		match fs::create_dir_all(&app_data_dir).await {
 			Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => {
@@ -33,7 +37,7 @@ impl Database {
 			_ => {}
 		}
 
-		let db_file_path = app_data_dir.join(Self::DB_FILE_NAME);
+		let db_file_path = app_data_dir.join(Self::DB_NAME);
 		let db_conf = StorageConfiguration::new(&db_file_path);
 		let database = match BonsaiDatabase::open::<LocalSchema>(db_conf).await {
 			Ok(db) => db,
@@ -52,6 +56,8 @@ impl Database {
 			},
 		};
 
+		debug!("Successfully opened the database at {:?}", db_file_path);
+
 		Ok(Self(database))
 	}
 
@@ -59,7 +65,7 @@ impl Database {
 	pub async fn testing() -> Result<Self> {
 		let db_dir = std::env::current_dir().unwrap().join("target/testing");
 		let db_conf = StorageConfiguration::default()
-			.path(db_dir.join(Self::DB_FILE_NAME))
+			.path(db_dir.join(Self::DB_NAME))
 			.memory_only();
 		let database = BonsaiDatabase::open::<LocalSchema>(db_conf).await?;
 
