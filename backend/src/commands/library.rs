@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use bonsaidb::core::{connection::AsyncConnection, schema::SerializedCollection};
 use futures::StreamExt;
 use tokio::{fs, task::JoinSet};
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::{
 	constants::SUPPORTED_AUDIO_EXTENSIONS,
@@ -52,7 +52,7 @@ pub async fn create_library(
 	.await?;
 
 	for scan_location in scan_locations {
-		debug!("Trying scan location: {}", scan_location);
+		debug!("Scanning {}", scan_location);
 
 		// We could iterate on the stream, but I feel like it wouldn't make a big difference for the complexity of the implementation.
 		let paths = utils::fs::walkdir(scan_location).collect::<Vec<_>>().await;
@@ -79,7 +79,7 @@ pub async fn create_library(
 				},
 			)
 			.emit(&window)?;
-			debug!("Reading {} out of {}, currently reading: {:#?}", i + 1, path_len, path);
+			debug!("Reading [{}/{}], currently reading:\n{:#?}", i + 1, path_len, path);
 
 			let src = fs::File::open(&path).await?.into_std().await;
 			sync_threads.spawn_blocking(move || {
@@ -93,7 +93,7 @@ pub async fn create_library(
 			let (path, _) = x?;
 			idx += 1;
 
-			debug!("Probed {} out of {}, currently indexing: {:#?}", idx, path_len, path);
+			debug!("Probed [{}/{}], currently indexing:\n{:#?}", idx, path_len, path);
 			WindowEvent::new(
 				LibraryEvent::Scan,
 				LibraryGenericActionPayload {
@@ -106,6 +106,8 @@ pub async fn create_library(
 			.emit(&window)?;
 		}
 	}
+
+	info!("Finished building library.");
 
 	Ok(())
 }
