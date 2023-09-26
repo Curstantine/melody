@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 
+import type BackendError from "@/errors/backend";
 import type {
 	LibraryCommand,
 	LibraryCreateParameters,
@@ -12,6 +13,8 @@ import { useSetupView } from "@/pages/setup/index.model";
 
 export default class SetupScanViewModel {
 	payload = createSignal<LibraryGenericActionPayload | null>(null);
+	error = createSignal<BackendError | null>(null);
+
 	setupViewModel = useSetupView();
 
 	constructor() {
@@ -19,21 +22,22 @@ export default class SetupScanViewModel {
 	}
 
 	public async startScan(name: string, scanLocations: string[]) {
-		try {
-			const [, setPayload] = this.payload;
-			const creationWorkflow = invoke<LibraryCommand, LibraryCreateParameters>("create_library", {
-				name,
-				scanLocations,
-			});
-			const unlisten = await listen<LibraryEvent, LibraryGenericActionPayload>("library_scan", (event) => {
-				setPayload(event.payload);
-				console.log(event);
-			});
+		const [, setPayload] = this.payload;
+		const creationWorkflow = invoke<LibraryCommand, LibraryCreateParameters>("create_library", {
+			name,
+			scanLocations,
+		});
+		const unlisten = await listen<LibraryEvent, LibraryGenericActionPayload>("library_scan", (event) => {
+			setPayload(event.payload);
+			console.log(event);
+		});
 
-			await creationWorkflow;
-			unlisten();
-		} catch (error) {
-			console.error(error);
+		const creationResult = await creationWorkflow;
+		if (creationResult.isErr()) {
+			const [, setError] = this.error;
+			setError(creationResult.unwrapErr());
 		}
+
+		unlisten();
 	}
 }
