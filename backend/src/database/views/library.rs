@@ -1,20 +1,17 @@
 use bonsaidb::core::{
-	document::{BorrowedDocument, Emit},
-	schema::{ReduceResult, SerializedCollection, View, ViewMapResult, ViewMappedValue, ViewSchema},
+	document::{CollectionDocument, Emit},
+	schema::{CollectionMapReduce, ReduceResult, View, ViewMapResult, ViewMappedValue, ViewSchema},
 };
 
 use crate::database::models::library::Library as LibraryModel;
 
-#[derive(Debug, Clone, View)]
-#[view(collection = LibraryModel, key = String, value = u32)]
+#[derive(Debug, Clone, View, ViewSchema)]
+#[view(collection = LibraryModel, key = String, value = u32, name = "by-library-name")]
 pub struct LibraryByName;
 
-impl ViewSchema for LibraryByName {
-	type View = Self;
-
-	fn map(&self, document: &BorrowedDocument<'_>) -> ViewMapResult<Self::View> {
-		let library = LibraryModel::document_contents(document)?;
-		document.header.emit_key_and_value(library.name, 1)
+impl CollectionMapReduce for LibraryByName {
+	fn map<'doc>(&self, document: CollectionDocument<LibraryModel>) -> ViewMapResult<'doc, Self::View> {
+		document.header.emit_key_and_value(document.contents.name, 1)
 	}
 
 	fn reduce(&self, mappings: &[ViewMappedValue<Self>], _rereduce: bool) -> ReduceResult<Self::View> {
@@ -28,7 +25,10 @@ mod test {
 		database::{models::library::Library as LibraryModel, views::library::LibraryByName, Database},
 		errors::Result,
 	};
-	use bonsaidb::core::{connection::AsyncConnection, schema::SerializedCollection};
+	use bonsaidb::core::{
+		connection::AsyncConnection,
+		schema::{SerializedCollection, SerializedView},
+	};
 
 	#[tokio::test]
 	async fn get_library_by_name() -> Result<()> {
@@ -47,10 +47,9 @@ mod test {
 		let doc_len = db.view::<LibraryByName>().reduce().await?;
 		assert_eq!(doc_len, 10);
 
-		let docs_with_5 = db
-			.view::<LibraryByName>()
-			.with_key("Library 5".to_string())
-			.query_with_docs()
+		let docs_with_5 = LibraryByName::entries_async(db)
+			.with_key(&"Library 5".to_string())
+			.query()
 			.await?;
 
 		assert_eq!(docs_with_5.len(), 1);

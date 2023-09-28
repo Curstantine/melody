@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use bonsaidb::core::{connection::AsyncConnection, schema::SerializedCollection};
+use bonsaidb::core::schema::{SerializedCollection, SerializedView};
 use futures::StreamExt;
 use tokio::{fs, task::JoinSet};
 use tracing::{debug, info};
@@ -34,11 +34,7 @@ pub async fn create_library(
 	let database = db_lock.as_ref().unwrap();
 	let database = &database.0;
 
-	let docs = database
-		.view::<LibraryByName>()
-		.with_key(name.clone())
-		.query_with_docs()
-		.await?;
+	let docs = LibraryByName::entries_async(database).with_key(&name).query().await?;
 	if !docs.is_empty() {
 		let message = format!("A library with the name {} already exists", name);
 		return Err(Error::descriptive(message));
