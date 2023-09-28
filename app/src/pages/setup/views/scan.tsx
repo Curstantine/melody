@@ -18,10 +18,10 @@ export default function SetupScanView() {
 
 	return (
 		<div
-			class="max-h-md max-w-lg w-full flex flex-col overflow-auto rounded"
+			class="max-h-md max-w-lg w-full flex flex-col rounded"
 			classList={{
 				"items-center": payload() === null,
-				"b-(1 border-secondary) bg-background-secondary p-4": payload() !== null,
+				"b-(1 border-secondary) bg-background-secondary p-4 overflow-y-auto": payload() !== null,
 			}}
 		>
 			<Switch fallback={<CircularLoader />}>
