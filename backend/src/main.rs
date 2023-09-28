@@ -13,7 +13,6 @@ mod models;
 mod utils;
 
 fn main() {
-	console_subscriber::init();
 	tracing_subscriber::fmt::init();
 
 	info!("Starting application");

@@ -1,0 +1,20 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "app:dev",
+			"type": "shell",
+			"isBackground": true,
+			"command": "pnpm",
+			"problemMatcher": "$vite",
+			"args": ["dev:app"]
+		},
+		{
+			"label": "app:build",
+			"type": "shell",
+			"command": "pnpm",
+			"problemMatcher": "$vite",
+			"args": ["build:app"]
+		}
+	]
+}
