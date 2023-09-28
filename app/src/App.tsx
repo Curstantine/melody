@@ -1,10 +1,7 @@
-import { Route, Router, Routes } from "@solidjs/router";
-import { appWindow } from "@tauri-apps/api/window";
+import { Route, Routes } from "@solidjs/router";
 import { onMount } from "solid-js";
 
 import AppModel, { AppModelContext } from "@/models/App";
-import { invoke } from "@/utils/tauri";
-import { initialize as initializeTheme } from "@/utils/themes";
 
 import AppErrorDisplay from "@/components/AppErrorDisplay";
 import TitleBar from "@/components/TitleBar";
@@ -15,32 +12,16 @@ import Setup from "@/pages/setup";
 export default function App() {
 	const appModel = new AppModel();
 
-	onMount(async () => {
-		const { appError: [, setAppError] } = appModel;
-
-		const setup = await invoke<void>("setup");
-		if (setup.isErr()) {
-			setAppError({ dismissible: false, error: setup.unwrapErr() });
-		}
-
-		const themeResult = await initializeTheme();
-		if (themeResult.isErr()) {
-			setAppError({ dismissible: true, error: themeResult.unwrapErr() });
-		}
-
-		appWindow.show();
-	});
+	onMount(async () => await appModel.initialize());
 
 	return (
-		<Router>
-			<AppModelContext.Provider value={appModel}>
-				<TitleBar />
-				<AppErrorDisplay />
-				<Routes>
-					<Route path="/" component={UIRoot} />
-					<Route path="/setup" component={Setup} />
-				</Routes>
-			</AppModelContext.Provider>
-		</Router>
+		<AppModelContext.Provider value={appModel}>
+			<TitleBar />
+			<AppErrorDisplay />
+			<Routes>
+				<Route path="/" component={UIRoot} />
+				<Route path="/setup" component={Setup} />
+			</Routes>
+		</AppModelContext.Provider>
 	);
 }

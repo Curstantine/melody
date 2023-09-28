@@ -1,4 +1,6 @@
-export type LibraryCommand = "create_library";
+export type GeneralCommand = "setup";
+
+export type LibraryCommand = "create_library" | "get_library_names";
 export type LibraryEvent = "library_scan";
 
 export interface LibraryGenericActionPayload {

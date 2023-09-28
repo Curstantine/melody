@@ -23,6 +23,19 @@ use crate::{
 };
 
 #[tauri::command]
+#[tracing::instrument(skip(app_state))]
+pub async fn get_library_names(app_state: tauri::State<'_, AppState>) -> Result<Vec<String>> {
+	let db_lock = app_state.db.lock().await;
+	let database = db_lock.as_ref().unwrap();
+	let database = &database.0;
+
+	let libraries = LibraryByName::entries_async(database).query_with_docs().await?;
+	let names = libraries.into_iter().map(|x| x.key.clone()).collect::<Vec<_>>();
+
+	Ok(names)
+}
+
+#[tauri::command]
 #[tracing::instrument(skip(window, app_state))]
 pub async fn create_library(
 	name: String,
