@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use bonsaidb::core::schema::{SerializedCollection, SerializedView};
-use futures::StreamExt;
+use futures::TryStreamExt;
 use tokio::{fs, task::JoinSet};
 use tracing::{debug, info};
 
@@ -51,17 +51,23 @@ pub async fn create_library(
 		debug!("Scanning {}", scan_location);
 
 		// We could iterate on the stream, but I feel like it wouldn't make a big difference for the complexity of the implementation.
-		let paths = utils::fs::walkdir(scan_location).collect::<Vec<_>>().await;
+		let paths = utils::fs::walkdir(scan_location)
+			.try_filter(|p| {
+				let path = p.path();
+				let is_readable = matches!(path.extension(), Some(extension) if SUPPORTED_AUDIO_EXTENSIONS.contains(&extension.to_str().unwrap()));
+
+				std::future::ready(is_readable)
+			})
+			.try_collect::<Vec<_>>()
+			.await?;
+
 		let path_len = paths.len();
 		let mut sync_threads = JoinSet::<Result<(PathBuf, TempMeta)>>::new();
 
 		for (i, entry) in paths.into_iter().enumerate() {
-			let entry = entry?;
 			let path = entry.path();
 			let extension = match path.extension() {
-				Some(extension) if SUPPORTED_AUDIO_EXTENSIONS.contains(&extension.to_str().unwrap()) => {
-					extension.to_str().unwrap().to_string()
-				}
+				Some(extension) => extension.to_str().unwrap().to_string(),
 				_ => continue,
 			};
 
