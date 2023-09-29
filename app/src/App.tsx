@@ -7,7 +7,8 @@ import AppErrorDisplay from "@/components/AppErrorDisplay";
 import TitleBar from "@/components/TitleBar";
 
 import UIRoot from "@/pages";
-import Setup from "@/pages/setup";
+import Home from "@/pages/home";
+import Setup, { SetupCreate, SetupScan } from "@/pages/setup";
 
 export default function App() {
 	const appModel = new AppModel();
@@ -19,8 +20,13 @@ export default function App() {
 			<TitleBar />
 			<AppErrorDisplay />
 			<Routes>
-				<Route path="/" component={UIRoot} />
-				<Route path="/setup" component={Setup} />
+				<Route path="/" component={UIRoot}>
+					<Route path="/home" component={Home} />
+				</Route>
+				<Route path="/setup" component={Setup}>
+					<Route path="/create" component={SetupCreate} />
+					<Route path="/scan" component={SetupScan} />
+				</Route>
 			</Routes>
 		</AppModelContext.Provider>
 	);

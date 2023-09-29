@@ -2,18 +2,35 @@ import { Match, onMount, Switch } from "solid-js";
 
 import CircularLoader from "@/components/Loader/Circular";
 
-import { useSetupView } from "@/pages/setup/index.model";
-import SetupScanViewModel from "@/pages/setup/views/scan.model";
+import DataError from "@/errors/data";
+import { useAppModel } from "@/models/App";
+import SetupScanViewModel from "@/pages/setup/models/scan.model";
+import { useLocation } from "@solidjs/router";
+
+export type LocationState = {
+	name: string;
+	scanLocations: string[];
+};
 
 export default function SetupScanView() {
-	const { pageData } = useSetupView();
-
 	const viewModel = new SetupScanViewModel();
 	const { payload: [payload], error: [error] } = viewModel;
 
+	const appModel = useAppModel();
+	const location = useLocation<LocationState>();
+
 	onMount(() => {
-		if (!pageData) throw new Error("No page data");
-		setTimeout(() => viewModel.startScan(pageData.name, pageData.scanLocations), 1000);
+		const name = location.state?.name;
+		const scanLocations = location.state?.scanLocations;
+
+		if (!name || !scanLocations) {
+			return appModel.setAppError(
+				DataError.missingLocationState("/setup/scan", { name, scanLocations }),
+				false,
+			);
+		}
+
+		setTimeout(() => viewModel.startScan(name, scanLocations!), 1000);
 	});
 
 	return (

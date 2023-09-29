@@ -33,12 +33,18 @@ export default class AppModel {
 		const namesResult = await invoke<string[]>("get_library_names");
 		if (namesResult.isOk()) {
 			const names = namesResult.unwrap();
-			if (names.length === 0) this.navigate("/setup");
+			if (names.length === 0) this.navigate("/setup/create");
+			else this.navigate("/home");
 		} else {
 			setAppError({ dismissible: true, error: namesResult.unwrapErr() });
 		}
 
 		appWindow.show();
+	}
+
+	public setAppError(error: AppError["error"], dismissible = true) {
+		const [, setAppError] = this.appError;
+		setAppError({ dismissible, error });
 	}
 }
 

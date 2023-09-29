@@ -6,7 +6,7 @@ import InputError from "@/components/Input/InputError";
 import LeadingClickableInput from "@/components/Input/LeadingClickableInput";
 import TextInput from "@/components/Input/TextInput";
 
-import SetupCreateViewModel from "./create.model";
+import SetupCreateViewModel from "./models/create.model";
 
 export default function SetupCreateView() {
 	const {

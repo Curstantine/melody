@@ -5,20 +5,17 @@ import { createStore } from "solid-js/store";
 import { ulid } from "ulid";
 
 import { useForm } from "@/hooks/form";
-import { useAppModel } from "@/models/App";
-import { useSetupView } from "@/pages/setup/index.model";
+import { useNavigate } from "@solidjs/router";
 
 export default class SetupCreateViewModel {
-	form = useForm();
-	appModel = useAppModel();
-	setupViewModel = useSetupView();
+	private navigate = useNavigate();
+	private homeDirectory: string | null = null;
 
+	form = useForm();
 	mode = createSignal<"create" | "recover">();
 	name = createSignal<string | null>(null);
 	continuable = createSignal<boolean>(false);
 	scanLocations = createStore<Array<{ id: string; location: string | null }>>([]);
-
-	homeDirectory: string | null = null;
 
 	constructor() {
 		this.onConfirm = this.onConfirm.bind(this);
@@ -38,7 +35,10 @@ export default class SetupCreateViewModel {
 	public async onConfirm() {
 		const [name] = this.name;
 		const [locations] = this.scanLocations;
-		this.setupViewModel.goToScan(name()!, locations.map((x) => x.location!));
+		this.navigate(`/setup/scan`, {
+			replace: true,
+			state: { name: name(), locations: locations.map((x) => x.location!) },
+		});
 	}
 
 	public async onScanLocationFieldPress(id: string, e?: MouseEvent) {

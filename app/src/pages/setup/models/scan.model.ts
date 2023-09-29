@@ -1,16 +1,15 @@
+import { useNavigate } from "@solidjs/router";
 import { createSignal } from "solid-js";
 
 import type BackendError from "@/errors/backend";
 import type { LibraryCreateParameters, LibraryGenericActionPayload } from "@/types/backend";
 import { invoke, listen } from "@/utils/tauri";
 
-import { useSetupView } from "@/pages/setup/index.model";
-
 export default class SetupScanViewModel {
+	private navigate = useNavigate();
+
 	payload = createSignal<LibraryGenericActionPayload | null>(null);
 	error = createSignal<BackendError | null>(null);
-
-	setupViewModel = useSetupView();
 
 	constructor() {
 		this.startScan = this.startScan.bind(this);
@@ -35,5 +34,6 @@ export default class SetupScanViewModel {
 		}
 
 		unlisten();
+		this.navigate("/home", { replace: true, state: { name } });
 	}
 }
