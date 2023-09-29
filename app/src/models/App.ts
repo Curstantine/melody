@@ -1,13 +1,12 @@
+import { useNavigate } from "@solidjs/router";
 import { appWindow } from "@tauri-apps/api/window";
 import { createContext, createSignal, useContext } from "solid-js";
 
-import { type GeneralCommand, LibraryCommand } from "@/types/backend";
 import type { AppError } from "@/types/errors";
 import { invoke } from "@/utils/tauri";
 import { initialize as initializeTheme } from "@/utils/themes";
 
 import LibraryManager from "@/models/LibraryManager";
-import { useNavigate } from "@solidjs/router";
 
 export default class AppModel {
 	appError = createSignal<AppError | null>(null);
@@ -21,7 +20,7 @@ export default class AppModel {
 	public async initialize() {
 		const [, setAppError] = this.appError;
 
-		const setup = await invoke<GeneralCommand, void>("setup");
+		const setup = await invoke<void>("setup");
 		if (setup.isErr()) {
 			setAppError({ dismissible: false, error: setup.unwrapErr() });
 		}
@@ -31,7 +30,7 @@ export default class AppModel {
 			setAppError({ dismissible: true, error: themeResult.unwrapErr() });
 		}
 
-		const namesResult = await invoke<LibraryCommand, string[]>("get_library_names");
+		const namesResult = await invoke<string[]>("get_library_names");
 		if (namesResult.isOk()) {
 			const names = namesResult.unwrap();
 			if (names.length === 0) this.navigate("/setup");

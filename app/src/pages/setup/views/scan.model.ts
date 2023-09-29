@@ -1,12 +1,7 @@
 import { createSignal } from "solid-js";
 
 import type BackendError from "@/errors/backend";
-import type {
-	LibraryCommand,
-	LibraryCreateParameters,
-	LibraryEvent,
-	LibraryGenericActionPayload,
-} from "@/types/backend";
+import type { LibraryCreateParameters, LibraryGenericActionPayload } from "@/types/backend";
 import { invoke, listen } from "@/utils/tauri";
 
 import { useSetupView } from "@/pages/setup/index.model";
@@ -23,16 +18,17 @@ export default class SetupScanViewModel {
 
 	public async startScan(name: string, scanLocations: string[]) {
 		const [, setPayload] = this.payload;
-		const creationWorkflow = invoke<LibraryCommand, LibraryCreateParameters>("create_library", {
+
+		const unlisten = await listen<LibraryGenericActionPayload>(
+			"library_scan",
+			(event) => setPayload(event.payload),
+		);
+
+		const creationResult = await invoke<LibraryCreateParameters>("create_library", {
 			name,
 			scanLocations,
 		});
-		const unlisten = await listen<LibraryEvent, LibraryGenericActionPayload>("library_scan", (event) => {
-			setPayload(event.payload);
-			console.log(event);
-		});
 
-		const creationResult = await creationWorkflow;
 		if (creationResult.isErr()) {
 			const [, setError] = this.error;
 			setError(creationResult.unwrapErr());
