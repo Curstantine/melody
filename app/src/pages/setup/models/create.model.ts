@@ -35,9 +35,13 @@ export default class SetupCreateViewModel {
 	public async onConfirm() {
 		const [name] = this.name;
 		const [locations] = this.scanLocations;
+
 		this.navigate(`/setup/scan`, {
 			replace: true,
-			state: { name: name(), locations: locations.map((x) => x.location!) },
+			state: {
+				name: name(),
+				scanLocations: locations.map((x) => x.location).filter((x) => x !== null) as string[],
+			},
 		});
 	}
 

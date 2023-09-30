@@ -24,10 +24,8 @@ export default function SetupScanView() {
 		const scanLocations = location.state?.scanLocations;
 
 		if (!name || !scanLocations) {
-			return appModel.setAppError(
-				DataError.missingLocationState("/setup/scan", { name, scanLocations }),
-				false,
-			);
+			const error = DataError.missingLocationState("/setup/scan", { name, scanLocations });
+			return appModel.setAppError(error, false);
 		}
 
 		setTimeout(() => viewModel.startScan(name, scanLocations!), 1000);
