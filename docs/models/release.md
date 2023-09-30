@@ -10,32 +10,33 @@ Refers to a release done by an artist. A release can be an album, a single, an E
     - [ReleaseTypeSecondary](#releasetypesecondary)
     - [CountryCode](#countrycode)
     - [ScriptCode](#scriptcode)
-    - [ReleaseArtist](#releaseartist)
   - [Pitfalls](#pitfalls)
   - [Examples](#examples)
-    - [`artists` with `ReleaseArtist`](#artists-with-releaseartist)
+    - [`artists` with `InlinedArtist`](#artists-with-inlinedartist)
 
 ## Properties
 
 | Name           | Type                                              | Description                          | Required |
 | -------------- | ------------------------------------------------- | ------------------------------------ | -------- |
-| id             | `string`                                          | The ULID of the release.             | Yes      |
-| title          | `string`                                          | The title of the release.            | Yes      |
-| title_sort     | `string`                                          | The sorting title of the release.    | No       |
-| type           | [`ReleaseType`](#releasetype)                     | The primary type of the release.     | Yes      |
-| type_secondary | [`ReleaseTypeSecondary[]`](#releasetypesecondary) | The secondary types of the release.  | No       |
-| artist         | `string`                                          | The display name of the artists.     | No       |
-| artist_id      | `string`                                          | The ULID of an artist.               | No       |
-| artist_sort    | `string`                                          | The sorting name of the artist.      | No       |
-| artists        | [`ReleaseArtist[]`](#releaseartist)               | The preferred way to include artists | No       |
-| year           | `u32`                                             | The year of the release.             | No       |
-| date           | `ISODate`                                         | The date of the release.             | No       |
-| country        | [`CountryCode`](#countrycode)                     | The country of the release.          | No       |
-| script         | `string`                                          | The script of the release.           | No       |
-| label_ids      | `string[]`                                        | The ULIDs of the labels.             | No       |
-| genre_ids      | `string[]`                                        | The ULIDs of the genres.             | No       |
-| tag_ids        | `string[]`                                        | The ULIDs of the tags.               | No       |
-| mbz_id         | `string`                                          | The MusicBrainz ID of the release.   | No       |
+| id             | `string`                                          | The ULID of the release.             | true     |
+| title          | `string`                                          | The title of the release.            | true     |
+| title_sort     | `string`                                          | The sorting title of the release.    | false    |
+| type           | [`ReleaseType`](#releasetype)                     | The primary type of the release.     | true     |
+| type_secondary | [`ReleaseTypeSecondary[]`](#releasetypesecondary) | The secondary types of the release.  | false    |
+| artist         | `string`                                          | The display name of the artists.     | false    |
+| artist_id      | `string`                                          | The ULID of an artist.               | false    |
+| artist_sort    | `string`                                          | The sorting name of the artist.      | false    |
+| artists        | [`InlinedArtist[]`](./generic.md#inlinedartist)   | The preferred way to include artists | false    |
+| year           | `u32`                                             | The year of the release.             | false    |
+| date           | `ISODate`                                         | The date of the release.             | false    |
+| country        | [`CountryCode`](#countrycode)                     | The country of the release.          | false    |
+| script         | `string`                                          | The script of the release.           | false    |
+| label_ids      | `string[]`                                        | The ULIDs of the labels.             | false    |
+| genre_ids      | `string[]`                                        | The ULIDs of the genres.             | false    |
+| tag_ids        | `string[]`                                        | The ULIDs of the tags.               | false    |
+| total_tracks   | `u32`                                             | The total number of tracks.          | false    |
+| total_discs    | `u32`                                             | The total number of discs.           | false    |
+| mbz_id         | `string`                                          | The MusicBrainz ID of the release.   | false    |
 
 ### Notes
 
@@ -79,16 +80,6 @@ Defines the script of a release.
 - `latn`
 - `jpan`
 
-### ReleaseArtist
-
-Convenience type for storing a release artist.
-
-| Name | Type     | Description                                  | Required |
-| ---- | -------- | -------------------------------------------- | -------- |
-| id   | `string` | The ULID of the artist.                      | Yes      |
-| name | `string` | The display name of the artist.              | Yes      |
-| join | `string` | The join phrase to connect multiple artists. | No       |
-
 ## Pitfalls
 
 1. A release can have multiple artists, but usually only one `ARTIST` tag is present in the metadata of a release. This makes splitting release artists difficult, as the joins between the artists are not always consistent. To handle cases like these, the `artist` and `artists` fields can be used.
@@ -98,12 +89,12 @@ Convenience type for storing a release artist.
       - e.g. `milet×Aimer×幾田りら`, `Oh Shu & BIOMAN`, `tokiwa feat. 星宮とと` or `Teddyloid`.
    2. `artists`
       - Preferred way of storing release artists.
-      - Contains the ULID, display name and a join phrase to connect mulitple artists.
-      - e.g. `milet×Aimer×幾田りら` -> [Example](#artists-with-releaseartist)
+      - Contains the ULID, display name and a join phrase to connect multiple artists.
+      - e.g. `milet×Aimer×幾田りら` -> [Example](#artists-with-inlinedartist)
 
 ## Examples
 
-### `artists` with [`ReleaseArtist`](#releaseartist)
+### `artists` with [`InlinedArtist`](./generic.md#inlinedartist)
 
 ```js
 [{ name: "millet", id: "", join: "×" }, { name: "Aimer", id: "", join: "×" }, { name: "幾田りら", id: "", join: "" }];

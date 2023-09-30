@@ -55,8 +55,9 @@ These settings must be editable by the user using both the application and by op
 Different model types used to store data in the [`primary`](#primary-bonsaidb) database.
 
 - [Library](./models/library.md)
-- [Release](./models/release.md)
 - [Person](./models/person.md)
+- [Release](./models/release.md)
+- [Track](./models/track.md)
 
 ## Recovering
 

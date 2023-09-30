@@ -6,5 +6,5 @@ Refers to a library. A library has relationships to all sort of other models lik
 
 | Name           | Type       | Description                           | Required |
 | -------------- | ---------- | ------------------------------------- | -------- |
-| name           | `string`   | The name of the person.               | Yes      |
-| scan_locations | `string[]` | Absolute paths to the places to scan. | Yes      |
+| name           | `string`   | The name of the person.               | true     |
+| scan_locations | `string[]` | Absolute paths to the places to scan. | true     |

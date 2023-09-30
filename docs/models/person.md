@@ -6,11 +6,11 @@ Refers to a person. Be it an artist, composer or a producer.
 
 | Name      | Type                        | Description                       | Required |
 | --------- | --------------------------- | --------------------------------- | -------- |
-| id        | `string`                    | The ULID of the person.           | Yes      |
-| name      | `string`                    | The name of the person.           | Yes      |
-| name_sort | `string`                    | The sorting name of the person.   | No       |
-| type      | [`PersonType`](#persontype) | The type of the person.           | Yes      |
-| mbz_id    | `string`                    | The MusicBrainz ID of the person. | No       |
+| id        | `string`                    | The ULID of the person.           | true     |
+| name      | `string`                    | The name of the person.           | true     |
+| name_sort | `string`                    | The sorting name of the person.   | false    |
+| type      | [`PersonType`](#persontype) | The type of the person.           | true     |
+| mbz_id    | `string`                    | The MusicBrainz ID of the person. | false    |
 
 ## Shared Types
 
