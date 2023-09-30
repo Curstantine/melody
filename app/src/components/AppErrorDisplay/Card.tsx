@@ -1,4 +1,4 @@
-import { type Component, type JSX, Match, Show, Switch } from "solid-js";
+import { type Component, For, type JSX, Match, Show, Switch } from "solid-js";
 
 import type { AppError } from "@/types/errors";
 
@@ -36,15 +36,12 @@ const ContextContainer: Component<{ context: string | string[] }> = (props) => {
 		<span class={styles.context}>
 			<Switch fallback={<>{props.context}</>}>
 				<Match when={Array.isArray(props.context)}>
-					{Object.entries(props.context).map(([key, value]) => (
-						<div class="flex flex-row">
-							<span class="text-text-2">{key}:</span>
-							<span class="ml-2 text-text-2">{value}</span>
-						</div>
-					))}
+					<For each={props.context as string[]}>
+						{(context) => <p>{context}</p>}
+					</For>
 				</Match>
 				<Match when={typeof props.context === "string"}>
-					<span class="text-text-2">{props.context}</span>
+					{props.context}
 				</Match>
 			</Switch>
 		</span>
