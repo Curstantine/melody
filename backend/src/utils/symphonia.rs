@@ -202,9 +202,6 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 			None => match tag.key.as_str() {
 				"ARTISTS" => {
 					if let Some(val) = get_val_string(&tag.value) {
-						used_artists_field = true;
-
-						let x = temp_meta.artists.get_or_insert_with(Vec::new);
 						let y = Person {
 							name: val,
 							type_: PersonType::Artist,
@@ -212,7 +209,15 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 							mbz_id: None,
 						};
 
-						x.push(y);
+						// It's fine to overwrite the artists array, since the ARTISTS field *should* contain
+						// all artists associated with the track.
+						if !used_artists_field {
+							used_artists_field = true;
+							temp_meta.artists.replace(vec![y]);
+						} else {
+							let x = temp_meta.artists.get_or_insert_with(Vec::new);
+							x.push(y);
+						}
 					}
 				}
 
@@ -232,6 +237,8 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 			},
 		}
 	}
+
+	// println!("{:#?}", temp_meta);
 
 	Ok(temp_meta)
 }
