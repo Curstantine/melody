@@ -54,8 +54,8 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 	for tag in tags {
 		// println!("{:?} ({}): {:#?}", tag.std_key, tag.key, tag.value);
 
-		match tag.std_key {
-			Some(key) => match key {
+		if let Some(key) = tag.std_key {
+			match key {
 				StandardTagKey::TrackTitle => {
 					if let Some(val) = get_val_string(&tag.value) {
 						let x = temp_meta.get_or_default_track();
@@ -226,31 +226,32 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 				}
 
 				_ => {}
-			},
-			#[allow(clippy::single_match)]
-			None => match tag.key.as_str() {
-				"ARTISTS" => {
-					if let Some(val) = get_val_string(&tag.value) {
-						let y = Person {
-							name: val,
-							type_: PersonType::Artist,
-							name_sort: None,
-							mbz_id: None,
-						};
+			}
+		}
 
-						// It's fine to overwrite the artists array, since the ARTISTS field *should* contain
-						// all artists associated with the track.
-						if !used_artists_field {
-							used_artists_field = true;
-							temp_meta.artists.replace(vec![y]);
-						} else {
-							let x = temp_meta.artists.get_or_insert_with(Vec::new);
-							x.push(y);
-						}
+		#[allow(clippy::single_match)]
+		match tag.key.as_str() {
+			"ARTISTS" => {
+				if let Some(val) = get_val_string(&tag.value) {
+					let y = Person {
+						name: val,
+						type_: PersonType::Artist,
+						name_sort: None,
+						mbz_id: None,
+					};
+
+					// It's fine to overwrite the artists array, since the ARTISTS field *should* contain
+					// all artists associated with the track.
+					if !used_artists_field {
+						used_artists_field = true;
+						temp_meta.artists.replace(vec![y]);
+					} else {
+						let x = temp_meta.artists.get_or_insert_with(Vec::new);
+						x.push(y);
 					}
 				}
-				_ => {}
-			},
+			}
+			_ => {}
 		}
 	}
 
