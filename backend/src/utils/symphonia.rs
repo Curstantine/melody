@@ -12,6 +12,7 @@ use crate::{
 	database::models::{
 		person::{Person, PersonType},
 		release::ReleaseType,
+		CountryCode, FromTag, ScriptCode,
 	},
 	errors::{Error, Result},
 	models::temp::TempTrackMeta,
@@ -132,10 +133,25 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 						x.artist_sort = Some(val);
 					}
 				}
+
 				StandardTagKey::MusicBrainzReleaseType => {
 					if let Some(val) = get_val_string(&tag.value) {
 						let x = temp_meta.default_release();
-						x.type_ = ReleaseType::try_from(val.as_str())?;
+						x.type_ = ReleaseType::from_tag(val.as_str())?;
+					}
+				}
+				StandardTagKey::Script => {
+					if let Some(val) = get_val_string(&tag.value) {
+						let x = temp_meta.default_release();
+						let y = ScriptCode::from_tag(val.as_str()).unwrap();
+						x.script = Some(y);
+					}
+				}
+				StandardTagKey::ReleaseCountry => {
+					if let Some(val) = get_val_string(&tag.value) {
+						let x = temp_meta.default_release();
+						let y = CountryCode::from_tag(val.as_str()).unwrap();
+						x.country = Some(y);
 					}
 				}
 
@@ -168,6 +184,18 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 					if let Some(val) = get_val_naive_date(&tag.value)? {
 						let x = temp_meta.default_track();
 						x.original_date = Some(val);
+					}
+				}
+				StandardTagKey::Date if tag.key == "DATE" => {
+					if let Some(val) = get_val_naive_date(&tag.value)? {
+						let x = temp_meta.default_release();
+						x.date = Some(val);
+					}
+				}
+				StandardTagKey::Date if tag.key == "YEAR" => {
+					if let Some(val) = get_val_str_or_u32(&tag.value)? {
+						let x = temp_meta.default_release();
+						x.year = Some(val);
 					}
 				}
 
@@ -220,25 +248,12 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 						}
 					}
 				}
-
-				"DATE" => {
-					if let Some(val) = get_val_naive_date(&tag.value)? {
-						let x = temp_meta.default_release();
-						x.date = Some(val);
-					}
-				}
-				"YEAR" => {
-					if let Some(val) = get_val_str_or_u32(&tag.value)? {
-						let x = temp_meta.default_release();
-						x.year = Some(val);
-					}
-				}
 				_ => {}
 			},
 		}
 	}
 
-	// println!("{:#?}", temp_meta);
+	println!("{:#?}", temp_meta);
 
 	Ok(temp_meta)
 }

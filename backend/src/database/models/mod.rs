@@ -21,15 +21,42 @@ pub struct LocalSchema;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CountryCode {
-	XW,
+	Worldwide,
 	Other(String),
+}
+
+impl FromTag for CountryCode {
+	type Error = std::convert::Infallible;
+
+	fn from_tag(s: &str) -> Result<Self, Self::Error> {
+		let value = match s {
+			"XW" => Self::Worldwide,
+			_ => Self::Other(s.to_owned()),
+		};
+
+		Ok(value)
+	}
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ScriptCode {
-	Latn,
-	Jpan,
+	Latin,
+	Japanese,
 	Other(String),
+}
+
+impl FromTag for ScriptCode {
+	type Error = std::convert::Infallible;
+
+	fn from_tag(s: &str) -> Result<Self, Self::Error> {
+		let value = match s {
+			"Latn" => Self::Latin,
+			"Jpan" => Self::Japanese,
+			_ => Self::Other(s.to_owned()),
+		};
+
+		Ok(value)
+	}
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -37,4 +64,9 @@ pub struct InlinedArtist {
 	pub id: String,
 	pub name: String,
 	pub join: Option<String>,
+}
+
+pub trait FromTag: Sized {
+	type Error;
+	fn from_tag(value: &str) -> Result<Self, Self::Error>;
 }

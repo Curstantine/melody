@@ -2,7 +2,7 @@ use bonsaidb::core::schema::Collection;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-use super::{CountryCode, InlinedArtist, ScriptCode};
+use super::{CountryCode, FromTag, InlinedArtist, ScriptCode};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -13,17 +13,19 @@ pub enum ReleaseType {
 	Single,
 }
 
-impl TryFrom<&str> for ReleaseType {
+impl FromTag for ReleaseType {
 	type Error = crate::errors::Error;
 
-	fn try_from(value: &str) -> Result<Self, Self::Error> {
-		match value {
-			"album" => Ok(Self::Album),
-			"compilation" => Ok(Self::Compilation),
-			"ep" => Ok(Self::Ep),
-			"single" => Ok(Self::Single),
-			_ => Err(Self::Error::conversion(format!("Invalid release type: {}", value))),
-		}
+	fn from_tag(value: &str) -> Result<Self, Self::Error> {
+		let value = match value {
+			"Album" => Self::Album,
+			"Compilation" => Self::Compilation,
+			"EP" => Self::Ep,
+			"Single" => Self::Single,
+			_ => return Err(Self::Error::conversion(format!("Unknown release type: {}", value))),
+		};
+
+		Ok(value)
 	}
 }
 
