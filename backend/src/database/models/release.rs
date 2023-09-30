@@ -2,18 +2,7 @@ use bonsaidb::core::schema::Collection;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum CountryCode {
-	XW,
-	Other(String),
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum ScriptCode {
-	Latn,
-	Jpan,
-	Other(String),
-}
+use super::{CountryCode, InlinedArtist, ScriptCode};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -24,14 +13,16 @@ pub enum ReleaseType {
 	Single,
 }
 
-impl ReleaseType {
-	pub fn from_str(s: &str) -> Option<Self> {
-		match s.to_lowercase().as_str() {
-			"album" => Some(Self::Album),
-			"compilation" => Some(Self::Compilation),
-			"ep" => Some(Self::Ep),
-			"single" => Some(Self::Single),
-			_ => None,
+impl TryFrom<&str> for ReleaseType {
+	type Error = crate::errors::Error;
+
+	fn try_from(value: &str) -> Result<Self, Self::Error> {
+		match value {
+			"album" => Ok(Self::Album),
+			"compilation" => Ok(Self::Compilation),
+			"ep" => Ok(Self::Ep),
+			"single" => Ok(Self::Single),
+			_ => Err(Self::Error::conversion(format!("Invalid release type: {}", value))),
 		}
 	}
 }
@@ -44,13 +35,6 @@ pub enum ReleaseTypeSecondary {
 	Live,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ReleaseArtist {
-	pub id: String,
-	pub name: String,
-	pub join: Option<String>,
-}
-
 #[derive(Debug, Serialize, Deserialize, Collection)]
 #[collection(name = "releases")]
 pub struct Release {
@@ -60,13 +44,14 @@ pub struct Release {
 	pub year: Option<u32>,
 	pub date: Option<NaiveDate>,
 	pub country: Option<CountryCode>,
+	pub script: Option<ScriptCode>,
 	pub total_tracks: Option<u32>,
 	pub catalog_number: Option<String>,
 
 	pub artist: Option<String>,
 	pub artist_id: Option<String>,
 	pub artist_sort: Option<String>,
-	pub artists: Option<Vec<ReleaseArtist>>,
+	pub artists: Option<Vec<InlinedArtist>>,
 
 	pub label_ids: Option<Vec<String>>,
 	pub genre_ids: Option<Vec<String>>,

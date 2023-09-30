@@ -1,4 +1,5 @@
 use bonsaidb::core::schema::Schema;
+use serde::{Deserialize, Serialize};
 
 pub mod label;
 pub mod library;
@@ -17,3 +18,23 @@ pub mod track;
     track::Track,
 ])]
 pub struct LocalSchema;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum CountryCode {
+	XW,
+	Other(String),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ScriptCode {
+	Latn,
+	Jpan,
+	Other(String),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InlinedArtist {
+	pub id: String,
+	pub name: String,
+	pub join: Option<String>,
+}

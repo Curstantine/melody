@@ -15,11 +15,9 @@ use crate::{
 			library::{LibraryActionType, LibraryEvent, LibraryGenericActionPayload},
 			WindowEvent,
 		},
+		temp::TempTrackMeta,
 	},
-	utils::{
-		self,
-		symphonia::{read_track_meta, TempMeta},
-	},
+	utils::{self, symphonia::read_track_meta},
 };
 
 #[tauri::command]
@@ -77,7 +75,7 @@ pub async fn create_library(
 			.await?;
 
 		let path_len = paths.len();
-		let mut sync_threads = JoinSet::<Result<(PathBuf, TempMeta)>>::new();
+		let mut sync_threads = JoinSet::<Result<(PathBuf, TempTrackMeta)>>::new();
 
 		for (i, entry) in paths.into_iter().enumerate() {
 			let path = entry.path();
@@ -107,7 +105,7 @@ pub async fn create_library(
 
 		let mut idx: u32 = 0;
 		while let Some(x) = sync_threads.join_next().await.transpose()? {
-			let (path, meta) = x?;
+			let (path, _) = x?;
 			idx += 1;
 
 			debug!("Probed [{}/{}], currently indexing:\n{:#?}", idx, path_len, path);
@@ -122,7 +120,7 @@ pub async fn create_library(
 			)
 			.emit(&window)?;
 
-			if let Some(release) = meta.release {}
+			// if let Some(release) = meta.release {}
 		}
 	}
 

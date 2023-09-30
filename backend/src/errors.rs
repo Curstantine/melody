@@ -10,9 +10,11 @@ pub enum ErrorType {
 	StdParseInt,
 	ChronoParse,
 
+	Descriptive,
+	Conversion,
+
 	TokioTask,
 	Tauri,
-	Descriptive,
 	BonsaiLocal,
 	BonsaiCore,
 	Serde,
@@ -32,6 +34,15 @@ impl Error {
 	pub fn descriptive(message: impl Into<String>) -> Self {
 		Self {
 			type_: ErrorType::Descriptive,
+			message: message.into(),
+			context: None,
+			source: None,
+		}
+	}
+
+	pub fn conversion(message: impl Into<String>) -> Self {
+		Self {
+			type_: ErrorType::Conversion,
 			message: message.into(),
 			context: None,
 			source: None,

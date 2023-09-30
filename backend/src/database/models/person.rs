@@ -11,7 +11,6 @@ pub enum PersonType {
 #[derive(Debug, Serialize, Deserialize, Collection)]
 #[collection(name = "people")]
 pub struct Person {
-	pub id: String,
 	pub name: String,
 	pub name_sort: Option<String>,
 	pub mbz_id: Option<String>,
