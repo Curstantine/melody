@@ -19,7 +19,7 @@ pub struct TempTrackMeta {
 }
 
 impl TempTrackMeta {
-	pub fn default_track(&mut self) -> &mut TempTrack {
+	pub fn get_or_default_track(&mut self) -> &mut TempTrack {
 		self.track.get_or_insert_with(|| TempTrack {
 			title: String::with_capacity(0),
 			title_sort: None,
@@ -30,7 +30,7 @@ impl TempTrackMeta {
 		})
 	}
 
-	pub fn default_release(&mut self) -> &mut TempRelease {
+	pub fn get_or_default_release(&mut self) -> &mut TempRelease {
 		self.release.get_or_insert_with(|| TempRelease {
 			name: String::with_capacity(0),
 			name_sort: None,

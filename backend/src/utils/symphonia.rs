@@ -58,13 +58,13 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 			Some(key) => match key {
 				StandardTagKey::TrackTitle => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_track();
+						let x = temp_meta.get_or_default_track();
 						x.title = val;
 					}
 				}
 				StandardTagKey::SortTrackTitle => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_track();
+						let x = temp_meta.get_or_default_track();
 						x.title_sort = Some(val);
 					}
 				}
@@ -111,45 +111,45 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 
 				StandardTagKey::Album => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						x.name = val;
 					}
 				}
 				StandardTagKey::SortAlbum => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						x.name_sort = Some(val);
 					}
 				}
 				StandardTagKey::AlbumArtist => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						x.artists.get_or_insert_with(Vec::new).push(val);
 					}
 				}
 				StandardTagKey::SortAlbumArtist => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						x.artist_sort = Some(val);
 					}
 				}
 
 				StandardTagKey::MusicBrainzReleaseType => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						x.type_ = ReleaseType::from_tag(val.as_str())?;
 					}
 				}
 				StandardTagKey::Script => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						let y = ScriptCode::from_tag(val.as_str()).unwrap();
 						x.script = Some(y);
 					}
 				}
 				StandardTagKey::ReleaseCountry => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						let y = CountryCode::from_tag(val.as_str()).unwrap();
 						x.country = Some(y);
 					}
@@ -157,76 +157,77 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 
 				StandardTagKey::TrackNumber => {
 					if let Some(val) = get_val_str_or_u32(&tag.value)? {
-						let x = temp_meta.default_track();
+						let x = temp_meta.get_or_default_track();
 						x.track_number = Some(val);
 					}
 				}
 				StandardTagKey::DiscNumber => {
 					if let Some(val) = get_val_str_or_u32(&tag.value)? {
-						let x = temp_meta.default_track();
+						let x = temp_meta.get_or_default_track();
 						x.disc_number = Some(val);
 					}
 				}
 				StandardTagKey::TrackTotal => {
 					if let Some(val) = get_val_str_or_u32(&tag.value)? {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						x.total_tracks = Some(val);
 					}
 				}
 				StandardTagKey::DiscTotal => {
 					if let Some(val) = get_val_str_or_u32(&tag.value)? {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						x.total_discs = Some(val);
 					}
 				}
 
 				StandardTagKey::OriginalDate => {
 					if let Some(val) = get_val_naive_date(&tag.value)? {
-						let x = temp_meta.default_track();
+						let x = temp_meta.get_or_default_track();
 						x.original_date = Some(val);
 					}
 				}
 				StandardTagKey::Date if tag.key == "DATE" => {
 					if let Some(val) = get_val_naive_date(&tag.value)? {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						x.date = Some(val);
 					}
 				}
 				StandardTagKey::Date if tag.key == "YEAR" => {
 					if let Some(val) = get_val_str_or_u32(&tag.value)? {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						x.year = Some(val);
 					}
 				}
 
 				StandardTagKey::Label => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						x.labels.get_or_insert_with(Vec::new).push(val);
 					}
 				}
 				StandardTagKey::IdentCatalogNumber => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						x.catalog_number = Some(val);
 					}
 				}
 
 				StandardTagKey::MusicBrainzTrackId => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_track();
+						let x = temp_meta.get_or_default_track();
 						x.mbz_id = Some(val);
 					}
 				}
 				StandardTagKey::MusicBrainzReleaseGroupId => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.default_release();
+						let x = temp_meta.get_or_default_release();
 						x.mbz_id = Some(val);
 					}
 				}
 
 				_ => {}
 			},
+			#[allow(clippy::single_match)]
 			None => match tag.key.as_str() {
 				"ARTISTS" => {
 					if let Some(val) = get_val_string(&tag.value) {
@@ -252,8 +253,6 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 			},
 		}
 	}
-
-	println!("{:#?}", temp_meta);
 
 	Ok(temp_meta)
 }
@@ -297,8 +296,7 @@ mod test {
 		let file = File::open(path).unwrap();
 		let extension = path.extension().and_then(|s| s.to_str());
 
-		if let Err(e) = read_track_meta(Box::new(file), extension) {
-			panic!("{:#?}", e);
-		}
+		let result = read_track_meta(Box::new(file), extension).unwrap();
+		println!("{:#?}", result);
 	}
 }
