@@ -18,4 +18,5 @@
 If you are interested in contributing to this project, make sure to go through the [specification](docs/spec.md) first.
 
 1. Run `pnpm i` in the workspace root.
-2. Run `pnpm tauri dev` to start the initial build and consequent dev builds.
+2. Run `pnpm build:packages` to build the projects in `packages/`.
+3. Run `pnpm tauri dev` to start the initial build and consequent dev builds.

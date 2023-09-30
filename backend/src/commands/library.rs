@@ -53,12 +53,14 @@ pub async fn create_library(
 		return Err(Error::descriptive(message));
 	}
 
-	LibraryModel {
+	let hi = LibraryModel {
 		name,
 		scan_locations: scan_locations.clone(),
 	}
 	.push_into_async(database)
 	.await?;
+
+	debug!("Created library: {:#?}", hi);
 
 	for scan_location in scan_locations {
 		debug!("Scanning {}", scan_location);
@@ -105,7 +107,7 @@ pub async fn create_library(
 
 		let mut idx: u32 = 0;
 		while let Some(x) = sync_threads.join_next().await.transpose()? {
-			let (path, _) = x?;
+			let (path, meta) = x?;
 			idx += 1;
 
 			debug!("Probed [{}/{}], currently indexing:\n{:#?}", idx, path_len, path);
@@ -119,6 +121,8 @@ pub async fn create_library(
 				},
 			)
 			.emit(&window)?;
+
+			if let Some(release) = meta.release {}
 		}
 	}
 

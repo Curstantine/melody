@@ -8,6 +8,8 @@ Refers to a release done by an artist. A release can be an album, a single, an E
   - [Shared Types](#shared-types)
     - [ReleaseType](#releasetype)
     - [ReleaseTypeSecondary](#releasetypesecondary)
+    - [CountryCode](#countrycode)
+    - [ScriptCode](#scriptcode)
     - [ReleaseArtist](#releaseartist)
   - [Pitfalls](#pitfalls)
   - [Examples](#examples)
@@ -26,6 +28,13 @@ Refers to a release done by an artist. A release can be an album, a single, an E
 | artist_id      | `string`                                          | The ULID of an artist.               | No       |
 | artist_sort    | `string`                                          | The sorting name of the artist.      | No       |
 | artists        | [`ReleaseArtist[]`](#releaseartist)               | The preferred way to include artists | No       |
+| year           | `u32`                                             | The year of the release.             | No       |
+| date           | `ISODate`                                         | The date of the release.             | No       |
+| country        | [`CountryCode`](#countrycode)                     | The country of the release.          | No       |
+| script         | `string`                                          | The script of the release.           | No       |
+| label_ids      | `string[]`                                        | The ULIDs of the labels.             | No       |
+| genre_ids      | `string[]`                                        | The ULIDs of the genres.             | No       |
+| tag_ids        | `string[]`                                        | The ULIDs of the tags.               | No       |
 | mbz_id         | `string`                                          | The MusicBrainz ID of the release.   | No       |
 
 ### Notes
@@ -54,6 +63,21 @@ This is typically used for marking a special release.
 - `compilation`
 - `remix`
 - `live`
+
+### CountryCode
+
+Defines the country of a release.
+
+- `jp`
+- `us`
+- `xw`
+
+### ScriptCode
+
+Defines the script of a release.
+
+- `latn`
+- `jpan`
 
 ### ReleaseArtist
 

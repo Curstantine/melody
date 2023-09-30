@@ -39,6 +39,8 @@ pub fn read_track_meta(source: Box<File>, extension: Option<&str>) -> Result<Tem
 #[derive(Debug, Default)]
 pub struct TempMeta {
 	pub title: Option<String>,
+	pub title_sort: Option<String>,
+
 	pub artist: Option<String>,
 	pub artist_sort: Option<String>,
 
@@ -51,7 +53,9 @@ pub struct TempMeta {
 	pub release_type: Option<ReleaseType>,
 
 	pub catalog_number: Option<String>,
+
 	pub album_artists: Vec<String>,
+	pub album_artist_sort: Vec<String>,
 
 	pub year: Option<u32>,
 	pub date: Option<NaiveDate>,
@@ -115,6 +119,11 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempMeta> {
 				StandardTagKey::AlbumArtist => {
 					if let Some(x) = get_val_string(&tag.value) {
 						temp_meta.album_artists.push(x);
+					}
+				}
+				StandardTagKey::SortAlbumArtist => {
+					if let Some(x) = get_val_string(&tag.value) {
+						temp_meta.album_artist_sort.push(x);
 					}
 				}
 				StandardTagKey::Composer => {
@@ -194,7 +203,8 @@ mod test {
 
 	#[test]
 	fn test_read_track_meta() {
-		let path = Path::new(r"/data/storage/Music/Library/Aimer/DAWN/12 DAWN.flac");
+		let path =
+			Path::new(r"c:\Users\Curstantine\Music\TempLib\Oh Shu & BIOMAN\Villa Tereze\10 Aeroporto di Bologna.flac");
 		let file = File::open(path).unwrap();
 		let extension = path.extension().and_then(|s| s.to_str());
 

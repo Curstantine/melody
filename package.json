@@ -1,7 +1,7 @@
 {
 	"type": "module",
 	"scripts": {
-		"dev:app": "pnpm build:packages && pnpm --filter app run dev",
+		"dev:app": "pnpm --filter app run dev",
 		"build:app": "pnpm build:packages && pnpm --filter app run build",
 		"build:packages": "pnpm --filter \"./packages/*\" run build"
 	},
