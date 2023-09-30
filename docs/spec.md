@@ -9,8 +9,7 @@ Contains the specification both the frontend and backend should follow. This doc
   - [Persistence](#persistence)
     - [Primary (BonsaiDB)](#primary-bonsaidb)
     - [Settings (TOML)](#settings-toml)
-  - [Components](#components)
-    - [Library](#library)
+  - [Models](#models)
   - [Recovering](#recovering)
 
 ## Directories
@@ -51,14 +50,13 @@ This is saved in the [`data_directory`](#data-directory) under `main.db`.
 All the settings must be stored in a TOML file under [`config_directory/settings.toml`](#config-directory).\
 These settings must be editable by the user using both the application and by opening the file in a text editor.
 
-## Components
+## Models
 
-### Library
+Different model types used to store data in the [`primary`](#primary-bonsaidb) database.
 
-A library can define tracks, albums, artists, playlists, queues and play counts.\
-There can be multiple libraries, but only one must be active at a given time.
-
-Stored in: Libraries are stored in the primary sqlite database.
+- [Library](./models/library.md)
+- [Release](./models/release.md)
+- [Person](./models/person.md)
 
 ## Recovering
 
