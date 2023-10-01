@@ -70,7 +70,6 @@ pub struct Release {
 	pub total_tracks: Option<u32>,
 	pub catalog_number: Option<String>,
 
-	pub artist: Option<String>,
 	pub artist_id: Option<String>,
 	pub artist_sort: Option<String>,
 	pub artists: Option<Vec<InlinedArtist>>,

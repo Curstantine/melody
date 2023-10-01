@@ -6,7 +6,6 @@ Refers to a person. Be it an artist, composer or a producer.
 
 | Name      | Type                        | Description                       | Required |
 | --------- | --------------------------- | --------------------------------- | -------- |
-| id        | `string`                    | The ULID of the person.           | true     |
 | name      | `string`                    | The name of the person.           | true     |
 | name_sort | `string`                    | The sorting name of the person.   | false    |
 | type      | [`PersonType`](#persontype) | The type of the person.           | true     |

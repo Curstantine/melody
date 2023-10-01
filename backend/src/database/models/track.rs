@@ -13,7 +13,6 @@ pub struct Track {
 	pub disc_number: Option<u32>,
 	pub original_date: Option<NaiveDate>,
 
-	pub artist: Option<String>,
 	pub artist_id: Option<String>,
 	pub artist_sort: Option<String>,
 	pub artists: Option<Vec<InlinedArtist>>,
