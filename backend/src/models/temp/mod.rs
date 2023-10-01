@@ -1,4 +1,4 @@
-use crate::database::models::{person::Person, release::ReleaseType, tag::Tag};
+use crate::database::models::{label::Label, person::Person, release::ReleaseType, tag::Tag};
 
 use self::{release::TempRelease, track::TempTrack};
 
@@ -14,6 +14,7 @@ pub struct TempTrackMeta {
 	pub composers: Option<Vec<Person>>,
 	pub producers: Option<Vec<Person>>,
 
+	pub labels: Option<Vec<Label>>,
 	pub genres: Option<Vec<Tag>>,
 	pub tags: Option<Vec<Tag>>,
 }
@@ -43,9 +44,6 @@ impl TempTrackMeta {
 			catalog_number: None,
 			artists: None,
 			artist_sort: None,
-			labels: None,
-			genres: None,
-			tags: None,
 			type_: ReleaseType::Album,
 			type_secondary: None,
 			mbz_id: None,

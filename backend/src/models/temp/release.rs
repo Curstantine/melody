@@ -21,10 +21,6 @@ pub struct TempRelease {
 	pub artists: Option<Vec<String>>,
 	pub artist_sort: Option<String>,
 
-	pub labels: Option<Vec<String>>,
-	pub genres: Option<Vec<String>>,
-	pub tags: Option<Vec<String>>,
-
 	pub type_: ReleaseType,
 	pub type_secondary: Option<Vec<ReleaseTypeSecondary>>,
 

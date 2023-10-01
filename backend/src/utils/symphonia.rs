@@ -10,6 +10,7 @@ use symphonia::core::{
 
 use crate::{
 	database::models::{
+		label::Label,
 		person::{Person, PersonType},
 		release::{ReleaseType, ReleaseTypeSecondary},
 		tag::{Tag, TagType},
@@ -196,8 +197,9 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 
 				StandardTagKey::Label => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_release();
-						x.labels.get_or_insert_with(Vec::new).push(val);
+						let x = temp_meta.labels.get_or_insert_with(Vec::new);
+						let y = Label { name: val };
+						x.push(y);
 					}
 				}
 				StandardTagKey::IdentCatalogNumber => {
