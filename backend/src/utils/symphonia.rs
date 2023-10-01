@@ -11,10 +11,11 @@ use symphonia::core::{
 use crate::{
 	database::models::{
 		person::{Person, PersonType},
-		release::ReleaseType,
+		release::{ReleaseType, ReleaseTypeSecondary},
+		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
-	errors::{Error, Result},
+	errors::{Error, ErrorType, Result},
 	models::temp::TempTrackMeta,
 };
 
@@ -50,10 +51,10 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 	}
 
 	let mut used_artists_field = false;
+	let mut primary_release_type_used = false;
 
+	println!("{:#?}", tags);
 	for tag in tags {
-		// println!("{:?} ({}): {:#?}", tag.std_key, tag.key, tag.value);
-
 		if let Some(key) = tag.std_key {
 			match key {
 				StandardTagKey::TrackTitle => {
@@ -134,12 +135,6 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 					}
 				}
 
-				StandardTagKey::MusicBrainzReleaseType => {
-					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_release();
-						x.type_ = ReleaseType::from_tag(val.as_str())?;
-					}
-				}
 				StandardTagKey::Script => {
 					if let Some(val) = get_val_string(&tag.value) {
 						let x = temp_meta.get_or_default_release();
@@ -212,13 +207,25 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 					}
 				}
 
-				StandardTagKey::MusicBrainzTrackId => {
+				StandardTagKey::Genre => {
+					if let Some(val) = get_val_string(&tag.value) {
+						let x = temp_meta.genres.get_or_insert_with(Vec::new);
+						let y = Tag {
+							name: val,
+							type_: TagType::Genre,
+						};
+
+						x.push(y);
+					}
+				}
+
+				StandardTagKey::MusicBrainzRecordingId => {
 					if let Some(val) = get_val_string(&tag.value) {
 						let x = temp_meta.get_or_default_track();
 						x.mbz_id = Some(val);
 					}
 				}
-				StandardTagKey::MusicBrainzReleaseGroupId => {
+				StandardTagKey::MusicBrainzAlbumId => {
 					if let Some(val) = get_val_string(&tag.value) {
 						let x = temp_meta.get_or_default_release();
 						x.mbz_id = Some(val);
@@ -249,6 +256,34 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 						let x = temp_meta.artists.get_or_insert_with(Vec::new);
 						x.push(y);
 					}
+				}
+			}
+
+			// Symphonia for some reason doesn't support MusicBrainzReleaseType when a secondary tag is available,
+			// and for a cursed reason, MusicBrainz adds the secondary type to the RELEASETYPE field along
+			// with primary type.
+			"RELEASETYPE" if !primary_release_type_used => {
+				if let Some(val) = get_val_string(&tag.value) {
+					let x = temp_meta.get_or_default_release();
+
+					match ReleaseType::from_tag(val.as_str()) {
+						Ok(y) => {
+							x.type_ = y;
+							primary_release_type_used = true;
+						}
+						Err(e) if e.type_ == ErrorType::Conversion => {
+							let y = ReleaseTypeSecondary::from_tag(val.as_str())?;
+							x.type_secondary.get_or_insert_with(Vec::new).push(y);
+						}
+						Err(e) => return Err(e),
+					}
+				}
+			}
+			"RELEASETYPE" if primary_release_type_used => {
+				if let Some(val) = get_val_string(&tag.value) {
+					let x = temp_meta.get_or_default_release();
+					let y = ReleaseTypeSecondary::from_tag(val.as_str())?;
+					x.type_secondary.get_or_insert_with(Vec::new).push(y);
 				}
 			}
 			_ => {}
@@ -290,10 +325,12 @@ mod test {
 
 	use crate::utils::symphonia::read_track_meta;
 
+	const TRACK_PATH: &str =
+		r"c:\Users\Curstantine\Music\TempLib\Kobaryo\SUPER DREAM ZONE\01 Kobaryo - Start of the Determination.flac";
+
 	#[test]
 	fn test_read_track_meta() {
-		let path =
-			Path::new(r"c:\Users\Curstantine\Music\TempLib\Oh Shu & BIOMAN\Villa Tereze\10 Aeroporto di Bologna.flac");
+		let path = Path::new(TRACK_PATH);
 		let file = File::open(path).unwrap();
 		let extension = path.extension().and_then(|s| s.to_str());
 

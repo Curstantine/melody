@@ -17,11 +17,11 @@ impl FromTag for ReleaseType {
 	type Error = crate::errors::Error;
 
 	fn from_tag(value: &str) -> Result<Self, Self::Error> {
-		let value = match value {
-			"Album" => Self::Album,
-			"Compilation" => Self::Compilation,
-			"EP" => Self::Ep,
-			"Single" => Self::Single,
+		let value = match value.to_lowercase().as_str() {
+			"album" => Self::Album,
+			"compilation" => Self::Compilation,
+			"ep" => Self::Ep,
+			"single" => Self::Single,
 			_ => return Err(Self::Error::conversion(format!("Unknown release type: {}", value))),
 		};
 
@@ -35,6 +35,26 @@ pub enum ReleaseTypeSecondary {
 	Compilation,
 	Remix,
 	Live,
+}
+
+impl FromTag for ReleaseTypeSecondary {
+	type Error = crate::errors::Error;
+
+	fn from_tag(value: &str) -> Result<Self, Self::Error> {
+		let value = match value.to_lowercase().as_str() {
+			"compilation" => Self::Compilation,
+			"remix" => Self::Remix,
+			"live" => Self::Live,
+			_ => {
+				return Err(Self::Error::conversion(format!(
+					"Unknown release type secondary: {}",
+					value
+				)))
+			}
+		};
+
+		Ok(value)
+	}
 }
 
 #[derive(Debug, Serialize, Deserialize, Collection)]

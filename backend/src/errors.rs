@@ -4,7 +4,7 @@ use serde::Serialize;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PartialEq)]
 pub enum ErrorType {
 	StdIo,
 	StdParseInt,

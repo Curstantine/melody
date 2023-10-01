@@ -20,7 +20,7 @@ Refers to a music recording, a track.
 | producer_ids  | `string[]`                                      | The ULIDs of the producers.          | false    |
 | genre_ids     | `string[]`                                      | The ULIDs of the genres.             | false    |
 | tag_ids       | `string[]`                                      | The ULIDs of the tags.               | false    |
-| mbz_id        | string                                          | The MusicBrainz ID                   | false    |
+| mbz_id        | string                                          | The MusicBrainz recording ID         | false    |
 
 ### Notes
 

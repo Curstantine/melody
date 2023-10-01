@@ -36,7 +36,7 @@ Refers to a release done by an artist. A release can be an album, a single, an E
 | tag_ids        | `string[]`                                        | The ULIDs of the tags.               | false    |
 | total_tracks   | `u32`                                             | The total number of tracks.          | false    |
 | total_discs    | `u32`                                             | The total number of discs.           | false    |
-| mbz_id         | `string`                                          | The MusicBrainz ID of the release.   | false    |
+| mbz_id         | `string`                                          | The MusicBrainz release ID.          | false    |
 
 ### Notes
 
