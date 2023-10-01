@@ -1,7 +1,7 @@
-use bonsaidb::core::schema::Collection;
+use bonsaidb::core::{key::Key, schema::Collection};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Key)]
 pub enum TagType {
 	Genre,
 	Other,

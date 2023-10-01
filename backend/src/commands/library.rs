@@ -2,12 +2,20 @@ use std::path::PathBuf;
 
 use bonsaidb::core::schema::{SerializedCollection, SerializedView};
 use futures::TryStreamExt;
-use tokio::{fs, task::JoinSet};
+use tokio::{fs, task::JoinSet, time::Instant};
 use tracing::{debug, info};
 
 use crate::{
 	constants::SUPPORTED_AUDIO_EXTENSIONS,
-	database::{models::library::Library as LibraryModel, views::library::LibraryByName},
+	database::{
+		models::{library::Library as LibraryModel, release::Release},
+		views::{
+			label::LabelByName,
+			library::LibraryByName,
+			person::{PersonByNameAndSort, PersonByNameAndSortData},
+			tag::TagByNameAndType,
+		},
+	},
 	errors::{Error, Result},
 	models::{
 		state::AppState,
@@ -41,6 +49,8 @@ pub async fn create_library(
 	window: tauri::Window,
 	app_state: tauri::State<'_, AppState>,
 ) -> Result<()> {
+	let start = Instant::now();
+
 	let db_lock = app_state.db.lock().await;
 	let database = db_lock.as_ref().unwrap();
 	let database = &database.0;
@@ -75,7 +85,7 @@ pub async fn create_library(
 			.await?;
 
 		let path_len = paths.len();
-		let mut sync_threads = JoinSet::<Result<(PathBuf, TempTrackMeta)>>::new();
+		let mut probe_tasks = JoinSet::<Result<(PathBuf, TempTrackMeta)>>::new();
 
 		for (i, entry) in paths.into_iter().enumerate() {
 			let path = entry.path();
@@ -97,15 +107,16 @@ pub async fn create_library(
 			debug!("Reading [{}/{}], currently reading:\n{:#?}", i + 1, path_len, path);
 
 			let src = fs::File::open(&path).await?.into_std().await;
-			sync_threads.spawn_blocking(move || {
+			probe_tasks.spawn_blocking(move || {
 				let meta = read_track_meta(Box::new(src), Some(&extension))?;
 				Ok((path, meta))
 			});
 		}
 
 		let mut idx: u32 = 0;
-		while let Some(x) = sync_threads.join_next().await.transpose()? {
-			let (path, _) = x?;
+
+		while let Some(x) = probe_tasks.join_next().await.transpose()? {
+			let (path, meta) = x?;
 			idx += 1;
 
 			debug!("Probed [{}/{}], currently indexing:\n{:#?}", idx, path_len, path);
@@ -120,11 +131,65 @@ pub async fn create_library(
 			)
 			.emit(&window)?;
 
-			// if let Some(release) = meta.release {}
+			// NOTE:
+			// We might not need to spawn tasks here,
+			// since we could come across race conditions on which duplicated entry to put into the db, lol.
+			let mut artist_ids = Vec::<u64>::with_capacity(meta.artists.as_ref().map(|x| x.len()).unwrap_or(0));
+			let mut composer_ids = Vec::<u64>::with_capacity(meta.composers.as_ref().map(|x| x.len()).unwrap_or(0));
+			let mut producer_ids = Vec::<u64>::with_capacity(meta.producers.as_ref().map(|x| x.len()).unwrap_or(0));
+
+			let mut label_ids = Vec::<u64>::with_capacity(meta.labels.as_ref().map(|x| x.len()).unwrap_or(0));
+			let mut genre_ids = Vec::<u64>::with_capacity(meta.genres.as_ref().map(|x| x.len()).unwrap_or(0));
+			let mut tag_ids = Vec::<u64>::with_capacity(meta.tags.as_ref().map(|x| x.len()).unwrap_or(0));
+
+			if let Some(temp_artists) = meta.artists {
+				for temp_artist in temp_artists {
+					let id = PersonByNameAndSort::put_or_get(database, temp_artist).await?;
+					artist_ids.push(id);
+				}
+			}
+
+			if let Some(temp_composers) = meta.composers {
+				for temp_composer in temp_composers {
+					let id = PersonByNameAndSort::put_or_get(database, temp_composer).await?;
+					composer_ids.push(id);
+				}
+			}
+
+			if let Some(temp_producers) = meta.producers {
+				for temp_producer in temp_producers {
+					let id = PersonByNameAndSort::put_or_get(database, temp_producer).await?;
+					producer_ids.push(id);
+				}
+			}
+
+			if let Some(temp_labels) = meta.labels {
+				for temp_label in temp_labels {
+					let id = LabelByName::put_or_get(database, temp_label).await?;
+					label_ids.push(id);
+				}
+			}
+
+			if let Some(temp_genres) = meta.genres {
+				for temp_genre in temp_genres {
+					let id = TagByNameAndType::put_or_get(database, temp_genre).await?;
+					genre_ids.push(id);
+				}
+			}
+
+			if let Some(temp_tags) = meta.tags {
+				for temp_tag in temp_tags {
+					let id = TagByNameAndType::put_or_get(database, temp_tag).await?;
+					tag_ids.push(id);
+				}
+			}
+
+			// if let Some(temp_release) = meta.release {}
 		}
 	}
 
-	info!("Finished building library.");
+	let elapsed = start.elapsed();
+	info!("Finished building library in {:?}", elapsed);
 
 	Ok(())
 }
