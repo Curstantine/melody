@@ -13,16 +13,15 @@ pub struct Track {
 	pub disc_number: Option<u32>,
 	pub original_date: Option<NaiveDate>,
 
-	pub artist_id: Option<String>,
-	pub artist_sort: Option<String>,
 	pub artists: Option<Vec<InlinedArtist>>,
+	pub artist_sort: Option<String>,
 
-	pub release_id: Option<String>,
-	pub composer_ids: Option<Vec<String>>,
-	pub producer_ids: Option<Vec<String>>,
+	pub release_id: Option<u64>,
+	pub composer_ids: Option<Vec<u64>>,
+	pub producer_ids: Option<Vec<u64>>,
 
-	pub genre_ids: Option<Vec<String>>,
-	pub tag_ids: Option<Vec<String>>,
+	pub genre_ids: Option<Vec<u64>>,
+	pub tag_ids: Option<Vec<u64>>,
 
 	pub mbz_id: Option<String>,
 }

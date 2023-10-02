@@ -17,7 +17,7 @@ use crate::{
 		CountryCode, FromTag, ScriptCode,
 	},
 	errors::{Error, ErrorType, Result},
-	models::temp::TempTrackMeta,
+	models::temp::{TempInlinedArtist, TempTrackMeta},
 };
 
 pub fn read_track_meta(source: Box<File>, extension: Option<&str>) -> Result<TempTrackMeta> {
@@ -81,7 +81,13 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 							mbz_id: None,
 						};
 
-						x.push(y);
+						x.push(TempInlinedArtist { person: y, join: None });
+					}
+				}
+				StandardTagKey::SortArtist => {
+					if let Some(val) = get_val_string(&tag.value) {
+						let x = temp_meta.get_or_default_track();
+						x.artist_sort = Some(val);
 					}
 				}
 				StandardTagKey::Composer => {
@@ -125,8 +131,15 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 				}
 				StandardTagKey::AlbumArtist => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_release();
-						x.artists.get_or_insert_with(Vec::new).push(val);
+						let x = temp_meta.release_artists.get_or_insert_with(Vec::new);
+						let y = Person {
+							name: val,
+							type_: PersonType::Artist,
+							name_sort: None,
+							mbz_id: None,
+						};
+
+						x.push(TempInlinedArtist { person: y, join: None });
 					}
 				}
 				StandardTagKey::SortAlbumArtist => {
@@ -242,11 +255,14 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 		match tag.key.as_str() {
 			"ARTISTS" => {
 				if let Some(val) = get_val_string(&tag.value) {
-					let y = Person {
-						name: val,
-						type_: PersonType::Artist,
-						name_sort: None,
-						mbz_id: None,
+					let y = TempInlinedArtist {
+						person: Person {
+							name: val,
+							type_: PersonType::Artist,
+							name_sort: None,
+							mbz_id: None,
+						},
+						join: None,
 					};
 
 					// It's fine to overwrite the artists array, since the ARTISTS field *should* contain

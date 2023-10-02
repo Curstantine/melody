@@ -2,7 +2,7 @@ use bonsaidb::core::schema::Collection;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-use super::{CountryCode, FromTag, InlinedArtist, ScriptCode};
+use super::{CountryCode, FromTag, ScriptCode, InlinedArtist};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -70,13 +70,12 @@ pub struct Release {
 	pub total_tracks: Option<u32>,
 	pub catalog_number: Option<String>,
 
-	pub artist_id: Option<String>,
-	pub artist_sort: Option<String>,
 	pub artists: Option<Vec<InlinedArtist>>,
+	pub artist_sort: Option<String>,
 
-	pub label_ids: Option<Vec<String>>,
-	pub genre_ids: Option<Vec<String>>,
-	pub tag_ids: Option<Vec<String>>,
+	pub label_ids: Option<Vec<u64>>,
+	pub genre_ids: Option<Vec<u64>>,
+	pub tag_ids: Option<Vec<u64>>,
 
 	#[serde(rename = "type")]
 	pub type_: ReleaseType,

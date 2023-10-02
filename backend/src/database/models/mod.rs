@@ -61,7 +61,7 @@ impl FromTag for ScriptCode {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InlinedArtist {
-	pub id: String,
+	pub id: u64,
 	pub name: String,
 	pub join: Option<String>,
 }

@@ -5,12 +5,19 @@ use self::{release::TempRelease, track::TempTrack};
 pub mod release;
 pub mod track;
 
+#[derive(Debug)]
+pub struct TempInlinedArtist {
+	pub person: Person,
+	pub join: Option<String>,
+}
+
 #[derive(Debug, Default)]
 pub struct TempTrackMeta {
 	pub track: Option<TempTrack>,
 	pub release: Option<TempRelease>,
 
-	pub artists: Option<Vec<Person>>,
+	pub artists: Option<Vec<TempInlinedArtist>>,
+	pub release_artists: Option<Vec<TempInlinedArtist>>,
 	pub composers: Option<Vec<Person>>,
 	pub producers: Option<Vec<Person>>,
 
@@ -27,6 +34,7 @@ impl TempTrackMeta {
 			track_number: None,
 			disc_number: None,
 			original_date: None,
+			artist_sort: None,
 			mbz_id: None,
 		})
 	}
@@ -42,7 +50,6 @@ impl TempTrackMeta {
 			total_tracks: None,
 			total_discs: None,
 			catalog_number: None,
-			artists: None,
 			artist_sort: None,
 			type_: ReleaseType::Album,
 			type_secondary: None,

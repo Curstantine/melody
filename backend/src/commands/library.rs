@@ -13,6 +13,7 @@ use crate::{
 			label::LabelByName,
 			library::LibraryByName,
 			person::{PersonByNameAndSort, PersonByNameAndSortData},
+			release::ReleaseByNameAndArtist,
 			tag::TagByNameAndType,
 		},
 	},
@@ -25,7 +26,7 @@ use crate::{
 		},
 		temp::TempTrackMeta,
 	},
-	utils::{self, symphonia::read_track_meta},
+	utils::{self, get_opt_vec_len, symphonia::read_track_meta},
 };
 
 #[tauri::command]
@@ -131,16 +132,23 @@ pub async fn create_library(
 			)
 			.emit(&window)?;
 
+			let temp_track = match meta.track {
+				Some(x) => x,
+				None => return Err(Error::descriptive("No track metadata found")),
+			};
+
 			// NOTE:
 			// We might not need to spawn tasks here,
 			// since we could come across race conditions on which duplicated entry to put into the db, lol.
-			let mut artist_ids = Vec::<u64>::with_capacity(meta.artists.as_ref().map(|x| x.len()).unwrap_or(0));
-			let mut composer_ids = Vec::<u64>::with_capacity(meta.composers.as_ref().map(|x| x.len()).unwrap_or(0));
-			let mut producer_ids = Vec::<u64>::with_capacity(meta.producers.as_ref().map(|x| x.len()).unwrap_or(0));
+			let mut artist_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.artists));
+			let mut composer_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.composers));
+			let mut producer_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.producers));
 
-			let mut label_ids = Vec::<u64>::with_capacity(meta.labels.as_ref().map(|x| x.len()).unwrap_or(0));
-			let mut genre_ids = Vec::<u64>::with_capacity(meta.genres.as_ref().map(|x| x.len()).unwrap_or(0));
-			let mut tag_ids = Vec::<u64>::with_capacity(meta.tags.as_ref().map(|x| x.len()).unwrap_or(0));
+			let mut label_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.labels));
+			let mut genre_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.genres));
+			let mut tag_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.tags));
+
+			let mut release_id = None::<u64>;
 
 			if let Some(temp_artists) = meta.artists {
 				for temp_artist in temp_artists {
@@ -184,7 +192,18 @@ pub async fn create_library(
 				}
 			}
 
-			// if let Some(temp_release) = meta.release {}
+			if let Some(temp) = meta.release {
+				let artist_id = if let Some(temp_release_artist) = meta.release_artist {
+					Some(PersonByNameAndSort::put_or_get(database, temp_release_artist).await?)
+				} else {
+					None
+				};
+
+				let release = temp.into_release(artist_id, Some(label_ids), Some(genre_ids), Some(tag_ids));
+				release_id = Some(ReleaseByNameAndArtist::put_or_get(database, release).await?);
+			}
+
+			let track = temp_track;
 		}
 	}
 
