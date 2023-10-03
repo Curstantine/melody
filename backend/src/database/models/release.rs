@@ -2,6 +2,8 @@ use bonsaidb::core::schema::Collection;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
+use crate::database::views::release::ReleaseByNameAndArtist;
+
 use super::{CountryCode, FromTag, InlinedArtist, ScriptCode};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -58,7 +60,7 @@ impl FromTag for ReleaseTypeSecondary {
 }
 
 #[derive(Debug, Serialize, Deserialize, Collection)]
-#[collection(name = "releases")]
+#[collection(name = "releases", views = [ReleaseByNameAndArtist])]
 pub struct Release {
 	pub name: String,
 	pub name_sort: Option<String>,

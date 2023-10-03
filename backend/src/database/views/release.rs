@@ -23,6 +23,7 @@ impl CollectionMapReduce for ReleaseByNameAndArtist {
 		let x = document.contents;
 
 		// TODO: Find a better way to handle multiple artists, multiple mappings for an entry.
+		println!("{:#?}", x);
 		match &x.artists {
 			Some(artists) => {
 				let mut maps = Vec::<BonsaiMap<ReleaseByNameAndArtistData, u64>>::with_capacity(artists.len());

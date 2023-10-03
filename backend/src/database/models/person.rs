@@ -1,6 +1,8 @@
 use bonsaidb::core::schema::Collection;
 use serde::{Deserialize, Serialize};
 
+use crate::database::views::person::PersonByNameAndSort;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PersonType {
 	Artist,
@@ -9,7 +11,7 @@ pub enum PersonType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Collection)]
-#[collection(name = "people")]
+#[collection(name = "people", views = [PersonByNameAndSort])]
 pub struct Person {
 	pub name: String,
 	pub name_sort: Option<String>,
