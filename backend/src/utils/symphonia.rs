@@ -81,7 +81,7 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 							mbz_id: None,
 						};
 
-						x.push(TempInlinedArtist { person: y, join: None });
+						x.push(TempInlinedArtist::from(y));
 					}
 				}
 				StandardTagKey::SortArtist => {
@@ -139,7 +139,7 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 							mbz_id: None,
 						};
 
-						x.push(TempInlinedArtist { person: y, join: None });
+						x.push(TempInlinedArtist::from(y));
 					}
 				}
 				StandardTagKey::SortAlbumArtist => {
@@ -255,15 +255,12 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 		match tag.key.as_str() {
 			"ARTISTS" => {
 				if let Some(val) = get_val_string(&tag.value) {
-					let y = TempInlinedArtist {
-						person: Person {
-							name: val,
-							type_: PersonType::Artist,
-							name_sort: None,
-							mbz_id: None,
-						},
-						join: None,
-					};
+					let y = TempInlinedArtist::from(Person {
+						name: val,
+						type_: PersonType::Artist,
+						name_sort: None,
+						mbz_id: None,
+					});
 
 					// It's fine to overwrite the artists array, since the ARTISTS field *should* contain
 					// all artists associated with the track.

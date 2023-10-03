@@ -1,4 +1,4 @@
-use crate::database::models::{label::Label, person::Person, release::ReleaseType, tag::Tag};
+use crate::database::models::{label::Label, person::Person, release::ReleaseType, tag::Tag, InlinedArtist};
 
 use self::{release::TempRelease, track::TempTrack};
 
@@ -8,7 +8,28 @@ pub mod track;
 #[derive(Debug)]
 pub struct TempInlinedArtist {
 	pub person: Person,
+	pub credited_as: Option<String>,
 	pub join: Option<String>,
+}
+
+impl From<Person> for TempInlinedArtist {
+	fn from(person: Person) -> Self {
+		Self {
+			person,
+			credited_as: None,
+			join: None,
+		}
+	}
+}
+
+impl TempInlinedArtist {
+	pub fn into_inlined(self, id: u64) -> InlinedArtist {
+		InlinedArtist {
+			id,
+			credited_as: self.credited_as,
+			join: self.join,
+		}
+	}
 }
 
 #[derive(Debug, Default)]

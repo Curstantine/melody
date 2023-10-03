@@ -62,7 +62,11 @@ impl FromTag for ScriptCode {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InlinedArtist {
 	pub id: u64,
-	pub name: String,
+	/// This is different from the [Person::name] field.
+	///
+	/// This field refers to an "alias" used by this [Person] in the context of the related entry.
+	/// E.g. A person in release credit may use a different name than the one they use in the artist credit.
+	pub credited_as: Option<String>,
 	pub join: Option<String>,
 }
 

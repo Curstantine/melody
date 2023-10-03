@@ -2,7 +2,7 @@ use bonsaidb::core::schema::Collection;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-use super::{CountryCode, FromTag, ScriptCode, InlinedArtist};
+use super::{CountryCode, FromTag, InlinedArtist, ScriptCode};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -82,4 +82,33 @@ pub struct Release {
 	pub type_secondary: Option<Vec<ReleaseTypeSecondary>>,
 
 	pub mbz_id: Option<String>,
+}
+
+#[cfg(test)]
+impl Default for Release {
+	fn default() -> Self {
+		Self {
+			name: "Test Release".to_string(),
+			name_sort: None,
+
+			year: None,
+			date: None,
+			country: None,
+			script: None,
+			total_tracks: None,
+			catalog_number: None,
+
+			artists: None,
+			artist_sort: None,
+
+			label_ids: None,
+			genre_ids: None,
+			tag_ids: None,
+
+			type_: ReleaseType::Album,
+			type_secondary: None,
+
+			mbz_id: None,
+		}
+	}
 }

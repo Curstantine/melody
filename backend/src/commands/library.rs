@@ -5,15 +5,13 @@ use futures::TryStreamExt;
 use tokio::{fs, task::JoinSet, time::Instant};
 use tracing::{debug, info};
 
+use crate::database::models::InlinedArtist;
 use crate::{
 	constants::SUPPORTED_AUDIO_EXTENSIONS,
 	database::{
-		models::{library::Library as LibraryModel, release::Release},
+		models::library::Library as LibraryModel,
 		views::{
-			label::LabelByName,
-			library::LibraryByName,
-			person::{PersonByNameAndSort, PersonByNameAndSortData},
-			release::ReleaseByNameAndArtist,
+			label::LabelByName, library::LibraryByName, person::PersonByNameAndSort, release::ReleaseByNameAndArtist,
 			tag::TagByNameAndType,
 		},
 	},
@@ -140,7 +138,7 @@ pub async fn create_library(
 			// NOTE:
 			// We might not need to spawn tasks here,
 			// since we could come across race conditions on which duplicated entry to put into the db, lol.
-			let mut artist_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.artists));
+			let mut artists = Vec::<InlinedArtist>::with_capacity(get_opt_vec_len(&meta.artists));
 			let mut composer_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.composers));
 			let mut producer_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.producers));
 
@@ -149,11 +147,12 @@ pub async fn create_library(
 			let mut tag_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.tags));
 
 			let mut release_id = None::<u64>;
+			let mut release_artists = None::<Vec<InlinedArtist>>;
 
 			if let Some(temp_artists) = meta.artists {
 				for temp_artist in temp_artists {
-					let id = PersonByNameAndSort::put_or_get(database, temp_artist).await?;
-					artist_ids.push(id);
+					let id = PersonByNameAndSort::put_or_get(database, temp_artist.person.clone()).await?;
+					artists.push(temp_artist.into_inlined(id));
 				}
 			}
 
@@ -192,14 +191,17 @@ pub async fn create_library(
 				}
 			}
 
-			if let Some(temp) = meta.release {
-				let artist_id = if let Some(temp_release_artist) = meta.release_artist {
-					Some(PersonByNameAndSort::put_or_get(database, temp_release_artist).await?)
-				} else {
-					None
-				};
+			if let Some(temp_release_artists) = meta.release_artists {
+				let y = release_artists.get_or_insert(Vec::with_capacity(temp_release_artists.len()));
 
-				let release = temp.into_release(artist_id, Some(label_ids), Some(genre_ids), Some(tag_ids));
+				for temp_artist in temp_release_artists {
+					let id = PersonByNameAndSort::put_or_get(database, temp_artist.person.clone()).await?;
+					y.push(temp_artist.into_inlined(id));
+				}
+			}
+
+			if let Some(temp) = meta.release {
+				let release = temp.into_release(release_artists, Some(label_ids), Some(genre_ids), Some(tag_ids));
 				release_id = Some(ReleaseByNameAndArtist::put_or_get(database, release).await?);
 			}
 

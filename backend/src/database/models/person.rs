@@ -1,14 +1,14 @@
 use bonsaidb::core::schema::Collection;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PersonType {
 	Artist,
 	Composer,
 	Producer,
 }
 
-#[derive(Debug, Serialize, Deserialize, Collection)]
+#[derive(Debug, Clone, Serialize, Deserialize, Collection)]
 #[collection(name = "people")]
 pub struct Person {
 	pub name: String,
