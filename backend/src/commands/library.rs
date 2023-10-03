@@ -24,7 +24,7 @@ use crate::{
 		},
 		temp::TempTrackMeta,
 	},
-	utils::{self, get_opt_vec_len, symphonia::read_track_meta},
+	utils::{self, symphonia::read_track_meta},
 };
 
 #[tauri::command]
@@ -138,56 +138,68 @@ pub async fn create_library(
 			// NOTE:
 			// We might not need to spawn tasks here,
 			// since we could come across race conditions on which duplicated entry to put into the db, lol.
-			let mut artists = Vec::<InlinedArtist>::with_capacity(get_opt_vec_len(&meta.artists));
-			let mut composer_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.composers));
-			let mut producer_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.producers));
+			let mut artists = None::<Vec<InlinedArtist>>;
+			let mut composer_ids = None::<Vec<u64>>;
+			let mut producer_ids = None::<Vec<u64>>;
 
-			let mut label_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.labels));
-			let mut genre_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.genres));
-			let mut tag_ids = Vec::<u64>::with_capacity(get_opt_vec_len(&meta.tags));
+			let mut label_ids = None::<Vec<u64>>;
+			let mut genre_ids = None::<Vec<u64>>;
+			let mut tag_ids = None::<Vec<u64>>;
 
 			let mut release_id = None::<u64>;
 			let mut release_artists = None::<Vec<InlinedArtist>>;
 
 			if let Some(temp_artists) = meta.artists {
+				let x = artists.get_or_insert(Vec::with_capacity(temp_artists.len()));
+
 				for temp_artist in temp_artists {
 					let id = PersonByNameAndSort::put_or_get(database, temp_artist.person.clone()).await?;
-					artists.push(temp_artist.into_inlined(id));
+					x.push(temp_artist.into_inlined(id));
 				}
 			}
 
 			if let Some(temp_composers) = meta.composers {
+				let x = composer_ids.get_or_insert(Vec::with_capacity(temp_composers.len()));
+
 				for temp_composer in temp_composers {
 					let id = PersonByNameAndSort::put_or_get(database, temp_composer).await?;
-					composer_ids.push(id);
+					x.push(id);
 				}
 			}
 
 			if let Some(temp_producers) = meta.producers {
+				let x = producer_ids.get_or_insert(Vec::with_capacity(temp_producers.len()));
+
 				for temp_producer in temp_producers {
 					let id = PersonByNameAndSort::put_or_get(database, temp_producer).await?;
-					producer_ids.push(id);
+					x.push(id);
 				}
 			}
 
 			if let Some(temp_labels) = meta.labels {
+				let x = label_ids.get_or_insert(Vec::with_capacity(temp_labels.len()));
+
 				for temp_label in temp_labels {
 					let id = LabelByName::put_or_get(database, temp_label).await?;
-					label_ids.push(id);
+					x.push(id);
 				}
 			}
 
 			if let Some(temp_genres) = meta.genres {
+				let x = genre_ids.get_or_insert(Vec::with_capacity(temp_genres.len()));
+
 				for temp_genre in temp_genres {
 					let id = TagByNameAndType::put_or_get(database, temp_genre).await?;
-					genre_ids.push(id);
+					x.push(id);
 				}
 			}
 
 			if let Some(temp_tags) = meta.tags {
+				let x = tag_ids.get_or_insert(Vec::with_capacity(temp_tags.len()));
+
 				for temp_tag in temp_tags {
 					let id = TagByNameAndType::put_or_get(database, temp_tag).await?;
-					tag_ids.push(id);
+					x.push(id);
 				}
 			}
 
@@ -201,11 +213,14 @@ pub async fn create_library(
 			}
 
 			if let Some(temp) = meta.release {
-				let release = temp.into_release(release_artists, Some(label_ids), Some(genre_ids), Some(tag_ids));
+				let release = temp.into_release(release_artists, label_ids, genre_ids.clone(), tag_ids.clone());
 				release_id = Some(ReleaseByNameAndArtist::put_or_get(database, release).await?);
 			}
 
-			let track = temp_track;
+			let track = temp_track.into_track(artists, release_id, composer_ids, producer_ids, genre_ids, tag_ids);
+
+			// We don't really need to depend on TrackByTitleAndRelease to deduplicate entries.
+			track.push_into_async(database).await?;
 		}
 	}
 
