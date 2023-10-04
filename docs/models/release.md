@@ -19,7 +19,7 @@ Refers to a release done by an artist. A release can be an album, a single, an E
 | title_sort     | `string`                                          | The sorting title of the release.   | false    |
 | type           | [`ReleaseType`](#releasetype)                     | The primary type of the release.    | true     |
 | type_secondary | [`ReleaseTypeSecondary[]`](#releasetypesecondary) | The secondary types of the release. | false    |
-| artists        | [`InlinedArtist[]`](./generic.md#inlinedartist)   | The references to the artists.      | false    |
+| artists        | [`InlinedArtist[]`](./generic.md#inlinedartist)   | The references to the artists.      | true     |
 | artist_sort    | `string`                                          | The sorting name of the artist.     | false    |
 | year           | `u32`                                             | The year of the release.            | false    |
 | date           | `ISODate`                                         | The date of the release.            | false    |

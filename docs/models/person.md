@@ -11,6 +11,10 @@ Refers to a person. Be it an artist, composer or a producer.
 | type      | [`PersonType`](#persontype) | The type of the person.           | true     |
 | mbz_id    | `string`                    | The MusicBrainz ID of the person. | false    |
 
+### Note
+
+- `id` 0 for the `Person` model is reserved for an unknown person of any sort.
+
 ## Shared Types
 
 ### PersonType
