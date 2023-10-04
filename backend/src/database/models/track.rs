@@ -2,12 +2,10 @@ use bonsaidb::core::schema::Collection;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-use crate::database::views::track::TrackByTitleAndRelease;
-
 use super::InlinedArtist;
 
 #[derive(Debug, Serialize, Deserialize, Collection)]
-#[collection(name = "tracks", views = [TrackByTitleAndRelease])]
+#[collection(name = "tracks")]
 pub struct Track {
 	pub title: String,
 	pub title_sort: Option<String>,
