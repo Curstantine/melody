@@ -14,9 +14,9 @@ export default class BackendError implements LocalError {
 	type: BackendErrorTypes;
 	code: number;
 	message: string;
-	context?: string;
+	context?: string | string[];
 
-	constructor(type: BackendErrorTypes, code: number, message: string, context?: string) {
+	constructor(type: BackendErrorTypes, code: number, message: string, context?: string | string[]) {
 		this.type = type;
 		this.code = code;
 		this.message = message;

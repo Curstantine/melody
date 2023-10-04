@@ -23,6 +23,9 @@
 			"cargo": {
 				"args": ["build", "--release", "--manifest-path=./backend/Cargo.toml"]
 			},
+			"env": {
+				"RUST_LOG": "none,melody_backend=debug"
+			},
 			"preLaunchTask": "app:build"
 		}
 	]
