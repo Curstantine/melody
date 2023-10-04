@@ -54,20 +54,9 @@ pub async fn create_library(
 	let database = db_lock.as_ref().unwrap();
 	let database = &database.0;
 
-	let docs = LibraryByName::entries_async(database).with_key(&name).query().await?;
-	if !docs.is_empty() {
-		let message = format!("A library with the name {} already exists", name);
-		return Err(Error::descriptive(message));
-	}
+	let library = LibraryModel::new(name.clone(), scan_locations.clone());
 
-	let hi = LibraryModel {
-		name,
-		scan_locations: scan_locations.clone(),
-	}
-	.push_into_async(database)
-	.await?;
-
-	debug!("Created library: {:#?}", hi);
+	LibraryByName::set_unique(database, library).await?;
 
 	for scan_location in scan_locations {
 		debug!("Scanning {}", scan_location);
@@ -113,7 +102,6 @@ pub async fn create_library(
 		}
 
 		let mut idx: u32 = 0;
-
 		while let Some(x) = probe_tasks.join_next().await.transpose()? {
 			let (path, meta) = x?;
 			idx += 1;
@@ -218,8 +206,6 @@ pub async fn create_library(
 			}
 
 			let track = temp_track.into_track(artists, release_id, composer_ids, producer_ids, genre_ids, tag_ids);
-
-			// We don't really need to depend on TrackByTitleAndRelease to deduplicate entries.
 			track.push_into_async(database).await?;
 		}
 	}
