@@ -11,7 +11,7 @@ use crate::{
 	database::{
 		models::library::Library as LibraryModel,
 		views::{
-			label::LabelByName, library::LibraryByName, person::PersonByNameAndSort, release::ReleaseByNameAndArtist,
+			label::LabelByName, library::LibraryByName, person::PersonByNameAndType, release::ReleaseByNameAndArtist,
 			tag::TagByNameAndType,
 		},
 	},
@@ -141,7 +141,7 @@ pub async fn create_library(
 				let x = artists.get_or_insert(Vec::with_capacity(temp_artists.len()));
 
 				for temp_artist in temp_artists {
-					let id = PersonByNameAndSort::put_or_get(database, temp_artist.person.clone()).await?;
+					let id = PersonByNameAndType::put_or_get(database, temp_artist.person.clone()).await?;
 					x.push(temp_artist.into_inlined(id));
 				}
 			}
@@ -150,7 +150,7 @@ pub async fn create_library(
 				let x = composer_ids.get_or_insert(Vec::with_capacity(temp_composers.len()));
 
 				for temp_composer in temp_composers {
-					let id = PersonByNameAndSort::put_or_get(database, temp_composer).await?;
+					let id = PersonByNameAndType::put_or_get(database, temp_composer).await?;
 					x.push(id);
 				}
 			}
@@ -159,7 +159,7 @@ pub async fn create_library(
 				let x = producer_ids.get_or_insert(Vec::with_capacity(temp_producers.len()));
 
 				for temp_producer in temp_producers {
-					let id = PersonByNameAndSort::put_or_get(database, temp_producer).await?;
+					let id = PersonByNameAndType::put_or_get(database, temp_producer).await?;
 					x.push(id);
 				}
 			}
@@ -195,7 +195,7 @@ pub async fn create_library(
 				let y = release_artists.get_or_insert(Vec::with_capacity(temp_release_artists.len()));
 
 				for temp_artist in temp_release_artists {
-					let id = PersonByNameAndSort::put_or_get(database, temp_artist.person.clone()).await?;
+					let id = PersonByNameAndType::put_or_get(database, temp_artist.person.clone()).await?;
 					y.push(temp_artist.into_inlined(id));
 				}
 			}

@@ -10,7 +10,7 @@ use tracing::debug;
 
 use crate::{
 	database::models::person::{Person as PersonModel, PersonType},
-	errors::Result,
+	errors::{Error, Result},
 };
 
 #[derive(Debug, Clone, PartialEq, Key)]
@@ -27,9 +27,9 @@ impl PersonByNameAndTypeKey {
 
 #[derive(Debug, Clone, View, ViewSchema)]
 #[view(collection = PersonModel, key = PersonByNameAndTypeKey, value = u8, name = "by-person-name-and-type")]
-pub struct PersonByNameAndSort;
+pub struct PersonByNameAndType;
 
-impl CollectionMapReduce for PersonByNameAndSort {
+impl CollectionMapReduce for PersonByNameAndType {
 	fn map<'doc>(&self, document: CollectionDocument<PersonModel>) -> ViewMapResult<'doc, Self::View> {
 		let x = document.contents;
 		let key = PersonByNameAndTypeKey::new(x.name, x.type_);
@@ -37,10 +37,10 @@ impl CollectionMapReduce for PersonByNameAndSort {
 	}
 }
 
-impl PersonByNameAndSort {
+impl PersonByNameAndType {
 	pub async fn put_or_get(database: &AsyncDatabase, person: PersonModel) -> Result<u64> {
 		let key = PersonByNameAndTypeKey::new(person.name.clone(), person.type_.clone());
-		let matches = PersonByNameAndSort::entries_async(database)
+		let matches = PersonByNameAndType::entries_async(database)
 			.with_key(&key)
 			.query()
 			.await?;
@@ -60,18 +60,47 @@ impl PersonByNameAndSort {
 	}
 }
 
+impl PersonModel {
+	pub async fn set_unique_with_id(self, database: &AsyncDatabase, id: u64) -> Result<()> {
+		match PersonModel::get_async(&id, database).await? {
+			Some(_) => Err(Error::descriptive("Person already exists")),
+			None => {
+				let person = self.insert_into_async(&id, database).await?;
+				debug!("Created person: {:#?} ({:?})", person.contents, person.header.id);
+				Ok(())
+			}
+		}
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use bonsaidb::core::schema::{SerializedCollection, SerializedView};
 
 	use crate::{
+		constants::UNKNOWN_PERSON_ID,
 		database::{
 			models::person::{Person, PersonType},
-			views::person::{PersonByNameAndSort, PersonByNameAndTypeKey},
+			views::person::{PersonByNameAndType, PersonByNameAndTypeKey},
 			Database,
 		},
 		errors::Result,
 	};
+
+	#[tokio::test]
+	async fn test_set_unique_with_id() -> Result<()> {
+		let db = Database::testing().await?;
+		let database = db.0;
+
+		let person = Person::unknown();
+		person.set_unique_with_id(&database, UNKNOWN_PERSON_ID).await?;
+
+		let person = Person::unknown();
+		let result = person.set_unique_with_id(&database, UNKNOWN_PERSON_ID).await;
+		assert!(result.is_err());
+
+		Ok(())
+	}
 
 	#[tokio::test]
 	async fn test_person_by_name_and_sort() -> Result<()> {
@@ -100,14 +129,14 @@ mod test {
 		person_1_diff_sort.push_into_async(&database).await?;
 		person_2.push_into_async(&database).await?;
 
-		let see_person_1 = PersonByNameAndSort::entries_async(&database)
+		let see_person_1 = PersonByNameAndType::entries_async(&database)
 			.with_key(&PersonByNameAndTypeKey::new("Person 1".to_string(), PersonType::Artist))
 			.query()
 			.await?;
 
 		assert_eq!(see_person_1.len(), 2);
 
-		let see_person_2 = PersonByNameAndSort::entries_async(&database)
+		let see_person_2 = PersonByNameAndType::entries_async(&database)
 			.with_key(&PersonByNameAndTypeKey::new("Person 2".to_string(), PersonType::Artist))
 			.query()
 			.await?;

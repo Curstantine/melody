@@ -1,14 +1,20 @@
 use tokio::fs;
 
-use bonsaidb::local::{
-	config::{Builder, StorageConfiguration},
-	AsyncDatabase as BonsaiDatabase,
+use bonsaidb::{
+	core::keyvalue::AsyncKeyValue,
+	local::{
+		config::{Builder, StorageConfiguration},
+		AsyncDatabase as BonsaiDatabase,
+	},
 };
 use tracing::debug;
 
-use crate::errors::{Error, Result};
+use crate::{
+	constants::UNKNOWN_PERSON_ID,
+	errors::{Error, Result},
+};
 
-use self::models::LocalSchema;
+use self::models::{person::Person, LocalSchema};
 
 pub mod models;
 pub mod views;
@@ -17,6 +23,8 @@ pub struct Database(pub BonsaiDatabase);
 
 impl Database {
 	const DB_NAME: &str = "database";
+
+	const KEY_IS_FIRST_RUN: &str = "is_first_run";
 
 	/// Initialize the database.
 	///
@@ -58,6 +66,10 @@ impl Database {
 
 		debug!("Successfully opened the database at {:?}", db_file_path);
 
+		if database.get_key(Self::KEY_IS_FIRST_RUN).await?.is_none() {
+			Self::run_first_time_setup(&database).await?;
+		}
+
 		Ok(Self(database))
 	}
 
@@ -70,5 +82,15 @@ impl Database {
 		let database = BonsaiDatabase::open::<LocalSchema>(db_conf).await?;
 
 		Ok(Self(database))
+	}
+
+	#[tracing::instrument(skip(database), name = "First time setup")]
+	async fn run_first_time_setup(database: &BonsaiDatabase) -> Result<()> {
+		let unknown_person = Person::unknown();
+		unknown_person.set_unique_with_id(database, UNKNOWN_PERSON_ID).await?;
+
+		database.set_key(Self::KEY_IS_FIRST_RUN, &false).await?;
+
+		Ok(())
 	}
 }

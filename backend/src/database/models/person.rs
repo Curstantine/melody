@@ -1,7 +1,7 @@
 use bonsaidb::core::{key::Key, schema::Collection};
 use serde::{Deserialize, Serialize};
 
-use crate::database::views::person::PersonByNameAndSort;
+use crate::database::views::person::PersonByNameAndType;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Key)]
 pub enum PersonType {
@@ -14,7 +14,7 @@ pub enum PersonType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Collection)]
-#[collection(name = "people", views = [PersonByNameAndSort])]
+#[collection(name = "people", views = [PersonByNameAndType])]
 pub struct Person {
 	pub name: String,
 	pub name_sort: Option<String>,
