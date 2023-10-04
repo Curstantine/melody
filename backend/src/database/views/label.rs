@@ -5,7 +5,6 @@ use bonsaidb::{
 	},
 	local::AsyncDatabase,
 };
-use tracing::debug;
 
 use crate::{database::models::label::Label as LabelModel, errors::Result};
 
@@ -29,11 +28,9 @@ impl LabelByName {
 
 		let id = if matches.is_empty() {
 			let label = person.push_into_async(database).await?;
-			debug!("Created label: {:#?} ({:?})", label.contents, label.header.id);
 			label.header.id
 		} else {
 			let label = matches.first().unwrap();
-			debug!("Found label: {:#?} ({:?})", label.key, label.source.id);
 			label.source.id
 		};
 

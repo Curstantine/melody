@@ -6,7 +6,6 @@ use bonsaidb::{
 	},
 	local::AsyncDatabase,
 };
-use tracing::debug;
 
 use crate::{
 	database::models::tag::{Tag as TagModel, TagType},
@@ -44,11 +43,9 @@ impl TagByNameAndType {
 
 		let id = if matches.is_empty() {
 			let label = tag.push_into_async(database).await?;
-			debug!("Created tag: {:#?} ({:?})", label.contents, label.header.id);
 			label.header.id
 		} else {
 			let label = matches.first().unwrap();
-			debug!("Found tag: {:#?} ({:?})", label.key, label.source.id);
 			label.source.id
 		};
 

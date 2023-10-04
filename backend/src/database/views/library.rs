@@ -8,7 +8,6 @@ use bonsaidb::{
 	},
 	local::AsyncDatabase,
 };
-use tracing::debug;
 
 use crate::{
 	database::models::library::Library as LibraryModel,
@@ -42,7 +41,6 @@ impl LibraryByName {
 		}
 
 		let lib = library.push_into_async(database).await?;
-		debug!("Created library: {:#?} ({:?})", lib.contents, lib.header.id);
 
 		Ok(())
 	}

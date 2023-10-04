@@ -9,7 +9,6 @@ use bonsaidb::{
 	},
 	local::AsyncDatabase,
 };
-use tracing::debug;
 
 use crate::{database::models::release::Release as ReleaseModel, errors::Result};
 
@@ -57,11 +56,9 @@ impl ReleaseByNameAndArtist {
 
 		let id = if matches.is_empty() {
 			let release = release.push_into_async(database).await?;
-			debug!("Created release: {:#?} ({:?})", release.contents, release.header.id);
 			release.header.id
 		} else {
 			let release = matches.first().unwrap();
-			debug!("Found release: {:#?} ({:?})", release.key, release.source.id);
 			release.source.id
 		};
 

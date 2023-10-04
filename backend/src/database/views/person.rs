@@ -6,7 +6,6 @@ use bonsaidb::{
 	},
 	local::AsyncDatabase,
 };
-use tracing::debug;
 
 use crate::{
 	database::models::person::{Person as PersonModel, PersonType},
@@ -47,12 +46,10 @@ impl PersonByNameAndType {
 
 		let id = if matches.is_empty() {
 			let person = person.push_into_async(database).await?;
-			debug!("Created person: {:#?} ({:?})", person.contents, person.header.id);
 			person.header.id
 		} else {
 			// NOTE: Might need to check the probability of the match instead of just taking the first one.
 			let person = matches.first().unwrap();
-			debug!("Found person: {:#?} ({:?})", person.key, person.source.id);
 			person.source.id
 		};
 
@@ -66,7 +63,6 @@ impl PersonModel {
 			Some(_) => Err(Error::descriptive("Person already exists")),
 			None => {
 				let person = self.insert_into_async(&id, database).await?;
-				debug!("Created person: {:#?} ({:?})", person.contents, person.header.id);
 				Ok(())
 			}
 		}
