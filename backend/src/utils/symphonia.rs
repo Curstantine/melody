@@ -54,7 +54,6 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 	let mut used_artists_field = false;
 	let mut primary_release_type_used = false;
 
-	println!("{:#?}", tags);
 	for tag in tags {
 		if let Some(key) = tag.std_key {
 			match key {
