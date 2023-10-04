@@ -55,7 +55,7 @@ impl ReleaseByNameAndArtist {
 			.query()
 			.await?;
 
-		let id: u64 = if matches.is_empty() {
+		let id = if matches.is_empty() {
 			let release = release.push_into_async(database).await?;
 			debug!("Created release: {:#?} ({:?})", release.contents, release.header.id);
 			release.header.id

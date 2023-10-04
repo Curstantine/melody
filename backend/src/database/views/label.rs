@@ -27,17 +27,53 @@ impl LabelByName {
 			.query()
 			.await?;
 
-		let id: u64;
-		if matches.is_empty() {
+		let id = if matches.is_empty() {
 			let label = person.push_into_async(database).await?;
-			id = label.header.id;
 			debug!("Created label: {:#?} ({:?})", label.contents, label.header.id);
+			label.header.id
 		} else {
 			let label = matches.first().unwrap();
-			id = label.source.id;
 			debug!("Found label: {:#?} ({:?})", label.key, label.source.id);
-		}
+			label.source.id
+		};
 
 		Ok(id)
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use bonsaidb::core::schema::{SerializedCollection, SerializedView};
+
+	use crate::{
+		database::{models::label::Label, views::label::LabelByName, Database},
+		errors::Result,
+	};
+
+	#[tokio::test]
+	async fn test_label_by_name() -> Result<()> {
+		let db = Database::testing().await?;
+		let database = db.0;
+
+		let label_1 = Label {
+			name: "Label 1".to_string(),
+		};
+
+		let label_2 = Label {
+			name: "Label 2".to_string(),
+		};
+
+		label_1.push_into_async(&database).await?;
+		label_2.push_into_async(&database).await?;
+
+		let see_label_1 = LabelByName::entries_async(&database)
+			.with_key("Label 1")
+			.query()
+			.await
+			.unwrap();
+
+		assert_eq!(see_label_1.len(), 1);
+
+		Ok(())
 	}
 }
