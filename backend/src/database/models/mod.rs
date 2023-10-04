@@ -1,6 +1,8 @@
 use bonsaidb::core::schema::Schema;
 use serde::{Deserialize, Serialize};
 
+use crate::constants::UNKNOWN_PERSON_ID;
+
 pub mod label;
 pub mod library;
 pub mod person;
@@ -68,6 +70,17 @@ pub struct InlinedArtist {
 	/// E.g. A person in release credit may use a different name than the one they use in the artist credit.
 	pub credited_as: Option<String>,
 	pub join: Option<String>,
+}
+
+impl InlinedArtist {
+	/// Create an [InlinedArtist] that follows the default semantics for an unknown artist.
+	pub fn unknown() -> Self {
+		Self {
+			id: UNKNOWN_PERSON_ID,
+			credited_as: None,
+			join: None,
+		}
+	}
 }
 
 pub trait FromTag: Sized {

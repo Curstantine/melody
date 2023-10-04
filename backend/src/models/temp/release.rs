@@ -47,7 +47,7 @@ impl TempRelease {
 			artist_sort: self.artist_sort,
 			mbz_id: self.mbz_id,
 
-			artists,
+			artists: artists.unwrap_or_else(|| vec![InlinedArtist::unknown()]),
 			label_ids,
 			genre_ids,
 			tag_ids,

@@ -72,7 +72,7 @@ pub struct Release {
 	pub total_tracks: Option<u32>,
 	pub catalog_number: Option<String>,
 
-	pub artists: Option<Vec<InlinedArtist>>,
+	pub artists: Vec<InlinedArtist>,
 	pub artist_sort: Option<String>,
 
 	pub label_ids: Option<Vec<u64>>,
@@ -89,8 +89,10 @@ pub struct Release {
 #[cfg(test)]
 impl Default for Release {
 	fn default() -> Self {
+		use crate::constants::TEST_RELEASE_NAME;
+
 		Self {
-			name: "Test Release".to_string(),
+			name: TEST_RELEASE_NAME.to_string(),
 			name_sort: None,
 
 			year: None,
@@ -100,7 +102,7 @@ impl Default for Release {
 			total_tracks: None,
 			catalog_number: None,
 
-			artists: None,
+			artists: vec![InlinedArtist::unknown()],
 			artist_sort: None,
 
 			label_ids: None,
