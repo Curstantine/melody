@@ -1,59 +1,68 @@
-use futures::{stream, Stream, StreamExt};
-use std::path::PathBuf;
-use tokio::fs::{self, DirEntry};
+use std::{
+	io::Result as IoResult,
+	path::{Path, PathBuf},
+};
 
-use crate::errors::Result;
-
-pub fn walkdir(path: impl Into<PathBuf>) -> impl Stream<Item = Result<DirEntry>> + Send + 'static {
-	async fn one_level(path: PathBuf, to_visit: &mut Vec<PathBuf>) -> Result<Vec<DirEntry>> {
-		let mut dir = fs::read_dir(path).await?;
+pub fn walkdir_sync<P, M>(path: P, match_fn: M) -> IoResult<Vec<PathBuf>>
+where
+	P: Into<PathBuf>,
+	M: Fn(&Path) -> bool + Copy,
+{
+	fn one_level(path: PathBuf, matcher: impl Fn(&Path) -> bool) -> IoResult<(Vec<PathBuf>, Vec<PathBuf>)> {
+		let mut dir = std::fs::read_dir(path)?;
 		let mut files = Vec::new();
+		let mut to_visit = Vec::new();
 
-		while let Some(child) = dir.next_entry().await? {
-			if child.metadata().await?.is_dir() {
+		while let Some(child) = dir.next().transpose()? {
+			if child.metadata()?.is_dir() {
 				to_visit.push(child.path());
-			} else {
-				files.push(child)
+			} else if matcher(&child.path()) {
+				files.push(child.path());
 			}
 		}
 
-		Ok(files)
+		Ok((files, to_visit))
 	}
 
-	stream::unfold(vec![path.into()], |mut to_visit| async {
-		let path = to_visit.pop()?;
-		let file_stream = match one_level(path, &mut to_visit).await {
-			Ok(files) => stream::iter(files).map(Ok).left_stream(),
-			Err(e) => stream::once(async { Err(e) }).right_stream(),
-		};
+	one_level(path.into(), match_fn).and_then(|(mut files, mut to_visit)| {
+		while let Some(path) = to_visit.pop() {
+			let (mut new_files, mut new_to_visit) = one_level(path, match_fn)?;
 
-		Some((file_stream, to_visit))
+			files.append(&mut new_files);
+			to_visit.append(&mut new_to_visit);
+		}
+
+		Ok(files)
 	})
-	.flatten()
+}
+
+pub mod matchers {
+	use std::path::Path;
+
+	pub fn audio(path: &Path) -> bool {
+		matches!(
+			path.extension(),
+			Some(extension) if crate::constants::SUPPORTED_AUDIO_EXTENSIONS.contains(&extension.to_str().unwrap())
+		)
+	}
 }
 
 #[cfg(test)]
 mod tests {
-	use futures::StreamExt;
 	use std::path::Path;
 
-	#[tokio::test]
-	async fn test_walk_dir() {
+	use crate::errors::Result;
+
+	#[test]
+	fn test_walk_dir_sync() -> Result<()> {
 		let target = Path::new("./target");
-		let result = super::walkdir(target);
+		let paths = super::walkdir_sync(target, |_| true)?;
 
-		result
-			.for_each(|entry| async {
-				let entry = entry.unwrap();
-				let path = entry.path();
-				let metadata = entry.metadata().await.unwrap();
+		for path in paths {
+			assert!(path.exists(), "Path {} does not exist", path.display());
+			assert!(path.is_file(), "Path {} is not a file", path.display());
+		}
 
-				if metadata.is_dir() {
-					println!("dir: {}", path.display());
-				} else {
-					println!("file: {}", path.display());
-				}
-			})
-			.await;
+		Ok(())
 	}
 }

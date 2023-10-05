@@ -16,6 +16,7 @@ use crate::{
 
 use self::models::{person::Person, LocalSchema};
 
+pub mod helpers;
 pub mod models;
 pub mod views;
 

@@ -26,7 +26,7 @@ pub enum LibraryActionType {
 #[derive(Clone, Debug, Serialize)]
 pub struct LibraryGenericActionPayload {
 	pub action_type: LibraryActionType,
-	pub total: u32,
-	pub current: u32,
+	pub total: u64,
+	pub current: u64,
 	pub path: PathBuf,
 }
