@@ -9,8 +9,14 @@
 			"request": "launch",
 			"name": "Tauri Development Debug",
 			"cargo": {
-				"args": ["build", "--manifest-path=./backend/Cargo.toml", "--no-default-features"]
+				"args": ["build", "--bin=melody_backend", "--package=melody_backend"],
+				"filter": {
+					"name": "melody_backend",
+					"kind": "bin"
+				}
 			},
+			"args": [],
+			"cwd": "${workspaceFolder}",
 			"env": {
 				"RUST_LOG": "none,melody_backend=debug"
 			},
@@ -21,8 +27,14 @@
 			"request": "launch",
 			"name": "Tauri Production Debug",
 			"cargo": {
-				"args": ["build", "--release", "--manifest-path=./backend/Cargo.toml"]
+				"args": ["build", "--release", "--bin=melody_backend", "--package=melody_backend"],
+				"filter": {
+					"name": "melody_backend",
+					"kind": "bin"
+				}
 			},
+			"args": [],
+			"cwd": "${workspaceFolder}",
 			"env": {
 				"RUST_LOG": "none,melody_backend=debug"
 			},
