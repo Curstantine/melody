@@ -1,14 +1,16 @@
 import { LocalError } from "@/types/errors";
 
 type BackendErrorTypes =
-	| "io"
+	| "std_io"
+	| "std_parse_int"
+	| "chrono_parse"
+	| "descriptive"
+	| "conversion"
 	| "tokio_task"
 	| "tauri"
-	| "descriptive"
-	| "database"
-	| "serde"
-	| "parse_int"
-	| "chrono_parse";
+	| "bonsai_local"
+	| "bonsai_core"
+	| "serde";
 
 export default class BackendError implements LocalError {
 	type: BackendErrorTypes;
