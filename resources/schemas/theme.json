@@ -43,6 +43,13 @@
 				"button.error.text.hover": { "type": "string", "format": "color-hex" },
 				"button.error.text.active": { "type": "string", "format": "color-hex" },
 
+				"button.text.background.idle": { "type": "string", "format": "color-hex" },
+				"button.text.background.hover": { "type": "string", "format": "color-hex" },
+				"button.text.background.active": { "type": "string", "format": "color-hex" },
+				"button.text.text.idle": { "type": "string", "format": "color-hex" },
+				"button.text.text.hover": { "type": "string", "format": "color-hex" },
+				"button.text.text.active": { "type": "string", "format": "color-hex" },
+
 				"input.border.idle": { "type": "string", "format": "color-hex" },
 				"input.border.active": { "type": "string", "format": "color-hex" },
 

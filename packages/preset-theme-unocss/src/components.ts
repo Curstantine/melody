@@ -8,9 +8,9 @@ export const buttonShortcuts: Record<string, string> = {
 		"inline-flex items-center justify-center",
 		"rounded transition-colors duration-standard ease-standard",
 	].join(" "),
-	"button-template-lv-1": createButtonStyleShortcut("level1"),
 	"button-template-primary": createButtonStyleShortcut("primary"),
 	"button-template-error": createButtonStyleShortcut("error"),
+	"button-template-text": createButtonStyleShortcut("text"),
 };
 
 function createButtonStyleShortcut(name: string) {

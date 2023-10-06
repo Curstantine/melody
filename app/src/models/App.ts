@@ -2,14 +2,14 @@ import { useNavigate } from "@solidjs/router";
 import { appWindow } from "@tauri-apps/api/window";
 import { createContext, createSignal, useContext } from "solid-js";
 
-import type { AppError } from "@/types/errors";
+import type { ActionableError } from "@/types/errors";
 import { invoke } from "@/utils/tauri";
 import { initialize as initializeTheme } from "@/utils/themes";
 
 import LibraryManager from "@/models/LibraryManager";
 
 export default class AppModel {
-	appError = createSignal<AppError | null>(null);
+	appError = createSignal<ActionableError | null>(null);
 	libraryManager = new LibraryManager();
 	navigate = useNavigate();
 
@@ -39,12 +39,19 @@ export default class AppModel {
 			setAppError({ dismissible: true, error: namesResult.unwrapErr() });
 		}
 
+		if (import.meta.env.DEV) {
+			// @ts-expect-error - expose function to allow to navigate to dev showcase
+			window.__appModel__.goToDevShowcase = () => {
+				this.navigate("/dev/showcase");
+			};
+		}
+
 		appWindow.show();
 	}
 
-	public setAppError(error: AppError["error"], dismissible = true) {
+	public setAppError(error: ActionableError["error"], dismissible = true, actions?: ActionableError["actions"]) {
 		const [, setAppError] = this.appError;
-		setAppError({ dismissible, error });
+		setAppError({ error, dismissible, actions });
 	}
 }
 

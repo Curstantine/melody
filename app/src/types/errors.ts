@@ -5,7 +5,14 @@ export interface LocalError {
 	context?: string | string[];
 }
 
-export interface AppError {
+export interface ErrorAction {
+	type: "error" | "primary" | "text";
+	label: string;
+	onClick: () => void;
+}
+
+export interface ActionableError {
 	error: LocalError;
-	dismissible: boolean;
+	dismissible?: boolean;
+	actions?: ErrorAction[];
 }

@@ -37,6 +37,13 @@
 		"button.error.text.idle": "#FFECED",
 		"button.error.text.active": "#FFB2B8",
 
+		"button.text.background.hover": "#303030",
+		"button.text.background.idle": "#00000000",
+		"button.text.background.active": "#303030",
+		"button.text.text.hover": "#FFFFFF",
+		"button.text.text.idle": "#E6E6E6",
+		"button.text.text.active": "#B3B3B3",
+
 		"input.border.idle": "#ffffff1f",
 		"input.border.active": "#ffffff3f",
 
