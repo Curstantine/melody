@@ -39,14 +39,16 @@ export default class AppModel {
 			setAppError({ dismissible: true, error: namesResult.unwrapErr() });
 		}
 
+		appWindow.show();
+
 		if (import.meta.env.DEV) {
 			// @ts-expect-error - expose function to allow to navigate to dev showcase
-			window.__appModel__.goToDevShowcase = () => {
-				this.navigate("/dev/showcase");
+			window.__APP__ = {
+				goToDevShowcase: () => {
+					this.navigate("/dev/showcase");
+				},
 			};
 		}
-
-		appWindow.show();
 	}
 
 	public setAppError(error: ActionableError["error"], dismissible = true, actions?: ActionableError["actions"]) {

@@ -7,6 +7,7 @@ import AppErrorDisplay from "@/components/AppErrorDisplay";
 import TitleBar from "@/components/TitleBar";
 
 import UIRoot from "@/pages";
+import DevShowcase from "@/pages/dev";
 import Home from "@/pages/home";
 import Setup, { SetupCreate, SetupScan } from "@/pages/setup";
 
@@ -27,6 +28,7 @@ export default function App() {
 					<Route path="/create" component={SetupCreate} />
 					<Route path="/scan" component={SetupScan} />
 				</Route>
+				<Route path="/dev/showcase" component={DevShowcase} />
 			</Routes>
 		</AppModelContext.Provider>
 	);
