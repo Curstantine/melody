@@ -28,12 +28,13 @@ export default class SetupScanViewModel {
 			scanLocations,
 		});
 
+		unlisten();
+
 		if (creationResult.isErr()) {
 			const [, setError] = this.error;
-			setError(creationResult.unwrapErr());
+			return setError(creationResult.unwrapErr());
 		}
 
-		unlisten();
 		this.navigate("/home", { replace: true, state: { name } });
 	}
 }

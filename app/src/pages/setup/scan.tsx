@@ -16,6 +16,8 @@ export default function SetupScanView() {
 	const viewModel = new SetupScanViewModel();
 	const { payload: [payload], error: [error] } = viewModel;
 
+	const isInLoadingState = () => payload() === null && error() === null;
+
 	const appModel = useAppModel();
 	const location = useLocation<LocationState>();
 
@@ -35,8 +37,8 @@ export default function SetupScanView() {
 		<div
 			class="max-h-md max-w-lg w-full flex flex-col rounded"
 			classList={{
-				"items-center": payload() === null,
-				"b-(1 border-secondary) bg-background-secondary p-4 overflow-y-auto": payload() !== null,
+				"items-center": isInLoadingState(),
+				"b-(1 border-secondary) bg-background-secondary p-4 overflow-y-auto": !isInLoadingState(),
 			}}
 		>
 			<Switch fallback={<CircularLoader />}>
