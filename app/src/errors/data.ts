@@ -27,6 +27,17 @@ export default class DataError implements LocalError {
 		);
 	}
 
+	static placeholder(): DataError {
+		return new DataError(
+			0,
+			"A long enough placeholder",
+			[
+				"1st line of the multi-lined placeholder context message",
+				"and then the second line of this multi-lined placeholder context message",
+			],
+		);
+	}
+
 	static codes = {
 		MISSING_LOCATION_STATE: 1,
 	};

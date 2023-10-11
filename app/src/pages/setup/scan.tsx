@@ -1,11 +1,12 @@
+import { useLocation } from "@solidjs/router";
 import { Match, onMount, Switch } from "solid-js";
 
 import CircularLoader from "@/components/Loader/Circular";
 
+import ErrorCard from "@/components/Card/Error";
 import DataError from "@/errors/data";
 import { useAppModel } from "@/models/App";
 import SetupScanViewModel from "@/pages/setup/models/scan.model";
-import { useLocation } from "@solidjs/router";
 
 export type LocationState = {
 	name: string;
@@ -43,17 +44,7 @@ export default function SetupScanView() {
 		>
 			<Switch fallback={<CircularLoader />}>
 				<Match when={error()}>
-					{(error) => (
-						<>
-							<span class="text-2xl leading-tight font-orbiter-display text-text-1">
-								An error occurred
-							</span>
-							<span class="leading-tight font-orbiter-text text-text-2">
-								{error().message}
-								{error().context}
-							</span>
-						</>
-					)}
+					{(error) => <ErrorCard data={{ error: error() }} />}
 				</Match>
 				<Match when={payload()}>
 					{(payload) => (

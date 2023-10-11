@@ -1,3 +1,5 @@
+import ErrorCard from "@/components/Card/Error";
+import DataError from "@/errors/data";
 import { createResource, For } from "solid-js";
 
 export default function DevShowcase() {
@@ -15,6 +17,11 @@ export default function DevShowcase() {
 				<button class="button-layout button-template-primary">Primary</button>
 				<button class="button-layout button-template-error">Error</button>
 				<button class="button-layout button-template-text">Text</button>
+			</div>
+
+			<h2 class="mt-4 text-2xl text-text-1">Cards</h2>
+			<div class="">
+				<ErrorCard data={{ error: DataError.placeholder() }} />
 			</div>
 
 			<h1 class="mt-12 text-3xl text-text-1">Colors</h1>
