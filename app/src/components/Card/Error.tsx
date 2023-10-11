@@ -5,11 +5,12 @@ import type { ActionableError } from "@/types/errors";
 type Props = {
 	data: ActionableError;
 	class?: string;
+	contextClass?: string;
 	onDismiss?: () => void;
 };
 
 export default function ErrorCard(x: Props) {
-	const props = mergeProps({ class: "" }, x);
+	const props = mergeProps({ class: "", contextClass: "" }, x);
 	const showActionRow = () => props.data.dismissible || props.data.actions?.length;
 
 	return (
@@ -22,7 +23,7 @@ export default function ErrorCard(x: Props) {
 				{props.data.error.message}
 			</span>
 			<Show when={props.data.error.context}>
-				{(context) => <ContextContainer context={context()} />}
+				{(context) => <ContextContainer class={props.contextClass} context={context()} />}
 			</Show>
 			<Show when={showActionRow()}>
 				<div class="flex-1" />
@@ -34,9 +35,12 @@ export default function ErrorCard(x: Props) {
 	);
 }
 
-const ContextContainer: Component<{ context: string | string[] }> = (props) => {
+const ContextContainer: Component<{ context: string | string[]; class: string }> = (props) => {
 	return (
-		<span class="mt-2 rounded tracking-wide font-orbiter-text text-text-2">
+		<span
+			class="mt-2 rounded tracking-wide font-orbiter-text text-text-2"
+			classList={{ [props.class]: !!props.class }}
+		>
 			<Switch fallback={<>{props.context}</>}>
 				<Match when={Array.isArray(props.context)}>
 					<For each={props.context as string[]}>
