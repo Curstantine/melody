@@ -20,6 +20,8 @@ use crate::{
 	models::temp::{TempInlinedArtist, TempTrackMeta},
 };
 
+use super::matchers;
+
 pub fn read_track_meta(source: Box<File>, extension: Option<&str>) -> Result<TempTrackMeta> {
 	let mss = MediaSourceStream::new(source, Default::default());
 	let meta_opts: MetadataOptions = Default::default();
@@ -188,24 +190,32 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 					}
 				}
 
-				StandardTagKey::OriginalDate => {
-					if let Some(val) = get_val_naive_date(&tag.value)? {
-						let x = temp_meta.get_or_default_track();
-						x.original_date = Some(val);
+				StandardTagKey::OriginalDate => match &tag.value {
+					Value::String(x) if matchers::reg::matches_ymd(x.as_str()) => {
+						let val = NaiveDate::parse_from_str(x, "%Y-%m-%d")?;
+						let y = temp_meta.get_or_default_track();
+						y.original_date = Some(val);
 					}
-				}
-				StandardTagKey::Date if tag.key == "DATE" => {
-					if let Some(val) = get_val_naive_date(&tag.value)? {
-						let x = temp_meta.get_or_default_release();
-						x.date = Some(val);
+					_ => {}
+				},
+				StandardTagKey::Date => match &tag.value {
+					Value::String(x) if matchers::reg::matches_ymd(x.as_str()) => {
+						let val = NaiveDate::parse_from_str(x, "%Y-%m-%d")?;
+						let y = temp_meta.get_or_default_release();
+						y.date = Some(val);
 					}
-				}
-				StandardTagKey::Date if tag.key == "YEAR" => {
-					if let Some(val) = get_val_str_or_u32(&tag.value)? {
-						let x = temp_meta.get_or_default_release();
-						x.year = Some(val);
+					Value::String(x) if matchers::reg::matches_year(x.as_str()) => {
+						let y = temp_meta.get_or_default_release();
+						if y.year.is_none() {
+							y.year = Some(x.parse::<u32>()?)
+						}
 					}
-				}
+					Value::UnsignedInt(x) => {
+						let y = temp_meta.get_or_default_release();
+						y.year = Some(*x as u32);
+					}
+					_ => {}
+				},
 
 				StandardTagKey::Label => {
 					if let Some(val) = get_val_string(&tag.value) {
@@ -324,31 +334,25 @@ fn get_val_str_or_u32(value: &Value) -> Result<Option<u32>> {
 	}
 }
 
-#[inline]
-fn get_val_naive_date(value: &Value) -> Result<Option<NaiveDate>> {
-	match value {
-		Value::String(s) => Ok(Some(NaiveDate::parse_from_str(s, "%Y-%m-%d")?)),
-		_ => Ok(None),
-	}
-}
-
 #[cfg(test)]
 mod test {
 	use std::fs::File;
 	use std::path::Path;
 
+	use crate::errors::Result;
 	use crate::utils::symphonia::read_track_meta;
 
-	const TRACK_PATH: &str =
-		r"c:\Users\Curstantine\Music\TempLib\Kobaryo\SUPER DREAM ZONE\01 Kobaryo - Start of the Determination.flac";
+	const TRACK_PATH: &str = r"c:\Users\Curstantine\Music\TempLib\電音部\pop enemy (feat. Shinpei Nasuno)_\01 pop enemy (feat. Shinpei Nasuno).opus";
 
 	#[test]
-	fn test_read_track_meta() {
+	fn test_read_track_meta() -> Result<()> {
 		let path = Path::new(TRACK_PATH);
 		let file = File::open(path).unwrap();
 		let extension = path.extension().and_then(|s| s.to_str());
 
-		let result = read_track_meta(Box::new(file), extension).unwrap();
+		let result = read_track_meta(Box::new(file), extension)?;
 		println!("{:#?}", result);
+
+		Ok(())
 	}
 }

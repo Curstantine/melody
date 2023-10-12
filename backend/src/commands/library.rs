@@ -8,7 +8,7 @@ use tokio::time::Instant;
 use tracing::{debug, info};
 
 use crate::database::helpers::handle_temp_track_meta;
-use crate::utils::fs::matchers;
+use crate::utils::matchers;
 use crate::{
 	database::{models::library::Library as LibraryModel, views::library::LibraryByName},
 	errors::Result,
@@ -37,7 +37,7 @@ pub async fn get_library_names(app_state: tauri::State<'_, AppState>) -> Result<
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(window, app_state), err)]
+#[tracing::instrument(skip(window, app_state), err(Debug))]
 pub async fn create_library(
 	name: String,
 	scan_locations: Vec<String>,
@@ -68,7 +68,7 @@ pub async fn create_library(
 
 	let handle = thread::spawn::<_, Result<()>>(move || {
 		for scan_location in scan_location {
-			let paths = utils::fs::walkdir_sync(scan_location, matchers::audio)?;
+			let paths = utils::fs::walkdir_sync(scan_location, matchers::path::audio)?;
 			let total = paths.len() as u64;
 
 			for (i, path) in paths.into_iter().enumerate() {

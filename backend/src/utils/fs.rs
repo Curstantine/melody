@@ -36,17 +36,6 @@ where
 	})
 }
 
-pub mod matchers {
-	use std::path::Path;
-
-	pub fn audio(path: &Path) -> bool {
-		matches!(
-			path.extension(),
-			Some(extension) if crate::constants::SUPPORTED_AUDIO_EXTENSIONS.contains(&extension.to_str().unwrap())
-		)
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use std::path::Path;
