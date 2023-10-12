@@ -37,6 +37,8 @@ pub enum ReleaseTypeSecondary {
 	Compilation,
 	Remix,
 	Live,
+	Soundtrack,
+	Other(String),
 }
 
 impl FromTag for ReleaseTypeSecondary {
@@ -47,12 +49,8 @@ impl FromTag for ReleaseTypeSecondary {
 			"compilation" => Self::Compilation,
 			"remix" => Self::Remix,
 			"live" => Self::Live,
-			_ => {
-				return Err(Self::Error::conversion(format!(
-					"Unknown release type secondary: {}",
-					value
-				)))
-			}
+			"soundtrack" => Self::Soundtrack,
+			x => Self::Other(x.to_string()),
 		};
 
 		Ok(value)
