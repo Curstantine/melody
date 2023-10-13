@@ -2,7 +2,7 @@ use bonsaidb::core::schema::Collection;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-use crate::database::views::release::ReleaseByNameAndArtist;
+use crate::{database::views::release::ReleaseByNameAndArtist, errors::Error};
 
 use super::{CountryCode, FromTag, InlinedArtist, ScriptCode};
 
@@ -24,7 +24,12 @@ impl FromTag for ReleaseType {
 			"compilation" => Self::Compilation,
 			"ep" => Self::Ep,
 			"single" => Self::Single,
-			_ => return Err(Self::Error::conversion(format!("Unknown release type: {}", value))),
+			_ => {
+				return Err(Error::conversion(
+					"Failed to resolve release type",
+					Some(format!("Expected known release types, but got {}", value)),
+				))
+			}
 		};
 
 		Ok(value)
