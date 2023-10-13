@@ -57,6 +57,8 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 	let mut primary_release_type_used = false;
 
 	for tag in tags {
+		// println!("{:#?} {:#?}", tag.key, tag.value);
+
 		if let Some(key) = tag.std_key {
 			match key {
 				StandardTagKey::TrackTitle => {
@@ -165,12 +167,37 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 					}
 				}
 
-				StandardTagKey::TrackNumber => {
-					if let Some(val) = get_val_str_or_u32(&tag.value)? {
-						let x = temp_meta.get_or_default_track();
-						x.track_number = Some(val);
+				StandardTagKey::TrackNumber => match &tag.value {
+					// Handles cases like 2/12 in track number
+					// index 0 is treated as track_no and index 1 is treated as track_total
+					Value::String(x) if matchers::reg::is_total_no(x) => {
+						let splits = x.split('/').collect::<Vec<&str>>();
+
+						if let Some(track_no) = splits.first() {
+							let y = temp_meta.get_or_default_track();
+							y.track_number = Some(track_no.parse::<u32>()?);
+						}
+
+						if let Some(track_total) = splits.last() {
+							let z = temp_meta.get_or_default_release();
+							if z.total_tracks.is_none() {
+								z.total_tracks = Some(track_total.parse::<u32>()?);
+							}
+						}
 					}
-				}
+					// Fuck it, we balling without another nested match
+					Value::String(x) if !matchers::reg::is_total_no(x) => {
+						let y = temp_meta.get_or_default_track();
+						let track_no = x.parse::<u32>()?;
+						y.track_number = Some(track_no);
+					}
+					Value::UnsignedInt(x) => {
+						let y = temp_meta.get_or_default_track();
+						y.track_number = Some(*x as u32);
+					}
+					_ => {}
+				},
+
 				StandardTagKey::DiscNumber => {
 					if let Some(val) = get_val_str_or_u32(&tag.value)? {
 						let x = temp_meta.get_or_default_track();
@@ -191,7 +218,7 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 				}
 
 				StandardTagKey::OriginalDate => match &tag.value {
-					Value::String(x) if matchers::reg::matches_ymd(x.as_str()) => {
+					Value::String(x) if matchers::reg::is_ymd(x.as_str()) => {
 						let val = NaiveDate::parse_from_str(x, "%Y-%m-%d")?;
 						let y = temp_meta.get_or_default_track();
 						y.original_date = Some(val);
@@ -199,12 +226,12 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 					_ => {}
 				},
 				StandardTagKey::Date => match &tag.value {
-					Value::String(x) if matchers::reg::matches_ymd(x.as_str()) => {
+					Value::String(x) if matchers::reg::is_ymd(x.as_str()) => {
 						let val = NaiveDate::parse_from_str(x, "%Y-%m-%d")?;
 						let y = temp_meta.get_or_default_release();
 						y.date = Some(val);
 					}
-					Value::String(x) if matchers::reg::matches_year(x.as_str()) => {
+					Value::String(x) if matchers::reg::is_year(x.as_str()) => {
 						let y = temp_meta.get_or_default_release();
 						if y.year.is_none() {
 							y.year = Some(x.parse::<u32>()?)
@@ -342,7 +369,7 @@ mod test {
 	use crate::errors::Result;
 	use crate::utils::symphonia::read_track_meta;
 
-	const TRACK_PATH: &str = r"c:\Users\Curstantine\Music\TempLib\電音部\pop enemy (feat. Shinpei Nasuno)_\01 pop enemy (feat. Shinpei Nasuno).opus";
+	const TRACK_PATH: &str = r"c:\Users\Curstantine\Music\TempLib\Oh Shu & BIOMAN\Villa Tereze\01 Pergola.flac";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {
