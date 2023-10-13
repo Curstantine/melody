@@ -173,20 +173,19 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 					Value::String(x) if matchers::reg::is_total_no(x) => {
 						let splits = x.split('/').collect::<Vec<&str>>();
 
-						if let Some(track_no) = splits.first() {
+						if let Some(no) = splits.first() {
 							let y = temp_meta.get_or_default_track();
-							y.track_number = Some(track_no.parse::<u32>()?);
+							y.track_number = Some(no.parse::<u32>()?);
 						}
 
-						if let Some(track_total) = splits.last() {
+						if let Some(total) = splits.last() {
 							let z = temp_meta.get_or_default_release();
 							if z.total_tracks.is_none() {
-								z.total_tracks = Some(track_total.parse::<u32>()?);
+								z.total_tracks = Some(total.parse::<u32>()?);
 							}
 						}
 					}
-					// Fuck it, we balling without another nested match
-					Value::String(x) if !matchers::reg::is_total_no(x) => {
+					Value::String(x) => {
 						let y = temp_meta.get_or_default_track();
 						let track_no = x.parse::<u32>()?;
 						y.track_number = Some(track_no);
