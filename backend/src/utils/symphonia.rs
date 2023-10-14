@@ -368,7 +368,7 @@ mod test {
 	use crate::errors::Result;
 	use crate::utils::symphonia::read_track_meta;
 
-	const TRACK_PATH: &str = r"c:\Users\Curstantine\Music\TempLib\Oh Shu & BIOMAN\Villa Tereze\01 Pergola.flac";
+	const TRACK_PATH: &str = r"C:\Users\Curstantine\Music\TempLib\オンゲキシューターズ\ONGEKI Vocal Party 05\01 bitter flavor - give it up to you.opus";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {

@@ -5,7 +5,7 @@
 	"newLineKind": "lf",
 	"excludes": ["**/node_modules", "**/*-lock.json", "**/dist/", "**/target/", "**/*.lock"],
 	"json": {
-		"associations": ["*.code-workspace", ".swcrc"]
+		"associations": ["*.code-workspace", ".swcrc", "melody.sublime-project"]
 	},
 	"typescript": {
 		"quoteProps": "asNeeded"

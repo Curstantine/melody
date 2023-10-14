@@ -6,9 +6,7 @@
 	"scripts": {
 		"build": "unbuild"
 	},
-	"files": [
-		"dist"
-	],
+	"files": ["dist"],
 	"module": "dist/index.mjs",
 	"types": "dist/index.d.ts",
 	"exports": {
