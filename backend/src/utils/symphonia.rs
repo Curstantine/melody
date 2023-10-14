@@ -216,29 +216,22 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 					}
 				}
 
-				StandardTagKey::OriginalDate => match &tag.value {
-					Value::String(x) if matchers::reg::is_ymd(x.as_str()) => {
-						let val = NaiveDate::parse_from_str(x, "%Y-%m-%d")?;
+				StandardTagKey::OriginalDate => {
+					if let Some((Some(year), Some(month), day_opt)) = get_val_date(&tag.value)? {
 						let y = temp_meta.get_or_default_track();
-						y.original_date = Some(val);
+						y.original_date = NaiveDate::from_ymd_opt(year, month, day_opt.unwrap_or(1));
 					}
-					_ => {}
-				},
-				StandardTagKey::Date => match &tag.value {
-					Value::String(x) if matchers::reg::is_ymd(x.as_str()) => {
-						let val = NaiveDate::parse_from_str(x, "%Y-%m-%d")?;
+				}
+				StandardTagKey::Date => match get_val_date(&tag.value)? {
+					Some((Some(year), Some(month), day_opt)) => {
 						let y = temp_meta.get_or_default_release();
-						y.date = Some(val);
+						y.date = NaiveDate::from_ymd_opt(year, month, day_opt.unwrap_or(1));
 					}
-					Value::String(x) if matchers::reg::is_year(x.as_str()) => {
+					Some((Some(year), None, None)) => {
 						let y = temp_meta.get_or_default_release();
 						if y.year.is_none() {
-							y.year = Some(x.parse::<u32>()?)
+							y.year = Some(year);
 						}
-					}
-					Value::UnsignedInt(x) => {
-						let y = temp_meta.get_or_default_release();
-						y.year = Some(*x as u32);
 					}
 					_ => {}
 				},
@@ -358,6 +351,35 @@ fn get_val_str_or_u32(value: &Value) -> Result<Option<u32>> {
 		Value::UnsignedInt(x) => Ok(Some(*x as u32)),
 		_ => Ok(None),
 	}
+}
+
+type OptionedDate = (Option<i32>, Option<u32>, Option<u32>);
+
+#[inline]
+fn get_val_date(value: &Value) -> Result<Option<OptionedDate>> {
+	let date: Option<(Option<i32>, Option<u32>, Option<u32>)> = match value {
+		Value::String(x) if matchers::reg::is_ymd(x.as_str()) => {
+			let splits = x.split('-').collect::<Vec<&str>>();
+
+			let year = splits.first().map(|x| x.parse::<i32>()).transpose()?;
+			let month = splits.get(1).map(|x| x.parse::<u32>()).transpose()?;
+			let day = splits.get(2).map(|x| x.parse::<u32>()).transpose()?;
+
+			Some((year, month, day))
+		}
+		Value::String(x) if matchers::reg::is_ym(x.as_str()) => {
+			let splits = x.split('-').collect::<Vec<&str>>();
+			let year = splits.first().map(|x| x.parse::<i32>()).transpose()?;
+			let month = splits.last().map(|x| x.parse::<u32>()).transpose()?;
+
+			Some((year, month, None))
+		}
+		Value::String(x) if matchers::reg::is_year(x.as_str()) => Some((Some(x.parse::<i32>()?), None, None)),
+		Value::UnsignedInt(x) => Some((Some(*x as i32), None, None)),
+		_ => None,
+	};
+
+	Ok(date)
 }
 
 #[cfg(test)]

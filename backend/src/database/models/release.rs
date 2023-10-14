@@ -68,7 +68,7 @@ pub struct Release {
 	pub name: String,
 	pub name_sort: Option<String>,
 
-	pub year: Option<u32>,
+	pub year: Option<i32>,
 	pub date: Option<NaiveDate>,
 	pub country: Option<CountryCode>,
 	pub script: Option<ScriptCode>,

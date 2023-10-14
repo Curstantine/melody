@@ -3,12 +3,17 @@ pub mod reg {
 	use regex::Regex;
 
 	pub fn is_ymd(source: &str) -> bool {
-		static YYYYMMDD: Lazy<Regex> = Lazy::new(|| Regex::new(r"(\d{4})-(\d{2})-(\d{2})").unwrap());
+		static YYYYMMDD: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(\d{4})-(\d{2})-(\d{2})$").unwrap());
 		YYYYMMDD.is_match(source)
 	}
 
+	pub fn is_ym(source: &str) -> bool {
+		static YYMM: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(\d{4})-(\d{2})$").unwrap());
+		YYMM.is_match(source)
+	}
+
 	pub fn is_year(source: &str) -> bool {
-		static YYYY: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d{4}").unwrap());
+		static YYYY: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\d{4}$").unwrap());
 		YYYY.is_match(source)
 	}
 

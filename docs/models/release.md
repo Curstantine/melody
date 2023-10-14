@@ -21,7 +21,7 @@ Refers to a release done by an artist. A release can be an album, a single, an E
 | type_secondary | [`ReleaseTypeSecondary[]`](#releasetypesecondary) | The secondary types of the release. | false    |
 | artists        | [`InlinedArtist[]`](./generic.md#inlinedartist)   | The references to the artists.      | true     |
 | artist_sort    | `string`                                          | The sorting name of the artist.     | false    |
-| year           | `u32`                                             | The year of the release.            | false    |
+| year           | `i32`                                             | The year of the release.            | false    |
 | date           | `ISODate`                                         | The date of the release.            | false    |
 | country        | [`CountryCode`](#countrycode)                     | The country of the release.         | false    |
 | script         | `string`                                          | The script of the release.          | false    |

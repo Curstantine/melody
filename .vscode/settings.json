@@ -41,7 +41,8 @@
 		"unlisten",
 		"unmaximize",
 		"unocss",
-		"walkdir"
+		"walkdir",
+		"YYMM"
 	],
 	"files.exclude": {
 		"**/dist": true,
