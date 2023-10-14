@@ -43,5 +43,9 @@
 		"unocss",
 		"walkdir"
 	],
-	"rust-analyzer.showUnlinkedFileNotification": false
+	"files.exclude": {
+		"**/dist": true,
+		"**/target": true,
+		"**/node_modules": true
+	}
 }
