@@ -17,7 +17,7 @@ pub mod reg {
 		YYYY.is_match(source)
 	}
 
-	pub fn is_total_no(source: &str) -> bool {
+	pub fn is_no_and_total(source: &str) -> bool {
 		static REG: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(\d+)\/(\d+)$").unwrap());
 		REG.is_match(source)
 	}

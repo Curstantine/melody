@@ -57,7 +57,7 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 	let mut primary_release_type_used = false;
 
 	for tag in tags {
-		// println!("{:#?} {:#?}", tag.key, tag.value);
+		// println!("{:#?} ({:?}) {:#?}", tag.key, tag.std_key, tag.value);
 
 		if let Some(key) = tag.std_key {
 			match key {
@@ -167,50 +167,37 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 					}
 				}
 
-				StandardTagKey::TrackNumber => match &tag.value {
-					// Handles cases like 2/12 in track number
-					// index 0 is treated as track_no and index 1 is treated as track_total
-					Value::String(x) if matchers::reg::is_total_no(x) => {
-						let splits = x.split('/').collect::<Vec<&str>>();
-
-						if let Some(no) = splits.first() {
-							let y = temp_meta.get_or_default_track();
-							y.track_number = Some(no.parse::<u32>()?);
-						}
-
-						if let Some(total) = splits.last() {
-							let z = temp_meta.get_or_default_release();
-							if z.total_tracks.is_none() {
-								z.total_tracks = Some(total.parse::<u32>()?);
-							}
-						}
-					}
-					Value::String(x) => {
+				StandardTagKey::TrackNumber => {
+					if let Some((track_no, track_total_opt)) = get_no_and_maybe_total(&tag.value)? {
 						let y = temp_meta.get_or_default_track();
-						let track_no = x.parse::<u32>()?;
 						y.track_number = Some(track_no);
-					}
-					Value::UnsignedInt(x) => {
-						let y = temp_meta.get_or_default_track();
-						y.track_number = Some(*x as u32);
-					}
-					_ => {}
-				},
 
-				StandardTagKey::DiscNumber => {
-					if let Some(val) = get_val_str_or_u32(&tag.value)? {
-						let x = temp_meta.get_or_default_track();
-						x.disc_number = Some(val);
+						if let Some(track_total) = track_total_opt {
+							let z = temp_meta.get_or_default_release();
+							z.total_tracks.get_or_insert(track_total);
+						}
 					}
 				}
+				StandardTagKey::DiscNumber => {
+					if let Some((disc_no, disc_total_opt)) = get_no_and_maybe_total(&tag.value)? {
+						let y = temp_meta.get_or_default_track();
+						y.disc_number = Some(disc_no);
+
+						if let Some(disc_total) = disc_total_opt {
+							let z = temp_meta.get_or_default_release();
+							z.total_discs.get_or_insert(disc_total);
+						}
+					}
+				}
+
 				StandardTagKey::TrackTotal => {
-					if let Some(val) = get_val_str_or_u32(&tag.value)? {
+					if let Some(val) = get_val_u32(&tag.value)? {
 						let x = temp_meta.get_or_default_release();
 						x.total_tracks = Some(val);
 					}
 				}
 				StandardTagKey::DiscTotal => {
-					if let Some(val) = get_val_str_or_u32(&tag.value)? {
+					if let Some(val) = get_val_u32(&tag.value)? {
 						let x = temp_meta.get_or_default_release();
 						x.total_discs = Some(val);
 					}
@@ -345,7 +332,7 @@ fn get_val_string(value: &Value) -> Option<String> {
 }
 
 #[inline]
-fn get_val_str_or_u32(value: &Value) -> Result<Option<u32>> {
+fn get_val_u32(value: &Value) -> Result<Option<u32>> {
 	match value {
 		Value::String(s) => Ok(Some(s.parse::<u32>()?)),
 		Value::UnsignedInt(x) => Ok(Some(*x as u32)),
@@ -353,11 +340,11 @@ fn get_val_str_or_u32(value: &Value) -> Result<Option<u32>> {
 	}
 }
 
-type OptionedDate = (Option<i32>, Option<u32>, Option<u32>);
+type OptionedDate = Option<(Option<i32>, Option<u32>, Option<u32>)>;
 
 #[inline]
-fn get_val_date(value: &Value) -> Result<Option<OptionedDate>> {
-	let date: Option<(Option<i32>, Option<u32>, Option<u32>)> = match value {
+fn get_val_date(value: &Value) -> Result<OptionedDate> {
+	let date: OptionedDate = match value {
 		Value::String(x) if matchers::reg::is_ymd(x.as_str()) => {
 			let splits = x.split('-').collect::<Vec<&str>>();
 
@@ -382,6 +369,33 @@ fn get_val_date(value: &Value) -> Result<Option<OptionedDate>> {
 	Ok(date)
 }
 
+/// Reads into a value and tries to get an int followed by an optional int separated by a forward slash.
+///
+/// Useful for handling edge cases like track_no and track_total included in the same tag.
+///
+/// ### Example
+/// ```
+/// "2" -> (2, None)
+/// "1/2" -> (1, None)
+/// ```
+#[inline]
+fn get_no_and_maybe_total(value: &Value) -> Result<Option<(u32, Option<u32>)>> {
+	let tuple: Option<(u32, Option<u32>)> = match value {
+		Value::String(x) if matchers::reg::is_no_and_total(x) => {
+			let splits = x.split('/').collect::<Vec<&str>>();
+			let no = splits.first().unwrap();
+			let total = splits.last().unwrap();
+
+			Some((no.parse::<u32>()?, Some(total.parse::<u32>()?)))
+		}
+		Value::String(x) => Some((x.parse::<u32>()?, None)),
+		Value::UnsignedInt(x) => Some((*x as u32, None)),
+		_ => None,
+	};
+
+	Ok(tuple)
+}
+
 #[cfg(test)]
 mod test {
 	use std::fs::File;
@@ -390,7 +404,8 @@ mod test {
 	use crate::errors::Result;
 	use crate::utils::symphonia::read_track_meta;
 
-	const TRACK_PATH: &str = r"C:\Users\Curstantine\Music\TempLib\オンゲキシューターズ\ONGEKI Vocal Party 05\01 bitter flavor - give it up to you.opus";
+	const TRACK_PATH: &str =
+		r"C:\Users\Curstantine\Music\TempLib\Xroniàl Xéro (Remixes)\03 Xroniàl Xéro (cosMo＠暴走P Remix).mp3";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {
