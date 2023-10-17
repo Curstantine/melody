@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::{borrow::Cow, fs::File};
 
 use chrono::NaiveDate;
 use symphonia::core::{
@@ -16,7 +16,7 @@ use crate::{
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
-	errors::{Error, ErrorType, Result},
+	errors::{Error, ErrorType, FromErrorWithContext, Result},
 	models::temp::{TempInlinedArtist, TempTrackMeta},
 };
 
@@ -334,7 +334,13 @@ fn get_val_string(value: &Value) -> Option<String> {
 #[inline]
 fn get_val_u32(value: &Value) -> Result<Option<u32>> {
 	match value {
-		Value::String(s) => Ok(Some(s.parse::<u32>()?)),
+		Value::String(x) => {
+			let y = x
+				.parse::<u32>()
+				.map_err(|e| Error::from_with_context(e, Cow::Borrowed(x)))?;
+
+			Ok(Some(y))
+		}
 		Value::UnsignedInt(x) => Ok(Some(*x as u32)),
 		_ => Ok(None),
 	}
@@ -348,20 +354,47 @@ fn get_val_date(value: &Value) -> Result<OptionedDate> {
 		Value::String(x) if matchers::reg::is_ymd(x.as_str()) => {
 			let splits = x.split('-').collect::<Vec<&str>>();
 
-			let year = splits.first().map(|x| x.parse::<i32>()).transpose()?;
-			let month = splits.get(1).map(|x| x.parse::<u32>()).transpose()?;
-			let day = splits.get(2).map(|x| x.parse::<u32>()).transpose()?;
+			let year = {
+				let str = splits.first().unwrap();
+				str.parse::<i32>()
+					.map_err(|e| Error::from_with_context(e, Cow::Borrowed(str)))?
+			};
+			let month = {
+				let str = splits.get(1).unwrap();
+				str.parse::<u32>()
+					.map_err(|e| Error::from_with_context(e, Cow::Borrowed(str)))?
+			};
+			let day = {
+				let str = splits.get(2).unwrap();
+				str.parse::<u32>()
+					.map_err(|e| Error::from_with_context(e, Cow::Borrowed(str)))?
+			};
 
-			Some((year, month, day))
+			Some((Some(year), Some(month), Some(day)))
 		}
 		Value::String(x) if matchers::reg::is_ym(x.as_str()) => {
 			let splits = x.split('-').collect::<Vec<&str>>();
-			let year = splits.first().map(|x| x.parse::<i32>()).transpose()?;
-			let month = splits.last().map(|x| x.parse::<u32>()).transpose()?;
 
-			Some((year, month, None))
+			let year = {
+				let str = splits.first().unwrap();
+				str.parse::<i32>()
+					.map_err(|e| Error::from_with_context(e, Cow::Borrowed(str)))?
+			};
+			let month = {
+				let str = splits.get(1).unwrap();
+				str.parse::<u32>()
+					.map_err(|e| Error::from_with_context(e, Cow::Borrowed(str)))?
+			};
+
+			Some((Some(year), Some(month), None))
 		}
-		Value::String(x) if matchers::reg::is_year(x.as_str()) => Some((Some(x.parse::<i32>()?), None, None)),
+		Value::String(x) if matchers::reg::is_year(x.as_str()) => {
+			let year = x
+				.parse::<i32>()
+				.map_err(|e| Error::from_with_context(e, Cow::Borrowed(x)))?;
+
+			Some((Some(year), None, None))
+		}
 		Value::UnsignedInt(x) => Some((Some(*x as i32), None, None)),
 		_ => None,
 	};
@@ -383,12 +416,24 @@ fn get_no_and_maybe_total(value: &Value) -> Result<Option<(u32, Option<u32>)>> {
 	let tuple: Option<(u32, Option<u32>)> = match value {
 		Value::String(x) if matchers::reg::is_no_and_total(x) => {
 			let splits = x.split('/').collect::<Vec<&str>>();
-			let no = splits.first().unwrap();
-			let total = splits.last().unwrap();
+			let no_str = splits.first().unwrap();
+			let total_str = splits.last().unwrap();
 
-			Some((no.parse::<u32>()?, Some(total.parse::<u32>()?)))
+			let no = no_str
+				.parse::<u32>()
+				.map_err(|e| Error::from_with_context(e, Cow::Borrowed(no_str)))?;
+			let total = total_str
+				.parse::<u32>()
+				.map_err(|e| Error::from_with_context(e, Cow::Borrowed(total_str)))?;
+
+			Some((no, Some(total)))
 		}
-		Value::String(x) => Some((x.parse::<u32>()?, None)),
+		Value::String(x) => {
+			let y = x
+				.parse::<u32>()
+				.map_err(|e| Error::from_with_context(e, Cow::Borrowed(x)))?;
+			Some((y, None))
+		}
 		Value::UnsignedInt(x) => Some((*x as u32, None)),
 		_ => None,
 	};

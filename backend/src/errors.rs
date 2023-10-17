@@ -77,7 +77,7 @@ impl std::error::Error for Error {
 /// Convenience trait to implement From<T> for errors while including contextual data.
 ///
 /// Implement this trait only where it makes sense.
-trait FromErrorWithContext<T>: Sized {
+pub trait FromErrorWithContext<T>: Sized {
 	type Context;
 	fn from_with_context(error: T, context: Self::Context) -> Self;
 }
