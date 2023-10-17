@@ -1,11 +1,9 @@
 use std::{
 	borrow::Cow,
 	fmt::{Debug, Display},
-	path::PathBuf,
 };
 
 use serde::Serialize;
-use symphonia::core::errors::Error as SymphoniaError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -95,7 +93,7 @@ pub enum StdIoErrorType {
 impl FromErrorWithContext<std::io::Error> for Error {
 	type Context = StdIoErrorType;
 
-	fn from_with_context(error: std::io::Error, context: Self::Context) -> Self {
+	fn from_with_context(error: std::io::Error, context: StdIoErrorType) -> Self {
 		use std::io::ErrorKind as EK;
 
 		let (message, context): (Cow<'static, str>, Cow<'static, str>) = match context {
@@ -203,15 +201,15 @@ impl From<tauri::Error> for Error {
 		use tauri::Error as TE;
 
 		let context: Cow<'static, str> = match error {
-			TE::Setup(e) => Cow::Owned(format!("Setup hook failed with: {e}")),
-			TE::Io(e) => {
-				let e = Error::from_with_context(e, StdIoErrorType::Other);
+			TE::Setup(x) => Cow::Owned(format!("Setup hook failed with: {x}")),
+			TE::Io(x) => {
+				let e = Error::from_with_context(x, StdIoErrorType::Other);
 				Cow::Owned(format!("IO error with:\n{e}"))
 			}
-			TE::JoinError(e) => {
-				let e = Error::from(e);
-				let x = format!("Hmm, this shouldn't happen. Tauri met with a tokio task error:\n{e}");
-				Cow::Owned(x)
+			TE::JoinError(x) => {
+				let e = Error::from(x);
+				let y = format!("Hmm, this shouldn't happen. Tauri met with a tokio task error: {e}");
+				Cow::Owned(y)
 			}
 			_ => Cow::Owned(format!("Unhandled error {error}")),
 		};
@@ -227,10 +225,37 @@ impl From<tauri::Error> for Error {
 
 impl From<bonsaidb::local::Error> for Error {
 	fn from(error: bonsaidb::local::Error) -> Self {
+		use bonsaidb::local::Error as BE;
+
+		let (message, context): (&'static str, Cow<'static, str>) = match error {
+			BE::Nebari(x) => {
+				let y = format!("BonsaiDB (local) returned a Nebari error: {x}");
+				("Database storage layer failure", Cow::Owned(y))
+			}
+			BE::Core(x) => {
+				let y = format!("BonsaiDB (local) errored with: {x}", x = Error::from(x));
+				("Database core failure", Cow::Owned(y))
+			}
+			BE::TaskJoin(x) => {
+				let e = Error::from(x);
+				let y = format!("Hmm, this shouldn't happen. BonsaiDB (local) returned a tokio task error: {e}");
+				("Database threading failure", Cow::Owned(y))
+			}
+			BE::Io(x) => {
+				let e = Error::from_with_context(x, StdIoErrorType::Other);
+				let y = format!("BonsaiDB (local) returned an io error.\nMost probably while accessing the database files.\nReturned error: {e}");
+				("Database io error", Cow::Owned(y))
+			}
+			_ => (
+				"BonsaiDB (Local) returned an unhandled error",
+				Cow::Owned(format!("{error}")),
+			),
+		};
+
 		Self {
 			type_: ErrorType::Database,
-			message: error.to_string(),
-			context: None,
+			message: Cow::Borrowed(message),
+			context: Some(context),
 			source: Some(Box::new(error)),
 		}
 	}
@@ -238,10 +263,24 @@ impl From<bonsaidb::local::Error> for Error {
 
 impl From<bonsaidb::core::Error> for Error {
 	fn from(error: bonsaidb::core::Error) -> Self {
+		use bonsaidb::core::Error as BE;
+
+		let (message, context): (&'static str, Cow<'static, str>) = match error {
+			BE::ViewNotFound => ("Database view not found", Cow::Owned(error.to_string())),
+			BE::DatabaseNotFound(x) => {
+				let y = format!("Database by name '{x}' doesn't exist");
+				("Database not found", Cow::Owned(y))
+			}
+			_ => (
+				"BonsaiDB (Core) returned an unhandled error",
+				Cow::Owned(format!("{error}")),
+			),
+		};
+
 		Self {
 			type_: ErrorType::Database,
-			message: error.to_string(),
-			context: None,
+			message: Cow::Borrowed(message),
+			context: Some(context),
 			source: Some(Box::new(error)),
 		}
 	}
@@ -249,7 +288,8 @@ impl From<bonsaidb::core::Error> for Error {
 
 impl<T: Debug + Send + 'static> From<bonsaidb::core::schema::InsertError<T>> for Error {
 	fn from(value: bonsaidb::core::schema::InsertError<T>) -> Self {
-		Error::from(value.error).with_context(format!("Failed to insert: {:?}", value.contents))
+		let x = format!("Failed to insert: {:?}", value.contents);
+		Error::from(value.error).with_context(Cow::Owned(x))
 	}
 }
 
@@ -257,24 +297,42 @@ impl From<serde_json::Error> for Error {
 	fn from(error: serde_json::Error) -> Self {
 		Self {
 			type_: ErrorType::Serde,
-			message: error.to_string(),
-			context: None,
+			message: Cow::Borrowed("JSON Serialization error"),
+			context: Some(Cow::Owned(format!("{:?}", error))),
 			source: Some(Box::new(error)),
 		}
 	}
 }
 
-impl From<SymphoniaError> for Error {
-	fn from(value: SymphoniaError) -> Self {
-		let (message, context): (&'static str, Option<&'static str>) = match &value {
-			SymphoniaError::DecodeError(c) => (""),
+impl FromErrorWithContext<symphonia::core::errors::Error> for Error {
+	type Context = Cow<'static, str>;
+
+	fn from_with_context(error: symphonia::core::errors::Error, context: Self::Context) -> Self {
+		use symphonia::core::errors::Error as SE;
+
+		let (message, context): (&'static str, Cow<'static, str>) = match error {
+			SE::DecodeError(_) => {
+				let y = format!("The stream is either malformed or could not be decoded.\nFile: {context}");
+				("Decode error", Cow::Owned(y))
+			}
+			SE::Unsupported(x) => {
+				let y = format!(
+					"Symphonia was invoked with an unsupported codec/container feature {x} while reading {context}"
+				);
+				("Symphonia feature not supported", Cow::Owned(y))
+			}
+			SE::IoError(x) => {
+				let e = Error::from_with_context(x, StdIoErrorType::File(context));
+				("Symphonia io error", Cow::Owned(format!("{e}")))
+			}
+			_ => ("Symphonia returned an unhandled error", Cow::Owned(format!("{error}"))),
 		};
 
 		Self {
 			type_: ErrorType::Symphonia,
-			message: (),
-			context: (),
-			source: Some(Box::new(value)),
+			message: Cow::Borrowed(message),
+			context: Some(context),
+			source: Some(Box::new(error)),
 		}
 	}
 }
