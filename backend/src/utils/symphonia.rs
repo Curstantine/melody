@@ -404,8 +404,7 @@ mod test {
 	use crate::errors::Result;
 	use crate::utils::symphonia::read_track_meta;
 
-	const TRACK_PATH: &str =
-		r"C:\Users\Curstantine\Music\TempLib\Xroniàl Xéro (Remixes)\03 Xroniàl Xéro (cosMo＠暴走P Remix).mp3";
+	const TRACK_PATH: &str = r"c:\Users\Curstantine\Music\TempLib\Yunomi feat. nicamoq\守護霊\01 守護霊.opus";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {

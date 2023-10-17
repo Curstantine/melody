@@ -1,12 +1,17 @@
-use std::fmt::{Debug, Display};
+use std::{
+	borrow::Cow,
+	fmt::{Debug, Display},
+	path::PathBuf,
+};
 
 use serde::Serialize;
+use symphonia::core::errors::Error as SymphoniaError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Serialize, PartialEq)]
 pub enum ErrorType {
-	IO,
+	Io,
 	Descriptive,
 	Conversion,
 
@@ -14,39 +19,43 @@ pub enum ErrorType {
 	Database,
 	Tauri,
 	Serde,
+	Symphonia,
 }
 
 #[derive(Debug, Serialize)]
 pub struct Error {
 	pub type_: ErrorType,
-	pub message: String,
-	pub context: Option<String>,
+	#[serde(borrow)]
+	pub message: Cow<'static, str>,
+
+	#[serde(borrow)]
+	pub context: Option<Cow<'static, str>>,
 
 	#[serde(skip)]
 	pub source: Option<Box<dyn std::error::Error + Send>>,
 }
 
 impl Error {
-	pub fn descriptive(message: impl Into<String>) -> Self {
+	pub fn descriptive(message: &'static str) -> Self {
 		Self {
 			type_: ErrorType::Descriptive,
-			message: message.into(),
+			message: Cow::Borrowed(message),
 			context: None,
 			source: None,
 		}
 	}
 
-	pub fn conversion(message: impl Into<String>, context: Option<impl Into<String>>) -> Self {
+	pub fn conversion(message: &'static str, context: Option<Cow<'static, str>>) -> Self {
 		Self {
 			type_: ErrorType::Conversion,
 			message: message.into(),
-			context: context.map(|x| x.into()),
+			context,
 			source: None,
 		}
 	}
 
-	pub fn with_context(mut self, context: impl Into<String>) -> Self {
-		self.context = Some(context.into());
+	pub fn with_context(mut self, context: Cow<'static, str>) -> Self {
+		self.context = Some(context);
 		self
 	}
 }
@@ -67,39 +76,104 @@ impl std::error::Error for Error {
 	}
 }
 
-impl From<std::io::Error> for Error {
-	fn from(error: std::io::Error) -> Self {
+/// Convenience trait to implement From<T> for errors while including contextual data.
+///
+/// Implement this trait only where it makes sense.
+trait FromErrorWithContext<T>: Sized {
+	type Context;
+	fn from_with_context(error: T, context: Self::Context) -> Self;
+}
+
+/// Convenience type for knowing what type of error std::io::Error is about.
+#[derive(Debug, PartialEq)]
+pub enum StdIoErrorType {
+	/// Path to target
+	File(Cow<'static, str>),
+	Other,
+}
+
+impl FromErrorWithContext<std::io::Error> for Error {
+	type Context = StdIoErrorType;
+
+	fn from_with_context(error: std::io::Error, context: Self::Context) -> Self {
+		use std::io::ErrorKind as EK;
+
+		let (message, context): (Cow<'static, str>, Cow<'static, str>) = match context {
+			StdIoErrorType::File(x) => match error.kind() {
+				EK::AlreadyExists => {
+					let y = format!("Creation operation at {x} returned an error implying target file already exists.");
+					(Cow::Borrowed("File already exists"), Cow::Owned(y))
+				}
+				EK::NotFound => {
+					let y = format!("Read operation at {x} failed with not found.");
+					(Cow::Borrowed("File not found"), Cow::Owned(y))
+				}
+				EK::UnexpectedEof => {
+					let y = format!("Prematurely found end of file while reading {x}");
+					(Cow::Borrowed("Unexpected end-of-file"), Cow::Owned(y))
+				}
+				_ => {
+					let y = format!("Unhandled error '{}' at {x}", error.kind());
+					(Cow::Borrowed("IO operation failure"), Cow::Owned(y))
+				}
+			},
+			StdIoErrorType::Other => (Cow::Borrowed("IO operation failure"), Cow::Owned(error.to_string())),
+		};
+
 		Self {
-			type_: ErrorType::IO,
-			message: error.to_string(),
-			context: None,
+			type_: ErrorType::Io,
+			message,
+			context: Some(context),
 			source: Some(Box::new(error)),
 		}
 	}
 }
 
-impl From<std::num::ParseIntError> for Error {
-	fn from(error: std::num::ParseIntError) -> Self {
+impl FromErrorWithContext<std::num::ParseIntError> for Error {
+	type Context = Cow<'static, str>;
+
+	fn from_with_context(error: std::num::ParseIntError, context: Self::Context) -> Self {
 		use std::num::IntErrorKind;
 
+		let context: Cow<'static, str> = match error.kind() {
+			IntErrorKind::InvalidDigit => Cow::Owned(format!("Given integer to parse was invalid, got: {context}")),
+			IntErrorKind::Empty | IntErrorKind::Zero => Cow::Borrowed("Given value was empty"),
+			IntErrorKind::NegOverflow | IntErrorKind::PosOverflow => {
+				let x = format!("Failed to parse the integer to the given type, integer overflow!\nGot: {context}");
+				Cow::Owned(x)
+			}
+			_ => panic!("Unknown error variant from std::num::ParseIntError: #{:#?}", error),
+		};
+
 		Self {
 			type_: ErrorType::Conversion,
-			message: match error.kind() {
-				IntErrorKind::InvalidDigit => "Integer conversion failed due to an invalid digit".to_string(),
-				_ => error.to_string(),
-			},
-			context: None,
+			message: Cow::Borrowed("Erroneous integer conversion"),
+			context: Some(context),
 			source: Some(Box::new(error)),
 		}
 	}
 }
 
-impl From<chrono::ParseError> for Error {
-	fn from(error: chrono::ParseError) -> Self {
+impl FromErrorWithContext<chrono::ParseError> for Error {
+	type Context = Cow<'static, str>;
+
+	fn from_with_context(error: chrono::ParseError, context: Self::Context) -> Self {
+		use chrono::format::ParseErrorKind as PEK;
+
+		let context: Cow<'static, str> = match error.kind() {
+			PEK::BadFormat => Cow::Owned(format!("Date is badly formatted, got: {context}")),
+			PEK::OutOfRange => Cow::Owned(format!("Date is out of spec range, got: {context}")),
+			PEK::Impossible => Cow::Owned(format!("Date is impossible to parse, got: {context}")),
+			PEK::NotEnough | PEK::Invalid | PEK::TooShort | PEK::TooLong => {
+				Cow::Borrowed("Date is invalid, it's either not following the supported formats or is malformed")
+			}
+			_ => panic!("Unknown error variant from chrono::ParseError: {:#?}", error),
+		};
+
 		Self {
 			type_: ErrorType::Conversion,
-			message: "Failed to parse date".to_string(),
-			context: Some(error.to_string()),
+			message: Cow::Borrowed("Errornous date parse"),
+			context: Some(context),
 			source: Some(Box::new(error)),
 		}
 	}
@@ -107,10 +181,18 @@ impl From<chrono::ParseError> for Error {
 
 impl From<tokio::task::JoinError> for Error {
 	fn from(error: tokio::task::JoinError) -> Self {
+		let context: Cow<'static, str> = if error.is_cancelled() {
+			Cow::Borrowed("Task failed from unsafely cancelling it")
+		} else {
+			// We would want to panic if this error is neither a cancellation error or an inner panic anyway.
+			let reason = error.into_panic();
+			Cow::Owned(format!("Task most failed from a caller panic'ing, here: {:#?}", error))
+		};
+
 		Self {
 			type_: ErrorType::Tokio,
-			message: error.to_string(),
-			context: None,
+			message: Cow::Borrowed("Tokio task failure"),
+			context: Some(context),
 			source: Some(Box::new(error)),
 		}
 	}
@@ -118,10 +200,26 @@ impl From<tokio::task::JoinError> for Error {
 
 impl From<tauri::Error> for Error {
 	fn from(error: tauri::Error) -> Self {
+		use tauri::Error as TE;
+
+		let context: Cow<'static, str> = match error {
+			TE::Setup(e) => Cow::Owned(format!("Setup hook failed with: {e}")),
+			TE::Io(e) => {
+				let e = Error::from_with_context(e, StdIoErrorType::Other);
+				Cow::Owned(format!("IO error with:\n{e}"))
+			}
+			TE::JoinError(e) => {
+				let e = Error::from(e);
+				let x = format!("Hmm, this shouldn't happen. Tauri met with a tokio task error:\n{e}");
+				Cow::Owned(x)
+			}
+			_ => Cow::Owned(format!("Unhandled error {error}")),
+		};
+
 		Self {
 			type_: ErrorType::Tauri,
-			message: error.to_string(),
-			context: None,
+			message: Cow::Borrowed("Tauri failure"),
+			context: Some(context),
 			source: Some(Box::new(error)),
 		}
 	}
@@ -162,6 +260,21 @@ impl From<serde_json::Error> for Error {
 			message: error.to_string(),
 			context: None,
 			source: Some(Box::new(error)),
+		}
+	}
+}
+
+impl From<SymphoniaError> for Error {
+	fn from(value: SymphoniaError) -> Self {
+		let (message, context): (&'static str, Option<&'static str>) = match &value {
+			SymphoniaError::DecodeError(c) => (""),
+		};
+
+		Self {
+			type_: ErrorType::Symphonia,
+			message: (),
+			context: (),
+			source: Some(Box::new(value)),
 		}
 	}
 }
