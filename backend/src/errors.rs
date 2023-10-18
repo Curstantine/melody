@@ -1,6 +1,7 @@
 use std::{
 	borrow::Cow,
 	fmt::{Debug, Display},
+	path::Path,
 };
 
 use serde::Serialize;
@@ -77,44 +78,48 @@ impl std::error::Error for Error {
 /// Convenience trait to implement From<T> for errors while including contextual data.
 ///
 /// Implement this trait only where it makes sense.
-pub trait FromErrorWithContext<T>: Sized {
-	type Context;
-	fn from_with_context(error: T, context: Self::Context) -> Self;
+pub trait FromErrorWithContextData<T>: Sized {
+	type ContextData<'a>;
+	fn from_with_ctx<'a>(error: T, context: Self::ContextData<'a>) -> Self;
 }
 
 /// Convenience type for knowing what type of error std::io::Error is about.
 #[derive(Debug, PartialEq)]
-pub enum StdIoErrorType {
+pub enum StdIoErrorType<'a> {
 	/// Path to target
-	File(Cow<'static, str>),
+	Path(&'a Path),
 	Other,
 }
 
-impl FromErrorWithContext<std::io::Error> for Error {
-	type Context = StdIoErrorType;
+impl FromErrorWithContextData<std::io::Error> for Error {
+	type ContextData<'a> = StdIoErrorType<'a>;
 
-	fn from_with_context(error: std::io::Error, context: StdIoErrorType) -> Self {
+	fn from_with_ctx<'a>(error: std::io::Error, context: StdIoErrorType<'a>) -> Self {
 		use std::io::ErrorKind as EK;
 
 		let (message, context): (Cow<'static, str>, Cow<'static, str>) = match context {
-			StdIoErrorType::File(x) => match error.kind() {
-				EK::AlreadyExists => {
-					let y = format!("Creation operation at {x} returned an error implying target file already exists.");
-					(Cow::Borrowed("File already exists"), Cow::Owned(y))
+			StdIoErrorType::Path(x) => {
+				let x = x.to_str().unwrap();
+				match error.kind() {
+					EK::AlreadyExists => {
+						let y =
+							format!("Create operation at {x} returned an error implying target file already exists.");
+						(Cow::Borrowed("File already exists"), Cow::Owned(y))
+					}
+					EK::NotFound => {
+						let y = format!("Read operation at {x} failed with not found.");
+						(Cow::Borrowed("File not found"), Cow::Owned(y))
+					}
+					EK::UnexpectedEof => {
+						let y = format!("Prematurely found end of file while reading {x}");
+						(Cow::Borrowed("Unexpected end-of-file"), Cow::Owned(y))
+					}
+					_ => {
+						let y = format!("Unhandled error '{}' at {x}", error.kind());
+						(Cow::Borrowed("IO operation failure"), Cow::Owned(y))
+					}
 				}
-				EK::NotFound => {
-					let y = format!("Read operation at {x} failed with not found.");
-					(Cow::Borrowed("File not found"), Cow::Owned(y))
-				}
-				EK::UnexpectedEof => {
-					let y = format!("Prematurely found end of file while reading {x}");
-					(Cow::Borrowed("Unexpected end-of-file"), Cow::Owned(y))
-				}
-				_ => {
-					let y = format!("Unhandled error '{}' at {x}", error.kind());
-					(Cow::Borrowed("IO operation failure"), Cow::Owned(y))
-				}
-			},
+			}
 			StdIoErrorType::Other => (Cow::Borrowed("IO operation failure"), Cow::Owned(error.to_string())),
 		};
 
@@ -127,10 +132,10 @@ impl FromErrorWithContext<std::io::Error> for Error {
 	}
 }
 
-impl FromErrorWithContext<std::num::ParseIntError> for Error {
-	type Context = Cow<'static, str>;
+impl FromErrorWithContextData<std::num::ParseIntError> for Error {
+	type ContextData<'a> = Cow<'a, str>;
 
-	fn from_with_context(error: std::num::ParseIntError, context: Self::Context) -> Self {
+	fn from_with_ctx<'a>(error: std::num::ParseIntError, context: Self::ContextData<'a>) -> Self {
 		use std::num::IntErrorKind;
 
 		let context: Cow<'static, str> = match error.kind() {
@@ -152,10 +157,10 @@ impl FromErrorWithContext<std::num::ParseIntError> for Error {
 	}
 }
 
-impl FromErrorWithContext<chrono::ParseError> for Error {
-	type Context = Cow<'static, str>;
+impl FromErrorWithContextData<chrono::ParseError> for Error {
+	type ContextData<'a> = Cow<'a, str>;
 
-	fn from_with_context(error: chrono::ParseError, context: Self::Context) -> Self {
+	fn from_with_ctx<'a>(error: chrono::ParseError, context: Self::ContextData<'a>) -> Self {
 		use chrono::format::ParseErrorKind as PEK;
 
 		let context: Cow<'static, str> = match error.kind() {
@@ -203,7 +208,7 @@ impl From<tauri::Error> for Error {
 		let context: Cow<'static, str> = match error {
 			TE::Setup(x) => Cow::Owned(format!("Setup hook failed with: {x}")),
 			TE::Io(x) => {
-				let e = Error::from_with_context(x, StdIoErrorType::Other);
+				let e = Error::from_with_ctx(x, StdIoErrorType::Other);
 				Cow::Owned(format!("IO error with:\n{e}"))
 			}
 			TE::JoinError(x) => {
@@ -227,7 +232,7 @@ impl From<bonsaidb::local::Error> for Error {
 	fn from(error: bonsaidb::local::Error) -> Self {
 		use bonsaidb::local::Error as BE;
 
-		let (message, context): (&'static str, Cow<'static, str>) = match error {
+		let (message, context): (&'static str, Cow<'static, str>) = match &error {
 			BE::Nebari(x) => {
 				let y = format!("BonsaiDB (local) returned a Nebari error: {x}");
 				("Database storage layer failure", Cow::Owned(y))
@@ -242,7 +247,7 @@ impl From<bonsaidb::local::Error> for Error {
 				("Database threading failure", Cow::Owned(y))
 			}
 			BE::Io(x) => {
-				let e = Error::from_with_context(x, StdIoErrorType::Other);
+				let e = Error::from_with_ctx(x, StdIoErrorType::Other);
 				let y = format!("BonsaiDB (local) returned an io error.\nMost probably while accessing the database files.\nReturned error: {e}");
 				("Database io error", Cow::Owned(y))
 			}
@@ -265,7 +270,7 @@ impl From<bonsaidb::core::Error> for Error {
 	fn from(error: bonsaidb::core::Error) -> Self {
 		use bonsaidb::core::Error as BE;
 
-		let (message, context): (&'static str, Cow<'static, str>) = match error {
+		let (message, context): (&'static str, Cow<'static, str>) = match &error {
 			BE::ViewNotFound => ("Database view not found", Cow::Owned(error.to_string())),
 			BE::DatabaseNotFound(x) => {
 				let y = format!("Database by name '{x}' doesn't exist");
@@ -304,13 +309,13 @@ impl From<serde_json::Error> for Error {
 	}
 }
 
-impl FromErrorWithContext<symphonia::core::errors::Error> for Error {
-	type Context = Cow<'static, str>;
+impl FromErrorWithContextData<symphonia::core::errors::Error> for Error {
+	type ContextData<'a> = Cow<'a, str>;
 
-	fn from_with_context(error: symphonia::core::errors::Error, context: Self::Context) -> Self {
+	fn from_with_ctx<'a>(error: symphonia::core::errors::Error, context: Self::ContextData<'a>) -> Self {
 		use symphonia::core::errors::Error as SE;
 
-		let (message, context): (&'static str, Cow<'static, str>) = match error {
+		let (message, context): (&'static str, Cow<'static, str>) = match &error {
 			SE::DecodeError(_) => {
 				let y = format!("The stream is either malformed or could not be decoded.\nFile: {context}");
 				("Decode error", Cow::Owned(y))
@@ -322,7 +327,8 @@ impl FromErrorWithContext<symphonia::core::errors::Error> for Error {
 				("Symphonia feature not supported", Cow::Owned(y))
 			}
 			SE::IoError(x) => {
-				let e = Error::from_with_context(x, StdIoErrorType::File(context));
+				let y = Path::new(context.as_ref());
+				let e = Error::from_with_ctx(x, StdIoErrorType::Path(y));
 				("Symphonia io error", Cow::Owned(format!("{e}")))
 			}
 			_ => ("Symphonia returned an unhandled error", Cow::Owned(format!("{error}"))),

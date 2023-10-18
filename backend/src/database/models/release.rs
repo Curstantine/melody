@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use bonsaidb::core::schema::Collection;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
@@ -25,10 +27,8 @@ impl FromTag for ReleaseType {
 			"ep" => Self::Ep,
 			"single" => Self::Single,
 			_ => {
-				return Err(Error::conversion(
-					"Failed to resolve release type",
-					Some(format!("Expected known release types, but got {}", value)),
-				))
+				let x = format!("Expected known release types, but got {}", value);
+				return Err(Error::conversion("Failed to resolve release type", Some(Cow::Owned(x))));
 			}
 		};
 

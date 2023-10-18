@@ -11,7 +11,7 @@ use tracing::debug;
 
 use crate::{
 	constants::UNKNOWN_PERSON_ID,
-	errors::{Error, Result},
+	errors::{Error, FromErrorWithContextData, Result, StdIoErrorType},
 };
 
 use self::models::{person::Person, LocalSchema};
@@ -41,30 +41,14 @@ impl Database {
 
 		match fs::create_dir_all(&app_data_dir).await {
 			Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => {
-				return Err(Error::from(e).with_context("Failed to create the app data directory"));
+				return Err(Error::from_with_ctx(e, StdIoErrorType::Path(&app_data_dir)));
 			}
 			_ => {}
 		}
 
 		let db_file_path = app_data_dir.join(Self::DB_NAME);
 		let db_conf = StorageConfiguration::new(&db_file_path);
-		let database = match BonsaiDatabase::open::<LocalSchema>(db_conf).await {
-			Ok(db) => db,
-			Err(e) => match e {
-				bonsaidb::local::Error::Io(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-					let context = format!(
-						"A database that doesn't match the expected constraints already exists at {:?}",
-						db_file_path
-					);
-					return Err(Error::from(e).with_context(context));
-				}
-				_ => {
-					let context = format!("Failed to open the database at {:?}", db_file_path);
-					return Err(Error::from(e).with_context(context));
-				}
-			},
-		};
-
+		let database = BonsaiDatabase::open::<LocalSchema>(db_conf).await?;
 		debug!("Successfully opened the database at {:?}", db_file_path);
 
 		if database.get_key(Self::KEY_IS_FIRST_RUN).await?.is_none() {

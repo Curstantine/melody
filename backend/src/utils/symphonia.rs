@@ -16,7 +16,7 @@ use crate::{
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
-	errors::{Error, ErrorType, FromErrorWithContext, Result},
+	errors::{Error, ErrorType, FromErrorWithContextData, Result},
 	models::temp::{TempInlinedArtist, TempTrackMeta},
 };
 
@@ -337,7 +337,7 @@ fn get_val_u32(value: &Value) -> Result<Option<u32>> {
 		Value::String(x) => {
 			let y = x
 				.parse::<u32>()
-				.map_err(|e| Error::from_with_context(e, Cow::Borrowed(x)))?;
+				.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(x)))?;
 
 			Ok(Some(y))
 		}
@@ -357,17 +357,17 @@ fn get_val_date(value: &Value) -> Result<OptionedDate> {
 			let year = {
 				let str = splits.first().unwrap();
 				str.parse::<i32>()
-					.map_err(|e| Error::from_with_context(e, Cow::Borrowed(str)))?
+					.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(str)))?
 			};
 			let month = {
 				let str = splits.get(1).unwrap();
 				str.parse::<u32>()
-					.map_err(|e| Error::from_with_context(e, Cow::Borrowed(str)))?
+					.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(str)))?
 			};
 			let day = {
 				let str = splits.get(2).unwrap();
 				str.parse::<u32>()
-					.map_err(|e| Error::from_with_context(e, Cow::Borrowed(str)))?
+					.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(str)))?
 			};
 
 			Some((Some(year), Some(month), Some(day)))
@@ -378,12 +378,12 @@ fn get_val_date(value: &Value) -> Result<OptionedDate> {
 			let year = {
 				let str = splits.first().unwrap();
 				str.parse::<i32>()
-					.map_err(|e| Error::from_with_context(e, Cow::Borrowed(str)))?
+					.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(str)))?
 			};
 			let month = {
 				let str = splits.get(1).unwrap();
 				str.parse::<u32>()
-					.map_err(|e| Error::from_with_context(e, Cow::Borrowed(str)))?
+					.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(str)))?
 			};
 
 			Some((Some(year), Some(month), None))
@@ -391,7 +391,7 @@ fn get_val_date(value: &Value) -> Result<OptionedDate> {
 		Value::String(x) if matchers::reg::is_year(x.as_str()) => {
 			let year = x
 				.parse::<i32>()
-				.map_err(|e| Error::from_with_context(e, Cow::Borrowed(x)))?;
+				.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(x)))?;
 
 			Some((Some(year), None, None))
 		}
@@ -421,17 +421,17 @@ fn get_no_and_maybe_total(value: &Value) -> Result<Option<(u32, Option<u32>)>> {
 
 			let no = no_str
 				.parse::<u32>()
-				.map_err(|e| Error::from_with_context(e, Cow::Borrowed(no_str)))?;
+				.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(no_str)))?;
 			let total = total_str
 				.parse::<u32>()
-				.map_err(|e| Error::from_with_context(e, Cow::Borrowed(total_str)))?;
+				.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(total_str)))?;
 
 			Some((no, Some(total)))
 		}
 		Value::String(x) => {
 			let y = x
 				.parse::<u32>()
-				.map_err(|e| Error::from_with_context(e, Cow::Borrowed(x)))?;
+				.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(x)))?;
 			Some((y, None))
 		}
 		Value::UnsignedInt(x) => Some((*x as u32, None)),

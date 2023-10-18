@@ -45,7 +45,7 @@ mod tests {
 	#[test]
 	fn test_walk_dir_sync() -> Result<()> {
 		let target = Path::new("./target");
-		let paths = super::walkdir_sync(target, |_| true)?;
+		let paths = super::walkdir_sync(target, |_| true).unwrap();
 
 		for path in paths {
 			assert!(path.exists(), "Path {} does not exist", path.display());
