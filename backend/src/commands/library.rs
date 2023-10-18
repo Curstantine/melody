@@ -8,7 +8,7 @@ use tokio::time::Instant;
 use tracing::{debug, info};
 
 use crate::database::helpers::handle_temp_track_meta;
-use crate::errors::{Error, FromErrorWithContextData, StdIoErrorType};
+use crate::errors::{Error, FromErrorWithContextData, IoErrorType};
 use crate::utils::matchers;
 use crate::{
 	database::{models::library::Library as LibraryModel, views::library::LibraryByName},
@@ -70,7 +70,7 @@ pub async fn create_library(
 	let handle = thread::spawn::<_, Result<()>>(move || {
 		for scan_location in scan_location {
 			let paths = utils::fs::walkdir_sync(&scan_location, matchers::path::audio)
-				.map_err(|x| Error::from_with_ctx(x, StdIoErrorType::Path(&scan_location)))?;
+				.map_err(|x| Error::from_with_ctx(x, IoErrorType::Path(&scan_location)))?;
 			let total = paths.len() as u64;
 
 			for (i, path) in paths.into_iter().enumerate() {
@@ -88,7 +88,7 @@ pub async fn create_library(
 				};
 				tx.send(ChannelData::ScanEvent(event_payload)).unwrap();
 
-				let src = File::open(&path).map_err(|x| Error::from_with_ctx(x, StdIoErrorType::Path(&path)))?;
+				let src = File::open(&path).map_err(|x| Error::from_with_ctx(x, IoErrorType::Path(&path)))?;
 				let meta = read_track_meta(Box::new(src), Some(&extension))?;
 				tx.send(ChannelData::ProbeResult {
 					meta: Box::new(meta),

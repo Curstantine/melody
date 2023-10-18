@@ -22,6 +22,7 @@ pub enum ErrorType {
 }
 
 #[derive(Debug, Serialize)]
+/// Describes an app-wide error.
 pub struct Error {
 	pub type_: ErrorType,
 	#[serde(borrow)]
@@ -75,6 +76,9 @@ impl std::error::Error for Error {
 	}
 }
 
+/// Convenience trait to implement contextual data for an error.
+///
+/// Implement this trait for all the error where a context message is expected.
 pub trait ErrorContextData<T> {
 	type ContextData<'a>;
 	fn get_message(error: &T, data: Self::ContextData<'_>) -> (Cow<'static, str>, Option<Cow<'static, str>>);
@@ -89,19 +93,18 @@ pub trait FromErrorWithContextData<T>: ErrorContextData<T> {
 
 /// Convenience type for knowing what type of error std::io::Error is about.
 #[derive(Debug, PartialEq)]
-pub enum StdIoErrorType<'a> {
-	/// Path to target
+pub enum IoErrorType<'a> {
 	Path(&'a Path),
 	Other,
 }
 
 impl ErrorContextData<std::io::Error> for Error {
-	type ContextData<'a> = StdIoErrorType<'a>;
+	type ContextData<'a> = IoErrorType<'a>;
 
-	fn get_message(error: &std::io::Error, data: StdIoErrorType<'_>) -> (Cow<'static, str>, Option<Cow<'static, str>>) {
+	fn get_message(error: &std::io::Error, data: IoErrorType<'_>) -> (Cow<'static, str>, Option<Cow<'static, str>>) {
 		use std::io::ErrorKind as EK;
 
-		let (message, context): (&'static str, Cow<'static, str>) = if let StdIoErrorType::Path(x) = data {
+		let (message, context): (&'static str, Cow<'static, str>) = if let IoErrorType::Path(x) = data {
 			let x = x.to_str().unwrap();
 			match error.kind() {
 				EK::AlreadyExists => {
@@ -130,7 +133,7 @@ impl ErrorContextData<std::io::Error> for Error {
 }
 
 impl FromErrorWithContextData<std::io::Error> for Error {
-	fn from_with_ctx(error: std::io::Error, data: StdIoErrorType<'_>) -> Self {
+	fn from_with_ctx(error: std::io::Error, data: IoErrorType<'_>) -> Self {
 		let (message, context) = Self::get_message(&error, data);
 
 		Self {
@@ -254,7 +257,7 @@ impl ErrorContextData<tauri::Error> for Error {
 		let context: Cow<'static, str> = match error {
 			TE::Setup(x) => Cow::Owned(format!("Setup hook failed with: {x}")),
 			TE::Io(x) => {
-				let e = Error::get_message(x, StdIoErrorType::Other);
+				let e = Error::get_message(x, IoErrorType::Other);
 				Cow::Owned(format!("IO error with: {:?}", e))
 			}
 			TE::JoinError(x) => {
@@ -309,7 +312,7 @@ impl ErrorContextData<bonsaidb::local::Error> for Error {
 				("Database threading failure", Cow::Owned(y))
 			}
 			BE::Io(x) => {
-				let e = Error::get_message(x, StdIoErrorType::Other);
+				let e = Error::get_message(x, IoErrorType::Other);
 				let y = format!("BonsaiDB (local) returned an io error.\nMost probably while accessing the database files.\nReturned error: {:?}", e);
 				("Database io error", Cow::Owned(y))
 			}
@@ -381,17 +384,6 @@ impl<T: Debug + Send + 'static> From<bonsaidb::core::schema::InsertError<T>> for
 	}
 }
 
-impl From<serde_json::Error> for Error {
-	fn from(error: serde_json::Error) -> Self {
-		Self {
-			type_: ErrorType::Serde,
-			message: Cow::Borrowed("JSON Serialization error"),
-			context: Some(Cow::Owned(format!("{:?}", error))),
-			source: Some(Box::new(error)),
-		}
-	}
-}
-
 impl ErrorContextData<symphonia::core::errors::Error> for Error {
 	type ContextData<'a> = Cow<'a, str>;
 
@@ -414,7 +406,7 @@ impl ErrorContextData<symphonia::core::errors::Error> for Error {
 			}
 			SE::IoError(x) => {
 				let y = Path::new(data.as_ref());
-				let e = Error::get_message(x, StdIoErrorType::Path(y));
+				let e = Error::get_message(x, IoErrorType::Path(y));
 				("Symphonia io error", Cow::Owned(format!("{:?}", e)))
 			}
 			_ => ("Symphonia returned an unhandled error", Cow::Owned(format!("{error}"))),
@@ -432,6 +424,17 @@ impl FromErrorWithContextData<symphonia::core::errors::Error> for Error {
 			type_: ErrorType::Symphonia,
 			message,
 			context,
+			source: Some(Box::new(error)),
+		}
+	}
+}
+
+impl From<serde_json::Error> for Error {
+	fn from(error: serde_json::Error) -> Self {
+		Self {
+			type_: ErrorType::Serde,
+			message: Cow::Borrowed("JSON Serialization error"),
+			context: Some(Cow::Owned(format!("{:?}", error))),
 			source: Some(Box::new(error)),
 		}
 	}

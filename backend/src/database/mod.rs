@@ -11,7 +11,7 @@ use tracing::debug;
 
 use crate::{
 	constants::UNKNOWN_PERSON_ID,
-	errors::{Error, FromErrorWithContextData, Result, StdIoErrorType},
+	errors::{Error, FromErrorWithContextData, IoErrorType, Result},
 };
 
 use self::models::{person::Person, LocalSchema};
@@ -41,7 +41,7 @@ impl Database {
 
 		match fs::create_dir_all(&app_data_dir).await {
 			Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => {
-				return Err(Error::from_with_ctx(e, StdIoErrorType::Path(&app_data_dir)));
+				return Err(Error::from_with_ctx(e, IoErrorType::Path(&app_data_dir)));
 			}
 			_ => {}
 		}
