@@ -1,4 +1,3 @@
-use std::fs::File;
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
@@ -75,10 +74,6 @@ pub async fn create_library(
 
 			for (i, path) in paths.into_iter().enumerate() {
 				let current = i as u64 + 1;
-				let extension = match path.extension() {
-					Some(extension) => extension.to_str().unwrap().to_string(),
-					_ => continue,
-				};
 
 				let event_payload = LibraryGenericActionPayload {
 					total,
@@ -88,8 +83,7 @@ pub async fn create_library(
 				};
 				tx.send(ChannelData::ScanEvent(event_payload)).unwrap();
 
-				let src = File::open(&path).map_err(|x| Error::from_with_ctx(x, IoErrorType::Path(&path)))?;
-				let meta = read_track_meta(Box::new(src), Some(&extension))?;
+				let meta = read_track_meta(&path)?;
 				tx.send(ChannelData::ProbeResult {
 					meta: Box::new(meta),
 					path,

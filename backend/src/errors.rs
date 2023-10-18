@@ -385,7 +385,7 @@ impl<T: Debug + Send + 'static> From<bonsaidb::core::schema::InsertError<T>> for
 }
 
 impl ErrorContextData<symphonia::core::errors::Error> for Error {
-	type ContextData<'a> = Cow<'a, str>;
+	type ContextData<'a> = &'a Path;
 
 	fn get_message(
 		error: &symphonia::core::errors::Error,
@@ -393,20 +393,19 @@ impl ErrorContextData<symphonia::core::errors::Error> for Error {
 	) -> (Cow<'static, str>, Option<Cow<'static, str>>) {
 		use symphonia::core::errors::Error as SE;
 
+		let p = data.to_str().unwrap();
 		let (message, context): (&'static str, Cow<'static, str>) = match &error {
 			SE::DecodeError(_) => {
-				let y = format!("The stream is either malformed or could not be decoded.\nFile: {data}");
+				let y = format!("The stream is either malformed or could not be decoded.\nFile: {p}");
 				("Decode error", Cow::Owned(y))
 			}
 			SE::Unsupported(x) => {
-				let y = format!(
-					"Symphonia was invoked with an unsupported codec/container feature {x} while reading {data}"
-				);
+				let y =
+					format!("Symphonia was invoked with an unsupported codec/container feature {x} while reading {p}");
 				("Symphonia feature not supported", Cow::Owned(y))
 			}
 			SE::IoError(x) => {
-				let y = Path::new(data.as_ref());
-				let e = Error::get_message(x, IoErrorType::Path(y));
+				let e = Error::get_message(x, IoErrorType::Path(data));
 				("Symphonia io error", Cow::Owned(format!("{:?}", e)))
 			}
 			_ => ("Symphonia returned an unhandled error", Cow::Owned(format!("{error}"))),

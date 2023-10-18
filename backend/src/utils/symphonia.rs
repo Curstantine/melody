@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fs::File};
+use std::{borrow::Cow, fs::File, path::Path};
 
 use chrono::NaiveDate;
 use symphonia::core::{
@@ -16,14 +16,17 @@ use crate::{
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
-	errors::{Error, ErrorType, FromErrorWithContextData, Result},
+	errors::{Error, ErrorType, FromErrorWithContextData, IoErrorType, Result},
 	models::temp::{TempInlinedArtist, TempTrackMeta},
 };
 
 use super::matchers;
 
-pub fn read_track_meta(source: Box<File>, extension: Option<&str>) -> Result<TempTrackMeta> {
-	let mss = MediaSourceStream::new(source, Default::default());
+pub fn read_track_meta(path: &Path) -> Result<TempTrackMeta> {
+	let extension = path.extension().and_then(|s| s.to_str());
+	let source = File::open(path).map_err(|e| Error::from_with_ctx(e, IoErrorType::Path(path)))?;
+
+	let mss = MediaSourceStream::new(Box::new(source), Default::default());
 	let meta_opts: MetadataOptions = Default::default();
 	let fmt_opts: FormatOptions = Default::default();
 	let mut hint = Hint::new();
@@ -34,7 +37,7 @@ pub fn read_track_meta(source: Box<File>, extension: Option<&str>) -> Result<Tem
 
 	let mut probed = symphonia::default::get_probe()
 		.format(&hint, mss, &fmt_opts, &meta_opts)
-		.expect("unsupported format");
+		.map_err(|e| Error::from_with_ctx(e, path))?;
 
 	match probed.format.metadata().current() {
 		Some(metadata) => traverse_meta(metadata),
@@ -443,7 +446,6 @@ fn get_no_and_maybe_total(value: &Value) -> Result<Option<(u32, Option<u32>)>> {
 
 #[cfg(test)]
 mod test {
-	use std::fs::File;
 	use std::path::Path;
 
 	use crate::errors::Result;
@@ -454,10 +456,7 @@ mod test {
 	#[test]
 	fn test_read_track_meta() -> Result<()> {
 		let path = Path::new(TRACK_PATH);
-		let file = File::open(path).unwrap();
-		let extension = path.extension().and_then(|s| s.to_str());
-
-		let result = read_track_meta(Box::new(file), extension)?;
+		let result = read_track_meta(path)?;
 		println!("{:#?}", result);
 
 		Ok(())
