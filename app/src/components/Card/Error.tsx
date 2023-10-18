@@ -36,21 +36,16 @@ export default function ErrorCard(x: Props) {
 }
 
 const ContextContainer: Component<{ context: string | string[]; class: string }> = (props) => {
+	const ctx = () => typeof props.context === "string" ? props.context.split("\n") : props.context;
+
 	return (
 		<span
 			class="mt-2 rounded tracking-wide font-orbiter-text text-text-2"
 			classList={{ [props.class]: !!props.class }}
 		>
-			<Switch fallback={<>{props.context}</>}>
-				<Match when={Array.isArray(props.context)}>
-					<For each={props.context as string[]}>
-						{(context) => <p>{context}</p>}
-					</For>
-				</Match>
-				<Match when={typeof props.context === "string"}>
-					{props.context}
-				</Match>
-			</Switch>
+			<For each={ctx()}>
+				{(context) => <p>{context}</p>}
+			</For>
 		</span>
 	);
 };
