@@ -4,7 +4,8 @@
 		"dev:app": "pnpm --filter app run dev",
 		"dev:backend": "cargo build --bin=melody_backend --package=melody_backend && ./target/debug/melody_backend.exe",
 		"build:app": "pnpm build:packages && pnpm --filter app run build",
-		"build:packages": "pnpm --filter \"./packages/*\" run build"
+		"build:packages": "pnpm --filter \"./packages/*\" run build",
+		"preview:app": "pnpm --filter app run preview --port 5173"
 	},
 	"devDependencies": {
 		"@tauri-apps/cli": "^1.4.0",

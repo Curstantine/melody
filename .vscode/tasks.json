@@ -15,6 +15,15 @@
 			"command": "pnpm",
 			"problemMatcher": "$vite",
 			"args": ["build:app"]
+		},
+		{
+			"label": "app:preview",
+			"type": "shell",
+			"isBackground": true,
+			"command": "pnpm",
+			"problemMatcher": "$vite",
+			"args": ["preview:app"],
+			"dependsOn": ["app:build"]
 		}
 	]
 }

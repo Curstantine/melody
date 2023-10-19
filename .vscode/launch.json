@@ -38,7 +38,7 @@
 			"env": {
 				"RUST_LOG": "none,melody_backend=debug"
 			},
-			"preLaunchTask": "app:build"
+			"preLaunchTask": "app:preview"
 		}
 	]
 }
