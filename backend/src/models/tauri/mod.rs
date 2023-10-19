@@ -1,26 +1,15 @@
 use serde::Serialize;
 
+use crate::errors::Result;
+
 pub mod library;
 
-#[derive(Serialize)]
-pub struct WindowEvent<T, P>
-where
-	T: WindowEventType,
-	P: Serialize + Clone,
-{
-	#[serde(skip)]
-	pub _type: T,
-	pub payload: P,
-}
+pub struct WindowEventManager<T: WindowEventType>(pub T);
 
-impl<T: WindowEventType, P: Serialize + Clone> WindowEvent<T, P> {
-	pub fn new(_type: T, payload: P) -> Self {
-		Self { _type, payload }
-	}
-
-	pub fn emit(self, window: &tauri::Window) -> crate::errors::Result<()> {
-		let event_name = self._type.get_event_name();
-		window.emit(event_name, self.payload)?;
+impl<T: WindowEventType> WindowEventManager<T> {
+	pub fn emit(&self, window: &tauri::Window, payload: impl Serialize + Clone) -> Result<()> {
+		let event_name = self.0.get_event_name();
+		window.emit(event_name, payload)?;
 		Ok(())
 	}
 }

@@ -16,7 +16,7 @@ use crate::{
 		state::AppState,
 		tauri::{
 			library::{LibraryActionData, LibraryActionPayload, LibraryEvent},
-			WindowEvent,
+			WindowEventManager,
 		},
 		temp::TempTrackMeta,
 	},
@@ -60,9 +60,10 @@ pub async fn create_library(
 	}
 
 	let (tx, rx) = mpsc::channel::<ChannelData>();
-	let scan_location = scan_locations.into_iter().map(PathBuf::from).collect::<Vec<_>>();
 
 	let handle = thread::spawn::<_, Result<()>>(move || {
+		let scan_location = scan_locations.into_iter().map(PathBuf::from).collect::<Vec<_>>();
+
 		for scan_location in scan_location {
 			let paths = walkdir_sync(&scan_location, matchers::path::audio)
 				.map_err(|x| Error::from_with_ctx(x, IoErrorType::Path(&scan_location)))?;
@@ -71,13 +72,13 @@ pub async fn create_library(
 			for (i, path) in paths.into_iter().enumerate() {
 				let current = i as u64 + 1;
 
-				let event = LibraryActionData::reading(total, current, path.clone());
-				tx.send(ChannelData::Reading(event)).unwrap();
+				let data = LibraryActionData::reading(total, current, path.clone());
+				tx.send(ChannelData::Reading(data)).unwrap();
 
 				match read_track_meta(&path) {
 					Ok(meta) => {
-						let event = LibraryActionData::indexing(total, current, path);
-						tx.send(ChannelData::Indexing(event, Box::new(meta))).unwrap();
+						let data = LibraryActionData::indexing(total, current, path);
+						tx.send(ChannelData::Indexing(data, Box::new(meta))).unwrap();
 					}
 					Err(e) => tx.send(ChannelData::Error(e.into(), path)).unwrap(),
 				}
@@ -87,21 +88,21 @@ pub async fn create_library(
 		Ok(())
 	});
 
+	let em = WindowEventManager(LibraryEvent::Scan);
 	for message in rx {
 		match message {
 			ChannelData::Reading(payload) => {
 				debug!("[{}/{}] Reading: {:#?}", payload.current, payload.total, payload.path);
-				WindowEvent::new(LibraryEvent::Scan, LibraryActionPayload::Ok(payload)).emit(&window)?;
+				em.emit(&window, LibraryActionPayload::Ok(payload))?;
 			}
 			ChannelData::Indexing(payload, meta) => {
 				debug!("[{}/{}] Indexing: {:#?}", payload.current, payload.total, payload.path);
-				WindowEvent::new(LibraryEvent::Scan, LibraryActionPayload::Ok(payload)).emit(&window)?;
-
+				em.emit(&window, LibraryActionPayload::Ok(payload))?;
 				handle_temp_track_meta(database, *meta).await?;
 			}
 			ChannelData::Error(error, path) => {
 				debug!("Error encountered while reading/indexing: {:#?}", path);
-				WindowEvent::new(LibraryEvent::Scan, LibraryActionPayload::Error { error, path }).emit(&window)?;
+				em.emit(&window, LibraryActionPayload::Error { error, path })?;
 			}
 		};
 	}
