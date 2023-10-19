@@ -1,16 +1,10 @@
-use bonsaidb::{
-	core::{
-		document::{CollectionDocument, Emit},
-		key::Key,
-		schema::{CollectionMapReduce, SerializedCollection, SerializedView, View, ViewMapResult, ViewSchema},
-	},
-	local::AsyncDatabase,
+use bonsaidb::core::{
+	document::{CollectionDocument, Emit},
+	key::Key,
+	schema::{CollectionMapReduce, ReduceResult, View, ViewMapResult, ViewMappedValue, ViewSchema},
 };
 
-use crate::{
-	database::models::person::{Person as PersonModel, PersonType},
-	errors::{Error, Result},
-};
+use crate::database::models::person::{Person, PersonType};
 
 #[derive(Debug, Clone, PartialEq, Key)]
 pub struct PersonByNameAndTypeKey {
@@ -25,120 +19,17 @@ impl PersonByNameAndTypeKey {
 }
 
 #[derive(Debug, Clone, View, ViewSchema)]
-#[view(collection = PersonModel, key = PersonByNameAndTypeKey, value = u8, name = "by-person-name-and-type")]
+#[view(collection = Person, key = PersonByNameAndTypeKey, value = u64)]
 pub struct PersonByNameAndType;
 
 impl CollectionMapReduce for PersonByNameAndType {
-	fn map<'doc>(&self, document: CollectionDocument<PersonModel>) -> ViewMapResult<'doc, Self::View> {
+	fn map<'doc>(&self, document: CollectionDocument<Person>) -> ViewMapResult<'doc, Self::View> {
 		let x = document.contents;
 		let key = PersonByNameAndTypeKey::new(x.name, x.type_);
 		document.header.emit_key_and_value(key, 1)
 	}
-}
 
-impl PersonByNameAndType {
-	pub async fn put_or_get(database: &AsyncDatabase, person: PersonModel) -> Result<u64> {
-		let key = PersonByNameAndTypeKey::new(person.name.clone(), person.type_.clone());
-		let matches = PersonByNameAndType::entries_async(database)
-			.with_key(&key)
-			.query()
-			.await?;
-
-		let id = if matches.is_empty() {
-			let person = person.push_into_async(database).await?;
-			person.header.id
-		} else {
-			// NOTE: Might need to check the probability of the match instead of just taking the first one.
-			let person = matches.first().unwrap();
-			person.source.id
-		};
-
-		Ok(id)
-	}
-}
-
-impl PersonModel {
-	pub async fn set_unique_with_id(self, database: &AsyncDatabase, id: u64) -> Result<()> {
-		match PersonModel::get_async(&id, database).await? {
-			Some(_) => Err(Error::descriptive("Person already exists")),
-			None => {
-				let person = self.insert_into_async(&id, database).await?;
-				Ok(())
-			}
-		}
-	}
-}
-
-#[cfg(test)]
-mod test {
-	use bonsaidb::core::schema::{SerializedCollection, SerializedView};
-
-	use crate::{
-		constants::UNKNOWN_PERSON_ID,
-		database::{
-			models::person::{Person, PersonType},
-			views::person::{PersonByNameAndType, PersonByNameAndTypeKey},
-			Database,
-		},
-		errors::Result,
-	};
-
-	#[tokio::test]
-	async fn test_set_unique_with_id() -> Result<()> {
-		let db = Database::testing().await?;
-		let database = db.0;
-
-		let person = Person::unknown();
-		person.set_unique_with_id(&database, UNKNOWN_PERSON_ID).await?;
-
-		let person = Person::unknown();
-		let result = person.set_unique_with_id(&database, UNKNOWN_PERSON_ID).await;
-		assert!(result.is_err());
-
-		Ok(())
-	}
-
-	#[tokio::test]
-	async fn test_person_by_name_and_sort() -> Result<()> {
-		let db = Database::testing().await?;
-		let database = db.0;
-
-		let person_1 = Person {
-			name: "Person 1".to_string(),
-			name_sort: Some("Person 1 Sort".to_string()),
-			..Default::default()
-		};
-
-		let person_1_diff_sort = Person {
-			name: "Person 1".to_string(),
-			name_sort: Some("Person 1 Sort Different".to_string()),
-			..Default::default()
-		};
-
-		let person_2 = Person {
-			name: "Person 2".to_string(),
-			name_sort: Some("Person 2 Sort".to_string()),
-			..Default::default()
-		};
-
-		person_1.push_into_async(&database).await?;
-		person_1_diff_sort.push_into_async(&database).await?;
-		person_2.push_into_async(&database).await?;
-
-		let see_person_1 = PersonByNameAndType::entries_async(&database)
-			.with_key(&PersonByNameAndTypeKey::new("Person 1".to_string(), PersonType::Artist))
-			.query()
-			.await?;
-
-		assert_eq!(see_person_1.len(), 2);
-
-		let see_person_2 = PersonByNameAndType::entries_async(&database)
-			.with_key(&PersonByNameAndTypeKey::new("Person 2".to_string(), PersonType::Artist))
-			.query()
-			.await?;
-
-		assert_eq!(see_person_2.len(), 1);
-
-		Ok(())
+	fn reduce(&self, mappings: &[ViewMappedValue<Self>], _rereduce: bool) -> ReduceResult<Self::View> {
+		Ok(mappings.iter().map(|m| m.value).sum())
 	}
 }

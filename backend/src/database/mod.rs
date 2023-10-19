@@ -17,6 +17,7 @@ use crate::{
 use self::models::{person::Person, LocalSchema};
 
 pub mod helpers;
+pub mod methods;
 pub mod models;
 pub mod views;
 
@@ -72,7 +73,7 @@ impl Database {
 	#[tracing::instrument(skip(database), name = "First time setup")]
 	async fn run_first_time_setup(database: &BonsaiDatabase) -> Result<()> {
 		let unknown_person = Person::unknown();
-		unknown_person.set_unique_with_id(database, UNKNOWN_PERSON_ID).await?;
+		methods::person::insert_with_unique_id(database, unknown_person, UNKNOWN_PERSON_ID).await?;
 
 		database.set_key(Self::KEY_IS_FIRST_RUN, &false).await?;
 

@@ -10,7 +10,7 @@ use crate::database::helpers::handle_temp_track_meta;
 use crate::errors::{Error, FromErrorWithContextData, IoErrorType};
 use crate::utils::matchers;
 use crate::{
-	database::{models::library::Library as LibraryModel, views::library::LibraryByName},
+	database::{methods, models::library::Library as LibraryModel, views::library::LibraryByName},
 	errors::Result,
 	models::{
 		state::AppState,
@@ -51,7 +51,7 @@ pub async fn create_library(
 	let database = &database.0;
 
 	let library = LibraryModel::new(name.clone(), scan_locations.clone());
-	LibraryByName::set_unique(database, library).await?;
+	methods::library::insert_unique(database, library).await?;
 
 	enum ChannelData {
 		ScanEvent(LibraryGenericActionPayload),

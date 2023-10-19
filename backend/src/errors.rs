@@ -48,7 +48,7 @@ impl Error {
 	pub fn conversion(message: &'static str, context: Option<Cow<'static, str>>) -> Self {
 		Self {
 			type_: ErrorType::Conversion,
-			message: message.into(),
+			message: Cow::Borrowed(message),
 			context,
 			source: None,
 		}
