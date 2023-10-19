@@ -8,7 +8,7 @@ use serde::Serialize;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub enum ErrorType {
 	Io,
 	Descriptive,
@@ -435,6 +435,37 @@ impl From<serde_json::Error> for Error {
 			message: Cow::Borrowed("JSON Serialization error"),
 			context: Some(Cow::Owned(format!("{:?}", error))),
 			source: Some(Box::new(error)),
+		}
+	}
+}
+
+pub mod extra {
+	use std::borrow::Cow;
+
+	use serde::Serialize;
+
+	use super::ErrorType;
+
+	/// DO NOT use this struct for anything but cases where Serialize + Copy traits are required to be implemented.
+	///
+	/// Like in tauri's window events.
+	#[derive(Debug, Clone, Serialize)]
+	pub struct CopyableSerializableError {
+		pub type_: ErrorType,
+		#[serde(borrow)]
+		pub message: Cow<'static, str>,
+
+		#[serde(borrow)]
+		pub context: Option<Cow<'static, str>>,
+	}
+
+	impl From<super::Error> for CopyableSerializableError {
+		fn from(value: super::Error) -> Self {
+			Self {
+				type_: value.type_,
+				message: value.message,
+				context: value.context,
+			}
 		}
 	}
 }

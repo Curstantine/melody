@@ -6,21 +6,21 @@ use bonsaidb::core::schema::SerializedView;
 use tokio::time::Instant;
 use tracing::{debug, info};
 
-use crate::database::helpers::handle_temp_track_meta;
-use crate::errors::{Error, FromErrorWithContextData, IoErrorType};
-use crate::utils::matchers;
 use crate::{
-	database::{methods, models::library::Library as LibraryModel, views::library::LibraryByName},
-	errors::Result,
+	database::{
+		helpers::handle_temp_track_meta, methods, models::library::Library as LibraryModel,
+		views::library::LibraryByName,
+	},
+	errors::{extra::CopyableSerializableError, Error, FromErrorWithContextData, IoErrorType, Result},
 	models::{
 		state::AppState,
 		tauri::{
-			library::{LibraryActionType, LibraryEvent, LibraryGenericActionPayload},
+			library::{LibraryActionData, LibraryActionPayload, LibraryEvent},
 			WindowEvent,
 		},
 		temp::TempTrackMeta,
 	},
-	utils::{self, symphonia::read_track_meta},
+	utils::{fs::walkdir_sync, matchers, symphonia::read_track_meta},
 };
 
 #[tauri::command]
@@ -54,13 +54,9 @@ pub async fn create_library(
 	methods::library::insert_unique(database, library).await?;
 
 	enum ChannelData {
-		ScanEvent(LibraryGenericActionPayload),
-		ProbeResult {
-			path: PathBuf,
-			meta: Box<TempTrackMeta>,
-			current: u64,
-			total: u64,
-		},
+		Error(CopyableSerializableError, PathBuf),
+		Reading(LibraryActionData),
+		Indexing(LibraryActionData, Box<TempTrackMeta>),
 	}
 
 	let (tx, rx) = mpsc::channel::<ChannelData>();
@@ -68,29 +64,23 @@ pub async fn create_library(
 
 	let handle = thread::spawn::<_, Result<()>>(move || {
 		for scan_location in scan_location {
-			let paths = utils::fs::walkdir_sync(&scan_location, matchers::path::audio)
+			let paths = walkdir_sync(&scan_location, matchers::path::audio)
 				.map_err(|x| Error::from_with_ctx(x, IoErrorType::Path(&scan_location)))?;
 			let total = paths.len() as u64;
 
 			for (i, path) in paths.into_iter().enumerate() {
 				let current = i as u64 + 1;
 
-				let event_payload = LibraryGenericActionPayload {
-					total,
-					current,
-					action_type: LibraryActionType::Reading,
-					path: path.clone(),
-				};
-				tx.send(ChannelData::ScanEvent(event_payload)).unwrap();
+				let event = LibraryActionData::reading(total, current, path.clone());
+				tx.send(ChannelData::Reading(event)).unwrap();
 
-				let meta = read_track_meta(&path)?;
-				tx.send(ChannelData::ProbeResult {
-					meta: Box::new(meta),
-					path,
-					current,
-					total,
-				})
-				.unwrap();
+				match read_track_meta(&path) {
+					Ok(meta) => {
+						let event = LibraryActionData::indexing(total, current, path);
+						tx.send(ChannelData::Indexing(event, Box::new(meta))).unwrap();
+					}
+					Err(e) => tx.send(ChannelData::Error(e.into(), path)).unwrap(),
+				}
 			}
 		}
 
@@ -99,32 +89,19 @@ pub async fn create_library(
 
 	for message in rx {
 		match message {
-			ChannelData::ScanEvent(payload) => {
-				debug!(
-					"Reading [{}/{}], currently reading:\n{:#?}",
-					payload.current, payload.total, payload.path
-				);
-				WindowEvent::new(LibraryEvent::Scan, payload).emit(&window)?;
+			ChannelData::Reading(payload) => {
+				debug!("[{}/{}] Reading: {:#?}", payload.current, payload.total, payload.path);
+				WindowEvent::new(LibraryEvent::Scan, LibraryActionPayload::Ok(payload)).emit(&window)?;
 			}
-			ChannelData::ProbeResult {
-				total,
-				current,
-				path,
-				meta,
-			} => {
-				debug!("Probed [{current}/{total}], currently indexing:\n{:#?}", path);
-				WindowEvent::new(
-					LibraryEvent::Scan,
-					LibraryGenericActionPayload {
-						total,
-						current,
-						action_type: LibraryActionType::Indexing,
-						path,
-					},
-				)
-				.emit(&window)?;
+			ChannelData::Indexing(payload, meta) => {
+				debug!("[{}/{}] Indexing: {:#?}", payload.current, payload.total, payload.path);
+				WindowEvent::new(LibraryEvent::Scan, LibraryActionPayload::Ok(payload)).emit(&window)?;
 
 				handle_temp_track_meta(database, *meta).await?;
+			}
+			ChannelData::Error(error, path) => {
+				debug!("Error encountered while reading/indexing: {:#?}", path);
+				WindowEvent::new(LibraryEvent::Scan, LibraryActionPayload::Error { error, path }).emit(&window)?;
 			}
 		};
 	}

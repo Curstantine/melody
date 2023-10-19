@@ -8,7 +8,7 @@ where
 	T: WindowEventType,
 	P: Serialize + Clone,
 {
-	#[serde(rename = "type")]
+	#[serde(skip)]
 	pub _type: T,
 	pub payload: P,
 }
@@ -25,6 +25,6 @@ impl<T: WindowEventType, P: Serialize + Clone> WindowEvent<T, P> {
 	}
 }
 
-pub trait WindowEventType {
+pub trait WindowEventType: Sized {
 	fn get_event_name(&self) -> &'static str;
 }
