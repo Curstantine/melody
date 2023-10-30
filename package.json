@@ -2,17 +2,17 @@
 	"type": "module",
 	"scripts": {
 		"dev:app": "pnpm --filter app run dev",
-		"dev:backend": "cargo build --bin=melody_backend --package=melody_backend && ./target/debug/melody_backend.exe",
+		"dev:backend": "cargo build --bin=backend --package=backend && ./target/debug/backend.exe",
 		"build:app": "pnpm build:packages && pnpm --filter app run build",
 		"build:packages": "pnpm --filter \"./packages/*\" run build",
 		"preview:app": "pnpm --filter app run preview --port 5173"
 	},
 	"devDependencies": {
-		"@tauri-apps/cli": "^1.4.0",
-		"@types/node": "^20.6.3",
-		"@typescript-eslint/eslint-plugin": "^6.7.2",
-		"@typescript-eslint/parser": "^6.7.2",
-		"eslint": "^8.49.0",
-		"eslint-define-config": "^1.23.0"
+		"@tauri-apps/cli": "^1.5.6",
+		"@types/node": "^20.8.9",
+		"@typescript-eslint/eslint-plugin": "^6.9.0",
+		"@typescript-eslint/parser": "^6.9.0",
+		"eslint": "^8.52.0",
+		"eslint-define-config": "^1.24.1"
 	}
 }

@@ -1,8 +1,8 @@
 [package]
-name = "melody_backend"
+name = "backend"
 version = "0.1.0"
 authors = ["Curstantine <curstantine@gmail.com>"]
-default-run = "melody_backend"
+default-run = "backend"
 edition = "2021"
 
 [build-dependencies]
