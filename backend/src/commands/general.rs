@@ -9,8 +9,13 @@ pub async fn setup(app: tauri::AppHandle) -> Result<()> {
 	info!("Trying to setup the application...");
 
 	let state = app.state::<AppState>();
-	state.initialize(&app).await?;
 
-	info!("Setup was successful");
+	if !*state.initialized.lock().unwrap() {
+		state.initialize(&app).await?;
+		info!("Setup was successful");
+	} else {
+		info!("Setup was called more than once. Ignoring...")
+	}
+
 	Ok(())
 }
