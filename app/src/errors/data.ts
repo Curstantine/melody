@@ -1,7 +1,6 @@
 import { LocalError } from "@/types/errors";
 
 export default class DataError implements LocalError {
-	type: string = "DataError";
 	code: number;
 	message: string;
 	context?: string | string[];

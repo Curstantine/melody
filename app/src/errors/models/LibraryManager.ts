@@ -1,7 +1,6 @@
 import { LocalError } from "@/types/errors";
 
 export default class LibraryManagerError implements LocalError {
-	type: string = "LibraryManagerError";
 	code: number;
 	message: string;
 	context?: string;

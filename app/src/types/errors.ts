@@ -1,5 +1,4 @@
 export interface LocalError {
-	type: string;
 	code: number;
 	message: string;
 	context?: string | string[];

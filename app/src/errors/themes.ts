@@ -1,7 +1,6 @@
 import { LocalError } from "@/types/errors";
 
 export default class ThemeError implements LocalError {
-	type: string = "ThemeError";
 	code: number;
 	message: string;
 	context?: string;

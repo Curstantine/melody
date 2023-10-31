@@ -1,26 +1,28 @@
 import { LocalError } from "@/types/errors";
 
 type BackendErrorTypes =
-	| "std_io"
-	| "std_parse_int"
-	| "chrono_parse"
+	| "io"
 	| "descriptive"
 	| "conversion"
-	| "tokio_task"
+	| "tokio"
+	| "database"
 	| "tauri"
-	| "bonsai_local"
-	| "bonsai_core"
-	| "serde";
+	| "serde"
+	| "symphonia";
 
 export default class BackendError implements LocalError {
 	type: BackendErrorTypes;
-	code: number;
 	message: string;
 	context?: string | string[];
 
-	constructor(type: BackendErrorTypes, code: number, message: string, context?: string | string[]) {
+	/**
+	 * Backend errors doesn't support error codes.
+	 * This will always be -1
+	 */
+	code = -1;
+
+	constructor(type: BackendErrorTypes, message: string, context?: string | string[]) {
 		this.type = type;
-		this.code = code;
 		this.message = message;
 		this.context = context;
 	}
@@ -28,12 +30,7 @@ export default class BackendError implements LocalError {
 	public static fromStupidError(error: unknown): BackendError {
 		// TODO: Handle structural integrity errors
 
-		const e = error as LocalError;
-		return new BackendError(
-			e.type as BackendErrorTypes,
-			e.code,
-			e.message,
-			e.context,
-		);
+		const e = error as LocalError & { type: BackendErrorTypes };
+		return new BackendError(e.type, e.message, e.context);
 	}
 }
