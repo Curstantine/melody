@@ -2,7 +2,7 @@
 	"type": "module",
 	"scripts": {
 		"dev:app": "pnpm --filter app run dev",
-		"dev:backend": "cargo build --bin=backend --package=backend && ./target/debug/backend.exe",
+		"dev:backend": "cargo run -p backend",
 		"build:app": "pnpm build:packages && pnpm --filter app run build",
 		"build:packages": "pnpm --filter \"./packages/*\" run build",
 		"preview:app": "pnpm --filter app run preview --port 5173"

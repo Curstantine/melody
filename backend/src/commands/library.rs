@@ -37,7 +37,7 @@ pub async fn get_library_names(app_state: tauri::State<'_, AppState>) -> Result<
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(window, app_state), err(Debug))]
+#[tracing::instrument(skip_all, err(Debug))]
 pub async fn create_library(
 	name: String,
 	scan_locations: Vec<String>,
