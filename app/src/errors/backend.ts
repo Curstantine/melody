@@ -1,14 +1,5 @@
+import type { BackendBaseError, BackendErrorTypes } from "@/types/backend";
 import { LocalError } from "@/types/errors";
-
-type BackendErrorTypes =
-	| "io"
-	| "descriptive"
-	| "conversion"
-	| "tokio"
-	| "database"
-	| "tauri"
-	| "serde"
-	| "symphonia";
 
 export default class BackendError implements LocalError {
 	type: BackendErrorTypes;
@@ -30,7 +21,7 @@ export default class BackendError implements LocalError {
 	public static fromStupidError(error: unknown): BackendError {
 		// TODO: Handle structural integrity errors
 
-		const e = error as LocalError & { type: BackendErrorTypes };
+		const e = error as BackendBaseError;
 		return new BackendError(e.type, e.message, e.context);
 	}
 }

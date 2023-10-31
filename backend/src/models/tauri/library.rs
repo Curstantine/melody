@@ -26,6 +26,7 @@ pub enum LibraryActionType {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", content = "data")]
 pub enum LibraryActionPayload {
 	Ok(LibraryActionData),
 	Error {
