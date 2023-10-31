@@ -1,31 +1,76 @@
-import { createEffect, For } from "solid-js";
+import { useNavigate } from "@solidjs/router";
+import { open } from "@tauri-apps/api/dialog";
+import { homeDir, join } from "@tauri-apps/api/path";
+import { createEffect, createSignal, For, onMount } from "solid-js";
+import { createStore } from "solid-js/store";
+import { ulid } from "ulid";
 
+import { useForm } from "@/hooks/form";
 import { validateLibraryName } from "@/utils/validators";
 
 import InputError from "@/components/Input/InputError";
 import LeadingClickableInput from "@/components/Input/LeadingClickableInput";
 import TextInput from "@/components/Input/TextInput";
 
-import SetupCreateViewModel from "./models/create.model";
-
 export default function SetupCreateView() {
-	const {
-		mode: [mode],
-		name: [libraryName, setLibraryName],
-		scanLocations: [scanLocations],
-		continuable: [continuable, setContinuability],
-		// @ts-expect-error submit is being used as a directive
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		form: { validate, submit, errors, setError },
-		onConfirm,
-		onScanLocationFieldPress,
-		addScanLocation,
-		removeScanLocation,
-	} = new SetupCreateViewModel();
+	let homeDirectory: string | null = null;
+
+	const [mode] = createSignal<"create" | "recover">();
+	const [name, setName] = createSignal<string | null>(null);
+	const [continuable, setContinuability] = createSignal<boolean>(false);
+	const [locations, setLocations] = createStore<Array<{ id: string; location: string | null }>>([]);
+
+	// @ts-expect-error submit is being used as a directive
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const { validate, submit, errors, setError } = useForm();
+	const navigate = useNavigate();
+
+	const addScanLocation = (e?: MouseEvent, location?: string) => {
+		e?.preventDefault();
+		setLocations([...locations, { id: ulid(), location: location ?? null }]);
+	};
+
+	const removeScanLocation = (id: string, e?: MouseEvent) => {
+		e?.preventDefault();
+		setLocations(locations.filter((x) => x.id !== id));
+	};
+
+	const mutateScanLocation = (id: string, location: string) => {
+		setLocations((x) => x.id === id, "location", location);
+	};
+
+	const onScanLocationFieldPress = async (id: string, e?: MouseEvent) => {
+		e?.preventDefault();
+
+		const result = await open({
+			directory: true,
+			multiple: false,
+			defaultPath: homeDirectory ?? await homeDir(),
+			title: "Select a location to add to scan paths.",
+		});
+
+		if (result === null || typeof result !== "string") return;
+		mutateScanLocation(id, result);
+	};
+
+	const onConfirm = () => {
+		navigate(`/setup/scan`, {
+			replace: true,
+			state: {
+				name: name(),
+				scanLocations: locations.map((x) => x.location).filter((x) => x !== null) as string[],
+			},
+		});
+	};
+
+	onMount(async () => {
+		homeDirectory = await homeDir();
+		addScanLocation(undefined, await join(homeDirectory, "Music"));
+	});
 
 	createEffect(() => {
 		const noErrors = Object.values(errors).filter((x) => !!x).length === 0;
-		const noEmptyLocations = scanLocations.filter((x) => !x.location).length === 0;
+		const noEmptyLocations = locations.filter((x) => !x.location).length === 0;
 		const result = noErrors && noEmptyLocations;
 
 		setContinuability(result);
@@ -45,8 +90,8 @@ export default function SetupCreateView() {
 				<span class="pb-1 text-sm font-orbiter-deck">Name</span>
 				<TextInput
 					name="libraryName"
-					value={libraryName() ?? ""}
-					onInput={(e) => setLibraryName(e)}
+					value={name() ?? ""}
+					onInput={(e) => setName(e)}
 					placeholder="The name of your library"
 					icon="i-symbols-badge-outline-rounded"
 					validate={validate}
@@ -56,7 +101,7 @@ export default function SetupCreateView() {
 
 				<span class="mt-4 pb-1 text-sm font-orbiter-deck">Scan Locations</span>
 				<div class="flex flex-col gap-2">
-					<For each={scanLocations}>
+					<For each={locations}>
 						{(obj) => (
 							<div class="flex flex-col">
 								<LeadingClickableInput
@@ -64,7 +109,7 @@ export default function SetupCreateView() {
 									leadingButtonType="error"
 									placeholder="The path to a folder to scan"
 									leadingIcon="i-symbols-delete-outline-rounded"
-									showLeadingButton={scanLocations.length > 1}
+									showLeadingButton={locations.length > 1}
 									onClick={(e) => onScanLocationFieldPress(obj.id, e)}
 									onLeadingButtonClick={(e) => removeScanLocation(obj.id, e)}
 								/>
