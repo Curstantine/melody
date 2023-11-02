@@ -29,7 +29,12 @@ export default class BackendError implements LocalError {
 		return new BackendError(
 			"io",
 			"Placeholder error",
-			"Really long contextual message!!",
+			["Really long contextual message!!", "that spans across multiple lines!!!"],
 		);
+	}
+
+	public getMultilineContext(): string[] | null {
+		if (!this.context) return null;
+		return Array.isArray(this.context) ? this.context : this.context.split("\n");
 	}
 }

@@ -68,20 +68,20 @@ export default function SetupScanView() {
 			return appModel.setAppError(error, false);
 		}
 
-		// setTimeout(() => startScan(name, scanLocations!), 1000);
+		setTimeout(() => startScan(name, scanLocations!), 1000);
 
-		let timeout = 0;
-		for (let i = 0; i < 100; i++) {
-			const p =
-				`c:\\Users\\Curstantine\\Music\\TempLib\\オンゲキシューターズ\\ONGEKI Vocal Party 05\\${i} bitter flavor - give it up to you (Game Size).opus`;
-			setTimeout(() => {
-				if (i % 2 == 0) {
-					setPayload({ action_type: "reading", total: 100, current: i, path: p });
-				} else {
-					setSilentErrors((x) => [...x, { path: p, error: BackendError.placeholder() }]);
-				}
-			}, timeout += 2000);
-		}
+		// let timeout = 0;
+		// for (let i = 0; i < 100; i++) {
+		// 	const p =
+		// 		`c:\\Users\\Curstantine\\Music\\TempLib\\オンゲキシューターズ\\ONGEKI Vocal Party 05\\${i} bitter flavor - give it up to you (Game Size).opus`;
+		// 	setTimeout(() => {
+		// 		if (i % 2 == 0) {
+		// 			setPayload({ action_type: "reading", total: 100, current: i, path: p });
+		// 		} else {
+		// 			setSilentErrors((x) => [...x, { path: p, error: BackendError.placeholder() }]);
+		// 		}
+		// 	}, timeout += 2000);
+		// }
 	});
 
 	return (
@@ -130,9 +130,16 @@ export default function SetupScanView() {
 								</button>
 
 								<Show when={showSilentErrors()}>
-									<div class="mt-2 max-h-32 flex flex-col overflow-y-auto text-xs text-text-3">
+									<div class="mt-2 max-h-56 flex flex-col gap-1 overflow-y-auto text-xs text-text-3">
 										<For each={silentErrors}>
-											{(item) => <p>{`${item.error.message} at ${item.error.context}`}</p>}
+											{(item) => (
+												<span>
+													<p class="text-text-error">{item.error.message}</p>
+													<For each={item.error.getMultilineContext()}>
+														{(line) => <p>{line}</p>}
+													</For>
+												</span>
+											)}
 										</For>
 									</div>
 								</Show>
