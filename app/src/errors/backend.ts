@@ -24,4 +24,12 @@ export default class BackendError implements LocalError {
 		const e = error as BackendBaseError;
 		return new BackendError(e.type, e.message, e.context);
 	}
+
+	public static placeholder(): BackendError {
+		return new BackendError(
+			"io",
+			"Placeholder error",
+			"Really long contextual message!!",
+		);
+	}
 }

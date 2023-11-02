@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "@solidjs/router";
-import { createSignal, Match, onMount, Switch } from "solid-js";
+import { createSignal, Match, onMount, Show, Switch } from "solid-js";
 
 import BackendError from "@/errors/backend";
 import DataError from "@/errors/data";
@@ -53,7 +53,9 @@ export default function SetupScanView() {
 		unlisten();
 
 		if (result.isErr()) return setError(result.unwrapErr());
-		navigate("/home", { replace: true, state: { name } });
+		if (silentErrors.length === 0) {
+			navigate("/home", { replace: true, state: { name } });
+		}
 	};
 
 	onMount(() => {
@@ -65,7 +67,20 @@ export default function SetupScanView() {
 			return appModel.setAppError(error, false);
 		}
 
-		setTimeout(() => startScan(name, scanLocations!), 1000);
+		// setTimeout(() => startScan(name, scanLocations!), 1000);
+
+		let timeout = 0;
+		for (let i = 0; i < 100; i++) {
+			const p =
+				`c:\\Users\\Curstantine\\Music\\TempLib\\オンゲキシューターズ\\ONGEKI Vocal Party 05\\${i} bitter flavor - give it up to you (Game Size).opus`;
+			setTimeout(() => {
+				if (i % 2 == 0) {
+					setPayload({ action_type: "reading", total: 100, current: i, path: p });
+				} else {
+					setSilentErrors((x) => [...x, { path: p, error: BackendError.placeholder() }]);
+				}
+			}, timeout += 2000);
+		}
 	});
 
 	return (
@@ -83,18 +98,28 @@ export default function SetupScanView() {
 				<Match when={payload()}>
 					{(payload) => (
 						<>
-							<span class="text-2xl leading-tight font-orbiter-display text-text-1">
+							<span class="select-none text-2xl leading-tight font-orbiter-display text-text-1">
 								Scanning your library
 							</span>
-							<span class="leading-tight font-orbiter-text text-text-2">
+							<span class="select-none leading-tight font-orbiter-text text-text-2">
 								This action might take some time...
 							</span>
 
-							<div class="mt-8 flex gap-1 text-text-2">
+							<div class="mt-8 flex select-none gap-1 text-text-2">
 								<span>{payload().action_type === "reading" ? "Reading" : "Indexing"}</span>
 								<span>({payload().current}/{payload().total})</span>
 							</div>
-							<span class="text-sm text-text-3">{payload().path}</span>
+							<span class="min-h-12 text-sm text-text-3">{payload().path}</span>
+
+							<Show when={silentErrors.length > 0}>
+								<button class="flex items-center gap-2 pt-2">
+									<div class="i-symbols-error-outline h-5 w-5 text-text-error" />
+									<span class="flex-1 text-left text-sm text-text-2">
+										Found {silentErrors.length} errors
+									</span>
+									<span class="text-xs text-text-3">Click to open logs</span>
+								</button>
+							</Show>
 						</>
 					)}
 				</Match>
