@@ -23,15 +23,20 @@ export type LocationState = {
 
 export default function SetupScanView() {
 	const [showSilentErrors, setSilentErrorsVisibility] = createSignal(false);
+	const [completed, setCompletion] = createSignal(false);
+
 	const [payload, setPayload] = createSignal<LibraryActionData | null>(null);
 	const [error, setError] = createSignal<BackendError | null>(null);
 	const [silentErrors, setSilentErrors] = createStore<{ path: string; error: BackendError }[]>([]);
 
 	const isLoading = () => payload() === null && error() === null;
+	const completedWithSilentErrors = () => completed() && silentErrors.length > 0;
 
 	const navigate = useNavigate();
 	const appModel = useAppModel();
 	const location = useLocation<LocationState>();
+
+	const cont = () => navigate("/home", { replace: true });
 
 	const startScan = async (name: string, scanLocations: string[]) => {
 		const unlisten = await listen<LibraryActionPayload>(
@@ -54,9 +59,12 @@ export default function SetupScanView() {
 		unlisten();
 
 		if (result.isErr()) return setError(result.unwrapErr());
-		if (silentErrors.length === 0) {
-			navigate("/home", { replace: true, state: { name } });
+		if (silentErrors.length > 0) {
+			setCompletion(true);
+			return setSilentErrorsVisibility(true);
 		}
+
+		cont();
 	};
 
 	onMount(() => {
@@ -71,17 +79,21 @@ export default function SetupScanView() {
 		setTimeout(() => startScan(name, scanLocations!), 1000);
 
 		// let timeout = 0;
-		// for (let i = 0; i < 100; i++) {
+		// for (let i = 0; i < 10; i++) {
 		// 	const p =
 		// 		`c:\\Users\\Curstantine\\Music\\TempLib\\オンゲキシューターズ\\ONGEKI Vocal Party 05\\${i} bitter flavor - give it up to you (Game Size).opus`;
 		// 	setTimeout(() => {
 		// 		if (i % 2 == 0) {
-		// 			setPayload({ action_type: "reading", total: 100, current: i, path: p });
+		// 			setPayload({ action_type: "reading", total: 10, current: i, path: p });
 		// 		} else {
 		// 			setSilentErrors((x) => [...x, { path: p, error: BackendError.placeholder() }]);
 		// 		}
 		// 	}, timeout += 2000);
 		// }
+		// setTimeout(() => {
+		// 	setCompletion(true);
+		// 	setSilentErrorsVisibility(true);
+		// }, timeout);
 	});
 
 	return (
@@ -99,18 +111,34 @@ export default function SetupScanView() {
 				<Match when={payload()}>
 					{(payload) => (
 						<>
-							<span class="select-none text-2xl leading-tight font-orbiter-display text-text-1">
-								Scanning your library
-							</span>
-							<span class="select-none leading-tight font-orbiter-text text-text-2">
-								This action might take some time...
-							</span>
+							<Switch>
+								<Match when={!completed()}>
+									<span class="select-none text-2xl leading-tight font-orbiter-display text-text-1">
+										Scanning your library
+									</span>
+									<span class="select-none leading-tight font-orbiter-text text-text-2">
+										This might take some time...
+									</span>
 
-							<div class="mt-8 flex select-none gap-1 text-text-2">
-								<span>{payload().action_type === "reading" ? "Reading" : "Indexing"}</span>
-								<span>({payload().current}/{payload().total})</span>
-							</div>
-							<span class="min-h-12 text-sm text-text-3">{payload().path}</span>
+									<div class="mt-8 flex select-none gap-1 text-text-2">
+										<span>{payload().action_type === "reading" ? "Reading" : "Indexing"}</span>
+										<span>({payload().current}/{payload().total})</span>
+									</div>
+									<span class="min-h-12 text-sm text-text-3">{payload().path}</span>
+								</Match>
+								<Match when={completedWithSilentErrors()}>
+									<span class="select-none text-2xl leading-tight font-orbiter-display text-text-1">
+										Finishing up
+									</span>
+									<span class="select-none py-2 leading-tight font-orbiter-text text-text-2">
+										<p>Found errors while indexing the library.</p>
+										<p>
+											These errors could be ignored, but the resulting tracks would not be
+											included in the indexed library.
+										</p>
+									</span>
+								</Match>
+							</Switch>
 
 							<Show when={silentErrors.length > 0}>
 								<button
@@ -128,21 +156,29 @@ export default function SetupScanView() {
 										classList={{ "rotate-180": showSilentErrors() }}
 									/>
 								</button>
+							</Show>
 
-								<Show when={showSilentErrors()}>
-									<div class="mt-2 max-h-56 flex flex-col gap-1 overflow-y-auto text-xs text-text-3">
-										<For each={silentErrors}>
-											{(item) => (
-												<span>
-													<p class="text-text-error">{item.error.message}</p>
-													<For each={item.error.getMultilineContext()}>
-														{(line) => <p>{line}</p>}
-													</For>
-												</span>
-											)}
-										</For>
-									</div>
-								</Show>
+							<Show when={showSilentErrors()}>
+								<div class="mt-2 max-h-56 flex flex-col gap-1 overflow-y-auto text-xs text-text-3">
+									<For each={silentErrors}>
+										{(item) => (
+											<span>
+												<p class="text-text-error">{item.error.message}</p>
+												<For each={item.error.getMultilineContext()}>
+													{(line) => <p>{line}</p>}
+												</For>
+											</span>
+										)}
+									</For>
+								</div>
+							</Show>
+
+							<Show when={completedWithSilentErrors()}>
+								<div class="mt-4 flex justify-end gap-2">
+									<button class="button-layout button-template-primary" onClick={cont}>
+										Continue
+									</button>
+								</div>
 							</Show>
 						</>
 					)}
