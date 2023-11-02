@@ -7,6 +7,8 @@ import { invoke } from "@/utils/tauri";
 import { initialize as initializeTheme } from "@/utils/themes";
 
 import LibraryManager from "@/models/LibraryManager";
+import { SHARED_PATHS } from "@/pages/(shared)";
+import { SETUP_PATHS } from "@/pages/setup";
 
 export default class AppModel {
 	appError = createSignal<ActionableError | null>(null);
@@ -33,8 +35,8 @@ export default class AppModel {
 		const namesResult = await invoke<string[]>("get_library_names");
 		if (namesResult.isOk()) {
 			const names = namesResult.unwrap();
-			if (names.length === 0) this.navigate("/setup/create");
-			else this.navigate("/home");
+			if (names.length === 0) this.navigate(SETUP_PATHS.CREATE);
+			else this.navigate(SHARED_PATHS.HOME);
 		} else {
 			setAppError({ dismissible: true, error: namesResult.unwrapErr() });
 		}

@@ -6,10 +6,9 @@ import AppModel, { AppModelContext } from "@/models/App";
 import AppErrorDisplay from "@/components/AppErrorDisplay";
 import TitleBar from "@/components/TitleBar";
 
-import UIRoot from "@/pages";
+import SharedRoute from "@/pages/(shared)";
 import DevShowcase from "@/pages/dev";
-import Home from "@/pages/home";
-import Setup, { SetupCreate, SetupScan } from "@/pages/setup";
+import SetupRoute from "@/pages/setup";
 
 export default function App() {
 	const appModel = new AppModel();
@@ -21,13 +20,8 @@ export default function App() {
 			<TitleBar />
 			<AppErrorDisplay />
 			<Routes>
-				<Route path="/" component={UIRoot}>
-					<Route path="/home" component={Home} />
-				</Route>
-				<Route path="/setup" component={Setup}>
-					<Route path="/create" component={SetupCreate} />
-					<Route path="/scan" component={SetupScan} />
-				</Route>
+				<SharedRoute />
+				<SetupRoute />
 				<Route path="/dev/showcase" component={DevShowcase} />
 			</Routes>
 		</AppModelContext.Provider>

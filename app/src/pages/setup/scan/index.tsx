@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from "@solidjs/router";
 import { createSignal, For, Match, onMount, Show, Switch } from "solid-js";
+import { createStore } from "solid-js/store";
 
 import BackendError from "@/errors/backend";
 import DataError from "@/errors/data";
@@ -12,9 +13,11 @@ import type {
 } from "@/types/backend/library";
 import { invoke, listen } from "@/utils/tauri";
 
+import { SHARED_PATHS } from "@/pages/(shared)";
+import { SETUP_PATHS } from "@/pages/setup";
+
 import ErrorCard from "@/components/Card/Error";
 import CircularLoader from "@/components/Loader/Circular";
-import { createStore } from "solid-js/store";
 
 export type LocationState = {
 	name: string;
@@ -36,7 +39,7 @@ export default function SetupScanView() {
 	const appModel = useAppModel();
 	const location = useLocation<LocationState>();
 
-	const cont = () => navigate("/home", { replace: true });
+	const cont = () => navigate(SHARED_PATHS.HOME, { replace: true });
 
 	const startScan = async (name: string, scanLocations: string[]) => {
 		const unlisten = await listen<LibraryActionPayload>(
@@ -72,7 +75,7 @@ export default function SetupScanView() {
 		const scanLocations = location.state?.scanLocations;
 
 		if (!name || !scanLocations) {
-			const error = DataError.missingLocationState("/setup/scan", { name, scanLocations });
+			const error = DataError.missingLocationState(SETUP_PATHS.SCAN, { name, scanLocations });
 			return appModel.setAppError(error, false);
 		}
 

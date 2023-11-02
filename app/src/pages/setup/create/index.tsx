@@ -8,6 +8,8 @@ import { ulid } from "ulid";
 import { useForm } from "@/hooks/form";
 import { validateLibraryName } from "@/utils/validators";
 
+import { SETUP_PATHS } from "@/pages/setup";
+
 import InputError from "@/components/Input/InputError";
 import LeadingClickableInput from "@/components/Input/LeadingClickableInput";
 import TextInput from "@/components/Input/TextInput";
@@ -54,7 +56,7 @@ export default function SetupCreateView() {
 	};
 
 	const onConfirm = () => {
-		navigate(`/setup/scan`, {
+		navigate(SETUP_PATHS.SCAN, {
 			replace: true,
 			state: {
 				name: name(),
