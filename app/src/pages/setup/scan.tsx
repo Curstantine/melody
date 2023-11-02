@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "@solidjs/router";
-import { createSignal, Match, onMount, Show, Switch } from "solid-js";
+import { createSignal, For, Match, onMount, Show, Switch } from "solid-js";
 
 import BackendError from "@/errors/backend";
 import DataError from "@/errors/data";
@@ -22,6 +22,7 @@ export type LocationState = {
 };
 
 export default function SetupScanView() {
+	const [showSilentErrors, setSilentErrorsVisibility] = createSignal(false);
 	const [payload, setPayload] = createSignal<LibraryActionData | null>(null);
 	const [error, setError] = createSignal<BackendError | null>(null);
 	const [silentErrors, setSilentErrors] = createStore<{ path: string; error: BackendError }[]>([]);
@@ -112,13 +113,29 @@ export default function SetupScanView() {
 							<span class="min-h-12 text-sm text-text-3">{payload().path}</span>
 
 							<Show when={silentErrors.length > 0}>
-								<button class="flex items-center gap-2 pt-2">
-									<div class="i-symbols-error-outline h-5 w-5 text-text-error" />
+								<button
+									class="flex items-center pt-2"
+									onClick={() => setSilentErrorsVisibility((x) => !x)}
+								>
+									<div class="i-symbols-error-outline mr-2 h-5 w-5 text-text-error" />
 									<span class="flex-1 text-left text-sm text-text-2">
 										Found {silentErrors.length} errors
 									</span>
-									<span class="text-xs text-text-3">Click to open logs</span>
+
+									<span class="text-xs text-text-3">Click to expand</span>
+									<div
+										class="i-symbols-expand-more h-5 w-5 text-text-3 transition-transform duration-standard ease-standard"
+										classList={{ "rotate-180": showSilentErrors() }}
+									/>
 								</button>
+
+								<Show when={showSilentErrors()}>
+									<div class="mt-2 max-h-32 flex flex-col overflow-y-auto text-xs text-text-3">
+										<For each={silentErrors}>
+											{(item) => <p>{`${item.error.message} at ${item.error.context}`}</p>}
+										</For>
+									</div>
+								</Show>
 							</Show>
 						</>
 					)}
