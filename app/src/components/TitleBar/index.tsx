@@ -2,10 +2,14 @@ import { appWindow } from "@tauri-apps/api/window";
 import { createSignal, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 
-import TitleBarButton from "@/components/TitleBar/Button";
+import WindowError from "@/errors/window";
+import { useAppModel } from "@/models/App";
 import Result from "@/utils/result";
 
+import TitleBarButton from "@/components/TitleBar/Button";
+
 export default function TitleBar() {
+	const appModel = useAppModel();
 	const [isMaximized, setMaximizeStatus] = createSignal(false);
 	const [isFocused, setFocusStatus] = createSignal(false);
 
@@ -13,10 +17,14 @@ export default function TitleBar() {
 	const listeners: Array<() => void> = [];
 
 	const checkMaximizeStatus = async () => {
-		const isMax = await Result.runAsync(appWindow.isMaximized);
-		if (isMax.isOk()) {
-			setMaximizeStatus(isMax.unwrap());
+		const isMax = await Result.runAsync(() => appWindow.isMaximized(), WindowError.maximizeState);
+
+		if (isMax.isErr()) {
+			const e = isMax.unwrapErr();
+			return appModel.setAppError(e, true);
 		}
+
+		setMaximizeStatus(isMax.unwrap());
 	};
 
 	const toggleMaximize = async () => await appWindow.toggleMaximize();
@@ -26,10 +34,13 @@ export default function TitleBar() {
 	onMount(async () => {
 		await checkMaximizeStatus();
 
-		const isFocus = await Result.runAsync(appWindow.isFocused);
-		if (isFocus.isOk()) {
-			setFocusStatus(isFocus.unwrap());
+		const isFocus = await Result.runAsync(() => appWindow.isFocused(), WindowError.focusState);
+		if (isFocus.isErr()) {
+			const e = isFocus.unwrapErr();
+			return appModel.setAppError(e, true);
 		}
+
+		setFocusStatus(isFocus.unwrap());
 
 		const maximizeListener = await appWindow.onResized(async () => await checkMaximizeStatus());
 		const focusListener = await appWindow.onFocusChanged(({ payload }) => setFocusStatus(payload));

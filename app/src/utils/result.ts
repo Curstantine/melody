@@ -52,9 +52,9 @@ export default class Result<T, E> {
 		err: null | ((e: unknown) => E) = null,
 	): Promise<Result<T, E>> {
 		try {
-			return Result.ok(await fn());
+			return Result.ok(await fn.call(null));
 		} catch (error) {
-			return Result.err(err === null ? (error as E) : err(error));
+			return Result.err(err === null ? (error as E) : err.call(null, error));
 		}
 	}
 }
