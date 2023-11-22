@@ -6,14 +6,15 @@ export default function TabBar() {
 	// eslint-disable-next-line prefer-const
 	let destinationListRef: HTMLDivElement | undefined = undefined;
 
-	const [destinations, setDestinations] = createSignal<Omit<Destination, "onDragStart" | "onDragEnd">[]>([
+	const [destinations, setDestinations] = createSignal<Pick<Destination, "id" | "label" | "href">[]>([
 		{ id: "music", label: "Music", href: "/(shared)/music" },
 		{ id: "artists", label: "Artists", href: "/(shared)/artists" },
 		{ id: "playlists", label: "Playlists", href: "/(shared)/playlists" },
 		{ id: "np", label: "Now Playing", href: "/(shared)/np" },
 	]);
 
-	const onDestinationDrag: DragEventFunc = (id, e) => {};
+	// TODO: Add support for following the cursor
+	const onDestinationDragStart: DragEventFunc = (_, __) => {};
 
 	/**
 	 * Thinking that the destinations are an array with a predefined index to each position.
@@ -72,12 +73,16 @@ export default function TabBar() {
 			<div class="w-16" />
 			<div
 				ref={destinationListRef}
-				class="inline-flex items-center gap-4 text-sm text-text-2"
-				onDragOver={(e) => e.preventDefault()}
-				onDragEnter={(e) => e.preventDefault()}
+				class="h-full flex flex-1 items-center gap-4 text-sm text-text-2"
 			>
 				<For each={destinations()}>
-					{(x) => <TabBarDestination {...x} onDragStart={onDestinationDrag} onDragEnd={onDestinationDrop} />}
+					{(x) => (
+						<TabBarDestination
+							{...x}
+							onDragStart={onDestinationDragStart}
+							onDragEnd={onDestinationDrop}
+						/>
+					)}
 				</For>
 			</div>
 		</div>
