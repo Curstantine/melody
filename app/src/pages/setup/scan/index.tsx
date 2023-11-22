@@ -39,7 +39,7 @@ export default function SetupScanView() {
 	const appModel = useAppModel();
 	const location = useLocation<LocationState>();
 
-	const cont = () => navigate(SHARED_PATHS.HOME, { replace: true });
+	const cont = () => navigate(SHARED_PATHS.MUSIC, { replace: true });
 
 	const startScan = async (name: string, scanLocations: string[]) => {
 		const unlisten = await listen<LibraryActionPayload>(

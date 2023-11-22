@@ -36,7 +36,7 @@ export default class AppModel {
 		if (namesResult.isOk()) {
 			const names = namesResult.unwrap();
 			if (names.length === 0) this.navigate(SETUP_PATHS.CREATE);
-			else this.navigate(SHARED_PATHS.HOME);
+			else this.navigate(SHARED_PATHS.MUSIC);
 		} else {
 			setAppError({ dismissible: true, error: namesResult.unwrapErr() });
 		}

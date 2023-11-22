@@ -1,16 +1,16 @@
 import { Route } from "@solidjs/router";
 
-import Home from "@/pages/(shared)/home";
 import Layout from "@/pages/(shared)/layout";
+import Music from "@/pages/(shared)/music";
 
 export const SHARED_PATHS = {
-	HOME: "/(shared)/home",
+	MUSIC: "/(shared)/music",
 };
 
 export default function SharedRoute() {
 	return (
 		<Route path="/(shared)" component={Layout}>
-			<Route path="/home" component={Home} />
+			<Route path="/music" component={Music} />
 		</Route>
 	);
 }
