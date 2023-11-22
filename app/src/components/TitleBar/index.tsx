@@ -59,7 +59,7 @@ export default function TitleBar() {
 					"bg-background-main text-text-2": isFocused(),
 				}}
 			>
-				<div data-tauri-drag-region ref={draggableRef!} class="h-full inline-flex flex-1 items-center">
+				<div data-tauri-drag-region="true" ref={draggableRef!} class="h-full inline-flex flex-1 items-center">
 					<span class="select-none pl-4 text-sm font-orbiter-deck-medium">Melody</span>
 				</div>
 				<div class="h-full inline-flex">
