@@ -70,7 +70,6 @@ export default function TabBar() {
 
 	return (
 		<div class="h-8 flex items-center border-b-1 border-b-border-main border-b-solid px-4">
-			<div class="w-16" />
 			<div
 				ref={destinationListRef}
 				class="h-full flex flex-1 items-center gap-4 text-sm text-text-2"
@@ -84,6 +83,9 @@ export default function TabBar() {
 						/>
 					)}
 				</For>
+				<button class="h-5 w-4 inline-flex items-center justify-center text-text-3">
+					<div class="i-symbols-add-rounded h-4 w-4" />
+				</button>
 			</div>
 		</div>
 	);

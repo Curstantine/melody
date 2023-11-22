@@ -60,7 +60,7 @@ export default function TitleBar() {
 				}}
 			>
 				<div data-tauri-drag-region="true" ref={draggableRef!} class="h-full inline-flex flex-1 items-center">
-					<span class="select-none pl-4 text-sm font-orbiter-deck-medium">Melody</span>
+					<span class="select-none pl-4 text-xs font-orbiter-deck-medium">Melody</span>
 				</div>
 				<div class="h-full inline-flex">
 					<TitleBarButton icon="i-mdi-minimize" onClick={minimize} />
