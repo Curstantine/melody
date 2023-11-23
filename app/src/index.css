@@ -27,6 +27,7 @@ button {
 	position: relative;
 	height: calc(100vh - 2rem);
 	max-height: calc(100vh - 2rem);
+	overflow: hidden;
 }
 
 #titlebar {
