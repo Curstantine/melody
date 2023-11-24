@@ -1,6 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use tauri::WindowEvent;
 use tracing::info;
 
 use models::state::AppState;
@@ -18,6 +19,12 @@ fn main() {
 	info!("Starting application");
 
 	tauri::Builder::default()
+		.on_window_event(|e| {
+			// To alleviate the resize perf bugs mentioned in https://github.com/tauri-apps/tauri/issues/6322
+			if let WindowEvent::Resized(_) = e.event() {
+				std::thread::sleep(std::time::Duration::from_nanos(1));
+			}
+		})
 		.manage(AppState::default())
 		.invoke_handler(tauri::generate_handler![
 			commands::general::setup,
