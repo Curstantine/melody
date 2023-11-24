@@ -20,6 +20,11 @@
 		"titlebar.button.common.background.hover": "#303030",
 		"titlebar.button.common.background.active": "#303030",
 
+		"scrollbar.background": "transparent",
+		"scrollbar.foreground.idle": "#434343",
+		"scrollbar.foreground.active": "#4f4f4f",
+		"scrollbar.foreground.hover": "#4f4f4f",
+
 		"modal.error.border": "#BE003B",
 		"modal.error.text.primary": "#FC2069",
 

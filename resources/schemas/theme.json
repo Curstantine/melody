@@ -20,6 +20,11 @@
 				"text.3": { "type": "string", "format": "color-hex" },
 				"text.error": { "type": "string", "format": "color-hex" },
 
+				"scrollbar.background": { "type": "string", "format": "color-hex" },
+				"scrollbar.foreground.idle": { "type": "string", "format": "color-hex" },
+				"scrollbar.foreground.hover": { "type": "string", "format": "color-hex" },
+				"scrollbar.foreground.active": { "type": "string", "format": "color-hex" },
+
 				"titlebar.background": { "type": "string", "format": "color-hex" },
 				"titlebar.button.close.background.hover": { "type": "string", "format": "color-hex" },
 				"titlebar.button.close.background.active": { "type": "string", "format": "color-hex" },

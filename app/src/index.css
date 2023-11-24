@@ -4,11 +4,11 @@
 :root {
 	font-family: "TASA Orbiter Deck Regular", system-ui, sans-serif;
 
-	/* font-synthesis: none; */
-	/* text-rendering: optimizeLegibility; */
-	/* -webkit-font-smoothing: antialiased; */
-	/* -moz-osx-font-smoothing: grayscale; */
-	/* -webkit-text-size-adjust: 100%; */
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	-webkit-text-size-adjust: 100%;
 }
 
 html {
@@ -24,12 +24,31 @@ button {
 }
 
 #root {
-	position: relative;
 	height: calc(100vh - 2rem);
 	max-height: calc(100vh - 2rem);
-	overflow: hidden;
+	--at-apply: relative overflow-hidden;
 }
 
 #titlebar {
 	--at-apply: bg-titlebar-background select-none;
+}
+
+::-webkit-scrollbar {
+	--at-apply: w-2;
+}
+
+::-webkit-scrollbar-track {
+	--at-apply: bg-scrollbar-background;
+}
+
+::-webkit-scrollbar-thumb {
+	--at-apply: cursor-pointer bg-scrollbar-foreground-idle use-transition-standard transition-background-color;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	--at-apply: bg-scrollbar-foreground-hover;
+}
+
+::-webkit-scrollbar-thumb:active {
+	--at-apply: bg-scrollbar-foreground-active;
 }
