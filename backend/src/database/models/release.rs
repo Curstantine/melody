@@ -18,7 +18,7 @@ pub enum ReleaseType {
 }
 
 impl FromTag for ReleaseType {
-	type Error = crate::errors::Error;
+	type Error = Error;
 
 	fn from_tag(value: &str) -> Result<Self, Self::Error> {
 		let value = match value.to_lowercase().as_str() {
@@ -47,7 +47,7 @@ pub enum ReleaseTypeSecondary {
 }
 
 impl FromTag for ReleaseTypeSecondary {
-	type Error = crate::errors::Error;
+	type Error = std::convert::Infallible;
 
 	fn from_tag(value: &str) -> Result<Self, Self::Error> {
 		let value = match value.to_lowercase().as_str() {

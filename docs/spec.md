@@ -2,15 +2,18 @@
 
 Contains the specification both the frontend and backend should follow. This documentation serves the purpose of streamlining the workflow to avoid unnecessary implementations and side-effects.
 
-- [Specification](#specification)
-  - [Directories](#directories)
-    - [Config Directory](#config-directory)
-    - [Data Directory](#data-directory)
-  - [Persistence](#persistence)
-    - [Primary (BonsaiDB)](#primary-bonsaidb)
-    - [Settings (TOML)](#settings-toml)
-  - [Models](#models)
-  - [Recovering](#recovering)
+<!-- dprint-ignore-start -->
+<!-- TOC -->
+* [Specification](#specification)
+  * [Directories](#directories)
+    * [Config Directory](#config-directory)
+    * [Data Directory](#data-directory)
+  * [Persistence](#persistence)
+    * [Primary (BonsaiDB)](#primary-bonsaidb)
+    * [Settings (TOML)](#settings-toml)
+  * [Models](#models)
+<!-- TOC -->
+<!-- dprint-ignore-end -->
 
 ## Directories
 
@@ -58,7 +61,4 @@ Different model types used to store data in the [`primary`](#primary-bonsaidb) d
 - [Person](./models/person.md)
 - [Release](./models/release.md)
 - [Track](./models/track.md)
-
-## Recovering
-
-I'll have to THINK about this.
+- [Resource](./models/resource.md)
