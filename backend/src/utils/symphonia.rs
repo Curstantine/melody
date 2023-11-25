@@ -14,11 +14,12 @@ use crate::{
 		label::Label,
 		person::{Person, PersonType},
 		release::{ReleaseType, ReleaseTypeSecondary},
+		resource::{ResourceMediaType, ResourceType},
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
 	errors::{Error, ErrorType, FromErrorWithContextData, IoErrorType, Result},
-	models::temp::{TempInlinedArtist, TempTrackMeta, TempTrackResource},
+	models::temp::{resource::TempResource, TempInlinedArtist, TempTrackMeta, TempTrackResource},
 };
 
 use super::matchers;
@@ -74,7 +75,17 @@ fn traverse_visuals(resource: &mut TempTrackResource, visuals: &[SymphoniaVisual
 
 		if let Some(key) = visual.usage {
 			match key {
-				StandardVisualKey::FrontCover => {}
+				StandardVisualKey::FrontCover => {
+					let x = resource.release_covers.get_or_insert_with(Vec::new);
+					let y = TempResource {
+						type_: ResourceType::Release,
+						media_type: ResourceMediaType::from_tag(&visual.media_type)?,
+						data: visual.data.clone(),
+					};
+
+					x.push(y);
+				}
+
 				_ => continue,
 			}
 		}

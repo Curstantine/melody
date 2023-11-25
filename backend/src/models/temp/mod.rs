@@ -3,7 +3,7 @@ use crate::database::models::{label::Label, person::Person, release::ReleaseType
 use self::{release::TempRelease, resource::TempResource, track::TempTrack};
 
 pub mod release;
-mod resource;
+pub mod resource;
 pub mod track;
 
 #[derive(Debug)]
@@ -50,12 +50,6 @@ pub struct TempTrackMeta {
 	pub path: String,
 }
 
-#[derive(Debug, Default)]
-pub struct TempTrackResource {
-	pub track_covers: Option<Vec<TempResource>>,
-	pub release_covers: Option<Vec<TempResource>>,
-}
-
 impl TempTrackMeta {
 	pub fn get_or_default_track(&mut self) -> &mut TempTrack {
 		self.track.get_or_insert_with(|| TempTrack {
@@ -87,4 +81,10 @@ impl TempTrackMeta {
 			mbz_id: None,
 		})
 	}
+}
+
+#[derive(Debug, Default)]
+pub struct TempTrackResource {
+	pub track_covers: Option<Vec<TempResource>>,
+	pub release_covers: Option<Vec<TempResource>>,
 }

@@ -1,33 +1,49 @@
+use std::borrow::Cow;
+
 use bonsaidb::core::schema::Collection;
 use serde::{Deserialize, Serialize};
+
+use crate::errors::Error;
+
+use super::FromTag;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceType {
 	Artist,
-	Release(ResourceReleaseType),
+	Release,
+	Track,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ResourceReleaseType {
-	/// Front cover of a release or track.
-	///
-	/// This type will be unique for each release.
-	FrontCover,
+pub enum ResourceMediaType {
+	Png,
+	Jpeg,
+}
 
-	/// Cover art unique to each track of a release.
-	///
-	/// Typically this is different from FrontCover.
-	Track,
+impl FromTag for ResourceMediaType {
+	type Error = Error;
 
-	Other(String),
+	fn from_tag(value: &str) -> Result<Self, Self::Error> {
+		let value = match value.to_lowercase().as_str() {
+			"image/jpeg" | "image/jpg" => Self::Jpeg,
+			"image/png" => Self::Png,
+			_ => {
+				let x = format!("Expected known resource media type, but got {}", value);
+				return Err(Error::conversion("Unsupported media type", Some(Cow::Owned(x))));
+			}
+		};
+
+		Ok(value)
+	}
 }
 
 #[derive(Debug, Serialize, Deserialize, Collection)]
 #[collection(name = "resources")]
 pub struct Resource {
 	pub type_: ResourceType,
+	pub media_type: ResourceMediaType,
 	pub path: String,
 	pub hash: String,
 }
