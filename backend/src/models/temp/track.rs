@@ -23,7 +23,6 @@ impl TempTrack {
 		producer_ids: Option<Vec<u64>>,
 		genre_ids: Option<Vec<u64>>,
 		tag_ids: Option<Vec<u64>>,
-		cover_ids: Option<Vec<u64>>,
 	) -> Track {
 		Track {
 			title: self.title,
@@ -41,7 +40,8 @@ impl TempTrack {
 			producer_ids,
 			genre_ids,
 			tag_ids,
-			cover_ids,
+
+			cover_ids: None,
 		}
 	}
 }

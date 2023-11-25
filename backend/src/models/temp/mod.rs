@@ -1,10 +1,9 @@
-use crate::database::models::{
-	label::Label, person::Person, release::ReleaseType, resource::Resource, tag::Tag, InlinedArtist,
-};
+use crate::database::models::{label::Label, person::Person, release::ReleaseType, tag::Tag, InlinedArtist};
 
-use self::{release::TempRelease, track::TempTrack};
+use self::{release::TempRelease, resource::TempResource, track::TempTrack};
 
 pub mod release;
+mod resource;
 pub mod track;
 
 #[derive(Debug)]
@@ -38,7 +37,6 @@ impl TempInlinedArtist {
 pub struct TempTrackMeta {
 	pub track: Option<TempTrack>,
 	pub release: Option<TempRelease>,
-	pub covers: Option<Vec<Resource>>,
 
 	pub artists: Option<Vec<TempInlinedArtist>>,
 	pub release_artists: Option<Vec<TempInlinedArtist>>,
@@ -50,6 +48,12 @@ pub struct TempTrackMeta {
 	pub tags: Option<Vec<Tag>>,
 
 	pub path: String,
+}
+
+#[derive(Debug, Default)]
+pub struct TempTrackResource {
+	pub track_covers: Option<Vec<TempResource>>,
+	pub release_covers: Option<Vec<TempResource>>,
 }
 
 impl TempTrackMeta {
@@ -81,7 +85,6 @@ impl TempTrackMeta {
 			type_: ReleaseType::Album,
 			type_secondary: None,
 			mbz_id: None,
-			covers: None,
 		})
 	}
 }

@@ -8,6 +8,8 @@ pub enum ResourceType {
 	Release(ResourceReleaseType),
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ResourceReleaseType {
 	/// Front cover of a release or track.
 	///

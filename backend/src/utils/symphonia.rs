@@ -4,9 +4,10 @@ use chrono::NaiveDate;
 use symphonia::core::{
 	formats::FormatOptions,
 	io::MediaSourceStream,
-	meta::{MetadataOptions, MetadataRevision, StandardTagKey, Value},
+	meta::{MetadataOptions, StandardTagKey, StandardVisualKey, Tag as SymphoniaTag, Value, Visual as SymphoniaVisual},
 	probe::Hint,
 };
+use tracing::debug;
 
 use crate::{
 	database::models::{
@@ -17,14 +18,16 @@ use crate::{
 		CountryCode, FromTag, ScriptCode,
 	},
 	errors::{Error, ErrorType, FromErrorWithContextData, IoErrorType, Result},
-	models::temp::{TempInlinedArtist, TempTrackMeta},
+	models::temp::{TempInlinedArtist, TempTrackMeta, TempTrackResource},
 };
 
 use super::matchers;
 
-pub fn read_track_meta(path: &Path) -> Result<TempTrackMeta> {
+pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)> {
 	let extension = path.extension().and_then(|s| s.to_str());
 	let source = File::open(path).map_err(|e| Error::from_with_ctx(e, IoErrorType::Path(path)))?;
+
+	let path_str = path.to_str().unwrap();
 
 	let mss = MediaSourceStream::new(Box::new(source), Default::default());
 	let meta_opts: MetadataOptions = Default::default();
@@ -38,26 +41,55 @@ pub fn read_track_meta(path: &Path) -> Result<TempTrackMeta> {
 	let mut probed = symphonia::default::get_probe()
 		.format(&hint, mss, &fmt_opts, &meta_opts)
 		.map_err(|e| Error::from_with_ctx(e, path))?;
+	let mut format = probed.format;
 
-	match probed.format.metadata().current() {
-		Some(metadata) => traverse_meta(metadata),
-		None => match probed.metadata.get().as_ref().and_then(|m| m.current()) {
-			Some(metadata) => traverse_meta(metadata),
-			None => Err(Error::descriptive("No metadata found for this file")),
-		},
+	let mut meta = TempTrackMeta {
+		path: path_str.to_string(),
+		..Default::default()
+	};
+	let mut resources = TempTrackResource::default();
+
+	if let Some(rev) = format.metadata().current() {
+		traverse_tags(&mut meta, rev.tags())?;
+		traverse_visuals(&mut resources, rev.visuals())?;
+
+		#[cfg(debug_assertions)]
+		if probed.metadata.get().as_ref().is_some() {
+			debug!("Tags found while probing that are not part of the container are ignored.")
+		}
+	} else if let Some(rev) = probed.metadata.get().as_ref().and_then(|m| m.current()) {
+		traverse_tags(&mut meta, rev.tags())?;
+		traverse_visuals(&mut resources, rev.visuals())?;
+	} else {
+		let context = "Couldn't find any metadata in track while probing.";
+		return Err(Error::descriptive("No metadata in track").with_context(Cow::Borrowed(context)));
 	}
+
+	Ok((meta, resources))
 }
 
-fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
-	let mut temp_meta = TempTrackMeta::default();
+fn traverse_visuals(resource: &mut TempTrackResource, visuals: &[SymphoniaVisual]) -> Result<()> {
+	for visual in visuals {
+		println!("{:#?} {:#?}", visual.usage, visual.tags);
 
-	let tags = meta.tags();
+		if let Some(key) = visual.usage {
+			match key {
+				StandardVisualKey::FrontCover => {}
+				_ => continue,
+			}
+		}
+	}
+
+	Ok(())
+}
+
+fn traverse_tags(meta: &mut TempTrackMeta, tags: &[SymphoniaTag]) -> Result<()> {
+	let mut used_artists_field = false;
+	let mut primary_release_type_used = false;
+
 	if tags.is_empty() {
 		return Err(Error::descriptive("Tags were empty for this file"));
 	}
-
-	let mut used_artists_field = false;
-	let mut primary_release_type_used = false;
 
 	for tag in tags {
 		// println!("{:#?} ({:?}) {:#?}", tag.key, tag.std_key, tag.value);
@@ -66,20 +98,20 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 			match key {
 				StandardTagKey::TrackTitle => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_track();
+						let x = meta.get_or_default_track();
 						x.title = val;
 					}
 				}
 				StandardTagKey::SortTrackTitle => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_track();
+						let x = meta.get_or_default_track();
 						x.title_sort = Some(val);
 					}
 				}
 
 				StandardTagKey::Artist if !used_artists_field => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.artists.get_or_insert_with(Vec::new);
+						let x = meta.artists.get_or_insert_with(Vec::new);
 						let y = Person {
 							name: val,
 							type_: PersonType::Artist,
@@ -92,13 +124,13 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 				}
 				StandardTagKey::SortArtist => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_track();
+						let x = meta.get_or_default_track();
 						x.artist_sort = Some(val);
 					}
 				}
 				StandardTagKey::Composer => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.composers.get_or_insert_with(Vec::new);
+						let x = meta.composers.get_or_insert_with(Vec::new);
 						let y = Person {
 							name: val,
 							type_: PersonType::Composer,
@@ -111,7 +143,7 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 				}
 				StandardTagKey::Producer => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.producers.get_or_insert_with(Vec::new);
+						let x = meta.producers.get_or_insert_with(Vec::new);
 						let y = Person {
 							name: val,
 							type_: PersonType::Producer,
@@ -125,19 +157,19 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 
 				StandardTagKey::Album => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_release();
+						let x = meta.get_or_default_release();
 						x.name = val;
 					}
 				}
 				StandardTagKey::SortAlbum => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_release();
+						let x = meta.get_or_default_release();
 						x.name_sort = Some(val);
 					}
 				}
 				StandardTagKey::AlbumArtist => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.release_artists.get_or_insert_with(Vec::new);
+						let x = meta.release_artists.get_or_insert_with(Vec::new);
 						let y = Person {
 							name: val,
 							type_: PersonType::Artist,
@@ -150,21 +182,21 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 				}
 				StandardTagKey::SortAlbumArtist => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_release();
+						let x = meta.get_or_default_release();
 						x.artist_sort = Some(val);
 					}
 				}
 
 				StandardTagKey::Script => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_release();
+						let x = meta.get_or_default_release();
 						let y = ScriptCode::from_tag(val.as_str()).unwrap();
 						x.script = Some(y);
 					}
 				}
 				StandardTagKey::ReleaseCountry => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_release();
+						let x = meta.get_or_default_release();
 						let y = CountryCode::from_tag(val.as_str()).unwrap();
 						x.country = Some(y);
 					}
@@ -172,22 +204,22 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 
 				StandardTagKey::TrackNumber => {
 					if let Some((track_no, track_total_opt)) = get_no_and_maybe_total(&tag.value)? {
-						let y = temp_meta.get_or_default_track();
+						let y = meta.get_or_default_track();
 						y.track_number = Some(track_no);
 
 						if let Some(track_total) = track_total_opt {
-							let z = temp_meta.get_or_default_release();
+							let z = meta.get_or_default_release();
 							z.total_tracks.get_or_insert(track_total);
 						}
 					}
 				}
 				StandardTagKey::DiscNumber => {
 					if let Some((disc_no, disc_total_opt)) = get_no_and_maybe_total(&tag.value)? {
-						let y = temp_meta.get_or_default_track();
+						let y = meta.get_or_default_track();
 						y.disc_number = Some(disc_no);
 
 						if let Some(disc_total) = disc_total_opt {
-							let z = temp_meta.get_or_default_release();
+							let z = meta.get_or_default_release();
 							z.total_discs.get_or_insert(disc_total);
 						}
 					}
@@ -195,30 +227,30 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 
 				StandardTagKey::TrackTotal => {
 					if let Some(val) = get_val_u32(&tag.value)? {
-						let x = temp_meta.get_or_default_release();
+						let x = meta.get_or_default_release();
 						x.total_tracks = Some(val);
 					}
 				}
 				StandardTagKey::DiscTotal => {
 					if let Some(val) = get_val_u32(&tag.value)? {
-						let x = temp_meta.get_or_default_release();
+						let x = meta.get_or_default_release();
 						x.total_discs = Some(val);
 					}
 				}
 
 				StandardTagKey::OriginalDate => {
 					if let Some((Some(year), Some(month), day_opt)) = get_val_date(&tag.value)? {
-						let y = temp_meta.get_or_default_track();
+						let y = meta.get_or_default_track();
 						y.original_date = NaiveDate::from_ymd_opt(year, month, day_opt.unwrap_or(1));
 					}
 				}
 				StandardTagKey::Date => match get_val_date(&tag.value)? {
 					Some((Some(year), Some(month), day_opt)) => {
-						let y = temp_meta.get_or_default_release();
+						let y = meta.get_or_default_release();
 						y.date = NaiveDate::from_ymd_opt(year, month, day_opt.unwrap_or(1));
 					}
 					Some((Some(year), None, None)) => {
-						let y = temp_meta.get_or_default_release();
+						let y = meta.get_or_default_release();
 						if y.year.is_none() {
 							y.year = Some(year);
 						}
@@ -228,21 +260,21 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 
 				StandardTagKey::Label => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.labels.get_or_insert_with(Vec::new);
+						let x = meta.labels.get_or_insert_with(Vec::new);
 						let y = Label { name: val };
 						x.push(y);
 					}
 				}
 				StandardTagKey::IdentCatalogNumber => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_release();
+						let x = meta.get_or_default_release();
 						x.catalog_number = Some(val);
 					}
 				}
 
 				StandardTagKey::Genre => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.genres.get_or_insert_with(Vec::new);
+						let x = meta.genres.get_or_insert_with(Vec::new);
 						let y = Tag {
 							name: val,
 							type_: TagType::Genre,
@@ -254,13 +286,13 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 
 				StandardTagKey::MusicBrainzRecordingId => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_track();
+						let x = meta.get_or_default_track();
 						x.mbz_id = Some(val);
 					}
 				}
 				StandardTagKey::MusicBrainzAlbumId => {
 					if let Some(val) = get_val_string(&tag.value) {
-						let x = temp_meta.get_or_default_release();
+						let x = meta.get_or_default_release();
 						x.mbz_id = Some(val);
 					}
 				}
@@ -284,9 +316,9 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 					// all artists associated with the track.
 					if !used_artists_field {
 						used_artists_field = true;
-						temp_meta.artists.replace(vec![y]);
+						meta.artists.replace(vec![y]);
 					} else {
-						let x = temp_meta.artists.get_or_insert_with(Vec::new);
+						let x = meta.artists.get_or_insert_with(Vec::new);
 						x.push(y);
 					}
 				}
@@ -297,7 +329,7 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 			// with primary type.
 			"RELEASETYPE" if !primary_release_type_used => {
 				if let Some(val) = get_val_string(&tag.value) {
-					let x = temp_meta.get_or_default_release();
+					let x = meta.get_or_default_release();
 
 					match ReleaseType::from_tag(val.as_str()) {
 						Ok(y) => {
@@ -305,7 +337,7 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 							primary_release_type_used = true;
 						}
 						Err(e) if e.type_ == ErrorType::Conversion => {
-							let y = ReleaseTypeSecondary::from_tag(val.as_str())?;
+							let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap();
 							x.type_secondary.get_or_insert_with(Vec::new).push(y);
 						}
 						Err(e) => return Err(e),
@@ -314,16 +346,16 @@ fn traverse_meta(meta: &MetadataRevision) -> Result<TempTrackMeta> {
 			}
 			"RELEASETYPE" if primary_release_type_used => {
 				if let Some(val) = get_val_string(&tag.value) {
-					let x = temp_meta.get_or_default_release();
-					let y = ReleaseTypeSecondary::from_tag(val.as_str())?;
+					let x = meta.get_or_default_release();
+					let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap();
 					x.type_secondary.get_or_insert_with(Vec::new).push(y);
 				}
 			}
-			_ => {}
+			_ => continue,
 		}
 	}
 
-	Ok(temp_meta)
+	Ok(())
 }
 
 #[inline]
@@ -451,7 +483,7 @@ mod test {
 	use crate::errors::Result;
 	use crate::utils::symphonia::read_track_meta;
 
-	const TRACK_PATH: &str = r"c:\Users\Curstantine\Music\TempLib\Yunomi feat. nicamoq\守護霊\01 守護霊.opus";
+	const TRACK_PATH: &str = r"C:\Users\Curstantine\Music\TempLib\Annabel\caracol\10 glimmer.flac";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {

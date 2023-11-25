@@ -76,7 +76,7 @@ pub async fn create_library(
 				tx.send(ChannelData::Reading(data)).unwrap();
 
 				match read_track_meta(&path) {
-					Ok(meta) => {
+					Ok((meta, resources)) => {
 						let data = LibraryActionData::indexing(total, current, path);
 						tx.send(ChannelData::Indexing(data, Box::new(meta))).unwrap();
 					}
