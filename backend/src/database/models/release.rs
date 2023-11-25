@@ -81,6 +81,7 @@ pub struct Release {
 	pub label_ids: Option<Vec<u64>>,
 	pub genre_ids: Option<Vec<u64>>,
 	pub tag_ids: Option<Vec<u64>>,
+	pub cover_ids: Option<Vec<u64>>,
 
 	#[serde(rename = "type")]
 	pub type_: ReleaseType,
@@ -111,6 +112,7 @@ impl Default for Release {
 			label_ids: None,
 			genre_ids: None,
 			tag_ids: None,
+			cover_ids: None,
 
 			type_: ReleaseType::Album,
 			type_secondary: None,

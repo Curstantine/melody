@@ -2,6 +2,7 @@ use chrono::NaiveDate;
 
 use crate::database::models::{
 	release::{Release, ReleaseType, ReleaseTypeSecondary},
+	resource::Resource,
 	CountryCode, InlinedArtist, ScriptCode,
 };
 
@@ -23,6 +24,7 @@ pub struct TempRelease {
 	pub type_secondary: Option<Vec<ReleaseTypeSecondary>>,
 
 	pub mbz_id: Option<String>,
+	pub covers: Option<Vec<Resource>>,
 }
 
 impl TempRelease {
@@ -32,6 +34,7 @@ impl TempRelease {
 		label_ids: Option<Vec<u64>>,
 		genre_ids: Option<Vec<u64>>,
 		tag_ids: Option<Vec<u64>>,
+		cover_ids: Option<Vec<u64>>,
 	) -> Release {
 		Release {
 			name: self.name,
@@ -51,6 +54,7 @@ impl TempRelease {
 			label_ids,
 			genre_ids,
 			tag_ids,
+			cover_ids,
 		}
 	}
 }

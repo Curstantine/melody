@@ -11,6 +11,7 @@ pub struct TempTrack {
 	pub original_date: Option<NaiveDate>,
 	pub artist_sort: Option<String>,
 	pub mbz_id: Option<String>,
+	pub path: String,
 }
 
 impl TempTrack {
@@ -22,6 +23,7 @@ impl TempTrack {
 		producer_ids: Option<Vec<u64>>,
 		genre_ids: Option<Vec<u64>>,
 		tag_ids: Option<Vec<u64>>,
+		cover_ids: Option<Vec<u64>>,
 	) -> Track {
 		Track {
 			title: self.title,
@@ -31,6 +33,7 @@ impl TempTrack {
 			original_date: self.original_date,
 			artist_sort: self.artist_sort,
 			mbz_id: self.mbz_id,
+			path: self.path,
 
 			artists,
 			release_id,
@@ -38,6 +41,7 @@ impl TempTrack {
 			producer_ids,
 			genre_ids,
 			tag_ids,
+			cover_ids,
 		}
 	}
 }

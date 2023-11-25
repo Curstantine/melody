@@ -19,12 +19,11 @@ pub struct Track {
 	pub release_id: Option<u64>,
 	pub composer_ids: Option<Vec<u64>>,
 	pub producer_ids: Option<Vec<u64>>,
+	pub cover_ids: Option<Vec<u64>>,
 
 	pub genre_ids: Option<Vec<u64>>,
 	pub tag_ids: Option<Vec<u64>>,
 
 	pub mbz_id: Option<String>,
-
 	pub path: String,
-	pub cover_id: Option<u64>,
 }

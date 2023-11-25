@@ -5,7 +5,21 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum ResourceType {
 	Artist,
-	Release,
+	Release(ResourceReleaseType),
+}
+
+pub enum ResourceReleaseType {
+	/// Front cover of a release or track.
+	///
+	/// This type will be unique for each release.
+	FrontCover,
+
+	/// Cover art unique to each track of a release.
+	///
+	/// Typically this is different from FrontCover.
+	Track,
+
+	Other(String),
 }
 
 #[derive(Debug, Serialize, Deserialize, Collection)]
@@ -13,4 +27,5 @@ pub enum ResourceType {
 pub struct Resource {
 	pub type_: ResourceType,
 	pub path: String,
+	pub hash: String,
 }

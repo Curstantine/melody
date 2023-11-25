@@ -24,9 +24,9 @@ pub mod views;
 pub struct Database(pub BonsaiDatabase);
 
 impl Database {
-	const DB_NAME: &str = "database";
+	const DB_NAME: &'static str = "database";
 
-	const KEY_IS_FIRST_RUN: &str = "is_first_run";
+	const KEY_IS_FIRST_RUN: &'static str = "is_first_run";
 
 	/// Initialize the database.
 	///

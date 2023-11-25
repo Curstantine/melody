@@ -13,24 +13,25 @@ Refers to a release done by an artist. A release can be an album, a single, an E
 
 ## Properties
 
-| Name           | Type                                              | Description                         | Required |
-| -------------- | ------------------------------------------------- | ----------------------------------- | -------- |
-| title          | `string`                                          | The title of the release.           | true     |
-| title_sort     | `string`                                          | The sorting title of the release.   | false    |
-| type           | [`ReleaseType`](#releasetype)                     | The primary type of the release.    | true     |
-| type_secondary | [`ReleaseTypeSecondary[]`](#releasetypesecondary) | The secondary types of the release. | false    |
-| artists        | [`InlinedArtist[]`](./generic.md#inlinedartist)   | The references to the artists.      | true     |
-| artist_sort    | `string`                                          | The sorting name of the artist.     | false    |
-| year           | `i32`                                             | The year of the release.            | false    |
-| date           | `ISODate`                                         | The date of the release.            | false    |
-| country        | [`CountryCode`](#countrycode)                     | The country of the release.         | false    |
-| script         | `string`                                          | The script of the release.          | false    |
-| label_ids      | `u64[]`                                           | The IDs of the labels.              | false    |
-| genre_ids      | `u64[]`                                           | The IDs of the genres.              | false    |
-| tag_ids        | `u64[]`                                           | The IDs of the tags.                | false    |
-| total_tracks   | `u32`                                             | The total number of tracks.         | false    |
-| total_discs    | `u32`                                             | The total number of discs.          | false    |
-| mbz_id         | `string`                                          | The MusicBrainz release ID.         | false    |
+| Name           | Type                                              | Description                               | Required |
+| -------------- | ------------------------------------------------- | ----------------------------------------- | -------- |
+| title          | `string`                                          | The title of the release.                 | true     |
+| title_sort     | `string`                                          | The sorting title of the release.         | false    |
+| type           | [`ReleaseType`](#releasetype)                     | The primary type of the release.          | true     |
+| type_secondary | [`ReleaseTypeSecondary[]`](#releasetypesecondary) | The secondary types of the release.       | false    |
+| artists        | [`InlinedArtist[]`](./generic.md#inlinedartist)   | The references to the artists.            | true     |
+| artist_sort    | `string`                                          | The sorting name of the artist.           | false    |
+| year           | `i32`                                             | The year of the release.                  | false    |
+| date           | `ISODate`                                         | The date of the release.                  | false    |
+| country        | [`CountryCode`](#countrycode)                     | The country of the release.               | false    |
+| script         | `string`                                          | The script of the release.                | false    |
+| label_ids      | `u64[]`                                           | The IDs of the labels.                    | false    |
+| genre_ids      | `u64[]`                                           | The IDs of the genres.                    | false    |
+| tag_ids        | `u64[]`                                           | The IDs of the tags.                      | false    |
+| cover_ids      | `string[]`                                        | The IDs of cover resources of this track. | false    |
+| total_tracks   | `u32`                                             | The total number of tracks.               | false    |
+| total_discs    | `u32`                                             | The total number of discs.                | false    |
+| mbz_id         | `string`                                          | The MusicBrainz release ID.               | false    |
 
 ## Shared Types
 

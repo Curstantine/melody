@@ -28,6 +28,9 @@ pub async fn handle_temp_track_meta(database: &AsyncDatabase, meta: TempTrackMet
 	let mut release_id = None::<u64>;
 	let mut release_artists = None::<Vec<InlinedArtist>>;
 
+	let mut track_cover_ids = None::<Vec<u64>>;
+	let mut release_cover_ids = None::<Vec<u64>>;
+
 	if let Some(temp_artists) = meta.artists {
 		let x = artists.get_or_insert(Vec::with_capacity(temp_artists.len()));
 
@@ -92,13 +95,23 @@ pub async fn handle_temp_track_meta(database: &AsyncDatabase, meta: TempTrackMet
 	}
 
 	if let Some(temp) = meta.release {
-		let release = temp.into_release(release_artists, label_ids, genre_ids.clone(), tag_ids.clone());
+		let release = temp.into_release(release_artists, label_ids, genre_ids.clone(), tag_ids.clone(), release_cover_ids);
 		let id = methods::release::get_or_insert(database, release).await?;
 		release_id = Some(id);
 	}
 
-	let track = temp_track.into_track(artists, release_id, composer_ids, producer_ids, genre_ids, tag_ids);
-	track.push_into_async(database).await?;
+	temp_track
+		.into_track(
+			artists,
+			release_id,
+			composer_ids,
+			producer_ids,
+			genre_ids,
+			tag_ids,
+			track_cover_ids,
+		)
+		.push_into_async(database)
+		.await?;
 
 	Ok(())
 }
