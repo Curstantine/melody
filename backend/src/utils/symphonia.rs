@@ -73,21 +73,15 @@ fn traverse_visuals(resource: &mut TempTrackResource, visuals: &[SymphoniaVisual
 	for visual in visuals {
 		println!("{:#?} {:#?}", visual.usage, visual.tags);
 
-		if let Some(key) = visual.usage {
-			match key {
-				StandardVisualKey::FrontCover => {
-					let x = resource.release_covers.get_or_insert_with(Vec::new);
-					let y = TempResource {
-						type_: ResourceType::Release,
-						media_type: ResourceMediaType::from_tag(&visual.media_type)?,
-						data: visual.data.clone(),
-					};
+		if let Some(StandardVisualKey::FrontCover) = visual.usage {
+			let x = resource.release_covers.get_or_insert_with(Vec::new);
+			let y = TempResource {
+				type_: ResourceType::Release,
+				media_type: ResourceMediaType::from_tag(&visual.media_type)?,
+				data: visual.data.clone(),
+			};
 
-					x.push(y);
-				}
-
-				_ => continue,
-			}
+			x.push(y);
 		}
 	}
 
@@ -105,8 +99,10 @@ fn traverse_tags(meta: &mut TempTrackMeta, tags: &[SymphoniaTag]) -> Result<()> 
 	for tag in tags {
 		// println!("{:#?} ({:?}) {:#?}", tag.key, tag.std_key, tag.value);
 
-		if let Some(key) = tag.std_key {
-			match key {
+		let mut use_str_tag = false;
+
+		match tag.std_key {
+			Some(key) => match key {
 				StandardTagKey::TrackTitle => {
 					if let Some(val) = get_val_string(&tag.value) {
 						let x = meta.get_or_default_track();
@@ -308,61 +304,63 @@ fn traverse_tags(meta: &mut TempTrackMeta, tags: &[SymphoniaTag]) -> Result<()> 
 					}
 				}
 
-				_ => {}
-			}
+				_ => use_str_tag = true,
+			},
+			None => use_str_tag = true,
 		}
 
-		#[allow(clippy::single_match)]
-		match tag.key.as_str() {
-			"ARTISTS" => {
-				if let Some(val) = get_val_string(&tag.value) {
-					let y = TempInlinedArtist::from(Person {
-						name: val,
-						type_: PersonType::Artist,
-						name_sort: None,
-						mbz_id: None,
-					});
+		if use_str_tag {
+			match tag.key.as_str() {
+				"ARTISTS" => {
+					if let Some(val) = get_val_string(&tag.value) {
+						let y = TempInlinedArtist::from(Person {
+							name: val,
+							type_: PersonType::Artist,
+							name_sort: None,
+							mbz_id: None,
+						});
 
-					// It's fine to overwrite the artists array, since the ARTISTS field *should* contain
-					// all artists associated with the track.
-					if !used_artists_field {
-						used_artists_field = true;
-						meta.artists.replace(vec![y]);
-					} else {
-						let x = meta.artists.get_or_insert_with(Vec::new);
-						x.push(y);
+						// It's fine to overwrite the artists array, since the ARTISTS field *should* contain
+						// all artists associated with the track.
+						if !used_artists_field {
+							used_artists_field = true;
+							meta.artists.replace(vec![y]);
+						} else {
+							let x = meta.artists.get_or_insert_with(Vec::new);
+							x.push(y);
+						}
 					}
 				}
-			}
 
-			// Symphonia for some reason doesn't support MusicBrainzReleaseType when a secondary tag is available,
-			// and for a cursed reason, MusicBrainz adds the secondary type to the RELEASETYPE field along
-			// with primary type.
-			"RELEASETYPE" if !primary_release_type_used => {
-				if let Some(val) = get_val_string(&tag.value) {
-					let x = meta.get_or_default_release();
+				// Symphonia for some reason doesn't support MusicBrainzReleaseType when a secondary tag is available,
+				// and for a cursed reason, MusicBrainz adds the secondary type to the RELEASETYPE field along
+				// with primary type.
+				"RELEASETYPE" if !primary_release_type_used => {
+					if let Some(val) = get_val_string(&tag.value) {
+						let x = meta.get_or_default_release();
 
-					match ReleaseType::from_tag(val.as_str()) {
-						Ok(y) => {
-							x.type_ = y;
-							primary_release_type_used = true;
+						match ReleaseType::from_tag(val.as_str()) {
+							Ok(y) => {
+								x.type_ = y;
+								primary_release_type_used = true;
+							}
+							Err(e) if e.type_ == ErrorType::Conversion => {
+								let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap();
+								x.type_secondary.get_or_insert_with(Vec::new).push(y);
+							}
+							Err(e) => return Err(e),
 						}
-						Err(e) if e.type_ == ErrorType::Conversion => {
-							let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap();
-							x.type_secondary.get_or_insert_with(Vec::new).push(y);
-						}
-						Err(e) => return Err(e),
 					}
 				}
-			}
-			"RELEASETYPE" if primary_release_type_used => {
-				if let Some(val) = get_val_string(&tag.value) {
-					let x = meta.get_or_default_release();
-					let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap();
-					x.type_secondary.get_or_insert_with(Vec::new).push(y);
+				"RELEASETYPE" if primary_release_type_used => {
+					if let Some(val) = get_val_string(&tag.value) {
+						let x = meta.get_or_default_release();
+						let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap();
+						x.type_secondary.get_or_insert_with(Vec::new).push(y);
+					}
 				}
+				_ => continue,
 			}
-			_ => continue,
 		}
 	}
 
