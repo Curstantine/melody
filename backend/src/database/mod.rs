@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use tokio::fs;
 
 use bonsaidb::{
@@ -9,10 +11,7 @@ use bonsaidb::{
 };
 use tracing::debug;
 
-use crate::{
-	constants::UNKNOWN_PERSON_ID,
-	errors::{Error, FromErrorWithContextData, IoErrorType, Result},
-};
+use crate::{constants::UNKNOWN_PERSON_ID, errors::Result};
 
 use self::models::{person::Person, LocalSchema};
 
@@ -21,38 +20,22 @@ pub mod methods;
 pub mod models;
 pub mod views;
 
+pub const DB_MAIN_NAME: &str = "main.bonsaidb";
+const KEY_IS_FIRST_RUN: &str = "is_first_run";
+
 pub struct Database(pub BonsaiDatabase);
 
 impl Database {
-	const DB_NAME: &'static str = "database";
-
-	const KEY_IS_FIRST_RUN: &'static str = "is_first_run";
-
 	/// Initialize the database.
 	///
 	/// This function should run in the context of tauri.
-	#[tracing::instrument(skip(app_handle))]
-	pub async fn new(app_handle: &tauri::AppHandle) -> Result<Self> {
-		let app_data_dir = app_handle
-			.path_resolver()
-			.app_data_dir()
-			.expect("App data dir was not found");
-
-		debug!("Found app data dir at {:?}", app_data_dir);
-
-		match fs::create_dir_all(&app_data_dir).await {
-			Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => {
-				return Err(Error::from_with_ctx(e, IoErrorType::Path(&app_data_dir)));
-			}
-			_ => {}
-		}
-
-		let db_file_path = app_data_dir.join(Self::DB_NAME);
-		let db_conf = StorageConfiguration::new(&db_file_path);
+	#[tracing::instrument()]
+	pub async fn new(db_path: &Path) -> Result<Self> {
+		let db_conf = StorageConfiguration::new(db_path);
 		let database = BonsaiDatabase::open::<LocalSchema>(db_conf).await?;
-		debug!("Successfully opened the database at {:?}", db_file_path);
+		debug!("Successfully opened the database at {:?}", db_path);
 
-		if database.get_key(Self::KEY_IS_FIRST_RUN).await?.is_none() {
+		if database.get_key(KEY_IS_FIRST_RUN).await?.is_none() {
 			Self::run_first_time_setup(&database).await?;
 		}
 
@@ -61,10 +44,11 @@ impl Database {
 
 	#[cfg(test)]
 	pub async fn testing() -> Result<Self> {
-		let db_dir = std::env::current_dir().unwrap().join("target/testing");
-		let db_conf = StorageConfiguration::default()
-			.path(db_dir.join(Self::DB_NAME))
-			.memory_only();
+		let db_dir = std::env::current_dir()
+			.unwrap()
+			.join("target/testing")
+			.join(DB_MAIN_NAME);
+		let db_conf = StorageConfiguration::default().path(db_dir).memory_only();
 		let database = BonsaiDatabase::open::<LocalSchema>(db_conf).await?;
 
 		Ok(Self(database))
@@ -75,7 +59,7 @@ impl Database {
 		let unknown_person = Person::unknown();
 		methods::person::insert_with_unique_id(database, unknown_person, UNKNOWN_PERSON_ID).await?;
 
-		database.set_key(Self::KEY_IS_FIRST_RUN, &false).await?;
+		database.set_key(KEY_IS_FIRST_RUN, &false).await?;
 
 		Ok(())
 	}

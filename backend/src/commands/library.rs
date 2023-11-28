@@ -8,7 +8,9 @@ use tracing::{debug, info};
 
 use crate::{
 	database::{
-		helpers::handle_temp_track_meta, methods, models::library::Library as LibraryModel,
+		helpers::{handle_temp_track_meta, handle_temp_track_resources},
+		methods,
+		models::library::Library as LibraryModel,
 		views::library::LibraryByName,
 	},
 	errors::{extra::CopyableSerializableError, Error, FromErrorWithContextData, IoErrorType, Result},
@@ -18,7 +20,7 @@ use crate::{
 			library::{LibraryActionData, LibraryActionPayload, LibraryEvent},
 			WindowEventManager,
 		},
-		temp::TempTrackMeta,
+		temp::{TempTrackMeta, TempTrackResource},
 	},
 	utils::{fs::walkdir_sync, matchers, symphonia::read_track_meta},
 };
@@ -50,13 +52,16 @@ pub async fn create_library(
 	let database = db_lock.as_ref().unwrap();
 	let database = &database.0;
 
+	let dir_lock = app_state.directories.lock().await;
+	let directories = dir_lock.as_ref().unwrap();
+
 	let library = LibraryModel::new(name.clone(), scan_locations.clone());
 	methods::library::insert_unique(database, library).await?;
 
 	enum ChannelData {
 		Error(CopyableSerializableError, PathBuf),
 		Reading(LibraryActionData),
-		Indexing(LibraryActionData, Box<TempTrackMeta>),
+		Indexing(LibraryActionData, Box<TempTrackMeta>, TempTrackResource),
 	}
 
 	let (tx, rx) = mpsc::channel::<ChannelData>();
@@ -78,7 +83,7 @@ pub async fn create_library(
 				match read_track_meta(&path) {
 					Ok((meta, resources)) => {
 						let data = LibraryActionData::indexing(total, current, path);
-						tx.send(ChannelData::Indexing(data, Box::new(meta))).unwrap();
+						tx.send(ChannelData::Indexing(data, Box::new(meta), resources)).unwrap();
 					}
 					Err(e) => tx.send(ChannelData::Error(e.into(), path)).unwrap(),
 				}
@@ -95,9 +100,11 @@ pub async fn create_library(
 				debug!("[{}/{}] Reading: {:#?}", payload.current, payload.total, payload.path);
 				em.emit(&window, LibraryActionPayload::Ok(payload))?;
 			}
-			ChannelData::Indexing(payload, meta) => {
+			ChannelData::Indexing(payload, meta, resources) => {
 				debug!("[{}/{}] Indexing: {:#?}", payload.current, payload.total, payload.path);
 				em.emit(&window, LibraryActionPayload::Ok(payload))?;
+
+				handle_temp_track_resources(database, &directories.resource_cover_dir, resources).await?;
 				handle_temp_track_meta(database, *meta).await?;
 			}
 			ChannelData::Error(error, path) => {

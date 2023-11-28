@@ -1,13 +1,13 @@
 use std::borrow::Cow;
 
-use bonsaidb::core::schema::Collection;
+use bonsaidb::core::{key::Key, schema::Collection};
 use serde::{Deserialize, Serialize};
 
-use crate::errors::Error;
+use crate::{errors::Error, database::views::resource::ResourceByTypeAndHash};
 
 use super::FromTag;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Key)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceType {
 	Artist,
@@ -40,7 +40,7 @@ impl FromTag for ResourceMediaType {
 }
 
 #[derive(Debug, Serialize, Deserialize, Collection)]
-#[collection(name = "resources")]
+#[collection(name = "resources", views = [ResourceByTypeAndHash])]
 pub struct Resource {
 	pub type_: ResourceType,
 	pub media_type: ResourceMediaType,

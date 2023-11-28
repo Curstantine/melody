@@ -1,11 +1,21 @@
+use std::path::Path;
+
 use bonsaidb::{core::schema::SerializedCollection, local::AsyncDatabase};
 
 use crate::{
 	errors::{Error, Result},
-	models::temp::TempTrackMeta,
+	models::temp::{TempTrackMeta, TempTrackResource},
 };
 
 use super::{methods, models::InlinedArtist};
+
+pub async fn handle_temp_track_resources(
+	database: &AsyncDatabase,
+	resource_cover_dir: &Path,
+	resource: TempTrackResource,
+) -> Result<()> {
+	Ok(())
+}
 
 /// Deduplicates and inserts a track with its metadata.
 pub async fn handle_temp_track_meta(database: &AsyncDatabase, meta: TempTrackMeta) -> Result<()> {
