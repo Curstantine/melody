@@ -71,8 +71,6 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 
 fn traverse_visuals(resource: &mut TempTrackResource, visuals: &[SymphoniaVisual]) -> Result<()> {
 	for visual in visuals {
-		println!("{:#?} {:#?}", visual.usage, visual.tags);
-
 		if let Some(StandardVisualKey::FrontCover) = visual.usage {
 			let x = resource.release_covers.get_or_insert_with(Vec::new);
 			let y = TempResource {
@@ -97,8 +95,6 @@ fn traverse_tags(meta: &mut TempTrackMeta, tags: &[SymphoniaTag]) -> Result<()> 
 	}
 
 	for tag in tags {
-		// println!("{:#?} ({:?}) {:#?}", tag.key, tag.std_key, tag.value);
-
 		let mut use_str_tag = false;
 
 		match tag.std_key {
