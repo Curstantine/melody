@@ -1,8 +1,23 @@
+use std::path::PathBuf;
+
 use serde::Serialize;
 
-use crate::errors::Result;
+use crate::errors::{extra::CopyableSerializableError, Result};
 
 pub mod library;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
+pub enum ActionPayload<T: Serialize + Clone, E: Serialize + Clone> {
+	Ok(T),
+	Error(E),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ActionPathedError {
+	error: CopyableSerializableError,
+	path: PathBuf,
+}
 
 pub struct WindowEventManager<T: WindowEventType>(pub T);
 

@@ -30,7 +30,7 @@ pub async fn get_library_names(app_state: tauri::State<'_, AppState>) -> Result<
 	let database = db_lock.as_ref().unwrap();
 	let database = &database.0;
 
-	let libraries = LibraryByName::entries_async(database).query_with_docs().await?;
+	let libraries = LibraryByName::entries_async(database).query().await?;
 	let names = libraries.into_iter().map(|x| x.key.clone()).collect::<Vec<_>>();
 
 	Ok(names)
@@ -75,12 +75,12 @@ pub async fn create_library(
 			for (i, path) in paths.into_iter().enumerate() {
 				let current = i as u64 + 1;
 
-				let data = LibraryActionData::reading(total, current, path.clone());
+				let data = LibraryActionData::new(total, current, path.clone());
 				tx.send(ChannelData::Reading(data)).unwrap();
 
 				match read_track_meta(&path) {
 					Ok((meta, resources)) => {
-						let data = LibraryActionData::indexing(total, current, path);
+						let data = LibraryActionData::new(total, current, path);
 						tx.send(ChannelData::Indexing(data, Box::new(meta), resources)).unwrap();
 					}
 					Err(e) => tx.send(ChannelData::Error(e.into(), path)).unwrap(),
@@ -96,24 +96,23 @@ pub async fn create_library(
 		match message {
 			ChannelData::Reading(payload) => {
 				debug!("[{}/{}] Reading: {:#?}", payload.current, payload.total, payload.path);
-				em.emit(&window, LibraryActionPayload::Ok(payload))?;
+				em.emit(&window, LibraryActionPayload::reading(payload))?;
 			}
 			ChannelData::Indexing(payload, meta, resources) => {
 				debug!("[{}/{}] Indexing: {:#?}", payload.current, payload.total, payload.path);
-				em.emit(&window, LibraryActionPayload::Ok(payload))?;
+				em.emit(&window, LibraryActionPayload::indexing(payload))?;
+
 				handle_temp_track_meta(database, &directories.resource_cover_dir, *meta, resources).await?;
 			}
 			ChannelData::Error(error, path) => {
 				debug!("Error encountered while reading/indexing: {:#?}", path);
-				em.emit(&window, LibraryActionPayload::Error { error, path })?;
+				em.emit(&window, LibraryActionPayload::error(error, path))?;
 			}
 		};
 	}
 
 	handle.join().unwrap()?;
-
-	let elapsed = start.elapsed();
-	info!("Finished building library in {:?}", elapsed);
+	info!("Finished building library in {:?}", start.elapsed());
 
 	Ok(())
 }
