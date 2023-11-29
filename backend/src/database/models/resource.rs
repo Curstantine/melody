@@ -1,9 +1,10 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, path::PathBuf};
 
+use blake3::Hash;
 use bonsaidb::core::{key::Key, schema::Collection};
 use serde::{Deserialize, Serialize};
 
-use crate::{errors::Error, database::views::resource::ResourceByTypeAndHash};
+use crate::{database::views::resource::ResourceByTypeAndHash, errors::Error};
 
 use super::FromTag;
 
@@ -20,6 +21,15 @@ pub enum ResourceType {
 pub enum ResourceMediaType {
 	Png,
 	Jpeg,
+}
+
+impl ResourceMediaType {
+	pub fn to_extension(&self) -> &'static str {
+		match self {
+			Self::Png => "png",
+			Self::Jpeg => "jpg",
+		}
+	}
 }
 
 impl FromTag for ResourceMediaType {
@@ -44,6 +54,6 @@ impl FromTag for ResourceMediaType {
 pub struct Resource {
 	pub type_: ResourceType,
 	pub media_type: ResourceMediaType,
-	pub path: String,
-	pub hash: String,
+	pub path: PathBuf,
+	pub hash: Hash,
 }

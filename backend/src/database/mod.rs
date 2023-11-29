@@ -1,15 +1,15 @@
 use std::path::Path;
 
-use tokio::fs;
-
-use bonsaidb::{
-	core::keyvalue::AsyncKeyValue,
-	local::{
-		config::{Builder, StorageConfiguration},
-		AsyncDatabase as BonsaiDatabase,
+use {
+	bonsaidb::{
+		core::keyvalue::AsyncKeyValue,
+		local::{
+			config::{Builder, StorageConfiguration},
+			AsyncDatabase as BonsaiDatabase,
+		},
 	},
+	tracing::debug,
 };
-use tracing::debug;
 
 use crate::{constants::UNKNOWN_PERSON_ID, errors::Result};
 

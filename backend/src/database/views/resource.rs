@@ -7,7 +7,6 @@ use bonsaidb::core::{
 use crate::database::models::resource::{Resource, ResourceType};
 
 #[derive(Debug, Clone, PartialEq, Key)]
-
 pub struct ResourceByTypeAndHashKey {
 	pub type_: ResourceType,
 	pub hash: String,
@@ -26,7 +25,7 @@ pub struct ResourceByTypeAndHash;
 impl CollectionMapReduce for ResourceByTypeAndHash {
 	fn map<'doc>(&self, document: CollectionDocument<Resource>) -> ViewMapResult<'doc, Self::View> {
 		let x = document.contents;
-		let key = ResourceByTypeAndHashKey::new(x.type_, x.hash);
+		let key = ResourceByTypeAndHashKey::new(x.type_, x.hash.to_string());
 		document.header.emit_key_and_value(key, 1)
 	}
 

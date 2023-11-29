@@ -8,9 +8,7 @@ use tracing::{debug, info};
 
 use crate::{
 	database::{
-		helpers::{handle_temp_track_meta, handle_temp_track_resources},
-		methods,
-		models::library::Library as LibraryModel,
+		helpers::handle_temp_track_meta, methods, models::library::Library as LibraryModel,
 		views::library::LibraryByName,
 	},
 	errors::{extra::CopyableSerializableError, Error, FromErrorWithContextData, IoErrorType, Result},
@@ -103,9 +101,7 @@ pub async fn create_library(
 			ChannelData::Indexing(payload, meta, resources) => {
 				debug!("[{}/{}] Indexing: {:#?}", payload.current, payload.total, payload.path);
 				em.emit(&window, LibraryActionPayload::Ok(payload))?;
-
-				handle_temp_track_resources(database, &directories.resource_cover_dir, resources).await?;
-				handle_temp_track_meta(database, *meta).await?;
+				handle_temp_track_meta(database, &directories.resource_cover_dir, *meta, resources).await?;
 			}
 			ChannelData::Error(error, path) => {
 				debug!("Error encountered while reading/indexing: {:#?}", path);

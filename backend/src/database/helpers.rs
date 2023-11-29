@@ -9,24 +9,18 @@ use crate::{
 
 use super::{methods, models::InlinedArtist};
 
-pub async fn handle_temp_track_resources(
+/// Deduplicates and inserts a track with its metadata.
+pub async fn handle_temp_track_meta(
 	database: &AsyncDatabase,
 	resource_cover_dir: &Path,
+	meta: TempTrackMeta,
 	resource: TempTrackResource,
 ) -> Result<()> {
-	Ok(())
-}
-
-/// Deduplicates and inserts a track with its metadata.
-pub async fn handle_temp_track_meta(database: &AsyncDatabase, meta: TempTrackMeta) -> Result<()> {
 	let temp_track = match meta.track {
 		Some(x) => x,
 		None => return Err(Error::descriptive("No track metadata found")),
 	};
 
-	// NOTE:
-	// We might not need to spawn tasks here,
-	// since we could come across race conditions on which duplicated entry to put into the db, lol.
 	let mut artists = None::<Vec<InlinedArtist>>;
 	let mut composer_ids = None::<Vec<u64>>;
 	let mut producer_ids = None::<Vec<u64>>;
@@ -34,9 +28,12 @@ pub async fn handle_temp_track_meta(database: &AsyncDatabase, meta: TempTrackMet
 	let mut label_ids = None::<Vec<u64>>;
 	let mut genre_ids = None::<Vec<u64>>;
 	let mut tag_ids = None::<Vec<u64>>;
+	let mut release_artists = None::<Vec<InlinedArtist>>;
+
+	let mut release_cover_ids = None::<Vec<u64>>;
+	let mut track_cover_ids = None::<Vec<u64>>;
 
 	let mut release_id = None::<u64>;
-	let mut release_artists = None::<Vec<InlinedArtist>>;
 
 	if let Some(temp_artists) = meta.artists {
 		let x = artists.get_or_insert(Vec::with_capacity(temp_artists.len()));
@@ -101,14 +98,47 @@ pub async fn handle_temp_track_meta(database: &AsyncDatabase, meta: TempTrackMet
 		}
 	}
 
+	if let Some(release_covers) = resource.release_covers {
+		let x = release_cover_ids.insert(Vec::with_capacity(release_covers.len()));
+
+		for resource in release_covers {
+			let res = methods::resource::get_or_insert(database, resource_cover_dir, resource).await?;
+			x.push(res);
+		}
+	}
+
+	if let Some(track_covers) = resource.track_covers {
+		let x = track_cover_ids.insert(Vec::with_capacity(track_covers.len()));
+
+		for resource in track_covers {
+			let res = methods::resource::get_or_insert(database, resource_cover_dir, resource).await?;
+			x.push(res);
+		}
+	}
+
 	if let Some(temp) = meta.release {
-		let release = temp.into_release(release_artists, label_ids, genre_ids.clone(), tag_ids.clone());
+		let release = temp.into_release(
+			release_artists,
+			label_ids,
+			genre_ids.clone(),
+			tag_ids.clone(),
+			release_cover_ids,
+		);
+
 		let id = methods::release::get_or_insert(database, release).await?;
 		release_id = Some(id);
 	}
 
 	temp_track
-		.into_track(artists, release_id, composer_ids, producer_ids, genre_ids, tag_ids)
+		.into_track(
+			artists,
+			release_id,
+			composer_ids,
+			producer_ids,
+			genre_ids,
+			tag_ids,
+			track_cover_ids,
+		)
 		.push_into_async(database)
 		.await?;
 
