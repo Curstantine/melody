@@ -5,6 +5,7 @@ use serde::Serialize;
 use crate::errors::{extra::CopyableSerializableError, Result};
 
 pub mod library;
+pub mod release;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
@@ -17,6 +18,18 @@ pub enum ActionPayload<T: Serialize + Clone, E: Serialize + Clone> {
 pub struct ActionPathedError {
 	error: CopyableSerializableError,
 	path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ActionEntity<T: Serialize> {
+	pub id: u64,
+	pub attributes: T,
+}
+
+impl<T: Serialize> ActionEntity<T> {
+	pub fn new(id: u64, attributes: T) -> Self {
+		Self { id, attributes }
+	}
 }
 
 pub struct WindowEventManager<T: WindowEventType>(pub T);

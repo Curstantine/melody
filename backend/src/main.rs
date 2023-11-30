@@ -30,6 +30,7 @@ fn main() {
 			commands::general::setup,
 			commands::library::create_library,
 			commands::library::get_library_names,
+			commands::release::get_releases,
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running tauri application");
