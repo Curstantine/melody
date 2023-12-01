@@ -7,8 +7,8 @@ use crate::{
 };
 
 #[tauri::command]
-#[tracing::instrument(skip_all, err(Debug))]
-pub async fn get_releases(library_name: String, app_state: tauri::State<'_, AppState>) -> Result<Vec<ReleaseEntity>> {
+#[tracing::instrument(skip(app_state), err(Debug))]
+pub async fn get_releases(library_id: u64, app_state: tauri::State<'_, AppState>) -> Result<Vec<ReleaseEntity>> {
 	let db_lock = app_state.db.lock().await;
 	let database = db_lock.as_ref().unwrap();
 	let database = &database.0;

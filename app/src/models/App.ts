@@ -6,21 +6,24 @@ import type { ActionableError } from "@/types/errors";
 import { invoke } from "@/utils/tauri";
 import { initialize as initializeTheme } from "@/utils/themes";
 
-import LibraryManager from "@/models/LibraryManager";
 import { SHARED_PATHS } from "@/pages/(shared)";
 import { SETUP_PATHS } from "@/pages/setup";
+import { LibraryNamedEntity } from "@/types/backend/library";
 
 export default class AppModel {
 	appError = createSignal<ActionableError | null>(null);
-	libraryManager = new LibraryManager();
 	navigate = useNavigate();
+
+	currentLibraryId = createSignal<number>();
 
 	constructor() {
 		this.initialize.bind(this);
+		this.setAppError.bind(this);
 	}
 
 	public async initialize() {
 		const [, setAppError] = this.appError;
+		const [, setCurrentLibraryId] = this.currentLibraryId;
 
 		const setup = await invoke<void>("setup");
 		if (setup.isErr()) {
@@ -32,13 +35,16 @@ export default class AppModel {
 			setAppError({ dismissible: true, error: themeResult.unwrapErr() });
 		}
 
-		const namesResult = await invoke<string[]>("get_library_names");
-		if (namesResult.isOk()) {
-			const names = namesResult.unwrap();
-			if (names.length === 0) this.navigate(SETUP_PATHS.CREATE);
-			else this.navigate(SHARED_PATHS.MUSIC);
+		const result = await invoke<LibraryNamedEntity[]>("get_library_names");
+		if (result.isOk()) {
+			const libraries = result.unwrap();
+			if (libraries.length === 0) {
+				// TODO: persist id across restarts
+				setCurrentLibraryId(libraries[0].id);
+				this.navigate(SETUP_PATHS.CREATE);
+			} else this.navigate(SHARED_PATHS.MUSIC);
 		} else {
-			setAppError({ dismissible: true, error: namesResult.unwrapErr() });
+			setAppError({ dismissible: true, error: result.unwrapErr() });
 		}
 
 		appWindow.show();

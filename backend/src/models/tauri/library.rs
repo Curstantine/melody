@@ -4,7 +4,9 @@ use serde::Serialize;
 
 use crate::errors::extra::CopyableSerializableError;
 
-use super::{ActionPathedError, ActionPayload, WindowEventType};
+use super::{ActionEntity, ActionPathedError, ActionPayload, WindowEventType};
+
+pub type LibraryNamedEntity = ActionEntity<String>;
 
 pub type LibraryActionPayload = ActionPayload<LibraryAction, ActionPathedError>;
 impl LibraryActionPayload {

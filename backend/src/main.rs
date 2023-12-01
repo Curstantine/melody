@@ -29,7 +29,7 @@ fn main() {
 		.invoke_handler(tauri::generate_handler![
 			commands::general::setup,
 			commands::library::create_library,
-			commands::library::get_library_names,
+			commands::library::get_libraries,
 			commands::release::get_releases,
 		])
 		.run(tauri::generate_context!())

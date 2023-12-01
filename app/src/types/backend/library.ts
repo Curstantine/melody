@@ -1,7 +1,9 @@
-import { BackendBaseError } from "@/types/backend";
+import { BackendActionEntity, BackendBaseError } from "@/types/backend";
 
 export type LibraryCommand = "create_library" | "get_library_names";
 export type LibraryEvent = "library_scan";
+
+export type LibraryNamedEntity = BackendActionEntity<string>;
 
 export interface LibraryActionPayload {
 	type: "ok" | "error";

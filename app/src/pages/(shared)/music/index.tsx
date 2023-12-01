@@ -1,8 +1,16 @@
+import { useAppModel } from "@/models/App";
+import { invoke } from "@/utils/tauri";
 import { appWindow } from "@tauri-apps/api/window";
-import { createSignal, For, onCleanup, onMount } from "solid-js";
+import { Accessor, createResource, createSignal, For, onCleanup, onMount } from "solid-js";
+
+const getData = async (libraryId: Accessor<number | undefined>) => {
+	const cmd = await invoke("get_releases", { library_id: libraryId });
+};
 
 export default function Home() {
+	const { currentLibraryId: [currentLibraryId] } = useAppModel();
 	const [gridXSize, setGridXSize] = createSignal(4);
+	const [data] = createResource(currentLibraryId, getData);
 
 	// eslint-disable-next-line prefer-const
 	let ref: HTMLDivElement | undefined = undefined;
