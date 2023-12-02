@@ -35,5 +35,5 @@ export interface Release {
 
 export interface ReleasesGetParameters {
 	[key: string]: unknown;
-	library_id: number;
+	libraryId: number;
 }

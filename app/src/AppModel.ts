@@ -40,12 +40,12 @@ export default class AppModel {
 			setAppError({ dismissible: true, error: result.unwrapErr() });
 		} else {
 			const libraries = result.unwrap();
-			if (libraries.length === 0) {
+			if (libraries.length > 0) {
 				// TODO: persist id across restarts
 				setCurrentLibraryId(libraries[0].id);
-				this.navigate(SETUP_PATHS.CREATE);
-			} else {
 				this.navigate(SHARED_PATHS.MUSIC);
+			} else {
+				this.navigate(SETUP_PATHS.CREATE);
 			}
 		}
 

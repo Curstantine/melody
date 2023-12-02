@@ -1,21 +1,24 @@
 import { appWindow } from "@tauri-apps/api/window";
-import { Accessor, createResource, createSignal, For, onCleanup, onMount } from "solid-js";
+import { createResource, createSignal, For, Match, onCleanup, onMount, Show, Switch } from "solid-js";
 
+import type BackendError from "@/errors/backend";
 import type { ReleaseEntity, ReleasesGetParameters } from "@/types/backend/release";
+import type Result from "@/utils/result";
 
 import { useAppModel } from "@/AppModel";
-import BackendError from "@/errors/backend";
-import Result from "@/utils/result";
 import { invoke } from "@/utils/tauri";
 
-const getData = (libraryId: Accessor<number | undefined>): Promise<Result<ReleaseEntity[], BackendError>> => {
-	return invoke<ReleaseEntity[], ReleasesGetParameters>("get_releases", { library_id: libraryId()! });
+const getData = async (libraryId: number | undefined): Promise<Result<ReleaseEntity[], BackendError>> => {
+	const p = await invoke<ReleaseEntity[], ReleasesGetParameters>("get_releases", { libraryId: libraryId! });
+	console.log(p);
+
+	return p;
 };
 
 export default function Home() {
 	const { currentLibraryId: [currentLibraryId] } = useAppModel();
 	const [gridXSize, setGridXSize] = createSignal(4);
-	const [_] = createResource(currentLibraryId, getData);
+	const [data] = createResource(currentLibraryId, getData);
 
 	// eslint-disable-next-line prefer-const
 	let ref: HTMLDivElement | undefined = undefined;
@@ -43,9 +46,32 @@ export default function Home() {
 			style={`grid-template-columns: repeat(${gridXSize()}, minmax(0, 1fr));`}
 			class="grid h-full items-center justify-center gap-4 overflow-y-auto p-4"
 		>
-			<For each={Array.from({ length: 50 })}>
-				{(_) => <div class="h-42 w-42 rounded bg-background-secondary"></div>}
-			</For>
+			<Show
+				when={data()}
+				fallback={
+					<For each={Array.from({ length: 10 })}>
+						{(_) => <div class="h-42 w-42 rounded bg-background-secondary"></div>}
+					</For>
+				}
+			>
+				{(data) => (
+					<Switch>
+						<Match when={data().isOk()}>
+							<For each={data().unwrap()}>
+								{(release) => (
+									<div class="w-42 flex flex-col gap-2">
+										<div class="h-42 w-42 rounded bg-background-secondary" />
+										<span>{release.attributes.name}</span>
+									</div>
+								)}
+							</For>
+						</Match>
+						<Match when={data().isErr()}>
+							<span>{data().unwrapErr().message}</span>
+						</Match>
+					</Switch>
+				)}
+			</Show>
 		</div>
 	);
 }

@@ -21,8 +21,14 @@ export default class BackendError implements LocalError {
 	public static fromStupidError(error: unknown): BackendError {
 		// TODO: Handle structural integrity errors
 
-		const e = error as BackendBaseError;
-		return new BackendError(e.type, e.message, e.context);
+		switch (typeof error) {
+			case "string":
+				return new BackendError("descriptive", "Possibly a tauri error", error);
+			default: {
+				const e = error as BackendBaseError;
+				return new BackendError(e.type, e.message, e.context);
+			}
+		}
 	}
 
 	public static placeholder(): BackendError {
