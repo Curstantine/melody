@@ -14,10 +14,7 @@ use crate::{
 	errors::{extra::CopyableSerializableError, Result},
 	models::{
 		state::AppState,
-		tauri::{
-			library::{LibraryActionData, LibraryActionPayload, LibraryEntity, LibraryEvent},
-			WindowEventManager,
-		},
+		tauri::library::{LibraryEntity, LibraryEventData, LibraryEventManager, LibraryEventPayload, LibraryEventType},
 		temp::{TempTrackMeta, TempTrackResource},
 	},
 	utils::{fs::walkdir_sync, matchers, symphonia::read_track_meta},
@@ -64,8 +61,8 @@ pub async fn create_library(
 
 	enum ChannelData {
 		Error(CopyableSerializableError, PathBuf),
-		Reading(LibraryActionData),
-		Indexing(LibraryActionData, Box<TempTrackMeta>, TempTrackResource),
+		Reading(LibraryEventData),
+		Indexing(LibraryEventData, Box<TempTrackMeta>, TempTrackResource),
 	}
 
 	let (tx, rx) = mpsc::channel::<ChannelData>();
@@ -80,12 +77,12 @@ pub async fn create_library(
 			for (i, path) in paths.into_iter().enumerate() {
 				let current = i as u64 + 1;
 
-				let data = LibraryActionData::new(total, current, path.clone());
+				let data = LibraryEventData::new(total, current, path.clone());
 				tx.send(ChannelData::Reading(data)).unwrap();
 
 				match read_track_meta(&path) {
 					Ok((meta, resources)) => {
-						let data = LibraryActionData::new(total, current, path);
+						let data = LibraryEventData::new(total, current, path);
 						tx.send(ChannelData::Indexing(data, Box::new(meta), resources)).unwrap();
 					}
 					Err(e) => tx.send(ChannelData::Error(e.into(), path)).unwrap(),
@@ -96,22 +93,22 @@ pub async fn create_library(
 		Ok(())
 	});
 
-	let em = WindowEventManager(LibraryEvent::Scan);
+	let em = LibraryEventManager::new(LibraryEventType::Scan);
 	for message in rx {
 		match message {
 			ChannelData::Reading(payload) => {
 				debug!("[{}/{}] Reading: {:#?}", payload.current, payload.total, payload.path);
-				em.emit(&window, LibraryActionPayload::reading(payload))?;
+				em.emit(&window, LibraryEventPayload::reading(payload))?;
 			}
 			ChannelData::Indexing(payload, meta, resources) => {
 				debug!("[{}/{}] Indexing: {:#?}", payload.current, payload.total, payload.path);
-				em.emit(&window, LibraryActionPayload::indexing(payload))?;
+				em.emit(&window, LibraryEventPayload::indexing(payload))?;
 
 				handle_temp_track_meta(database, &directories.resource_cover_dir, *meta, resources).await?;
 			}
 			ChannelData::Error(error, path) => {
 				debug!("Error encountered while reading/indexing: {:#?}", path);
-				em.emit(&window, LibraryActionPayload::error(error, path))?;
+				em.emit(&window, LibraryEventPayload::error(error, path))?;
 			}
 		};
 	}

@@ -1,5 +1,5 @@
 use crate::database::models::release::Release;
 
-use super::ActionEntity;
+use super::Entity;
 
-pub type ReleaseEntity = ActionEntity<Release>;
+pub type ReleaseEntity = Entity<Release>;
