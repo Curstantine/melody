@@ -1,9 +1,9 @@
-import type { LibraryCommand, LibraryEvent } from "@/types/backend/library";
+import type { LibraryCommand, LibraryEventType } from "@/types/backend/library";
 import type { ReleaseCommand } from "@/types/backend/release";
 
 export type GeneralCommand = "setup";
 export type BackendCommands = GeneralCommand | LibraryCommand | ReleaseCommand;
-export type BackendEvents = LibraryEvent;
+export type BackendEvents = LibraryEventType;
 
 export type BackendErrorTypes =
 	| "io"
@@ -26,12 +26,12 @@ export interface BackendPathedError {
 	error: BackendBaseError;
 }
 
-export interface BackendActionPayload<T, E> {
+export interface BackendEventPayload<T, E> {
 	type: "ok" | "error";
 	data: T | E;
 }
 
-export interface BackendActionEntity<T> {
+export interface BackendEntity<T> {
 	id: number;
 	attributes: T;
 }

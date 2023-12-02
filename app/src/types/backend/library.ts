@@ -1,17 +1,17 @@
-import type { BackendActionEntity, BackendActionPayload, BackendPathedError } from "@/types/backend";
+import type { BackendEntity, BackendEventPayload, BackendPathedError } from "@/types/backend";
 
 export type LibraryCommand = "create_library" | "get_libraries";
-export type LibraryEvent = "library_scan";
+export type LibraryEventType = "scan";
 
-export type LibraryEntity = BackendActionEntity<Library>;
-export type LibraryActionPayload = BackendActionPayload<LibraryAction, BackendPathedError>;
+export type LibraryEntity = BackendEntity<Library>;
+export type LibraryEventPayload = BackendEventPayload<LibraryEvent, BackendPathedError>;
 
 export interface Library {
 	name: string;
 	scanLocations: string[];
 }
 
-export interface LibraryAction {
+export interface LibraryEvent {
 	type: "reading" | "indexing";
 	total: number;
 	current: number;

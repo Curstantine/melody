@@ -6,10 +6,10 @@ import BackendError from "@/errors/backend";
 import DataError from "@/errors/data";
 import { useAppModel } from "@/models/App";
 import type {
-	LibraryAction,
 	LibraryActionError,
-	LibraryActionPayload,
 	LibraryCreateParameters,
+	LibraryEventPayload,
+	LibraryEventType,
 } from "@/types/backend/library";
 import { invoke, listen } from "@/utils/tauri";
 
@@ -28,7 +28,7 @@ export default function SetupScanView() {
 	const [showSilentErrors, setSilentErrorsVisibility] = createSignal(false);
 	const [completed, setCompletion] = createSignal(false);
 
-	const [payload, setPayload] = createSignal<LibraryAction | null>(null);
+	const [payload, setPayload] = createSignal<LibraryEventType | null>(null);
 	const [error, setError] = createSignal<BackendError | null>(null);
 	const [silentErrors, setSilentErrors] = createStore<{ path: string; error: BackendError }[]>([]);
 
@@ -47,12 +47,12 @@ export default function SetupScanView() {
 	};
 
 	const startScan = async (name: string, scanLocations: string[]) => {
-		const unlisten = await listen<LibraryActionPayload>(
+		const unlisten = await listen<LibraryEventPayload>(
 			"library_scan",
 			(event) => {
 				switch (event.payload.type) {
 					case "ok":
-						setPayload(event.payload.data as LibraryAction);
+						setPayload(event.payload.data as LibraryEventType);
 						break;
 					case "error": {
 						const { path, error } = event.payload.data as LibraryActionError;
