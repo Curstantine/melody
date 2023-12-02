@@ -8,7 +8,7 @@ import { initialize as initializeTheme } from "@/utils/themes";
 
 import { SHARED_PATHS } from "@/pages/(shared)";
 import { SETUP_PATHS } from "@/pages/setup";
-import { LibraryNamedEntity } from "@/types/backend/library";
+import { LibraryEntity } from "@/types/backend/library";
 
 export default class AppModel {
 	appError = createSignal<ActionableError | null>(null);
@@ -35,7 +35,7 @@ export default class AppModel {
 			setAppError({ dismissible: true, error: themeResult.unwrapErr() });
 		}
 
-		const result = await invoke<LibraryNamedEntity[]>("get_library_names");
+		const result = await invoke<LibraryEntity[]>("get_library_names");
 		if (result.isOk()) {
 			const libraries = result.unwrap();
 			if (libraries.length === 0) {

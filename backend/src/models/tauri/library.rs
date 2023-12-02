@@ -43,7 +43,7 @@ pub enum LibraryAction {
 	Indexing(LibraryActionData),
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub enum LibraryEvent {
 	Scan,
 }

@@ -1,22 +1,18 @@
-import { BackendActionEntity, BackendBaseError } from "@/types/backend";
+import type { BackendActionEntity, BackendActionPayload, BackendPathedError } from "@/types/backend";
 
-export type LibraryCommand = "create_library" | "get_library_names";
+export type LibraryCommand = "create_library" | "get_libraries";
 export type LibraryEvent = "library_scan";
 
-export type LibraryNamedEntity = BackendActionEntity<string>;
+export type LibraryEntity = BackendActionEntity<Library>;
+export type LibraryActionPayload = BackendActionPayload<LibraryAction, BackendPathedError>;
 
-export interface LibraryActionPayload {
-	type: "ok" | "error";
-	data: LibraryActionData | LibraryActionError;
+export interface Library {
+	name: string;
+	scanLocations: string[];
 }
 
-export interface LibraryActionError {
-	error: BackendBaseError;
-	path: string;
-}
-
-export interface LibraryActionData {
-	action_type: "reading" | "indexing";
+export interface LibraryAction {
+	type: "reading" | "indexing";
 	total: number;
 	current: number;
 	path: string;

@@ -21,6 +21,16 @@ export interface BackendBaseError {
 	context?: string;
 }
 
+export interface BackendPathedError {
+	path: string;
+	error: BackendBaseError;
+}
+
+export interface BackendActionPayload<T, E> {
+	type: "ok" | "error";
+	data: T | E;
+}
+
 export interface BackendActionEntity<T> {
 	id: number;
 	attributes: T;

@@ -6,7 +6,7 @@ import BackendError from "@/errors/backend";
 import DataError from "@/errors/data";
 import { useAppModel } from "@/models/App";
 import type {
-	LibraryActionData,
+	LibraryAction,
 	LibraryActionError,
 	LibraryActionPayload,
 	LibraryCreateParameters,
@@ -28,7 +28,7 @@ export default function SetupScanView() {
 	const [showSilentErrors, setSilentErrorsVisibility] = createSignal(false);
 	const [completed, setCompletion] = createSignal(false);
 
-	const [payload, setPayload] = createSignal<LibraryActionData | null>(null);
+	const [payload, setPayload] = createSignal<LibraryAction | null>(null);
 	const [error, setError] = createSignal<BackendError | null>(null);
 	const [silentErrors, setSilentErrors] = createStore<{ path: string; error: BackendError }[]>([]);
 
@@ -39,7 +39,12 @@ export default function SetupScanView() {
 	const appModel = useAppModel();
 	const location = useLocation<LocationState>();
 
-	const cont = () => navigate(SHARED_PATHS.MUSIC, { replace: true });
+	const cont = (id: number) => {
+		const { currentLibraryId: [, setCurrentLibraryId] } = useAppModel();
+
+		setCurrentLibraryId(id);
+		navigate(SHARED_PATHS.MUSIC, { replace: true });
+	};
 
 	const startScan = async (name: string, scanLocations: string[]) => {
 		const unlisten = await listen<LibraryActionPayload>(
@@ -47,7 +52,7 @@ export default function SetupScanView() {
 			(event) => {
 				switch (event.payload.type) {
 					case "ok":
-						setPayload(event.payload.data as LibraryActionData);
+						setPayload(event.payload.data as LibraryAction);
 						break;
 					case "error": {
 						const { path, error } = event.payload.data as LibraryActionError;
@@ -58,7 +63,7 @@ export default function SetupScanView() {
 			},
 		);
 
-		const result = await invoke<null, LibraryCreateParameters>("create_library", { name, scanLocations });
+		const result = await invoke<number, LibraryCreateParameters>("create_library", { name, scanLocations });
 		unlisten();
 
 		if (result.isErr()) return setError(result.unwrapErr());
@@ -124,7 +129,7 @@ export default function SetupScanView() {
 									</span>
 
 									<div class="mt-8 flex select-none gap-1 text-text-2">
-										<span>{payload().action_type === "reading" ? "Reading" : "Indexing"}</span>
+										<span>{payload().type === "reading" ? "Reading" : "Indexing"}</span>
 										<span>({payload().current}/{payload().total})</span>
 									</div>
 									<span class="min-h-12 text-sm text-text-3">{payload().path}</span>
