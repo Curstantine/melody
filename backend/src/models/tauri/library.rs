@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use crate::errors::extra::CopyableSerializableError;
+use crate::{database::models::library::Library, errors::extra::CopyableSerializableError};
 
 use super::{ActionEntity, ActionPathedError, ActionPayload, WindowEventType};
 
-pub type LibraryNamedEntity = ActionEntity<String>;
+pub type LibraryEntity = ActionEntity<Library>;
 
 pub type LibraryActionPayload = ActionPayload<LibraryAction, ActionPathedError>;
 impl LibraryActionPayload {

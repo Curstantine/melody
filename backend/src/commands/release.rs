@@ -1,7 +1,7 @@
-use bonsaidb::core::schema::SerializedView;
+use bonsaidb::core::schema::{SerializedCollection, SerializedView};
 
 use crate::{
-	database::views::release::ReleaseByNameAndArtist,
+	database::{models::release::Release, views::release::ReleaseByNameAndArtist},
 	errors::Result,
 	models::{state::AppState, tauri::release::ReleaseEntity},
 };
@@ -14,14 +14,15 @@ pub async fn get_releases(library_id: u64, app_state: tauri::State<'_, AppState>
 	let database = &database.0;
 
 	let entries = ReleaseByNameAndArtist::entries_async(database)
-		.query_with_collection_docs()
+		.query_with_docs()
 		.await?;
+	let mut releases = Vec::with_capacity(entries.len());
 
-	let docs = entries
-		.documents
-		.into_iter()
-		.map(|(id, e)| ReleaseEntity::new(id, e.contents))
-		.collect::<Vec<_>>();
+	for mapping in &entries {
+		let id = mapping.document.header.id.deserialize::<u64>()?;
+		let release = Release::document_contents(mapping.document)?;
+		releases.push(ReleaseEntity::new(id, release))
+	}
 
-	Ok(docs)
+	Ok(releases)
 }
