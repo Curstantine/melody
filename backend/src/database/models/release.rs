@@ -12,9 +12,10 @@ use super::{CountryCode, FromTag, InlinedArtist, ScriptCode};
 #[serde(rename_all = "snake_case")]
 pub enum ReleaseType {
 	Album,
-	Compilation,
 	Ep,
 	Single,
+	Broadcast,
+	Other,
 }
 
 impl FromTag for ReleaseType {
@@ -23,9 +24,10 @@ impl FromTag for ReleaseType {
 	fn from_tag(value: &str) -> Result<Self, Self::Error> {
 		let value = match value.to_lowercase().as_str() {
 			"album" => Self::Album,
-			"compilation" => Self::Compilation,
 			"ep" => Self::Ep,
 			"single" => Self::Single,
+			"broadcast" => Self::Broadcast,
+			"other" => Self::Other,
 			_ => {
 				let x = format!("Expected known release types, but got {}", value);
 				return Err(Error::conversion("Failed to resolve release type", Some(Cow::Owned(x))));

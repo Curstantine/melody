@@ -1,10 +1,15 @@
-import { useAppModel } from "@/AppModel";
-import { invoke } from "@/utils/tauri";
 import { appWindow } from "@tauri-apps/api/window";
 import { Accessor, createResource, createSignal, For, onCleanup, onMount } from "solid-js";
 
-const getData = async (libraryId: Accessor<number | undefined>) => {
-	const _ = await invoke("get_releases", { library_id: libraryId });
+import type { ReleaseEntity, ReleasesGetParameters } from "@/types/backend/release";
+
+import { useAppModel } from "@/AppModel";
+import BackendError from "@/errors/backend";
+import Result from "@/utils/result";
+import { invoke } from "@/utils/tauri";
+
+const getData = (libraryId: Accessor<number | undefined>): Promise<Result<ReleaseEntity[], BackendError>> => {
+	return invoke<ReleaseEntity[], ReleasesGetParameters>("get_releases", { library_id: libraryId()! });
 };
 
 export default function Home() {
@@ -18,7 +23,6 @@ export default function Home() {
 
 	onMount(async () => {
 		const remConst = parseFloat(getComputedStyle(document.documentElement).fontSize);
-
 		const resizeListener = await appWindow.onResized(() => {
 			const { width } = ref!.getBoundingClientRect();
 			const widthRem = width / remConst;
