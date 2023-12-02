@@ -8,6 +8,8 @@ import type Result from "@/utils/result";
 import { useAppModel } from "@/AppModel";
 import { invoke } from "@/utils/tauri";
 
+import ReleaseListItem from "@/components/ListItems/Release";
+
 const getData = async (libraryId: number | undefined): Promise<Result<ReleaseEntity[], BackendError>> => {
 	const p = await invoke<ReleaseEntity[], ReleasesGetParameters>("get_releases", { libraryId: libraryId! });
 	console.log(p);
@@ -44,7 +46,7 @@ export default function Home() {
 		<div
 			ref={ref}
 			style={`grid-template-columns: repeat(${gridXSize()}, minmax(0, 1fr));`}
-			class="grid h-full items-center justify-center gap-4 overflow-y-auto p-4"
+			class="grid max-h-full items-center justify-center gap-4 overflow-y-auto p-4"
 		>
 			<Show
 				when={data()}
@@ -58,12 +60,7 @@ export default function Home() {
 					<Switch>
 						<Match when={data().isOk()}>
 							<For each={data().unwrap()}>
-								{(release) => (
-									<div class="w-42 flex flex-col gap-2">
-										<div class="h-42 w-42 rounded bg-background-secondary" />
-										<span>{release.attributes.name}</span>
-									</div>
-								)}
+								{(release) => <ReleaseListItem {...release} />}
 							</For>
 						</Match>
 						<Match when={data().isErr()}>
