@@ -2,8 +2,8 @@ import { appWindow } from "@tauri-apps/api/window";
 import { createSignal, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 
+import { useAppModel } from "@/AppModel";
 import WindowError from "@/errors/window";
-import { useAppModel } from "@/models/App";
 import Result from "@/utils/result";
 
 import TitleBarButton from "@/components/TitleBar/Button";

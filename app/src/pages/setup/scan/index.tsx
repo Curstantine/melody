@@ -2,15 +2,19 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import { createSignal, For, Match, onMount, Show, Switch } from "solid-js";
 import { createStore } from "solid-js/store";
 
+import type { BackendPathedError } from "@/types/backend";
+import type {
+	LibraryCreateParameters,
+	LibraryEntity,
+	LibraryEvent,
+	LibraryEventPayload,
+} from "@/types/backend/library";
+
+import { useAppModel } from "@/AppModel";
+
 import BackendError from "@/errors/backend";
 import DataError from "@/errors/data";
-import { useAppModel } from "@/models/App";
-import type {
-	LibraryActionError,
-	LibraryCreateParameters,
-	LibraryEventPayload,
-	LibraryEventType,
-} from "@/types/backend/library";
+
 import { invoke, listen } from "@/utils/tauri";
 
 import { SHARED_PATHS } from "@/pages/(shared)";
@@ -28,7 +32,7 @@ export default function SetupScanView() {
 	const [showSilentErrors, setSilentErrorsVisibility] = createSignal(false);
 	const [completed, setCompletion] = createSignal(false);
 
-	const [payload, setPayload] = createSignal<LibraryEventType | null>(null);
+	const [payload, setPayload] = createSignal<LibraryEvent | null>(null);
 	const [error, setError] = createSignal<BackendError | null>(null);
 	const [silentErrors, setSilentErrors] = createStore<{ path: string; error: BackendError }[]>([]);
 
@@ -39,23 +43,18 @@ export default function SetupScanView() {
 	const appModel = useAppModel();
 	const location = useLocation<LocationState>();
 
-	const cont = (id: number) => {
-		const { currentLibraryId: [, setCurrentLibraryId] } = useAppModel();
-
-		setCurrentLibraryId(id);
-		navigate(SHARED_PATHS.MUSIC, { replace: true });
-	};
+	const cont = () => navigate(SHARED_PATHS.MUSIC, { replace: true });
 
 	const startScan = async (name: string, scanLocations: string[]) => {
 		const unlisten = await listen<LibraryEventPayload>(
-			"library_scan",
+			"scan",
 			(event) => {
 				switch (event.payload.type) {
 					case "ok":
-						setPayload(event.payload.data as LibraryEventType);
+						setPayload(event.payload.data as LibraryEvent);
 						break;
 					case "error": {
-						const { path, error } = event.payload.data as LibraryActionError;
+						const { path, error } = event.payload.data as BackendPathedError;
 						setSilentErrors((others) => [...others, { path, error: BackendError.fromStupidError(error) }]);
 						break;
 					}
@@ -63,7 +62,7 @@ export default function SetupScanView() {
 			},
 		);
 
-		const result = await invoke<number, LibraryCreateParameters>("create_library", { name, scanLocations });
+		const result = await invoke<LibraryEntity, LibraryCreateParameters>("create_library", { name, scanLocations });
 		unlisten();
 
 		if (result.isErr()) return setError(result.unwrapErr());
@@ -71,6 +70,9 @@ export default function SetupScanView() {
 			setCompletion(true);
 			return setSilentErrorsVisibility(true);
 		}
+
+		const library = result.unwrap();
+		appModel.setCurrentLibraryId(library.id);
 
 		cont();
 	};
@@ -85,23 +87,6 @@ export default function SetupScanView() {
 		}
 
 		setTimeout(() => startScan(name, scanLocations!), 1000);
-
-		// let timeout = 0;
-		// for (let i = 0; i < 10; i++) {
-		// 	const p =
-		// 		`c:\\Users\\Curstantine\\Music\\TempLib\\オンゲキシューターズ\\ONGEKI Vocal Party 05\\${i} bitter flavor - give it up to you (Game Size).opus`;
-		// 	setTimeout(() => {
-		// 		if (i % 2 == 0) {
-		// 			setPayload({ action_type: "reading", total: 10, current: i, path: p });
-		// 		} else {
-		// 			setSilentErrors((x) => [...x, { path: p, error: BackendError.placeholder() }]);
-		// 		}
-		// 	}, timeout += 2000);
-		// }
-		// setTimeout(() => {
-		// 	setCompletion(true);
-		// 	setSilentErrorsVisibility(true);
-		// }, timeout);
 	});
 
 	return (

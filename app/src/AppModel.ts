@@ -11,10 +11,10 @@ import { SETUP_PATHS } from "@/pages/setup";
 import { LibraryEntity } from "@/types/backend/library";
 
 export default class AppModel {
-	appError = createSignal<ActionableError | null>(null);
-	navigate = useNavigate();
+	private navigate = useNavigate();
 
 	currentLibraryId = createSignal<number>();
+	appError = createSignal<ActionableError | null>(null);
 
 	constructor() {
 		this.initialize.bind(this);
@@ -35,19 +35,19 @@ export default class AppModel {
 			setAppError({ dismissible: true, error: themeResult.unwrapErr() });
 		}
 
-		const result = await invoke<LibraryEntity[]>("get_library_names");
-		if (result.isOk()) {
+		const result = await invoke<LibraryEntity[]>("get_libraries");
+		if (result.isErr()) {
+			setAppError({ dismissible: true, error: result.unwrapErr() });
+		} else {
 			const libraries = result.unwrap();
 			if (libraries.length === 0) {
 				// TODO: persist id across restarts
 				setCurrentLibraryId(libraries[0].id);
 				this.navigate(SETUP_PATHS.CREATE);
-			} else this.navigate(SHARED_PATHS.MUSIC);
-		} else {
-			setAppError({ dismissible: true, error: result.unwrapErr() });
+			} else {
+				this.navigate(SHARED_PATHS.MUSIC);
+			}
 		}
-
-		appWindow.show();
 
 		if (import.meta.env.DEV) {
 			// @ts-expect-error - expose function to allow to navigate to dev showcase
@@ -57,13 +57,20 @@ export default class AppModel {
 				},
 			};
 		}
+
+		appWindow.show();
 	}
 
 	public setAppError(error: ActionableError["error"], dismissible = true, actions?: ActionableError["actions"]) {
 		const [, setAppError] = this.appError;
 		setAppError({ error, dismissible, actions });
 	}
+
+	public setCurrentLibraryId(id: number) {
+		const [, setId] = this.currentLibraryId;
+		setId(id);
+	}
 }
 
-export const AppModelContext = createContext<AppModel>(undefined, { name: "AppModelContext" });
+export const AppModelContext = createContext<AppModel>();
 export const useAppModel = () => useContext(AppModelContext)!;

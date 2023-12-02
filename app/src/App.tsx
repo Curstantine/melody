@@ -1,7 +1,7 @@
 import { Route, Routes } from "@solidjs/router";
 import { onMount } from "solid-js";
 
-import AppModel, { AppModelContext } from "@/models/App";
+import AppModel, { AppModelContext } from "@/AppModel";
 
 import AppErrorDisplay from "@/components/AppErrorDisplay";
 import TitleBar from "@/components/TitleBar";
