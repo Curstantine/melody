@@ -1,5 +1,7 @@
 import type { BackendEntity } from "@/types/backend";
 import type { CountryCode, InlinedArtist, ScriptCode } from "@/types/backend/generic";
+import type { Person } from "@/types/backend/person";
+import type { Resource } from "@/types/backend/resource";
 
 export type ReleaseCommand = "get_releases";
 
@@ -31,6 +33,12 @@ export interface Release {
 	type_secondary?: ReleaseTypeSecondary;
 
 	mbz_id?: string;
+}
+
+export interface DisplayReleases {
+	releases: Record<number, Release>;
+	artists: Record<number, Person>;
+	covers: Record<number, Resource>;
 }
 
 export interface ReleasesGetParameters {

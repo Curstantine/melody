@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::database::views::person::PersonByNameAndType;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Key)]
+#[serde(rename_all = "snake_case")]
 pub enum PersonType {
 	Artist,
 	Composer,
