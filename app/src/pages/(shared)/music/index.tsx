@@ -46,7 +46,7 @@ export default function Home() {
 		<div
 			ref={ref}
 			style={`grid-template-columns: repeat(${gridXSize()}, minmax(0, 1fr));`}
-			class="grid max-h-full items-center justify-center gap-4 overflow-y-auto p-4"
+			class="grid max-h-[calc(100%-2rem)] items-center justify-center gap-4 overflow-y-auto p-4"
 		>
 			<Show
 				when={data()}
