@@ -16,10 +16,7 @@ export default class Result<T, E> {
 	}
 
 	public unwrap(): T {
-		if (this.value === null) {
-			throw new Error("called `Result.unwrap()` on an `Err` value");
-		}
-
+		if (this.value === null) throw this.error;
 		return this.value;
 	}
 

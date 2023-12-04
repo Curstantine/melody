@@ -1,20 +1,18 @@
 import { appWindow } from "@tauri-apps/api/window";
-import { createResource, createSignal, For, Match, onCleanup, onMount, Show, Switch } from "solid-js";
+import { createResource, createSignal, For, Match, onCleanup, onMount, Switch } from "solid-js";
 
-import type BackendError from "@/errors/backend";
-import type { ReleaseEntity, ReleasesGetParameters } from "@/types/backend/release";
-import type Result from "@/utils/result";
+import type { DisplayReleases, ReleasesGetParameters } from "@/types/backend/release";
 
 import { useAppModel } from "@/AppModel";
 import { invoke } from "@/utils/tauri";
 
+import ErrorCard from "@/components/Card/Error";
 import ReleaseListItem from "@/components/ListItems/Release";
 
-const getData = async (libraryId: number | undefined): Promise<Result<ReleaseEntity[], BackendError>> => {
-	const p = await invoke<ReleaseEntity[], ReleasesGetParameters>("get_releases", { libraryId: libraryId! });
+const getData = async (libraryId: number | undefined): Promise<DisplayReleases> => {
+	const p = await invoke<DisplayReleases, ReleasesGetParameters>("get_display_releases", { libraryId: libraryId! });
 	console.log(p);
-
-	return p;
+	return p.unwrap();
 };
 
 export default function Home() {
@@ -48,27 +46,32 @@ export default function Home() {
 			style={`grid-template-columns: repeat(${gridXSize()}, minmax(0, 1fr));`}
 			class="grid max-h-[calc(100%-2rem)] items-center justify-center gap-4 overflow-y-auto p-4"
 		>
-			<Show
-				when={data()}
-				fallback={
+			<Switch>
+				<Match when={data.loading}>
 					<For each={Array.from({ length: 10 })}>
 						{(_) => <div class="h-42 w-42 rounded bg-background-secondary"></div>}
 					</For>
-				}
-			>
-				{(data) => (
-					<Switch>
-						<Match when={data().isOk()}>
-							<For each={data().unwrap()}>
-								{(release) => <ReleaseListItem {...release} />}
-							</For>
-						</Match>
-						<Match when={data().isErr()}>
-							<span>{data().unwrapErr().message}</span>
-						</Match>
-					</Switch>
-				)}
-			</Show>
+				</Match>
+				<Match when={data.error}>
+					{(error) => <ErrorCard data={{ error: error(), dismissible: false }} />}
+				</Match>
+				<Match when={data()}>
+					{(data) => (
+						<For each={Object.entries(data().releases)}>
+							{([id, release]) => (
+								<ReleaseListItem
+									id={Number.parseInt(id)}
+									release={release}
+									artists={release.artists.map(({ id }) => data().artists[id])}
+									cover={release.cover_ids !== undefined
+										? data().covers[release.cover_ids[0]]
+										: undefined}
+								/>
+							)}
+						</For>
+					)}
+				</Match>
+			</Switch>
 		</div>
 	);
 }

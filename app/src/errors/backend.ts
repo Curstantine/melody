@@ -1,9 +1,11 @@
 import type { BackendBaseError, BackendErrorTypes } from "@/types/backend";
 import { LocalError } from "@/types/errors";
 
-export default class BackendError implements LocalError {
-	type: BackendErrorTypes;
+export default class BackendError extends Error implements LocalError {
+	name = "BackendError";
 	message: string;
+
+	type: BackendErrorTypes;
 	context?: string | string[];
 
 	/**
@@ -13,6 +15,7 @@ export default class BackendError implements LocalError {
 	code = -1;
 
 	constructor(type: BackendErrorTypes, message: string, context?: string | string[]) {
+		super();
 		this.type = type;
 		this.message = message;
 		this.context = context;

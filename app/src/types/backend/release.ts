@@ -3,7 +3,7 @@ import type { CountryCode, InlinedArtist, ScriptCode } from "@/types/backend/gen
 import type { Person } from "@/types/backend/person";
 import type { Resource } from "@/types/backend/resource";
 
-export type ReleaseCommand = "get_releases";
+export type ReleaseCommand = "get_releases" | "get_display_releases";
 
 export type ReleaseEntity = BackendEntity<Release>;
 

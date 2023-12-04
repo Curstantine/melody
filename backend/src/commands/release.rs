@@ -4,6 +4,8 @@ use bonsaidb::core::{
 	document::DocumentId,
 	schema::{SerializedCollection, SerializedView},
 };
+use tokio::time::Instant;
+use tracing::info;
 
 use crate::{
 	database::{
@@ -41,6 +43,8 @@ pub async fn get_releases(library_id: u64, app_state: tauri::State<'_, AppState>
 #[tauri::command]
 #[tracing::instrument(skip(app_state), err(Debug))]
 pub async fn get_display_releases(library_id: u64, app_state: tauri::State<'_, AppState>) -> Result<DisplayReleases> {
+	let start = Instant::now();
+
 	let db_lock = app_state.db.lock().await;
 	let database = db_lock.as_ref().unwrap();
 	let database = &database.0;
@@ -83,6 +87,8 @@ pub async fn get_display_releases(library_id: u64, app_state: tauri::State<'_, A
 	for i in Resource::get_multiple_async(&cover_ids, database).await? {
 		covers.insert(i.header.id, i.contents);
 	}
+
+	info!("Finished building display release query in {:?}", start.elapsed());
 
 	Ok(DisplayReleases {
 		releases,
