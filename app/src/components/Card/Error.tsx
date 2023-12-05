@@ -18,7 +18,9 @@ export default function ErrorCard(x: Props) {
 			class="max-h-xl max-w-xl min-h-36 w-full flex flex-col"
 			classList={{ [props.class]: !!props.class }}
 		>
-			<span class="text-sm leading-tight font-orbiter-deck-medium text-modal-error-text-primary">Error</span>
+			<span class="select-none text-sm leading-tight font-orbiter-deck-medium text-modal-error-text-primary">
+				Error
+			</span>
 			<span class="text-2xl font-orbiter-display-medium text-text-1">
 				{props.data.error.message}
 			</span>
