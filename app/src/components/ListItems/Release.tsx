@@ -20,9 +20,12 @@ export default function ReleaseListItem(props: Props) {
 
 	return (
 		<div class="h-52 w-42 flex flex-col gap-2">
-			<div class="h-42 w-42 inline-flex items-center justify-center rounded">
-				<Show when={props.cover}>
-					{(cover) => <img class="h-42 w-42" src={convertFileSrc(cover().path)} />}
+			<div
+				class="h-42 w-42 inline-flex items-center justify-center"
+				classList={{ "bg-background-secondary rounded-md": props.cover === undefined }}
+			>
+				<Show when={props.cover} fallback={<div class="i-symbols-image h-8 w-8 text-text-3" />}>
+					{(cover) => <img class="h-42 w-42 rounded-md" src={convertFileSrc(cover().path)} />}
 				</Show>
 			</div>
 			<div class="h-10 inline-flex flex-col">
