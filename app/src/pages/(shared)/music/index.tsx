@@ -63,10 +63,12 @@ export default function Home() {
 								<ReleaseListItem
 									id={Number.parseInt(id)}
 									release={release}
-									artists={release.artists.map(({ id }) => data().artists[id])}
-									cover={release.cover_ids !== undefined
-										? data().covers[release.cover_ids[0]]
-										: undefined}
+									artists={Object.fromEntries(
+										release.artists.map(({ id }) => [id, data().artists[id]]),
+									)}
+									cover={release.cover_ids === undefined || release.cover_ids === null
+										? undefined
+										: data().covers[release.cover_ids[0]]}
 								/>
 							)}
 						</For>
