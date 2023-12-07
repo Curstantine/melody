@@ -1,15 +1,16 @@
-import { InlinedArtist } from "@/types/backend/generic";
-import { Person } from "@/types/backend/person";
-import type { Release } from "@/types/backend/release";
-import type { Resource } from "@/types/backend/resource";
 import { convertFileSrc } from "@tauri-apps/api/tauri";
 import { Show } from "solid-js";
+
+import type { InlinedArtist } from "@/types/backend/generic";
+import type { Person } from "@/types/backend/person";
+import type { Release } from "@/types/backend/release";
+import type { DisplayImageResource } from "@/types/backend/resource";
 
 type Props = {
 	id: number;
 	release: Release;
 	artists: Record<number, Person>;
-	cover?: Resource;
+	cover?: DisplayImageResource;
 };
 
 export default function ReleaseListItem(props: Props) {
@@ -25,7 +26,7 @@ export default function ReleaseListItem(props: Props) {
 				classList={{ "bg-background-secondary rounded-md": props.cover === undefined }}
 			>
 				<Show when={props.cover} fallback={<div class="i-symbols-image h-8 w-8 text-text-3" />}>
-					{(cover) => <img class="h-42 w-42 rounded-md" src={convertFileSrc(cover().path)} />}
+					{(cover) => <img class="h-42 w-42 rounded-md" src={convertFileSrc(cover().thumb_path)} />}
 				</Show>
 			</div>
 			<div class="h-10 inline-flex flex-col">

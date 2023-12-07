@@ -15,7 +15,10 @@ use crate::{
 	errors::Result,
 	models::{
 		state::AppState,
-		tauri::release::{DisplayReleases, ReleaseEntity},
+		tauri::{
+			release::{DisplayReleases, ReleaseEntity},
+			resource::DisplayImageResource,
+		},
 	},
 };
 
@@ -53,6 +56,9 @@ pub async fn get_display_releases(library_id: u64, app_state: tauri::State<'_, A
 		.query_with_docs()
 		.await?;
 
+	let dir_lock = app_state.directories.lock().await;
+	let directories = dir_lock.as_ref().unwrap();
+
 	let mut releases = HashMap::with_capacity(entries.len());
 	let mut artist_set = HashSet::<u64>::new();
 	let mut cover_set = HashSet::<u64>::new();
@@ -78,14 +84,17 @@ pub async fn get_display_releases(library_id: u64, app_state: tauri::State<'_, A
 	let cover_ids = cover_set.into_iter().map(DocumentId::from_u64).collect::<Vec<_>>();
 
 	let mut artists = HashMap::<u64, Person>::with_capacity(artist_ids.len());
-	let mut covers = HashMap::<u64, Resource>::with_capacity(cover_ids.len());
+	let mut covers = HashMap::<u64, DisplayImageResource>::with_capacity(cover_ids.len());
 
 	for i in Person::get_multiple_async(&artist_ids, database).await? {
 		artists.insert(i.header.id, i.contents);
 	}
 
 	for i in Resource::get_multiple_async(&cover_ids, database).await? {
-		covers.insert(i.header.id, i.contents);
+		covers.insert(
+			i.header.id,
+			DisplayImageResource::from_resource(&directories.resource_cover_dir, i.contents),
+		);
 	}
 
 	info!("Finished building display release query in {:?}", start.elapsed());

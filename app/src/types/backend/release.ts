@@ -1,7 +1,7 @@
 import type { BackendEntity } from "@/types/backend";
 import type { CountryCode, InlinedArtist, ScriptCode } from "@/types/backend/generic";
 import type { Person } from "@/types/backend/person";
-import type { Resource } from "@/types/backend/resource";
+import type { DisplayImageResource } from "@/types/backend/resource";
 
 export type ReleaseCommand = "get_releases" | "get_display_releases";
 
@@ -38,7 +38,7 @@ export interface Release {
 export interface DisplayReleases {
 	releases: Record<number, Release>;
 	artists: Record<number, Person>;
-	covers: Record<number, Resource>;
+	covers: Record<number, DisplayImageResource>;
 }
 
 export interface ReleasesGetParameters {
