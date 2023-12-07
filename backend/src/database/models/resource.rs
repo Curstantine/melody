@@ -1,4 +1,4 @@
-use std::{borrow::Cow, path::PathBuf};
+use std::borrow::Cow;
 
 use blake3::Hash;
 use bonsaidb::core::{key::Key, schema::Collection};
@@ -8,9 +8,15 @@ use crate::{database::views::resource::ResourceByTypeAndHash, errors::Error};
 
 use super::FromTag;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Key)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Key)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceType {
+	Image,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Key)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceRelationType {
 	Artist,
 	Release,
 	Track,
@@ -53,7 +59,7 @@ impl FromTag for ResourceMediaType {
 #[collection(name = "resources", views = [ResourceByTypeAndHash])]
 pub struct Resource {
 	pub type_: ResourceType,
+	pub relation_type: ResourceRelationType,
 	pub media_type: ResourceMediaType,
-	pub path: PathBuf,
 	pub hash: Hash,
 }

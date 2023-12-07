@@ -54,6 +54,11 @@ impl Error {
 		}
 	}
 
+	#[inline]
+	pub fn from_std_path(error: std::io::Error, path: &std::path::Path) -> Self {
+		Self::from_with_ctx(error, IoErrorType::Path(path))
+	}
+
 	pub fn with_context(mut self, context: Cow<'static, str>) -> Self {
 		self.context = Some(context);
 		self

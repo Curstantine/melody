@@ -14,7 +14,7 @@ use crate::{
 		label::Label,
 		person::{Person, PersonType},
 		release::{ReleaseType, ReleaseTypeSecondary},
-		resource::{ResourceMediaType, ResourceType},
+		resource::{ResourceMediaType, ResourceRelationType, ResourceType},
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
@@ -74,7 +74,8 @@ fn traverse_visuals(resource: &mut TempTrackResource, visuals: &[SymphoniaVisual
 		if let Some(StandardVisualKey::FrontCover) = visual.usage {
 			let x = resource.release_covers.get_or_insert_with(Vec::new);
 			let y = TempResource {
-				type_: ResourceType::Release,
+				type_: ResourceType::Image,
+				relation_type: ResourceRelationType::Release,
 				media_type: ResourceMediaType::from_tag(&visual.media_type)?,
 				data: visual.data.clone(),
 			};

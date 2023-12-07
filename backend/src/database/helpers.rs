@@ -1,13 +1,58 @@
-use std::path::Path;
+use std::{borrow::Cow, path::Path};
 
 use bonsaidb::{core::schema::SerializedCollection, local::AsyncDatabase};
+use image::{imageops::FilterType, load_from_memory_with_format, ImageFormat};
 
 use crate::{
 	errors::{Error, Result},
-	models::temp::{TempTrackMeta, TempTrackResource},
+	models::temp::{resource::TempResource, TempTrackMeta, TempTrackResource},
 };
 
-use super::{methods, models::InlinedArtist};
+use super::{
+	methods,
+	models::{
+		resource::{Resource, ResourceType},
+		InlinedArtist,
+	},
+};
+
+/// Initializes an image resource and inserts the resource into the database, checking if the resource by same hash exists.
+pub async fn initialize_image_resource(
+	database: &AsyncDatabase,
+	resource_cover_dir: &Path,
+	temp: TempResource,
+) -> Result<u64> {
+	if temp.type_ != ResourceType::Image {
+		let context = format!("Expected resource type to be `Image` but got {:?}", temp.type_);
+		return Err(Error::descriptive("Invalid resource type").with_context(Cow::Owned(context)));
+	}
+
+	let hash = blake3::hash(&temp.data);
+	let hash_str = hash.to_hex().to_string();
+	let ext = temp.media_type.to_extension();
+
+	if let Some(id) = methods::resource::get_id(database, temp.type_, temp.relation_type, hash).await? {
+		return Ok(id);
+	};
+
+	let source_res_path = resource_cover_dir.join(format!("{}.{}", &hash_str, &ext));
+	let thumb_res_path = resource_cover_dir.join(format!("{}@512.{}", &hash_str, &ext));
+
+	let handle = tokio::task::spawn_blocking::<_, Result<Resource>>(move || {
+		let fmt = ImageFormat::from_extension(ext).expect("Unsupported file extension");
+		let resizable = load_from_memory_with_format(&temp.data, fmt)
+			.unwrap()
+			.resize(512, 512, FilterType::Nearest);
+
+		std::fs::write(&source_res_path, &temp.data).map_err(|e| Error::from_std_path(e, &source_res_path))?;
+		std::fs::write(&thumb_res_path, resizable.as_bytes()).map_err(|e| Error::from_std_path(e, &thumb_res_path))?;
+
+		Ok(temp.into_resource(hash))
+	});
+
+	let doc = handle.await??.push_into_async(database).await?;
+	Ok(doc.header.id)
+}
 
 /// Deduplicates and inserts a track with its metadata.
 pub async fn handle_temp_track_meta(
@@ -101,8 +146,8 @@ pub async fn handle_temp_track_meta(
 	if let Some(release_covers) = resource.release_covers {
 		let x = release_cover_ids.insert(Vec::with_capacity(release_covers.len()));
 
-		for resource in release_covers {
-			let res = methods::resource::get_or_insert(database, resource_cover_dir, resource).await?;
+		for temp in release_covers {
+			let res = initialize_image_resource(database, resource_cover_dir, temp).await?;
 			x.push(res);
 		}
 	}
@@ -110,8 +155,8 @@ pub async fn handle_temp_track_meta(
 	if let Some(track_covers) = resource.track_covers {
 		let x = track_cover_ids.insert(Vec::with_capacity(track_covers.len()));
 
-		for resource in track_covers {
-			let res = methods::resource::get_or_insert(database, resource_cover_dir, resource).await?;
+		for temp in track_covers {
+			let res = initialize_image_resource(database, resource_cover_dir, temp).await?;
 			x.push(res);
 		}
 	}
