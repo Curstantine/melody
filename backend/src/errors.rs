@@ -19,6 +19,7 @@ pub enum ErrorType {
 	Tauri,
 	Serde,
 	Symphonia,
+	Image,
 }
 
 #[derive(Debug, Serialize)]
@@ -411,7 +412,7 @@ impl ErrorContextData<symphonia::core::errors::Error> for Error {
 			}
 			SE::IoError(x) => {
 				let e = Error::get_message(x, IoErrorType::Path(data));
-				("Symphonia io error", Cow::Owned(format!("{:?}", e)))
+				("Symphonia io error", e.1.unwrap_or_default())
 			}
 			_ => ("Symphonia returned an unhandled error", Cow::Owned(format!("{error}"))),
 		};
@@ -428,6 +429,48 @@ impl FromErrorWithContextData<symphonia::core::errors::Error> for Error {
 			type_: ErrorType::Symphonia,
 			message,
 			context,
+			source: Some(Box::new(error)),
+		}
+	}
+}
+
+impl ErrorContextData<image::ImageError> for Error {
+	type ContextData<'a> = &'a Path;
+
+	fn get_message(
+		error: &image::ImageError,
+		data: Self::ContextData<'_>,
+	) -> (Cow<'static, str>, Option<Cow<'static, str>>) {
+		use image::ImageError as IE;
+
+		let (message, context): (&'static str, Cow<'static, str>) = match &error {
+			IE::Encoding(e) => {
+				let context = format!("{}\nFile: {:?}", e, data);
+				("Failed to encode image", Cow::Owned(context))
+			}
+			IE::Decoding(e) => {
+				let context = format!("{}\nFile: {:?}", e, data);
+				("Failed to decode image", Cow::Owned(context))
+			}
+			IE::IoError(e) => {
+				let x = Error::get_message(e, IoErrorType::Path(data));
+				("Image task failed with IO error", x.1.unwrap_or_default())
+			}
+			_ => ("Unhandled Image task error", Cow::Owned(format!("{error}"))),
+		};
+
+		(Cow::Borrowed(message), Some(context))
+	}
+}
+
+impl FromErrorWithContextData<image::ImageError> for Error {
+	fn from_with_ctx(error: image::ImageError, data: Self::ContextData<'_>) -> Self {
+		let (message, context) = Self::get_message(&error, data);
+
+		Self {
+			type_: ErrorType::Image,
+			context,
+			message,
 			source: Some(Box::new(error)),
 		}
 	}

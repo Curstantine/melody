@@ -1,10 +1,10 @@
-use std::{borrow::Cow, path::Path};
+use std::{borrow::Cow, fs::File, path::Path};
 
 use bonsaidb::{core::schema::SerializedCollection, local::AsyncDatabase};
 use image::{imageops::FilterType, load_from_memory_with_format, ImageFormat};
 
 use crate::{
-	errors::{Error, Result},
+	errors::{Error, FromErrorWithContextData, Result},
 	models::temp::{resource::TempResource, TempTrackMeta, TempTrackResource},
 };
 
@@ -39,13 +39,17 @@ pub async fn initialize_image_resource(
 	let thumb_res_path = resource_cover_dir.join(format!("{}@512.{}", &hash_str, &ext));
 
 	let handle = tokio::task::spawn_blocking::<_, Result<Resource>>(move || {
+		std::fs::write(&source_res_path, &temp.data).map_err(|e| Error::from_std_path(e, &source_res_path))?;
+
 		let fmt = ImageFormat::from_extension(ext).expect("Unsupported file extension");
 		let resizable = load_from_memory_with_format(&temp.data, fmt)
-			.unwrap()
+			.map_err(|e| Error::from_with_ctx(e, &thumb_res_path))?
 			.resize(512, 512, FilterType::Nearest);
 
-		std::fs::write(&source_res_path, &temp.data).map_err(|e| Error::from_std_path(e, &source_res_path))?;
-		std::fs::write(&thumb_res_path, resizable.as_bytes()).map_err(|e| Error::from_std_path(e, &thumb_res_path))?;
+		let mut file = File::create(&thumb_res_path).map_err(|e| Error::from_std_path(e, &thumb_res_path))?;
+		resizable
+			.write_to(&mut file, fmt)
+			.map_err(|e| Error::from_with_ctx(e, &thumb_res_path))?;
 
 		Ok(temp.into_resource(hash))
 	});
