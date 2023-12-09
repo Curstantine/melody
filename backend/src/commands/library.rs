@@ -1,9 +1,14 @@
-use std::{path::PathBuf, sync::mpsc, thread};
+use std::{
+	path::PathBuf,
+	sync::{mpsc, Arc},
+	thread,
+};
 
 use {
 	bonsaidb::core::schema::{SerializedCollection, SerializedView},
-	tokio::time::Instant,
-	tracing::{debug, info},
+	tauri::State,
+	tokio::{task::JoinSet, time::Instant},
+	tracing::{debug, error, info},
 };
 
 use crate::{
@@ -13,7 +18,7 @@ use crate::{
 	},
 	errors::{extra::CopyableSerializableError, Result},
 	models::{
-		state::AppState,
+		state::{DatabaseState, DirectoryState},
 		tauri::library::{LibraryEntity, LibraryEventData, LibraryEventManager, LibraryEventPayload, LibraryEventType},
 		temp::{TempTrackMeta, TempTrackResource},
 	},
@@ -21,13 +26,14 @@ use crate::{
 };
 
 #[tauri::command]
-#[tracing::instrument(skip(app_state))]
-pub async fn get_libraries(app_state: tauri::State<'_, AppState>) -> Result<Vec<LibraryEntity>> {
-	let db_lock = app_state.db.lock().await;
-	let database = db_lock.as_ref().unwrap();
-	let database = &database.0;
+#[tracing::instrument(skip(db_state))]
+pub async fn get_libraries(db_state: State<'_, DatabaseState>) -> Result<Vec<LibraryEntity>> {
+	let db_guard = db_state.get().await;
+	let database = db_guard.as_ref().unwrap();
 
-	let entries = LibraryByName::entries_async(database).query_with_docs().await?;
+	let entries = LibraryByName::entries_async(database.inner_ref())
+		.query_with_docs()
+		.await?;
 	let mut names = Vec::with_capacity(entries.len());
 
 	for mapping in &entries {
@@ -45,19 +51,18 @@ pub async fn create_library(
 	name: String,
 	scan_locations: Vec<String>,
 	window: tauri::Window,
-	app_state: tauri::State<'_, AppState>,
+	dir_state: tauri::State<'_, DirectoryState>,
+	db_state: tauri::State<'_, DatabaseState>,
 ) -> Result<LibraryEntity> {
 	let start = Instant::now();
 
-	let db_lock = app_state.db.lock().await;
-	let database = db_lock.as_ref().unwrap();
-	let database = &database.0;
-
-	let dir_lock = app_state.directories.lock().await;
-	let directories = dir_lock.as_ref().unwrap();
-
 	let locs = scan_locations.clone();
-	let library = methods::library::insert_unique(database, LibraryModel::new(name, locs)).await?;
+	let library = {
+		let db_lock = db_state.get().await;
+		let database = db_lock.as_ref().unwrap();
+
+		methods::library::insert_unique(database.inner_ref(), LibraryModel::new(name, locs)).await?
+	};
 
 	enum ChannelData {
 		Error(CopyableSerializableError, PathBuf),
@@ -67,7 +72,7 @@ pub async fn create_library(
 
 	let (tx, rx) = mpsc::channel::<ChannelData>();
 
-	let handle = thread::spawn::<_, Result<()>>(move || {
+	let decode_handle = thread::spawn::<_, Result<()>>(move || {
 		let scan_location = scan_locations.into_iter().map(PathBuf::from).collect::<Vec<_>>();
 
 		for scan_location in scan_location {
@@ -93,7 +98,17 @@ pub async fn create_library(
 		Ok(())
 	});
 
+	let db_arc = Arc::clone(&db_state.0);
+	let cover_dir_arc: Arc<PathBuf> = {
+		let dir_lock = dir_state.get().await;
+		let directories = dir_lock.as_ref().unwrap();
+
+		Arc::new(directories.resource_cover_dir.clone())
+	};
+
 	let em = LibraryEventManager::new(LibraryEventType::Scan);
+	let mut task_set = JoinSet::<Result<()>>::new();
+
 	for message in rx {
 		match message {
 			ChannelData::Reading(payload) => {
@@ -104,16 +119,29 @@ pub async fn create_library(
 				debug!("[{}/{}] Indexing: {:#?}", payload.current, payload.total, payload.path);
 				em.emit(&window, LibraryEventPayload::indexing(payload))?;
 
-				handle_temp_track_meta(database, &directories.resource_cover_dir, *meta, resources).await?;
+				let db_ar = Arc::clone(&db_arc);
+				let dir_ar = Arc::clone(&cover_dir_arc);
+
+				task_set.spawn(async move {
+					let db_guard = db_ar.lock().await;
+					let database = db_guard.as_ref().unwrap();
+					handle_temp_track_meta(database.inner_ref(), &dir_ar, *meta, resources).await?;
+
+					Ok(())
+				});
 			}
 			ChannelData::Error(error, path) => {
-				debug!("Error encountered while reading/indexing: {:#?}", path);
+				error!("Error encountered while reading/indexing: {:#?}", path);
 				em.emit(&window, LibraryEventPayload::error(error, path))?;
 			}
 		};
 	}
 
-	handle.join().unwrap()?;
+	decode_handle.join().unwrap()?;
+	while let Some(res) = task_set.join_next().await {
+		res.unwrap()?;
+	}
+
 	info!("Finished building library in {:?}", start.elapsed());
 
 	Ok(LibraryEntity::new(library.header.id, library.contents))

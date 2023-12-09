@@ -63,4 +63,8 @@ impl Database {
 
 		Ok(())
 	}
+
+	pub fn inner_ref(&self) -> &BonsaiDatabase {
+		&self.0
+	}
 }

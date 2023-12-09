@@ -6,6 +6,8 @@ use tracing::info;
 
 use models::state::AppState;
 
+use crate::models::state::DatabaseState;
+
 mod commands;
 mod constants;
 mod database;
@@ -26,6 +28,7 @@ fn main() {
 			}
 		})
 		.manage(AppState::default())
+		.manage(DatabaseState::default())
 		.invoke_handler(tauri::generate_handler![
 			commands::general::setup,
 			commands::library::create_library,

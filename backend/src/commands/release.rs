@@ -1,11 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
-use bonsaidb::core::{
-	document::DocumentId,
-	schema::{SerializedCollection, SerializedView},
+use {
+	bonsaidb::core::{
+		document::DocumentId,
+		schema::{SerializedCollection, SerializedView},
+	},
+	tauri::State,
+	tokio::time::Instant,
+	tracing::info,
 };
-use tokio::time::Instant;
-use tracing::info;
 
 use crate::{
 	database::{
@@ -14,7 +17,7 @@ use crate::{
 	},
 	errors::Result,
 	models::{
-		state::AppState,
+		state::{DatabaseState, DirectoryState},
 		tauri::{
 			release::{DisplayReleases, ReleaseEntity},
 			resource::DisplayImageResource,
@@ -23,13 +26,12 @@ use crate::{
 };
 
 #[tauri::command]
-#[tracing::instrument(skip(app_state), err(Debug))]
-pub async fn get_releases(library_id: u64, app_state: tauri::State<'_, AppState>) -> Result<Vec<ReleaseEntity>> {
-	let db_lock = app_state.db.lock().await;
-	let database = db_lock.as_ref().unwrap();
-	let database = &database.0;
+#[tracing::instrument(skip(db_state), err(Debug))]
+pub async fn get_releases(library_id: u64, db_state: State<'_, DatabaseState>) -> Result<Vec<ReleaseEntity>> {
+	let db_guard = db_state.get().await;
+	let database = db_guard.as_ref().unwrap();
 
-	let entries = ReleaseByNameAndArtist::entries_async(database)
+	let entries = ReleaseByNameAndArtist::entries_async(database.inner_ref())
 		.query_with_docs()
 		.await?;
 	let mut releases = Vec::with_capacity(entries.len());
@@ -44,20 +46,23 @@ pub async fn get_releases(library_id: u64, app_state: tauri::State<'_, AppState>
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(app_state), err(Debug))]
-pub async fn get_display_releases(library_id: u64, app_state: tauri::State<'_, AppState>) -> Result<DisplayReleases> {
+#[tracing::instrument(skip(dir_state, db_state), err(Debug))]
+pub async fn get_display_releases(
+	library_id: u64,
+	dir_state: State<'_, DirectoryState>,
+	db_state: State<'_, DatabaseState>,
+) -> Result<DisplayReleases> {
 	let start = Instant::now();
 
-	let db_lock = app_state.db.lock().await;
-	let database = db_lock.as_ref().unwrap();
-	let database = &database.0;
+	let dir_guard = dir_state.get().await;
+	let db_guard = db_state.get().await;
 
-	let entries = ReleaseByNameAndArtist::entries_async(database)
+	let directories = dir_guard.as_ref().unwrap();
+	let database = db_guard.as_ref().unwrap();
+
+	let entries = ReleaseByNameAndArtist::entries_async(database.inner_ref())
 		.query_with_docs()
 		.await?;
-
-	let dir_lock = app_state.directories.lock().await;
-	let directories = dir_lock.as_ref().unwrap();
 
 	let mut releases = HashMap::with_capacity(entries.len());
 	let mut artist_set = HashSet::<u64>::new();
@@ -86,11 +91,11 @@ pub async fn get_display_releases(library_id: u64, app_state: tauri::State<'_, A
 	let mut artists = HashMap::<u64, Person>::with_capacity(artist_ids.len());
 	let mut covers = HashMap::<u64, DisplayImageResource>::with_capacity(cover_ids.len());
 
-	for i in Person::get_multiple_async(&artist_ids, database).await? {
+	for i in Person::get_multiple_async(&artist_ids, database.inner_ref()).await? {
 		artists.insert(i.header.id, i.contents);
 	}
 
-	for i in Resource::get_multiple_async(&cover_ids, database).await? {
+	for i in Resource::get_multiple_async(&cover_ids, database.inner_ref()).await? {
 		covers.insert(
 			i.header.id,
 			DisplayImageResource::from_resource(&directories.resource_cover_dir, i.contents),

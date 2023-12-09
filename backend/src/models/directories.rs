@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use tauri::AppHandle;
+use tauri::PathResolver;
 
 use crate::{
 	database::DB_MAIN_NAME,
@@ -13,11 +13,8 @@ pub struct Directories {
 }
 
 impl Directories {
-	pub async fn new(app_handle: &AppHandle) -> Result<Self> {
-		let data_dir = app_handle
-			.path_resolver()
-			.app_data_dir()
-			.expect("App data dir was not found");
+	pub async fn new(path_resolver: PathResolver) -> Result<Self> {
+		let data_dir = path_resolver.app_data_dir().expect("App data dir was not found");
 
 		let database_dir = data_dir.join(DB_MAIN_NAME);
 		let resource_dir = data_dir.join("resources");
