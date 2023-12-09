@@ -6,7 +6,7 @@ use tracing::info;
 
 use models::state::AppState;
 
-use crate::models::state::DatabaseState;
+use crate::models::state::{DatabaseState, DirectoryState};
 
 mod commands;
 mod constants;
@@ -28,6 +28,7 @@ fn main() {
 			}
 		})
 		.manage(AppState::default())
+		.manage(DirectoryState::default())
 		.manage(DatabaseState::default())
 		.invoke_handler(tauri::generate_handler![
 			commands::general::setup,
