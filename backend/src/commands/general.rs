@@ -12,13 +12,15 @@ use crate::{
 pub async fn setup(app: AppHandle) -> Result<()> {
 	info!("Setting up the application...");
 
-	let path_resolver = app.path_resolver();
-
 	let app_state = app.state::<AppState>();
 	let dir_state = app.state::<DirectoryState>();
 	let db_state = app.state::<DatabaseState>();
 
-	app_state.initialize();
+	if let Err(()) = app_state.initialize() {
+		return Ok(());
+	}
+
+	let path_resolver = app.path_resolver();
 	dir_state.initialize(path_resolver).await?;
 
 	let guard = dir_state.get().await;

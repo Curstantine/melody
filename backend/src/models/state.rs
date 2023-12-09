@@ -8,6 +8,8 @@ use {
 	tokio::sync::{Mutex as AsyncMutex, MutexGuard as AsyncMutexGuard},
 };
 
+use tracing::debug;
+
 use crate::{database::Database, errors::Result};
 
 use super::directories::Directories;
@@ -24,8 +26,14 @@ pub struct DirectoryState(pub AsyncMutex<Option<Directories>>);
 pub struct DatabaseState(pub Arc<AsyncMutex<Option<Database>>>);
 
 impl AppState {
-	pub fn initialize(&self) {
+	pub fn initialize(&self) -> std::result::Result<(), ()> {
+		if *self.initialized.lock().unwrap() {
+			debug!("AppState::initialize hook reran while the app is initialized. Ignoring...");
+			return Err(());
+		}
+
 		*self.initialized.lock().unwrap() = true;
+		Ok(())
 	}
 }
 
