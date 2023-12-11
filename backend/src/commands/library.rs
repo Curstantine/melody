@@ -60,7 +60,6 @@ pub async fn create_library(
 	let library = {
 		let db_lock = db_state.get().await;
 		let database = db_lock.as_ref().unwrap();
-
 		methods::library::insert_unique(database.inner_ref(), LibraryModel::new(name, locs)).await?
 	};
 
@@ -100,9 +99,8 @@ pub async fn create_library(
 
 	let db_arc = Arc::clone(&db_state.0);
 	let cover_dir_arc: Arc<PathBuf> = {
-		let dir_lock = dir_state.get().await;
-		let directories = dir_lock.as_ref().unwrap();
-
+		let dir_guard = dir_state.get();
+		let directories = dir_guard.as_ref().unwrap();
 		Arc::new(directories.resource_cover_dir.clone())
 	};
 

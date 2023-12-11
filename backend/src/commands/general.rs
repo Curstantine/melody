@@ -23,9 +23,12 @@ pub async fn setup(app: AppHandle) -> Result<()> {
 	let path_resolver = app.path_resolver();
 	dir_state.initialize(path_resolver).await?;
 
-	let guard = dir_state.get().await;
-	let directories = guard.as_ref().unwrap();
-	db_state.initialize(&directories.database_dir).await?;
+	let database_dir = {
+		let guard = dir_state.get();
+		let directories = guard.as_ref().unwrap();
+		directories.database_dir.clone()
+	};
+	db_state.initialize(&database_dir).await?;
 
 	info!("Setup was successful");
 

@@ -1,6 +1,6 @@
 use std::{
 	path::Path,
-	sync::{Arc, Mutex as BlockingMutex},
+	sync::{Arc, Mutex as BlockingMutex, MutexGuard as BlockingMutexGuard},
 };
 
 use {
@@ -20,7 +20,7 @@ pub struct AppState {
 }
 
 #[derive(Default)]
-pub struct DirectoryState(pub AsyncMutex<Option<Directories>>);
+pub struct DirectoryState(pub BlockingMutex<Option<Directories>>);
 
 #[derive(Default)]
 pub struct DatabaseState(pub Arc<AsyncMutex<Option<Database>>>);
@@ -40,14 +40,14 @@ impl AppState {
 impl DirectoryState {
 	pub async fn initialize(&self, path_resolver: PathResolver) -> Result<()> {
 		let db = Directories::new(path_resolver).await?;
-		self.get().await.replace(db);
+		self.get().replace(db);
 
 		Ok(())
 	}
 
-	#[inline]
-	pub async fn get(&self) -> AsyncMutexGuard<'_, Option<Directories>> {
-		self.0.lock().await
+	#[inline(always)]
+	pub fn get(&self) -> BlockingMutexGuard<'_, Option<Directories>> {
+		self.0.lock().unwrap()
 	}
 }
 
@@ -59,7 +59,7 @@ impl DatabaseState {
 		Ok(())
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub async fn get(&self) -> AsyncMutexGuard<'_, Option<Database>> {
 		self.0.lock().await
 	}
