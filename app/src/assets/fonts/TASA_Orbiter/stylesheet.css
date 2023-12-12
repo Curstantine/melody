@@ -1,6 +1,7 @@
 @font-face {
 	font-family: "TASA Orbiter Deck Bold";
-	src: url("tasaorbiterdeck-bold-webfont.woff2") format("woff2"),
+	src:
+		url("tasaorbiterdeck-bold-webfont.woff2") format("woff2"),
 		url("tasaorbiterdeck-bold-webfont.woff") format("woff");
 	font-weight: normal;
 	font-style: normal;
@@ -8,7 +9,8 @@
 
 @font-face {
 	font-family: "TASA Orbiter Deck Medium";
-	src: url("tasaorbiterdeck-medium-webfont.woff2") format("woff2"),
+	src:
+		url("tasaorbiterdeck-medium-webfont.woff2") format("woff2"),
 		url("tasaorbiterdeck-medium-webfont.woff") format("woff");
 	font-weight: normal;
 	font-style: normal;
@@ -16,7 +18,8 @@
 
 @font-face {
 	font-family: "TASA Orbiter Deck Regular";
-	src: url("tasaorbiterdeck-regular-webfont.woff2") format("woff2"),
+	src:
+		url("tasaorbiterdeck-regular-webfont.woff2") format("woff2"),
 		url("tasaorbiterdeck-regular-webfont.woff") format("woff");
 	font-weight: normal;
 	font-style: normal;
@@ -24,7 +27,8 @@
 
 @font-face {
 	font-family: "TASA Orbiter Deck Semibold";
-	src: url("tasaorbiterdeck-semibold-webfont.woff2") format("woff2"),
+	src:
+		url("tasaorbiterdeck-semibold-webfont.woff2") format("woff2"),
 		url("tasaorbiterdeck-semibold-webfont.woff") format("woff");
 	font-weight: normal;
 	font-style: normal;
@@ -32,7 +36,8 @@
 
 @font-face {
 	font-family: "TASA Orbiter Display Bold";
-	src: url("tasaorbiterdisplay-bold-webfont.woff2") format("woff2"),
+	src:
+		url("tasaorbiterdisplay-bold-webfont.woff2") format("woff2"),
 		url("tasaorbiterdisplay-bold-webfont.woff") format("woff");
 	font-weight: normal;
 	font-style: normal;
@@ -40,7 +45,8 @@
 
 @font-face {
 	font-family: "TASA Orbiter Display Medium";
-	src: url("tasaorbiterdisplay-medium-webfont.woff2") format("woff2"),
+	src:
+		url("tasaorbiterdisplay-medium-webfont.woff2") format("woff2"),
 		url("tasaorbiterdisplay-medium-webfont.woff") format("woff");
 	font-weight: normal;
 	font-style: normal;
@@ -48,7 +54,8 @@
 
 @font-face {
 	font-family: "TASA Orbiter Display Regular";
-	src: url("tasaorbiterdisplay-regular-webfont.woff2") format("woff2"),
+	src:
+		url("tasaorbiterdisplay-regular-webfont.woff2") format("woff2"),
 		url("tasaorbiterdisplay-regular-webfont.woff") format("woff");
 	font-weight: normal;
 	font-style: normal;
@@ -56,7 +63,8 @@
 
 @font-face {
 	font-family: "TASA Orbiter Display Semibold";
-	src: url("tasaorbiterdisplay-semibold-webfont.woff2") format("woff2"),
+	src:
+		url("tasaorbiterdisplay-semibold-webfont.woff2") format("woff2"),
 		url("tasaorbiterdisplay-semibold-webfont.woff") format("woff");
 	font-weight: normal;
 	font-style: normal;
@@ -64,7 +72,8 @@
 
 @font-face {
 	font-family: "TASA Orbiter Text Bold";
-	src: url("tasaorbitertext-bold-webfont.woff2") format("woff2"),
+	src:
+		url("tasaorbitertext-bold-webfont.woff2") format("woff2"),
 		url("tasaorbitertext-bold-webfont.woff") format("woff");
 	font-weight: normal;
 	font-style: normal;
@@ -72,7 +81,8 @@
 
 @font-face {
 	font-family: "TASA Orbiter Text Medium";
-	src: url("tasaorbitertext-medium-webfont.woff2") format("woff2"),
+	src:
+		url("tasaorbitertext-medium-webfont.woff2") format("woff2"),
 		url("tasaorbitertext-medium-webfont.woff") format("woff");
 	font-weight: normal;
 	font-style: normal;
@@ -80,7 +90,8 @@
 
 @font-face {
 	font-family: "TASA Orbiter Text Regular";
-	src: url("tasaorbitertext-regular-webfont.woff2") format("woff2"),
+	src:
+		url("tasaorbitertext-regular-webfont.woff2") format("woff2"),
 		url("tasaorbitertext-regular-webfont.woff") format("woff");
 	font-weight: normal;
 	font-style: normal;
@@ -88,7 +99,8 @@
 
 @font-face {
 	font-family: "TASA Orbiter Text Semibold";
-	src: url("tasaorbitertext-semibold-webfont.woff2") format("woff2"),
+	src:
+		url("tasaorbitertext-semibold-webfont.woff2") format("woff2"),
 		url("tasaorbitertext-semibold-webfont.woff") format("woff");
 	font-weight: normal;
 	font-style: normal;

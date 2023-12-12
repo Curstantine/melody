@@ -17,11 +17,11 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 blake3 = { version = "1.5.0", features = ["std", "serde"] }
+image = { version = "0.24.7", features = ["png", "webp", "jpeg"] }
 once_cell = "1.18.0"
 regex = "1.10.0"
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
-image = { version = "0.24.7", features = ["png", "webp", "jpeg"] }
 
 [dependencies.bonsaidb]
 git = "https://github.com/khonsulabs/bonsaidb/"
