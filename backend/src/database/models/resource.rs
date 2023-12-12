@@ -61,5 +61,6 @@ pub struct Resource {
 	pub type_: ResourceType,
 	pub relation_type: ResourceRelationType,
 	pub media_type: ResourceMediaType,
+	pub has_thumb: bool,
 	pub hash: Hash,
 }

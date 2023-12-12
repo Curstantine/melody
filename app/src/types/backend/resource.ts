@@ -12,5 +12,5 @@ export interface Resource {
 
 export type DisplayImageResource = Resource & {
 	source_path: string;
-	thumb_path: string;
+	thumb_path?: string;
 };

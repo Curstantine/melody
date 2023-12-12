@@ -101,7 +101,7 @@ pub async fn get_display_releases(
 	for i in Resource::get_multiple_async(&cover_ids, database.inner_ref()).await? {
 		covers.insert(
 			i.header.id,
-			DisplayImageResource::from_resource(&resource_cover_dir, i.contents),
+			DisplayImageResource::from_resource(i.contents, &resource_cover_dir),
 		);
 	}
 
