@@ -6,7 +6,9 @@
 	"scripts": {
 		"build": "unbuild"
 	},
-	"files": ["dist"],
+	"files": [
+		"dist"
+	],
 	"module": "dist/index.mjs",
 	"types": "dist/index.d.ts",
 	"exports": {
@@ -20,16 +22,16 @@
 		}
 	},
 	"dependencies": {
-		"@iconify-json/logos": "^1.1.37",
-		"@iconify-json/material-symbols": "^1.1.58",
-		"@iconify-json/mdi": "^1.1.54",
-		"unocss": "^0.56.1",
+		"@iconify-json/logos": "^1.1.41",
+		"@iconify-json/material-symbols": "^1.1.67",
+		"@iconify-json/mdi": "^1.1.61",
+		"unocss": "^0.56.5",
 		"utils": "workspace:^"
 	},
 	"devDependencies": {
 		"@iconify/types": "^2.0.0",
-		"@types/node": "^20.6.3",
-		"typescript": "^5.2.2",
+		"@types/node": "^20.10.4",
+		"typescript": "^5.3.3",
 		"unbuild": "^2.0.0"
 	}
 }

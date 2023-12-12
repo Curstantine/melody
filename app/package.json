@@ -9,25 +9,25 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@iconify-json/mdi": "^1.1.54",
-		"@solidjs/router": "^0.8.3",
-		"@tauri-apps/api": "^1.4.0",
+		"@iconify-json/mdi": "^1.1.61",
+		"@solidjs/router": "^0.8.4",
+		"@tauri-apps/api": "^1.5.2",
 		"preset-theme-unocss": "workspace:^",
-		"solid-js": "^1.7.12",
+		"solid-js": "^1.8.7",
 		"ulid": "^2.3.0",
-		"unocss": "^0.56.1"
+		"unocss": "^0.56.5"
 	},
 	"devDependencies": {
-		"@iconify-json/material-symbols": "^1.1.58",
+		"@iconify-json/material-symbols": "^1.1.67",
 		"@iconify/types": "^2.0.0",
-		"@unocss/eslint-config": "^0.56.1",
-		"@unocss/reset": "^0.56.1",
-		"eslint-define-config": "^1.23.0",
+		"@unocss/eslint-config": "^0.56.5",
+		"@unocss/reset": "^0.56.5",
+		"eslint-define-config": "^1.24.1",
 		"eslint-plugin-solid": "^0.13.0",
 		"jsdom": "^22.1.0",
-		"typescript": "^5.2.2",
-		"vite": "^4.4.9",
-		"vite-plugin-solid": "^2.7.0",
-		"vitest": "^0.34.5"
+		"typescript": "^5.3.3",
+		"vite": "^4.5.1",
+		"vite-plugin-solid": "^2.8.0",
+		"vitest": "^0.34.6"
 	}
 }

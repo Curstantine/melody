@@ -6,7 +6,9 @@
 		"build": "unbuild",
 		"test": "vitest"
 	},
-	"files": ["dist"],
+	"files": [
+		"dist"
+	],
 	"module": "dist/index.mjs",
 	"types": "dist/index.d.ts",
 	"exports": {
@@ -16,8 +18,8 @@
 		}
 	},
 	"devDependencies": {
-		"typescript": "^5.2.2",
+		"typescript": "^5.3.3",
 		"unbuild": "^2.0.0",
-		"vitest": "^0.34.5"
+		"vitest": "^0.34.6"
 	}
 }
