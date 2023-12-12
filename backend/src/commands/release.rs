@@ -7,7 +7,7 @@ use {
 	},
 	tauri::State,
 	tokio::time::Instant,
-	tracing::info,
+	tracing::debug,
 };
 
 use crate::{
@@ -54,10 +54,13 @@ pub async fn get_display_releases(
 ) -> Result<DisplayReleases> {
 	let start = Instant::now();
 
-	let dir_guard = dir_state.get().await;
-	let db_guard = db_state.get().await;
+	let resource_cover_dir = {
+		let dir_guard = dir_state.get();
+		let directories = dir_guard.as_ref().unwrap();
+		directories.resource_cover_dir.clone()
+	};
 
-	let directories = dir_guard.as_ref().unwrap();
+	let db_guard = db_state.get().await;
 	let database = db_guard.as_ref().unwrap();
 
 	let entries = ReleaseByNameAndArtist::entries_async(database.inner_ref())
@@ -98,11 +101,11 @@ pub async fn get_display_releases(
 	for i in Resource::get_multiple_async(&cover_ids, database.inner_ref()).await? {
 		covers.insert(
 			i.header.id,
-			DisplayImageResource::from_resource(&directories.resource_cover_dir, i.contents),
+			DisplayImageResource::from_resource(&resource_cover_dir, i.contents),
 		);
 	}
 
-	info!("Finished building display release query in {:?}", start.elapsed());
+	debug!("Finished building display release query in {:?}", start.elapsed());
 
 	Ok(DisplayReleases {
 		releases,
