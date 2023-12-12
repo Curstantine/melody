@@ -34,8 +34,8 @@ pub async fn get_libraries(db_state: State<'_, DatabaseState>) -> Result<Vec<Lib
 	let entries = LibraryByName::entries_async(database.inner_ref())
 		.query_with_docs()
 		.await?;
-	let mut names = Vec::with_capacity(entries.len());
 
+	let mut names = Vec::with_capacity(entries.len());
 	for mapping in &entries {
 		let id = mapping.document.header.id.deserialize::<u64>()?;
 		let content = LibraryModel::document_contents(mapping.document)?;
@@ -70,32 +70,34 @@ pub async fn create_library(
 	}
 
 	let (tx, rx) = mpsc::channel::<ChannelData>();
+	let decode_handle = thread::Builder::new()
+		.name("melody_decode".to_string())
+		.spawn::<_, Result<()>>(move || {
+			let scan_location = scan_locations.into_iter().map(PathBuf::from).collect::<Vec<_>>();
 
-	let decode_handle = thread::spawn::<_, Result<()>>(move || {
-		let scan_location = scan_locations.into_iter().map(PathBuf::from).collect::<Vec<_>>();
+			for scan_location in scan_location {
+				let paths = walkdir_sync(&scan_location, matchers::path::audio)?;
+				let total = paths.len() as u64;
 
-		for scan_location in scan_location {
-			let paths = walkdir_sync(&scan_location, matchers::path::audio)?;
-			let total = paths.len() as u64;
+				for (i, path) in paths.into_iter().enumerate() {
+					let current = i as u64 + 1;
 
-			for (i, path) in paths.into_iter().enumerate() {
-				let current = i as u64 + 1;
+					let data = LibraryEventData::new(total, current, path.clone());
+					tx.send(ChannelData::Reading(data)).unwrap();
 
-				let data = LibraryEventData::new(total, current, path.clone());
-				tx.send(ChannelData::Reading(data)).unwrap();
-
-				match read_track_meta(&path) {
-					Ok((meta, resources)) => {
-						let data = LibraryEventData::new(total, current, path);
-						tx.send(ChannelData::Indexing(data, Box::new(meta), resources)).unwrap();
+					match read_track_meta(&path) {
+						Ok((meta, resources)) => {
+							let data = LibraryEventData::new(total, current, path);
+							tx.send(ChannelData::Indexing(data, Box::new(meta), resources)).unwrap();
+						}
+						Err(e) => tx.send(ChannelData::Error(e.into(), path)).unwrap(),
 					}
-					Err(e) => tx.send(ChannelData::Error(e.into(), path)).unwrap(),
 				}
 			}
-		}
 
-		Ok(())
-	});
+			Ok(())
+		})
+		.unwrap();
 
 	let db_arc = Arc::clone(&db_state.0);
 	let cover_dir_arc: Arc<PathBuf> = {
@@ -107,7 +109,7 @@ pub async fn create_library(
 	let em = LibraryEventManager::new(LibraryEventType::Scan);
 	let mut task_set = JoinSet::<Result<()>>::new();
 
-	for message in rx {
+	for message in rx.into_iter() {
 		match message {
 			ChannelData::Reading(payload) => {
 				debug!("[{}/{}] Reading: {:#?}", payload.current, payload.total, payload.path);
