@@ -523,43 +523,52 @@ pub mod new_error {
 	use std::{borrow::Cow, fmt, path::Path};
 
 	#[derive(Debug, Serialize)]
-	pub struct Error<D: fmt::Debug + Serialize> {
+	#[serde(tag = "type", content = "data", rename_all = "snake_case")]
+
+	pub enum ErrorData {
+		#[serde(borrow)]
+		Path(Cow<'static, Path>),
+
+		#[serde(borrow)]
+		String(Cow<'static, str>),
+	}
+
+	#[derive(Debug, Serialize)]
+	pub struct Error {
 		#[serde(borrow)]
 		pub short: Cow<'static, str>,
 
 		#[serde(borrow)]
 		pub message: Option<Cow<'static, str>>,
 
-		pub data: D,
+		pub data: Option<ErrorData>,
 
 		#[serde(skip)]
 		pub source: Option<Box<dyn std::error::Error + Send>>,
 	}
 
-	impl Error<()> {
+	impl Error {
 		pub fn new(short: &'static str, message: Option<&'static str>) -> Self {
 			Self {
 				short: Cow::Borrowed(short),
 				message: message.map(Cow::Borrowed),
-				data: (),
+				data: None,
 				source: None,
 			}
 		}
-	}
 
-	impl<D: std::fmt::Debug + fmt::Display + Serialize> Error<D> {
 		pub fn set_context(mut self, context: Cow<'static, str>) -> Self {
-			self.message.replace(context);
+			self.message.insert(context);
 			self
 		}
 
-		pub fn set_data(mut self, data: D) -> Self {
-			self.data = data;
+		pub fn set_data(mut self, data: ErrorData) -> Self {
+			self.data.insert(data);
 			self
 		}
 	}
 
-	impl<D: fmt::Debug + Serialize> std::fmt::Display for Error<D> {
+	impl std::fmt::Display for Error {
 		fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 			write!(f, "{}", self.short)?;
 
@@ -577,23 +586,14 @@ pub mod new_error {
 		}
 	}
 
-	impl<D: fmt::Debug + Serialize> std::error::Error for Error<D> {
+	impl std::error::Error for Error {
 		fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
 			self.source.as_ref().map(|boxed| boxed.as_ref() as _)
 		}
 	}
 
-	#[allow(unused_attributes, dead_code)]
-	#[derive(Debug, Serialize)]
-	#[serde(rename_all = "snake_case")]
-	pub enum IOErrorData<'a> {
-		Path(&'a Path),
-		Other,
-		None,
-	}
-
 	// From implementations
-	impl<'a> From<std::io::Error> for Error<IOErrorData<'a>> {
+	impl From<std::io::Error> for Error {
 		fn from(value: std::io::Error) -> Self {
 			use std::io::ErrorKind as EK;
 
@@ -613,13 +613,13 @@ pub mod new_error {
 			Self {
 				short: Cow::Borrowed(short),
 				message: Some(message),
-				data: IOErrorData::None,
+				data: None,
 				source: Some(Box::new(value)),
 			}
 		}
 	}
 
-	impl From<std::num::ParseIntError> for Error<Option<Cow<'static, str>>> {
+	impl From<std::num::ParseIntError> for Error {
 		fn from(value: std::num::ParseIntError) -> Self {
 			use std::num::IntErrorKind as IE;
 
@@ -639,7 +639,7 @@ pub mod new_error {
 		}
 	}
 
-	impl From<chrono::ParseError> for Error<Option<Cow<'static, str>>> {
+	impl From<chrono::ParseError> for Error {
 		fn from(value: chrono::ParseError) -> Self {
 			use chrono::format::ParseErrorKind as PEK;
 
@@ -662,7 +662,7 @@ pub mod new_error {
 		}
 	}
 
-	impl From<tokio::task::JoinError> for Error<()> {
+	impl From<tokio::task::JoinError> for Error {
 		fn from(value: tokio::task::JoinError) -> Self {
 			let message: Cow<'static, str> = if value.is_cancelled() {
 				Cow::Borrowed("Task failed from unsafely cancelling it")
@@ -675,20 +675,13 @@ pub mod new_error {
 			Self {
 				short: Cow::Borrowed("Tokio: Task join failure"),
 				message: Some(message),
-				data: (),
+				data: None,
 				source: None,
 			}
 		}
 	}
 
-	#[derive(Debug, Serialize)]
-	#[serde(rename_all = "snake_case")]
-	pub enum TauriErrorData<'a> {
-		Io(IOErrorData<'a>),
-		None,
-	}
-
-	impl<'a> From<tauri::Error> for Error<TauriErrorData<'a>> {
+	impl<'a> From<tauri::Error> for Error {
 		fn from(value: tauri::Error) -> Self {
 			use tauri::Error as TE;
 
@@ -698,7 +691,7 @@ pub mod new_error {
 					Cow::Owned(format!("Setup hook failed with: {:?}", x)),
 				),
 				TE::Io(x) => {
-					let e = Error::<IOErrorData>::from(x);
+					let e = Error::from();
 					Cow::Owned(format!("IO error with: {:?}", e))
 				}
 				TE::JoinError(x) => {
