@@ -520,7 +520,7 @@ pub mod extra {
 
 pub mod new_error {
 	use serde::Serialize;
-	use std::{borrow::Cow, path::Path};
+	use std::{borrow::Cow, fmt, path::Path};
 
 	#[derive(Debug, Serialize)]
 	#[serde(tag = "type", content = "data", rename_all = "snake_case")]
@@ -542,9 +542,6 @@ pub mod new_error {
 		pub message: Option<Cow<'static, str>>,
 
 		pub data: Option<ErrorData>,
-
-		#[serde(skip)]
-		pub source: Option<Box<dyn std::error::Error + Send>>,
 	}
 
 	impl Error {
@@ -553,7 +550,6 @@ pub mod new_error {
 				short: Cow::Borrowed(short),
 				message: message.map(Cow::Borrowed),
 				data: None,
-				source: None,
 			}
 		}
 
@@ -568,6 +564,15 @@ pub mod new_error {
 		}
 	}
 
+	impl std::fmt::Display for ErrorData {
+		fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+			match self {
+				ErrorData::Path(path) => write!(f, "{}", path.to_string_lossy()),
+				ErrorData::String(string) => write!(f, "{}", string),
+			}
+		}
+	}
+
 	impl std::fmt::Display for Error {
 		fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 			write!(f, "{}", self.short)?;
@@ -576,11 +581,9 @@ pub mod new_error {
 				write!(f, " [Message: {}]", message)?;
 			}
 
-			if let Some(source) = &self.source {
-				write!(f, " [Source: {}]", source)?;
+			if let Some(data) = &self.data {
+				write!(f, " [Data: {}]", data)?;
 			}
-
-			write!(f, " [Data: {:?}]", &self.data)?;
 
 			Ok(())
 		}
@@ -588,7 +591,7 @@ pub mod new_error {
 
 	impl std::error::Error for Error {
 		fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-			self.source.as_ref().map(|boxed| boxed.as_ref() as _)
+			None
 		}
 	}
 
@@ -614,7 +617,6 @@ pub mod new_error {
 				short: Cow::Borrowed(short),
 				message: Some(message),
 				data: None,
-				source: Some(Box::new(value)),
 			}
 		}
 	}
@@ -634,7 +636,6 @@ pub mod new_error {
 				short: Cow::Borrowed("Conversion: integer conversion error"),
 				message: Some(Cow::Borrowed(message)),
 				data: None,
-				source: Some(Box::new(value)),
 			}
 		}
 	}
@@ -657,7 +658,6 @@ pub mod new_error {
 				short: Cow::Borrowed("Chrono: failed to parse date"),
 				message: Some(Cow::Borrowed(message)),
 				data: None,
-				source: Some(Box::new(value)),
 			}
 		}
 	}
@@ -676,7 +676,6 @@ pub mod new_error {
 				short: Cow::Borrowed("Tokio: Task join failure"),
 				message: Some(message),
 				data: None,
-				source: None,
 			}
 		}
 	}
@@ -696,7 +695,7 @@ pub mod new_error {
 				}
 				TE::JoinError(x) => {
 					let e = Error::from(x);
-					let y = format!("Hmm, this shouldn't happen. Tauri met with a tokio task error: {}", e);
+					let y = format!("Hmm, this shouldn't happen. Tauri met with a tokio task error: {e}");
 					("Tauri: Tokio task error", Cow::Owned(y))
 				}
 				_ => ("Tauri: Unhandled error", Cow::Owned(value.to_string())),
@@ -706,7 +705,132 @@ pub mod new_error {
 				short: Cow::Borrowed(short),
 				message: Some(message),
 				data: None,
-				source: None,
+			}
+		}
+	}
+
+	impl From<bonsaidb::core::Error> for Error {
+		fn from(value: bonsaidb::core::Error) -> Self {
+			use bonsaidb::core::Error as BE;
+
+			let (short, message): (&'static str, Cow<'static, str>) = match value {
+				BE::ViewNotFound => ("BonsaiDB: View not found", Cow::Owned(value.to_string())),
+				BE::DatabaseNotFound(x) => (
+					"BonsaiDB: Database not found",
+					Cow::Owned(format!("Couldn't find a database under {x}")),
+				),
+				_ => ("BonsaiDB: Unhandled error", Cow::Owned(value.to_string())),
+			};
+
+			Self {
+				short: Cow::Borrowed(short),
+				message: Some(message),
+				data: None,
+			}
+		}
+	}
+
+	impl From<bonsaidb::local::Error> for Error {
+		fn from(value: bonsaidb::local::Error) -> Self {
+			use bonsaidb::local::Error as BE;
+
+			let (short, message): (&'static str, Cow<'static, str>) = match value {
+				BE::Nebari(x) => (
+					"BonsaiDB: Nebari failure",
+					Cow::Owned(format!("Caught a storage layer error: {x}")),
+				),
+				BE::Core(x) => {
+					let e = Error::from(x);
+					("BonsaiDB: Core failure", Cow::Owned(e.to_string()))
+				}
+				BE::TaskJoin(x) => {
+					let e = Error::from(x);
+					let y = format!("Hmm, this shouldn't happen. BonsaiDB met with a tokio task error: {e}");
+					("BonsaiDB: Tokio task error", Cow::Owned(y))
+				}
+				BE::Io(x) => {
+					let e = Error::from(x);
+					("BonsaiDB: IO error", Cow::Owned(e.to_string()))
+				}
+				_ => ("BonsaiDB: Unhandled error", Cow::Owned(value.to_string())),
+			};
+
+			Self {
+				short: Cow::Borrowed(short),
+				message: Some(message),
+				data: None,
+			}
+		}
+	}
+
+	impl<T: fmt::Debug + Send + 'static> From<bonsaidb::core::schema::InsertError<T>> for Error {
+		fn from(value: bonsaidb::core::schema::InsertError<T>) -> Self {
+			let x = format!("Failed to insert: {:?}", value.contents);
+
+			Self {
+				short: Cow::Borrowed("BonsaiDB: Insert failure"),
+				message: Some(Cow::Owned(x)),
+				data: None,
+			}
+		}
+	}
+
+	impl From<symphonia::core::errors::Error> for Error {
+		fn from(value: symphonia::core::errors::Error) -> Self {
+			use symphonia::core::errors::Error as SE;
+
+			let (short, message): (&'static str, Cow<'static, str>) = match value {
+				SE::DecodeError(x) => (
+					"Symphonia: Decode failure",
+					Cow::Owned(format!("The stream is either malformed or could not be decoded. {x}")),
+				),
+				SE::Unsupported(x) => {
+					let y = format!("Symphonia was invoked with an unsupported codec/container feature: {x}");
+					("Symphonia: Unsupported feature", Cow::Owned(y))
+				}
+				SE::IoError(x) => {
+					let e = Error::from(x);
+					("Symphonia: IO error", Cow::Owned(e.to_string()))
+				}
+				_ => ("Symphonia: Unhandled error", Cow::Owned(value.to_string())),
+			};
+
+			Self {
+				short: Cow::Borrowed(short),
+				message: Some(message),
+				data: None,
+			}
+		}
+	}
+
+	impl From<image::ImageError> for Error {
+		fn from(value: image::ImageError) -> Self {
+			use image::ImageError as IE;
+
+			let (short, message): (&'static str, Cow<'static, str>) = match value {
+				IE::Encoding(e) => ("Image: Encode failure", Cow::Owned(e.to_string())),
+				IE::Decoding(e) => ("Image: Decode failure", Cow::Owned(e.to_string())),
+				IE::IoError(x) => {
+					let e = Error::from(x);
+					("Image: IO error", Cow::Owned(e.to_string()))
+				}
+				_ => ("Image: Unhandled error", Cow::Owned(value.to_string())),
+			};
+
+			Self {
+				short: Cow::Borrowed(short),
+				message: Some(message),
+				data: None,
+			}
+		}
+	}
+
+	impl From<serde_json::Error> for Error {
+		fn from(value: serde_json::Error) -> Self {
+			Self {
+				short: Cow::Borrowed("Serde: JSON Serialization error"),
+				message: Some(Cow::Owned(value.to_string())),
+				data: None,
 			}
 		}
 	}
