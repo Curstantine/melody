@@ -1,10 +1,10 @@
-use std::borrow::Cow;
+use {
+	bonsaidb::core::schema::Collection,
+	chrono::NaiveDate,
+	serde::{Deserialize, Serialize},
+};
 
-use bonsaidb::core::schema::Collection;
-use chrono::NaiveDate;
-use serde::{Deserialize, Serialize};
-
-use crate::{database::views::release::ReleaseByNameAndArtist, errors::Error};
+use crate::database::views::release::ReleaseByNameAndArtist;
 
 use super::{CountryCode, FromTag, InlinedArtist, ScriptCode};
 
@@ -18,26 +18,6 @@ pub enum ReleaseType {
 	Other,
 }
 
-impl FromTag for ReleaseType {
-	type Error = Error;
-
-	fn from_tag(value: &str) -> Result<Self, Self::Error> {
-		let value = match value.to_lowercase().as_str() {
-			"album" => Self::Album,
-			"ep" => Self::Ep,
-			"single" => Self::Single,
-			"broadcast" => Self::Broadcast,
-			"other" => Self::Other,
-			_ => {
-				let x = format!("Expected known release types, but got {}", value);
-				return Err(Error::conversion("Failed to resolve release type", Some(Cow::Owned(x))));
-			}
-		};
-
-		Ok(value)
-	}
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReleaseTypeSecondary {
@@ -46,22 +26,6 @@ pub enum ReleaseTypeSecondary {
 	Live,
 	Soundtrack,
 	Other(String),
-}
-
-impl FromTag for ReleaseTypeSecondary {
-	type Error = std::convert::Infallible;
-
-	fn from_tag(value: &str) -> Result<Self, Self::Error> {
-		let value = match value.to_lowercase().as_str() {
-			"compilation" => Self::Compilation,
-			"remix" => Self::Remix,
-			"live" => Self::Live,
-			"soundtrack" => Self::Soundtrack,
-			x => Self::Other(x.to_string()),
-		};
-
-		Ok(value)
-	}
 }
 
 #[derive(Debug, Serialize, Deserialize, Collection)]
@@ -90,6 +54,39 @@ pub struct Release {
 	pub type_secondary: Option<Vec<ReleaseTypeSecondary>>,
 
 	pub mbz_id: Option<String>,
+}
+
+impl FromTag for ReleaseType {
+	type Error = ();
+
+	fn from_tag(value: &str) -> Result<Self, Self::Error> {
+		let value = match value.to_lowercase().as_str() {
+			"album" => Self::Album,
+			"ep" => Self::Ep,
+			"single" => Self::Single,
+			"broadcast" => Self::Broadcast,
+			"other" => Self::Other,
+			_ => return Err(()),
+		};
+
+		Ok(value)
+	}
+}
+
+impl FromTag for ReleaseTypeSecondary {
+	type Error = std::convert::Infallible;
+
+	fn from_tag(value: &str) -> Result<Self, Self::Error> {
+		let value = match value.to_lowercase().as_str() {
+			"compilation" => Self::Compilation,
+			"remix" => Self::Remix,
+			"live" => Self::Live,
+			"soundtrack" => Self::Soundtrack,
+			x => Self::Other(x.to_string()),
+		};
+
+		Ok(value)
+	}
 }
 
 #[cfg(test)]

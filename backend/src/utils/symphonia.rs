@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fs::File, path::Path};
+use std::{fs::File, path::Path};
 
 use chrono::NaiveDate;
 use symphonia::core::{
@@ -18,7 +18,7 @@ use crate::{
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
-	errors::{Error, ErrorType, FromErrorWithContextData, IoErrorType, Result},
+	errors::{self, Error, Result},
 	models::temp::{resource::TempResource, TempInlinedArtist, TempTrackMeta, TempTrackResource},
 };
 
@@ -26,7 +26,7 @@ use super::matchers;
 
 pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)> {
 	let extension = path.extension().and_then(|s| s.to_str());
-	let source = File::open(path).map_err(|e| Error::from_with_ctx(e, IoErrorType::Path(path)))?;
+	let source = File::open(path)?;
 
 	let path_str = path.to_str().unwrap();
 
@@ -39,9 +39,7 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 		hint.with_extension(ext);
 	}
 
-	let mut probed = symphonia::default::get_probe()
-		.format(&hint, mss, &fmt_opts, &meta_opts)
-		.map_err(|e| Error::from_with_ctx(e, path))?;
+	let mut probed = symphonia::default::get_probe().format(&hint, mss, &fmt_opts, &meta_opts)?;
 	let mut format = probed.format;
 
 	let mut meta = TempTrackMeta {
@@ -62,8 +60,7 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 		traverse_tags(&mut meta, rev.tags())?;
 		traverse_visuals(&mut resources, rev.visuals())?;
 	} else {
-		let context = "Couldn't find any metadata in track while probing.";
-		return Err(Error::descriptive("No metadata in track").with_context(Cow::Borrowed(context)));
+		return Err(errors::pre::symphonia_no_meta());
 	}
 
 	Ok((meta, resources))
@@ -92,7 +89,7 @@ fn traverse_tags(meta: &mut TempTrackMeta, tags: &[SymphoniaTag]) -> Result<()> 
 	let mut primary_release_type_used = false;
 
 	if tags.is_empty() {
-		return Err(Error::descriptive("Tags were empty for this file"));
+		return Err(errors::pre::symphonia_no_meta());
 	}
 
 	for tag in tags {
@@ -341,11 +338,10 @@ fn traverse_tags(meta: &mut TempTrackMeta, tags: &[SymphoniaTag]) -> Result<()> 
 								x.type_ = y;
 								primary_release_type_used = true;
 							}
-							Err(e) if e.type_ == ErrorType::Conversion => {
-								let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap();
+							Err(e) => {
+								let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap(); // Infallible
 								x.type_secondary.get_or_insert_with(Vec::new).push(y);
 							}
-							Err(e) => return Err(e),
 						}
 					}
 				}
@@ -376,10 +372,7 @@ fn get_val_string(value: &Value) -> Option<String> {
 fn get_val_u32(value: &Value) -> Result<Option<u32>> {
 	match value {
 		Value::String(x) => {
-			let y = x
-				.parse::<u32>()
-				.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(x)))?;
-
+			let y = crate::parse_str_to_int!(x, u32)?;
 			Ok(Some(y))
 		}
 		Value::UnsignedInt(x) => Ok(Some(*x as u32)),
@@ -396,19 +389,16 @@ fn get_val_date(value: &Value) -> Result<OptionedDate> {
 			let splits = x.split('-').collect::<Vec<&str>>();
 
 			let year = {
-				let str = splits.first().unwrap();
-				str.parse::<i32>()
-					.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(str)))?
+				let y = splits.first().unwrap();
+				crate::parse_str_to_int!(y, i32)?
 			};
 			let month = {
-				let str = splits.get(1).unwrap();
-				str.parse::<u32>()
-					.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(str)))?
+				let y = splits.get(1).unwrap();
+				crate::parse_str_to_int!(y, u32)?
 			};
 			let day = {
-				let str = splits.get(2).unwrap();
-				str.parse::<u32>()
-					.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(str)))?
+				let y = splits.get(2).unwrap();
+				crate::parse_str_to_int!(y, u32)?
 			};
 
 			Some((Some(year), Some(month), Some(day)))
@@ -417,23 +407,18 @@ fn get_val_date(value: &Value) -> Result<OptionedDate> {
 			let splits = x.split('-').collect::<Vec<&str>>();
 
 			let year = {
-				let str = splits.first().unwrap();
-				str.parse::<i32>()
-					.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(str)))?
+				let y = splits.first().unwrap();
+				crate::parse_str_to_int!(y, i32)?
 			};
 			let month = {
-				let str = splits.get(1).unwrap();
-				str.parse::<u32>()
-					.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(str)))?
+				let y = splits.get(1).unwrap();
+				crate::parse_str_to_int!(y, u32)?
 			};
 
 			Some((Some(year), Some(month), None))
 		}
 		Value::String(x) if matchers::reg::is_year(x.as_str()) => {
-			let year = x
-				.parse::<i32>()
-				.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(x)))?;
-
+			let year = crate::parse_str_to_int!(x, i32)?;
 			Some((Some(year), None, None))
 		}
 		Value::UnsignedInt(x) => Some((Some(*x as i32), None, None)),
@@ -460,19 +445,13 @@ fn get_no_and_maybe_total(value: &Value) -> Result<Option<(u32, Option<u32>)>> {
 			let no_str = splits.first().unwrap();
 			let total_str = splits.last().unwrap();
 
-			let no = no_str
-				.parse::<u32>()
-				.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(no_str)))?;
-			let total = total_str
-				.parse::<u32>()
-				.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(total_str)))?;
+			let no = crate::parse_str_to_int!(no_str, u32)?;
+			let total = crate::parse_str_to_int!(total_str, u32)?;
 
 			Some((no, Some(total)))
 		}
 		Value::String(x) => {
-			let y = x
-				.parse::<u32>()
-				.map_err(|e| Error::from_with_ctx(e, Cow::Borrowed(x)))?;
+			let y = crate::parse_str_to_int!(x, u32)?;
 			Some((y, None))
 		}
 		Value::UnsignedInt(x) => Some((*x as u32, None)),
