@@ -520,7 +520,7 @@ pub mod extra {
 
 pub mod new_error {
 	use serde::Serialize;
-	use std::{borrow::Cow, fmt, path::Path};
+	use std::{borrow::Cow, path::Path};
 
 	#[derive(Debug, Serialize)]
 	#[serde(tag = "type", content = "data", rename_all = "snake_case")]
@@ -558,12 +558,12 @@ pub mod new_error {
 		}
 
 		pub fn set_context(mut self, context: Cow<'static, str>) -> Self {
-			self.message.insert(context);
+			self.message = Some(context);
 			self
 		}
 
 		pub fn set_data(mut self, data: ErrorData) -> Self {
-			self.data.insert(data);
+			self.data = Some(data);
 			self
 		}
 	}
@@ -681,32 +681,32 @@ pub mod new_error {
 		}
 	}
 
-	impl<'a> From<tauri::Error> for Error {
+	impl From<tauri::Error> for Error {
 		fn from(value: tauri::Error) -> Self {
 			use tauri::Error as TE;
 
-			let (short, message): (&'static str, Cow<'static, str>) = match &value {
+			let (short, message): (&'static str, Cow<'static, str>) = match value {
 				TE::Setup(x) => (
 					"Tauri: Setup hook failed",
 					Cow::Owned(format!("Setup hook failed with: {:?}", x)),
 				),
 				TE::Io(x) => {
-					let e = Error::from();
-					Cow::Owned(format!("IO error with: {:?}", e))
+					let e = Error::from(x);
+					("Tauri: IO Error", Cow::Owned(e.to_string()))
 				}
 				TE::JoinError(x) => {
-					let e = Error::get_message(x, None);
-					let y = format!("Hmm, this shouldn't happen. Tauri met with a tokio task error: {:?}", e);
-					Cow::Owned(y)
+					let e = Error::from(x);
+					let y = format!("Hmm, this shouldn't happen. Tauri met with a tokio task error: {}", e);
+					("Tauri: Tokio task error", Cow::Owned(y))
 				}
-				_ => Cow::Owned(format!("Unhandled error {error}")),
+				_ => ("Tauri: Unhandled error", Cow::Owned(value.to_string())),
 			};
 
 			Self {
 				short: Cow::Borrowed(short),
 				message: Some(message),
-				data: (),
-				source: value,
+				data: None,
+				source: None,
 			}
 		}
 	}
