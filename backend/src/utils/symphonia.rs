@@ -89,7 +89,7 @@ fn traverse_tags(meta: &mut TempTrackMeta, tags: &[SymphoniaTag]) -> Result<()> 
 	let mut primary_release_type_used = false;
 
 	if tags.is_empty() {
-		return Err(errors::pre::symphonia_no_meta());
+		return Err(errors::pre::symphonia_no_tags());
 	}
 
 	for tag in tags {
@@ -338,7 +338,7 @@ fn traverse_tags(meta: &mut TempTrackMeta, tags: &[SymphoniaTag]) -> Result<()> 
 								x.type_ = y;
 								primary_release_type_used = true;
 							}
-							Err(e) => {
+							Err(_) => {
 								let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap(); // Infallible
 								x.type_secondary.get_or_insert_with(Vec::new).push(y);
 							}
@@ -372,7 +372,7 @@ fn get_val_string(value: &Value) -> Option<String> {
 fn get_val_u32(value: &Value) -> Result<Option<u32>> {
 	match value {
 		Value::String(x) => {
-			let y = crate::parse_str_to_int!(x, u32)?;
+			let y = crate::parse_str!(x, u32)?;
 			Ok(Some(y))
 		}
 		Value::UnsignedInt(x) => Ok(Some(*x as u32)),
@@ -390,15 +390,15 @@ fn get_val_date(value: &Value) -> Result<OptionedDate> {
 
 			let year = {
 				let y = splits.first().unwrap();
-				crate::parse_str_to_int!(y, i32)?
+				crate::parse_str!(y, i32)?
 			};
 			let month = {
 				let y = splits.get(1).unwrap();
-				crate::parse_str_to_int!(y, u32)?
+				crate::parse_str!(y, u32)?
 			};
 			let day = {
 				let y = splits.get(2).unwrap();
-				crate::parse_str_to_int!(y, u32)?
+				crate::parse_str!(y, u32)?
 			};
 
 			Some((Some(year), Some(month), Some(day)))
@@ -408,17 +408,17 @@ fn get_val_date(value: &Value) -> Result<OptionedDate> {
 
 			let year = {
 				let y = splits.first().unwrap();
-				crate::parse_str_to_int!(y, i32)?
+				crate::parse_str!(y, i32)?
 			};
 			let month = {
 				let y = splits.get(1).unwrap();
-				crate::parse_str_to_int!(y, u32)?
+				crate::parse_str!(y, u32)?
 			};
 
 			Some((Some(year), Some(month), None))
 		}
 		Value::String(x) if matchers::reg::is_year(x.as_str()) => {
-			let year = crate::parse_str_to_int!(x, i32)?;
+			let year = crate::parse_str!(x, i32)?;
 			Some((Some(year), None, None))
 		}
 		Value::UnsignedInt(x) => Some((Some(*x as i32), None, None)),
@@ -445,13 +445,13 @@ fn get_no_and_maybe_total(value: &Value) -> Result<Option<(u32, Option<u32>)>> {
 			let no_str = splits.first().unwrap();
 			let total_str = splits.last().unwrap();
 
-			let no = crate::parse_str_to_int!(no_str, u32)?;
-			let total = crate::parse_str_to_int!(total_str, u32)?;
+			let no = crate::parse_str!(no_str, u32)?;
+			let total = crate::parse_str!(total_str, u32)?;
 
 			Some((no, Some(total)))
 		}
 		Value::String(x) => {
-			let y = crate::parse_str_to_int!(x, u32)?;
+			let y = crate::parse_str!(x, u32)?;
 			Some((y, None))
 		}
 		Value::UnsignedInt(x) => Some((*x as u32, None)),

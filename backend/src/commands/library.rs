@@ -16,7 +16,7 @@ use crate::{
 		helpers::handle_temp_track_meta, methods, models::library::Library as LibraryModel,
 		views::library::LibraryByName,
 	},
-	errors::{extra::CopyableSerializableError, Result},
+	errors::{Error, Result},
 	models::{
 		state::{DatabaseState, DirectoryState},
 		tauri::library::{LibraryEntity, LibraryEventData, LibraryEventManager, LibraryEventPayload, LibraryEventType},
@@ -64,7 +64,7 @@ pub async fn create_library(
 	};
 
 	enum ChannelData {
-		Error(CopyableSerializableError, PathBuf),
+		Error(Error, PathBuf),
 		Reading(LibraryEventData),
 		Indexing(LibraryEventData, Box<TempTrackMeta>, TempTrackResource),
 	}

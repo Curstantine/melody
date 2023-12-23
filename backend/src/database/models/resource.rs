@@ -29,6 +29,16 @@ pub enum ResourceMediaType {
 	Jpeg,
 }
 
+#[derive(Debug, Serialize, Deserialize, Collection)]
+#[collection(name = "resources", views = [ResourceByTypeAndHash])]
+pub struct Resource {
+	pub type_: ResourceType,
+	pub relation_type: ResourceRelationType,
+	pub media_type: ResourceMediaType,
+	pub has_thumb: bool,
+	pub hash: Hash,
+}
+
 impl ResourceMediaType {
 	pub fn to_extension(&self) -> &'static str {
 		match self {
@@ -47,20 +57,10 @@ impl FromTag for ResourceMediaType {
 			"image/png" => Self::Png,
 			_ => {
 				let x = format!("Expected known resource media type, but got {}", value);
-				return Err(Error::conversion("Unsupported media type", Some(Cow::Owned(x))));
+				return Err(Error::new_dyn("Unsupported media type", Cow::Owned(x)));
 			}
 		};
 
 		Ok(value)
 	}
-}
-
-#[derive(Debug, Serialize, Deserialize, Collection)]
-#[collection(name = "resources", views = [ResourceByTypeAndHash])]
-pub struct Resource {
-	pub type_: ResourceType,
-	pub relation_type: ResourceRelationType,
-	pub media_type: ResourceMediaType,
-	pub has_thumb: bool,
-	pub hash: Hash,
 }

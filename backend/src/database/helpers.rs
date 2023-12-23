@@ -1,14 +1,10 @@
-use std::{
-	borrow::Cow,
-	fs::{self, File},
-	path::Path,
-};
+use std::{fs::File, path::Path};
 
 use bonsaidb::{core::schema::SerializedCollection, local::AsyncDatabase};
 use image::{imageops::FilterType, load_from_memory_with_format as load_img_from_mem, ImageFormat};
 
 use crate::{
-	errors::{Error, FromErrorWithContextData, Result},
+	errors::{self, Error, Result},
 	models::temp::{resource::TempResource, TempTrackMeta, TempTrackResource},
 };
 
@@ -27,8 +23,7 @@ pub async fn initialize_image_resource(
 	temp: TempResource,
 ) -> Result<u64> {
 	if temp.type_ != ResourceType::Image {
-		let context = format!("Expected resource type to be `Image` but got {:?}", temp.type_);
-		return Err(Error::descriptive("Invalid resource type").with_context(Cow::Owned(context)));
+		return Err(errors::pre::invalid_resource_type(ResourceType::Image, &temp.type_));
 	}
 
 	let hash = blake3::hash(&temp.data);
@@ -42,25 +37,30 @@ pub async fn initialize_image_resource(
 	let source_res_path = resource_cover_dir.join(format!("{}.{}", &hash_str, &ext));
 	let thumb_res_path = resource_cover_dir.join(format!("{}@512.{}", &hash_str, &ext));
 
-	let handle = tokio::task::spawn_blocking::<_, Result<Resource>>(move || {
-		fs::write(&source_res_path, &temp.data).map_err(|e| Error::from_std_path(e, &source_res_path))?;
+	tokio::fs::write(&source_res_path, &temp.data)
+		.await
+		.map_err(|e| Error::from(e).set_path_data(&source_res_path))?;
 
+	let thumb_path = thumb_res_path.clone();
+	let handle = tokio::task::spawn_blocking::<_, Result<Resource>>(move || {
 		let fmt = ImageFormat::from_extension(ext).expect("Unsupported file extension");
-		let source = load_img_from_mem(&temp.data, fmt).map_err(|e| Error::from_with_ctx(e, &thumb_res_path))?;
+		let source = load_img_from_mem(&temp.data, fmt)?;
 		let use_thumb = source.height() >= 512;
 
 		if use_thumb {
-			let mut file = File::create(&thumb_res_path).map_err(|e| Error::from_std_path(e, &thumb_res_path))?;
-			source
-				.resize(512, 512, FilterType::Nearest)
-				.write_to(&mut file, fmt)
-				.map_err(|e| Error::from_with_ctx(e, &thumb_res_path))?;
+			let mut file = File::create(thumb_path)?;
+			source.resize(512, 512, FilterType::Nearest).write_to(&mut file, fmt)?;
 		}
 
 		Ok(temp.into_resource(use_thumb, hash))
 	});
 
-	let doc = handle.await??.push_into_async(database).await?;
+	let doc = handle
+		.await?
+		.map_err(|e| e.set_path_data(&thumb_res_path))?
+		.push_into_async(database)
+		.await?;
+
 	Ok(doc.header.id)
 }
 
@@ -71,10 +71,7 @@ pub async fn handle_temp_track_meta(
 	meta: TempTrackMeta,
 	resource: TempTrackResource,
 ) -> Result<()> {
-	let temp_track = match meta.track {
-		Some(x) => x,
-		None => return Err(Error::descriptive("No track metadata found")),
-	};
+	let temp_track = meta.track.expect("Yeah, no track metadata.");
 
 	let mut artists = None::<Vec<InlinedArtist>>;
 	let mut composer_ids = None::<Vec<u64>>;

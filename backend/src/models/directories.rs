@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use tauri::PathResolver;
+use {tauri::PathResolver, tokio::fs};
 
 use crate::{
 	database::DB_MAIN_NAME,
-	errors::{Error, FromErrorWithContextData, IoErrorType, Result},
+	errors::{Error, Result},
 };
 
 pub struct Directories {
@@ -18,23 +18,23 @@ impl Directories {
 
 		let database_dir = data_dir.join(DB_MAIN_NAME);
 		let resource_dir = data_dir.join("resources");
-		let resource_cover_dir = resource_dir.join("covers");
+		let cover_dir = resource_dir.join("covers");
 
-		match tokio::fs::create_dir_all(&data_dir).await {
+		match fs::create_dir_all(&data_dir).await {
 			Ok(_) => {
-				tokio::fs::create_dir_all(&resource_cover_dir)
+				fs::create_dir_all(&cover_dir)
 					.await
-					.map_err(|e| Error::from_with_ctx(e, IoErrorType::Path(&resource_cover_dir)))?;
+					.map_err(|e| Error::from(e).set_path_data(cover_dir.clone()))?;
 			}
 			Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => {
-				return Err(Error::from_with_ctx(e, IoErrorType::Path(&data_dir)));
+				return Err(Error::from(e).set_path_data(data_dir));
 			}
 			_ => {}
 		}
 
 		Ok(Directories {
 			database_dir,
-			resource_cover_dir,
+			resource_cover_dir: cover_dir,
 		})
 	}
 }

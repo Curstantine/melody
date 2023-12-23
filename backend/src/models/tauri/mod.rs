@@ -2,7 +2,7 @@ use std::{marker::PhantomData, path::PathBuf};
 
 use serde::Serialize;
 
-use crate::errors::{extra::CopyableSerializableError, Result};
+use crate::errors::{Error, Result};
 
 pub mod library;
 pub mod release;
@@ -17,7 +17,7 @@ pub enum EventPayload<T: Serialize + Clone, E: Serialize + Clone> {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SerializablePathedError {
-	error: CopyableSerializableError,
+	error: Error,
 	path: PathBuf,
 }
 

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use crate::{database::models::library::Library, errors::extra::CopyableSerializableError};
+use crate::{database::models::library::Library, errors::Error};
 
 use super::{Entity, EventPayload, SerializablePathedError, WindowEventManager, WindowEventType};
 
@@ -19,7 +19,7 @@ impl LibraryEventPayload {
 		Self::Ok(LibraryEvent::Indexing(data))
 	}
 
-	pub fn error(error: CopyableSerializableError, path: PathBuf) -> Self {
+	pub fn error(error: Error, path: PathBuf) -> Self {
 		Self::Error(SerializablePathedError { error, path })
 	}
 }

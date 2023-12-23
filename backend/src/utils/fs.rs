@@ -3,7 +3,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use crate::errors::{Error, FromErrorWithContextData, IoErrorType, Result};
+use crate::errors::Result;
 
 pub fn walkdir_sync<M>(path: &Path, match_fn: M) -> Result<Vec<PathBuf>>
 where
@@ -25,18 +25,18 @@ where
 		Ok((files, to_visit))
 	}
 
-	one_level(path, match_fn)
-		.and_then(|(mut files, mut to_visit)| {
-			while let Some(path) = to_visit.pop() {
-				let (mut new_files, mut new_to_visit) = one_level(path.as_path(), match_fn)?;
+	let files = one_level(path, match_fn).and_then(|(mut files, mut to_visit)| {
+		while let Some(path) = to_visit.pop() {
+			let (mut new_files, mut new_to_visit) = one_level(path.as_path(), match_fn)?;
 
-				files.append(&mut new_files);
-				to_visit.append(&mut new_to_visit);
-			}
+			files.append(&mut new_files);
+			to_visit.append(&mut new_to_visit);
+		}
 
-			Ok(files)
-		})
-		.map_err(|e| Error::from_with_ctx(e, IoErrorType::Path(path)))
+		Ok(files)
+	})?;
+
+	Ok(files)
 }
 
 #[cfg(test)]

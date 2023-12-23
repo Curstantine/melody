@@ -1,9 +1,9 @@
 use serde::Serialize;
-use std::{borrow::Cow, fmt, path::Path};
+use std::{borrow::Cow, fmt, path::PathBuf};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ErrorKind {
 	Io,
 	Conversion,
@@ -11,18 +11,15 @@ pub enum ErrorKind {
 	Other,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 
 pub enum ErrorData {
-	#[serde(borrow)]
-	Path(Cow<'static, Path>),
-
-	#[serde(borrow)]
-	String(Cow<'static, str>),
+	Path(PathBuf),
+	String(String),
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Error {
 	#[serde(skip)]
 	pub kind: ErrorKind,
@@ -46,9 +43,13 @@ impl Error {
 		}
 	}
 
-	pub fn set_context(mut self, context: Cow<'static, str>) -> Self {
-		self.message = Some(context);
-		self
+	pub fn new_dyn(short: &'static str, message: Cow<'static, str>) -> Self {
+		Self {
+			kind: ErrorKind::Other,
+			short: Cow::Borrowed(short),
+			message: Some(message),
+			data: None,
+		}
 	}
 
 	pub fn set_data(mut self, data: ErrorData) -> Self {
@@ -56,12 +57,12 @@ impl Error {
 		self
 	}
 
-	pub fn set_path_data(mut self, data: &Path) -> Self {
-		self.set_data(ErrorData::Path(Cow::Borrowed(data)))
+	pub fn set_path_data<P: Into<PathBuf>>(self, data: P) -> Self {
+		self.set_data(ErrorData::Path(data.into()))
 	}
 
-	pub fn set_str_data(mut self, data: &'_ str) -> Self {
-		self.set_data(ErrorData::String(Cow::Borrowed(data)))
+	pub fn set_str_data(self, data: String) -> Self {
+		self.set_data(ErrorData::String(data))
 	}
 }
 
@@ -348,7 +349,11 @@ impl From<serde_json::Error> for Error {
 }
 
 pub mod pre {
-	use super::Error;
+	use std::borrow::Cow;
+
+	use crate::database::models::resource::ResourceType;
+
+	use super::{Error, ErrorKind};
 
 	#[inline]
 	pub fn symphonia_no_meta() -> Error {
@@ -364,5 +369,16 @@ pub mod pre {
 			"Symphonia: No metadata",
 			Some("Couldn't find tags related to the track while probing"),
 		)
+	}
+
+	pub fn invalid_resource_type(expected: ResourceType, got: &ResourceType) -> Error {
+		let message = format!("Expected resource type to be {:?}, but got {:?}", expected, got);
+
+		Error {
+			kind: ErrorKind::Other,
+			short: Cow::Borrowed("Invalid resource type"),
+			message: Some(Cow::Owned(message)),
+			data: None,
+		}
 	}
 }

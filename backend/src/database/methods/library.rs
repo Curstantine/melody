@@ -26,11 +26,8 @@ pub async fn insert_unique(
 		.await?;
 
 	if let Some(ex) = matches.first() {
-		let m = format!(
-			"Library with name {} already exists on the database.\nExists at {}.",
-			library.name, ex.source.id
-		);
-		let e = Error::descriptive("Library already exists").with_context(Cow::Owned(m));
+		let m = format!("Library named '{}' already exists on the database.", ex.key);
+		let e = Error::new_dyn("Library already exists", Cow::Owned(m));
 
 		return Err(e);
 	}
@@ -40,13 +37,14 @@ pub async fn insert_unique(
 
 #[cfg(test)]
 mod test {
+	use bonsaidb::core::schema::{SerializedCollection, SerializedView};
+
 	use crate::{
 		database::{
 			methods::library::insert_unique, models::library::Library, views::library::LibraryByName, Database,
 		},
 		errors::Result,
 	};
-	use bonsaidb::core::schema::{SerializedCollection, SerializedView};
 
 	#[tokio::test]
 	async fn test_by_name() -> Result<()> {
