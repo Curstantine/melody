@@ -5,20 +5,13 @@ export type GeneralCommand = "setup";
 export type BackendCommands = GeneralCommand | LibraryCommand | ReleaseCommand;
 export type BackendEvents = LibraryEventType;
 
-export type BackendErrorTypes =
-	| "io"
-	| "descriptive"
-	| "conversion"
-	| "tokio"
-	| "database"
-	| "tauri"
-	| "serde"
-	| "symphonia";
-
 export interface BackendBaseError {
-	type: BackendErrorTypes;
-	message: string;
-	context?: string;
+	short: string;
+	message?: string;
+	data?: {
+		type: "path" | "string";
+		data: string;
+	};
 }
 
 export interface BackendPathedError {

@@ -1,12 +1,10 @@
-import type { BackendBaseError, BackendErrorTypes } from "@/types/backend";
+import type { BackendBaseError } from "@/types/backend";
 import { LocalError } from "@/types/errors";
 
 export default class BackendError extends Error implements LocalError {
 	name = "BackendError";
 	message: string;
-
-	type: BackendErrorTypes;
-	context?: string | string[];
+	context?: string;
 
 	/**
 	 * Backend errors doesn't support error codes.
@@ -14,31 +12,27 @@ export default class BackendError extends Error implements LocalError {
 	 */
 	code = -1;
 
-	constructor(type: BackendErrorTypes, message: string, context?: string | string[]) {
+	constructor(short: string, message?: string) {
 		super();
-		this.type = type;
-		this.message = message;
-		this.context = context;
+		this.message = short;
+		this.context = message;
 	}
 
 	public static fromStupidError(error: unknown): BackendError {
-		// TODO: Handle structural integrity errors
-
 		switch (typeof error) {
 			case "string":
-				return new BackendError("descriptive", "Possibly a tauri error", error);
+				return new BackendError("Unknown Backend Error", error);
 			default: {
 				const e = error as BackendBaseError;
-				return new BackendError(e.type, e.message, e.context);
+				return new BackendError(e.short, e.message);
 			}
 		}
 	}
 
 	public static placeholder(): BackendError {
 		return new BackendError(
-			"io",
 			"Placeholder error",
-			["Really long contextual message!!", "that spans across multiple lines!!!"],
+			"Really long contextual message!! that spans across multiple lines!!!",
 		);
 	}
 

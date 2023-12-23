@@ -20,7 +20,7 @@ export default class WindowError implements LocalError {
 		return new WindowError(
 			WindowError.codes.MAX_STATE,
 			"Couldn't maximize the window",
-			["Caller returned:", error?.message ?? "<NULL>"],
+			["Caller returned:", error?.short ?? "<NULL>"],
 			error ?? undefined,
 		);
 	}
@@ -31,7 +31,7 @@ export default class WindowError implements LocalError {
 		return new WindowError(
 			WindowError.codes.MAX_STATE,
 			"Couldn't focus the window",
-			["Caller returned:", error?.message ?? "<NULL>"],
+			["Caller returned:", error?.short ?? "<NULL>"],
 			error ?? undefined,
 		);
 	}

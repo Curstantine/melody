@@ -49,6 +49,7 @@ export default function SetupScanView() {
 		const unlisten = await listen<LibraryEventPayload>(
 			"scan",
 			(event) => {
+				console.log(event);
 				switch (event.payload.type) {
 					case "ok":
 						setPayload(event.payload.data as LibraryEvent);
