@@ -90,7 +90,7 @@ pub async fn create_library(
 							let data = LibraryEventData::new(total, current, path);
 							tx.send(ChannelData::Indexing(data, Box::new(meta), resources)).unwrap();
 						}
-						Err(e) => tx.send(ChannelData::Error(e.into(), path)).unwrap(),
+						Err(e) => tx.send(ChannelData::Error(e, path)).unwrap(),
 					}
 				}
 			}
