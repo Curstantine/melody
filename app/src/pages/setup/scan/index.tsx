@@ -161,6 +161,7 @@ export default function SetupScanView() {
 												<For each={item.error.getMultilineContext()}>
 													{(line) => <p>{line}</p>}
 												</For>
+												<p>At: {item.path}</p>
 											</span>
 										)}
 									</For>
