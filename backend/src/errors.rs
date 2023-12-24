@@ -351,4 +351,14 @@ pub mod pre {
 			message: Some(Cow::Owned(message)),
 		}
 	}
+
+	pub fn unsupported_image_type(ext: &str) -> Error {
+		let message = format!("Unsupported image file extension type: '{ext}'");
+
+		Error {
+			kind: ErrorKind::Other,
+			short: Cow::Borrowed("Invalid image type"),
+			message: Some(Cow::Owned(message)),
+		}
+	}
 }
