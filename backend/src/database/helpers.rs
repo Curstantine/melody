@@ -4,7 +4,7 @@ use bonsaidb::{core::schema::SerializedCollection, local::AsyncDatabase};
 use image::{imageops::FilterType, load_from_memory_with_format as load_img_from_mem, ImageFormat};
 
 use crate::{
-	errors::{self, Error, Result},
+	errors::{self, Result},
 	models::temp::{resource::TempResource, TempTrackMeta, TempTrackResource},
 };
 
@@ -37,9 +37,7 @@ pub async fn initialize_image_resource(
 	let source_res_path = resource_cover_dir.join(format!("{}.{}", &hash_str, &ext));
 	let thumb_res_path = resource_cover_dir.join(format!("{}@512.{}", &hash_str, &ext));
 
-	tokio::fs::write(&source_res_path, &temp.data)
-		.await
-		.map_err(|e| Error::from(e).set_path_data(&source_res_path))?;
+	tokio::fs::write(&source_res_path, &temp.data).await?;
 
 	let thumb_path = thumb_res_path.clone();
 	let handle = tokio::task::spawn_blocking::<_, Result<Resource>>(move || {
@@ -55,11 +53,7 @@ pub async fn initialize_image_resource(
 		Ok(temp.into_resource(use_thumb, hash))
 	});
 
-	let doc = handle
-		.await?
-		.map_err(|e| e.set_path_data(&thumb_res_path))?
-		.push_into_async(database)
-		.await?;
+	let doc = handle.await??.push_into_async(database).await?;
 
 	Ok(doc.header.id)
 }

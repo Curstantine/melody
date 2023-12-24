@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::{borrow::Cow, fmt, path::PathBuf};
+use std::borrow::Cow;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -12,14 +12,6 @@ pub enum ErrorKind {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
-
-pub enum ErrorData {
-	Path(PathBuf),
-	String(String),
-}
-
-#[derive(Debug, Clone, Serialize)]
 pub struct Error {
 	#[serde(skip)]
 	pub kind: ErrorKind,
@@ -29,8 +21,6 @@ pub struct Error {
 
 	#[serde(borrow)]
 	pub message: Option<Cow<'static, str>>,
-
-	pub data: Option<ErrorData>,
 }
 
 impl Error {
@@ -39,7 +29,6 @@ impl Error {
 			kind: ErrorKind::Other,
 			short: Cow::Borrowed(short),
 			message: message.map(Cow::Borrowed),
-			data: None,
 		}
 	}
 
@@ -48,30 +37,27 @@ impl Error {
 			kind: ErrorKind::Other,
 			short: Cow::Borrowed(short),
 			message: Some(message),
-			data: None,
 		}
 	}
 
-	pub fn set_data(mut self, data: ErrorData) -> Self {
-		self.data = Some(data);
+	/// Appends a string to the message field.
+	///
+	/// If the message field is non empty, the string will appended to the field along with a newline.
+	/// For cases where message is null, the string is clone to give the Cow ownership.
+	pub fn append_message(mut self, message: &str) -> Self {
+		if let Some(val) = &mut self.message {
+			let x = val.to_mut();
+
+			if !x.is_empty() {
+				x.push('\n');
+			}
+
+			x.push_str(message);
+		} else {
+			self.message = Some(Cow::Owned(message.to_string()))
+		}
+
 		self
-	}
-
-	pub fn set_path_data<P: Into<PathBuf>>(self, data: P) -> Self {
-		self.set_data(ErrorData::Path(data.into()))
-	}
-
-	pub fn set_str_data(self, data: String) -> Self {
-		self.set_data(ErrorData::String(data))
-	}
-}
-
-impl std::fmt::Display for ErrorData {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		match self {
-			ErrorData::Path(path) => write!(f, "{}", path.to_string_lossy()),
-			ErrorData::String(string) => write!(f, "{}", string),
-		}
 	}
 }
 
@@ -81,10 +67,6 @@ impl std::fmt::Display for Error {
 
 		if let Some(message) = &self.message {
 			write!(f, " [Message: {}]", message)?;
-		}
-
-		if let Some(data) = &self.data {
-			write!(f, " [Data: {}]", data)?;
 		}
 
 		Ok(())
@@ -119,7 +101,6 @@ impl From<std::io::Error> for Error {
 			kind: ErrorKind::Io,
 			short: Cow::Borrowed(short),
 			message: Some(message),
-			data: None,
 		}
 	}
 }
@@ -139,7 +120,6 @@ impl From<std::num::ParseIntError> for Error {
 			kind: ErrorKind::Conversion,
 			short: Cow::Borrowed("Conversion: integer conversion error"),
 			message: Some(Cow::Borrowed(message)),
-			data: None,
 		}
 	}
 }
@@ -162,7 +142,6 @@ impl From<chrono::ParseError> for Error {
 			kind: ErrorKind::Conversion,
 			short: Cow::Borrowed("Chrono: failed to parse date"),
 			message: Some(Cow::Borrowed(message)),
-			data: None,
 		}
 	}
 }
@@ -181,7 +160,6 @@ impl From<tokio::task::JoinError> for Error {
 			kind: ErrorKind::Other,
 			short: Cow::Borrowed("Tokio: Task join failure"),
 			message: Some(message),
-			data: None,
 		}
 	}
 }
@@ -211,7 +189,6 @@ impl From<tauri::Error> for Error {
 			kind: ErrorKind::Other,
 			short: Cow::Borrowed(short),
 			message: Some(message),
-			data: None,
 		}
 	}
 }
@@ -233,7 +210,6 @@ impl From<bonsaidb::core::Error> for Error {
 			kind: ErrorKind::Database,
 			short: Cow::Borrowed(short),
 			message: Some(message),
-			data: None,
 		}
 	}
 }
@@ -267,12 +243,11 @@ impl From<bonsaidb::local::Error> for Error {
 			kind: ErrorKind::Database,
 			short: Cow::Borrowed(short),
 			message: Some(message),
-			data: None,
 		}
 	}
 }
 
-impl<T: fmt::Debug + Send + 'static> From<bonsaidb::core::schema::InsertError<T>> for Error {
+impl<T: std::fmt::Debug + Send + 'static> From<bonsaidb::core::schema::InsertError<T>> for Error {
 	fn from(value: bonsaidb::core::schema::InsertError<T>) -> Self {
 		let x = format!("Failed to insert: {:?}", value.contents);
 
@@ -280,7 +255,6 @@ impl<T: fmt::Debug + Send + 'static> From<bonsaidb::core::schema::InsertError<T>
 			kind: ErrorKind::Database,
 			short: Cow::Borrowed("BonsaiDB: Insert failure"),
 			message: Some(Cow::Owned(x)),
-			data: None,
 		}
 	}
 }
@@ -309,7 +283,6 @@ impl From<symphonia::core::errors::Error> for Error {
 			kind: ErrorKind::Database,
 			short: Cow::Borrowed(short),
 			message: Some(message),
-			data: None,
 		}
 	}
 }
@@ -332,7 +305,6 @@ impl From<image::ImageError> for Error {
 			kind: ErrorKind::Other,
 			short: Cow::Borrowed(short),
 			message: Some(message),
-			data: None,
 		}
 	}
 }
@@ -343,7 +315,6 @@ impl From<serde_json::Error> for Error {
 			kind: ErrorKind::Other,
 			short: Cow::Borrowed("Serde: JSON Serialization error"),
 			message: Some(Cow::Owned(value.to_string())),
-			data: None,
 		}
 	}
 }
@@ -378,7 +349,6 @@ pub mod pre {
 			kind: ErrorKind::Other,
 			short: Cow::Borrowed("Invalid resource type"),
 			message: Some(Cow::Owned(message)),
-			data: None,
 		}
 	}
 }

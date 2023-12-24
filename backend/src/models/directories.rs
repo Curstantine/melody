@@ -21,13 +21,11 @@ impl Directories {
 		let cover_dir = resource_dir.join("covers");
 
 		match fs::create_dir_all(&data_dir).await {
-			Ok(_) => {
-				fs::create_dir_all(&cover_dir)
-					.await
-					.map_err(|e| Error::from(e).set_path_data(cover_dir.clone()))?;
-			}
+			Ok(_) => fs::create_dir_all(&cover_dir)
+				.await
+				.map_err(|e| Error::from(e).append_message("Failed to create cover directory"))?,
 			Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => {
-				return Err(Error::from(e).set_path_data(data_dir));
+				return Err(Error::from(e).append_message("Failed to create data directory"));
 			}
 			_ => {}
 		}

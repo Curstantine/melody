@@ -8,10 +8,6 @@ export type BackendEvents = LibraryEventType;
 export interface BackendBaseError {
 	short: string;
 	message?: string;
-	data?: {
-		type: "path" | "string";
-		data: string;
-	};
 }
 
 export interface BackendPathedError {

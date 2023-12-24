@@ -18,7 +18,7 @@ use crate::{
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
-	errors::{self, Error, Result},
+	errors::{self, Result},
 	models::temp::{resource::TempResource, TempInlinedArtist, TempTrackMeta, TempTrackResource},
 };
 
