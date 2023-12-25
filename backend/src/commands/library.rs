@@ -22,7 +22,7 @@ use crate::{
 		tauri::library::{LibraryEntity, LibraryEventData, LibraryEventManager, LibraryEventPayload, LibraryEventType},
 		temp::{TempTrackMeta, TempTrackResource},
 	},
-	utils::{fs::walkdir_sync, matchers, symphonia::read_track_meta},
+	utils::{audio::symphonia::read_track_meta, fs::walkdir_sync, matchers},
 };
 
 #[tauri::command]

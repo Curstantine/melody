@@ -20,9 +20,8 @@ use crate::{
 	},
 	errors::{self, Result},
 	models::temp::{resource::TempResource, TempInlinedArtist, TempTrackMeta, TempTrackResource},
+	utils::matchers,
 };
-
-use super::matchers;
 
 pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)> {
 	let extension = path.extension().and_then(|s| s.to_str());
@@ -466,7 +465,7 @@ mod test {
 	use std::path::Path;
 
 	use crate::errors::Result;
-	use crate::utils::symphonia::read_track_meta;
+	use crate::utils::audio::symphonia::read_track_meta;
 
 	const TRACK_PATH: &str = r"C:\Users\Curstantine\Music\TempLib\Annabel\caracol\10 glimmer.flac";
 
