@@ -22,7 +22,7 @@ use crate::{
 		tauri::library::{LibraryEntity, LibraryEventData, LibraryEventManager, LibraryEventPayload, LibraryEventType},
 		temp::{TempTrackMeta, TempTrackResource},
 	},
-	utils::{audio::symphonia::read_track_meta, fs::walkdir_sync, matchers},
+	utils::{audio, fs::walkdir_sync, matchers},
 };
 
 #[tauri::command]
@@ -85,7 +85,7 @@ pub async fn create_library(
 					let data = LibraryEventData::new(total, current, path.clone());
 					tx.send(ChannelData::Reading(data)).unwrap();
 
-					match read_track_meta(&path) {
+					match audio::read_track_meta(&path) {
 						Ok((meta, resources)) => {
 							let data = LibraryEventData::new(total, current, path);
 							tx.send(ChannelData::Indexing(data, Box::new(meta), resources)).unwrap();

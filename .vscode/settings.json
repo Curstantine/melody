@@ -11,6 +11,8 @@
 
 	"unocss.root": ["app/"],
 
+	"rust-analyzer.cargo.features": "all",
+
 	"eslint.workingDirectories": [
 		{
 			"directory": "app",

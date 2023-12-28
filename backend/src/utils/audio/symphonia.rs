@@ -1,4 +1,4 @@
-use std::{fs::File, path::Path};
+use std::{borrow::Cow, fs::File, path::Path};
 
 use chrono::NaiveDate;
 use symphonia::core::{
@@ -18,7 +18,7 @@ use crate::{
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
-	errors::{self, Result},
+	errors::{self, Error, ErrorKind, Result},
 	models::temp::{resource::TempResource, TempInlinedArtist, TempTrackMeta, TempTrackResource},
 	utils::matchers,
 };
@@ -460,12 +460,40 @@ fn get_no_and_maybe_total(value: &Value) -> Result<Option<(u32, Option<u32>)>> {
 	Ok(tuple)
 }
 
+impl From<symphonia::core::errors::Error> for Error {
+	fn from(value: symphonia::core::errors::Error) -> Self {
+		use symphonia::core::errors::Error as SE;
+
+		let (short, message): (&'static str, Cow<'static, str>) = match value {
+			SE::DecodeError(x) => (
+				"Symphonia: Decode failure",
+				Cow::Owned(format!("The stream is either malformed or could not be decoded. {x}")),
+			),
+			SE::Unsupported(x) => {
+				let y = format!("Symphonia was invoked with an unsupported codec/container feature: {x}");
+				("Symphonia: Unsupported feature", Cow::Owned(y))
+			}
+			SE::IoError(x) => {
+				let e = Error::from(x);
+				("Symphonia: IO error", Cow::Owned(e.to_string()))
+			}
+			_ => ("Symphonia: Unhandled error", Cow::Owned(value.to_string())),
+		};
+
+		Self {
+			kind: ErrorKind::Encoder,
+			short: Cow::Borrowed(short),
+			message: Some(message),
+		}
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use std::path::Path;
 
+	use super::read_track_meta;
 	use crate::errors::Result;
-	use crate::utils::audio::symphonia::read_track_meta;
 
 	const TRACK_PATH: &str = r"C:\Users\Curstantine\Music\TempLib\Annabel\caracol\10 glimmer.flac";
 

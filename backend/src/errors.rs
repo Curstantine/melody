@@ -8,6 +8,7 @@ pub enum ErrorKind {
 	Io,
 	Conversion,
 	Database,
+	Encoder,
 	Other,
 }
 
@@ -255,34 +256,6 @@ impl<T: std::fmt::Debug + Send + 'static> From<bonsaidb::core::schema::InsertErr
 			kind: ErrorKind::Database,
 			short: Cow::Borrowed("BonsaiDB: Insert failure"),
 			message: Some(Cow::Owned(x)),
-		}
-	}
-}
-
-impl From<symphonia::core::errors::Error> for Error {
-	fn from(value: symphonia::core::errors::Error) -> Self {
-		use symphonia::core::errors::Error as SE;
-
-		let (short, message): (&'static str, Cow<'static, str>) = match value {
-			SE::DecodeError(x) => (
-				"Symphonia: Decode failure",
-				Cow::Owned(format!("The stream is either malformed or could not be decoded. {x}")),
-			),
-			SE::Unsupported(x) => {
-				let y = format!("Symphonia was invoked with an unsupported codec/container feature: {x}");
-				("Symphonia: Unsupported feature", Cow::Owned(y))
-			}
-			SE::IoError(x) => {
-				let e = Error::from(x);
-				("Symphonia: IO error", Cow::Owned(e.to_string()))
-			}
-			_ => ("Symphonia: Unhandled error", Cow::Owned(value.to_string())),
-		};
-
-		Self {
-			kind: ErrorKind::Database,
-			short: Cow::Borrowed(short),
-			message: Some(message),
 		}
 	}
 }
