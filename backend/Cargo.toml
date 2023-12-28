@@ -30,7 +30,7 @@ features = ["local", "async", "compression"]
 
 [dependencies.symphonia]
 version = "0.5.3"
-features = ["mp3"]
+features = ["all-codecs", "all-formats"]
 
 [dependencies.tauri]
 version = "1.4.0"
