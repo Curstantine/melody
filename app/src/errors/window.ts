@@ -1,13 +1,14 @@
 import type { LocalError } from "@/types/errors";
 import { getErrorFromUnknown } from "@/utils/exceptions";
 
-export default class WindowError implements LocalError {
+export default class WindowError extends Error  implements LocalError {
 	code: number;
 	message: string;
 	context?: string | string[];
 	inner?: Error;
 
 	constructor(code: number, message: string, context?: string | string[], inner?: Error) {
+		super();
 		this.code = code;
 		this.message = message;
 		this.context = context;
@@ -20,7 +21,7 @@ export default class WindowError implements LocalError {
 		return new WindowError(
 			WindowError.codes.MAX_STATE,
 			"Couldn't maximize the window",
-			["Caller returned:", error?.short ?? "<NULL>"],
+			["Caller returned:", error?.message ?? "<NULL>"],
 			error ?? undefined,
 		);
 	}
@@ -31,7 +32,7 @@ export default class WindowError implements LocalError {
 		return new WindowError(
 			WindowError.codes.MAX_STATE,
 			"Couldn't focus the window",
-			["Caller returned:", error?.short ?? "<NULL>"],
+			["Caller returned:", error?.message ?? "<NULL>"],
 			error ?? undefined,
 		);
 	}
