@@ -18,6 +18,9 @@ mod utils;
 fn main() {
 	tracing_subscriber::fmt::init();
 
+	#[cfg(feature = "ffmpeg")]
+	ffmpeg_next::init().expect("Backend was compiled with ffmpeg feature, but initializing the ffmpeg binary failed");
+
 	info!("Starting application");
 
 	tauri::Builder::default()

@@ -11,7 +11,7 @@
 
 	"unocss.root": ["app/"],
 
-	"rust-analyzer.cargo.features": "all",
+	"rust-analyzer.cargo.features": ["ffmpeg"],
 
 	"eslint.workingDirectories": [
 		{
