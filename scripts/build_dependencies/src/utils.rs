@@ -14,6 +14,8 @@ pub fn cd(dir_name: &str) -> Result<()> {
 
 pub fn initialize_ffmpeg(branch: &str) -> Result<()> {
 	if fs::metadata("ffmpeg").is_err() {
+		println!("Cloning ffmpeg repository...");
+
 		Command::new("git")
 			.arg("clone")
 			.arg("--single-branch")
@@ -23,6 +25,8 @@ pub fn initialize_ffmpeg(branch: &str) -> Result<()> {
 			.arg("1")
 			.arg("https://github.com/ffmpeg/ffmpeg")
 			.status()?;
+	} else {
+		println!("Found ffmpeg repository");
 	}
 
 	Ok(())
@@ -43,8 +47,12 @@ pub fn fetch_and_checkout_origin(branch: &str) -> Result<()> {
 }
 
 pub fn make_and_install(num_job: usize) -> Result<()> {
+	println!("Building project with make...");
 	Command::new("make").arg("-j").arg(num_job.to_string()).status()?;
+
+	println!("Installing...");
 	Command::new("make").arg("install").status()?;
+	println!("Done");
 
 	Ok(())
 }

@@ -19,6 +19,7 @@ pub fn run() -> Result<()> {
 	cd("ffmpeg")?;
 	fetch_and_checkout_origin(&branch)?;
 
+	println!("Configuring ffmpeg with platform options...");
 	Command::new("./configure")
 		.arg(format!("--prefix={}", build_path))
 		.arg("--enable-gpl")
@@ -28,6 +29,7 @@ pub fn run() -> Result<()> {
 		.arg("--disable-programs")
 		.arg("--enable-nonfree")
 		.status()?;
+	println!("Finished configuring");
 
 	make_and_install(num_job)?;
 
