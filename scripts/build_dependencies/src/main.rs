@@ -6,6 +6,5 @@ mod utils;
 mod platform;
 
 fn main() {
-	println!("Hello, world!");
 	platform::run().unwrap();
 }
