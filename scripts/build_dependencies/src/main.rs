@@ -1,6 +1,6 @@
 use std::{env, fs, io::Result, path::Path};
 
-use utils::{configure, make_and_install};
+use utils::{configure, make_and_install, workspace_dir};
 
 use crate::{
 	constants::FFMPEG_BRANCH,
@@ -11,8 +11,8 @@ mod constants;
 mod utils;
 
 fn main() -> Result<()> {
-	let cwd = env::current_dir().expect("CWD is not set");
-	let root = cwd.join("target/build_dependencies/");
+	let workspace_path = workspace_dir();
+	let root = workspace_path.join("target/build_dependencies/");
 
 	fs::create_dir_all(&root)?;
 	env::set_current_dir(&root)?;
