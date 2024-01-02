@@ -1,92 +1,328 @@
-use std::path::Path;
+use std::{ffi::CString, path::Path};
 
-use ffmpeg_next as ffmpeg;
+use chrono::NaiveDate;
+use rsmpeg::{avformat::AVFormatContextInput, avutil::AVDictionaryRef};
 
 use crate::{
-	errors::Result,
-	models::temp::{TempTrackMeta, TempTrackResource},
+	database::models::{
+		label::Label,
+		person::{Person, PersonType},
+		release::{ReleaseType, ReleaseTypeSecondary},
+		tag::{Tag, TagType},
+		CountryCode, FromTag, ScriptCode,
+	},
+	errors::{self, Result},
+	models::temp::{OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
 };
 
+use super::matchers;
+
 pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)> {
-	let path = path.to_path_buf();
-	let context = ffmpeg::format::input(&path).unwrap();
+	let path_str = path.to_str().unwrap().to_string();
+	let path_cstr = CString::new(path_str.as_bytes()).unwrap();
 
-	for (k, v) in context.metadata().iter() {
-		println!("{}: {}", k, v);
-	}
+	let format = AVFormatContextInput::open(&path_cstr, None, &mut None).unwrap();
+	let meta = format.metadata().ok_or_else(errors::pre::probe_no_meta)?;
 
-	if let Some(stream) = context.streams().best(ffmpeg::media::Type::Video) {
-		println!("Best video stream index: {}", stream.index());
-	}
+	let tags = traverse_tags(meta, path_str)?;
+	let resources = TempTrackResource::default();
 
-	if let Some(stream) = context.streams().best(ffmpeg::media::Type::Audio) {
-		println!("Best audio stream index: {}", stream.index());
-	}
+	Ok((tags, resources))
+}
 
-	if let Some(stream) = context.streams().best(ffmpeg::media::Type::Subtitle) {
-		println!("Best subtitle stream index: {}", stream.index());
-	}
+fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrackMeta> {
+	let mut meta = TempTrackMeta {
+		path: path_str,
+		..Default::default()
+	};
 
-	println!(
-		"duration (seconds): {:.2}",
-		context.duration() as f64 / f64::from(ffmpeg::ffi::AV_TIME_BASE)
-	);
+	let mut used_artists_field = false;
+	let mut primary_release_type_used = false;
 
-	for stream in context.streams() {
-		println!("stream index {}:", stream.index());
-		println!("\ttime_base: {}", stream.time_base());
-		println!("\tstart_time: {}", stream.start_time());
-		println!("\tduration (stream timebase): {}", stream.duration());
-		println!(
-			"\tduration (seconds): {:.2}",
-			stream.duration() as f64 * f64::from(stream.time_base())
-		);
-		println!("\tframes: {}", stream.frames());
-		println!("\tdisposition: {:?}", stream.disposition());
-		println!("\tdiscard: {:?}", stream.discard());
-		println!("\trate: {}", stream.rate());
+	for tag in dict.into_iter() {
+		let key = tag.key().to_str().unwrap().to_lowercase();
+		let val = tag.value().to_string_lossy().to_string();
+		println!("{:?} {:?}", key, val);
 
-		let codec = ffmpeg::codec::context::Context::from_parameters(stream.parameters()).unwrap();
-		println!("\tmedium: {:?}", codec.medium());
-		println!("\tid: {:?}", codec.id());
-
-		if codec.medium() == ffmpeg::media::Type::Video {
-			if let Ok(video) = codec.decoder().video() {
-				println!("\tbit_rate: {}", video.bit_rate());
-				println!("\tmax_rate: {}", video.max_bit_rate());
-				println!("\tdelay: {}", video.delay());
-				println!("\tvideo.width: {}", video.width());
-				println!("\tvideo.height: {}", video.height());
-				println!("\tvideo.format: {:?}", video.format());
-				println!("\tvideo.has_b_frames: {}", video.has_b_frames());
-				println!("\tvideo.aspect_ratio: {}", video.aspect_ratio());
-				println!("\tvideo.color_space: {:?}", video.color_space());
-				println!("\tvideo.color_range: {:?}", video.color_range());
-				println!("\tvideo.color_primaries: {:?}", video.color_primaries());
-				println!(
-					"\tvideo.color_transfer_characteristic: {:?}",
-					video.color_transfer_characteristic()
-				);
-				println!("\tvideo.chroma_location: {:?}", video.chroma_location());
-				println!("\tvideo.references: {}", video.references());
-				println!("\tvideo.intra_dc_precision: {}", video.intra_dc_precision());
+		match key.as_str() {
+			"title" => {
+				let x = meta.get_or_default_track();
+				x.title = val;
 			}
-		} else if codec.medium() == ffmpeg::media::Type::Audio {
-			if let Ok(audio) = codec.decoder().audio() {
-				println!("\tbit_rate: {}", audio.bit_rate());
-				println!("\tmax_rate: {}", audio.max_bit_rate());
-				println!("\tdelay: {}", audio.delay());
-				println!("\taudio.rate: {}", audio.rate());
-				println!("\taudio.channels: {}", audio.channels());
-				println!("\taudio.format: {:?}", audio.format());
-				println!("\taudio.frames: {}", audio.frames());
-				println!("\taudio.align: {}", audio.align());
-				println!("\taudio.channel_layout: {:?}", audio.channel_layout());
+			"title_sort" | "titlesort" => {
+				let x = meta.get_or_default_track();
+				x.title_sort = Some(val);
 			}
+
+			"artist" if !used_artists_field => {
+				let x = meta.artists.get_or_insert_with(Vec::new);
+				let y = Person {
+					name: val,
+					type_: PersonType::Artist,
+					name_sort: None,
+					mbz_id: None,
+				};
+
+				x.push(TempInlinedArtist::from(y))
+			}
+			"artist_sort" | "artistsort" => {
+				let x = meta.get_or_default_track();
+				x.artist_sort = Some(val);
+			}
+			"composer" => {
+				let x = meta.composers.get_or_insert_with(Vec::new);
+				let y = Person {
+					name: val,
+					type_: PersonType::Composer,
+					name_sort: None,
+					mbz_id: None,
+				};
+
+				x.push(y)
+			}
+			"producer" => {
+				let x = meta.producers.get_or_insert_with(Vec::new);
+				let y = Person {
+					name: val,
+					type_: PersonType::Producer,
+					name_sort: None,
+					mbz_id: None,
+				};
+
+				x.push(y)
+			}
+
+			"album" => {
+				let x = meta.get_or_default_release();
+				x.name = val;
+			}
+			"album_sort" | "albumsort" => {
+				let x = meta.get_or_default_release();
+				x.name_sort = Some(val);
+			}
+			"album_artist" | "albumartist" => {
+				let x = meta.release_artists.get_or_insert_with(Vec::new);
+				let y = Person {
+					name: val,
+					type_: PersonType::Artist,
+					name_sort: None,
+					mbz_id: None,
+				};
+
+				x.push(TempInlinedArtist::from(y))
+			}
+			"album_artist_sort" | "albumartistsort" => {
+				let x = meta.get_or_default_release();
+				x.artist_sort = Some(val);
+			}
+
+			"script" => {
+				let x = meta.get_or_default_release();
+				let y = ScriptCode::from_tag(val.as_str()).unwrap();
+				x.script = Some(y);
+			}
+			"release_country" | "releasecountry" => {
+				let x = meta.get_or_default_release();
+				let y = CountryCode::from_tag(val.as_str()).unwrap();
+				x.country = Some(y);
+			}
+
+			"track" => {
+				if let Some((track_no, track_total_opt)) = get_no_and_maybe_total(val)? {
+					let y = meta.get_or_default_track();
+					y.track_number = Some(track_no);
+
+					if let Some(track_total) = track_total_opt {
+						let z = meta.get_or_default_release();
+						z.total_tracks.get_or_insert(track_total);
+					}
+				}
+			}
+			"disc" => {
+				if let Some((disc_no, disc_total_opt)) = get_no_and_maybe_total(val)? {
+					let y = meta.get_or_default_track();
+					y.disc_number = Some(disc_no);
+
+					if let Some(disc_total) = disc_total_opt {
+						let z = meta.get_or_default_release();
+						z.total_discs.get_or_insert(disc_total);
+					}
+				}
+			}
+
+			"total_tracks" | "totaltracks" => {
+				let y = val.parse::<u32>()?;
+				let x = meta.get_or_default_release();
+				x.total_tracks = Some(y);
+			}
+			"total_discs" | "totaldiscs" => {
+				let y = val.parse::<u32>()?;
+				let x = meta.get_or_default_release();
+				x.total_discs = Some(y);
+			}
+
+			"original_date" | "originaldate" => {
+				if let Some((Some(year), Some(month), day_opt)) = get_val_date(val)? {
+					let y = meta.get_or_default_track();
+					y.original_date = NaiveDate::from_ymd_opt(year, month, day_opt.unwrap_or(1));
+				}
+			}
+			"date" => match get_val_date(val)? {
+				Some((Some(year), Some(month), day_opt)) => {
+					let y = meta.get_or_default_release();
+					y.date = NaiveDate::from_ymd_opt(year, month, day_opt.unwrap_or(1));
+				}
+				Some((Some(year), None, None)) => {
+					let y = meta.get_or_default_release();
+					if y.year.is_none() {
+						y.year = Some(year);
+					}
+				}
+				_ => {}
+			},
+
+			"label" => {
+				let x = meta.labels.get_or_insert_with(Vec::new);
+				let y = Label { name: val };
+				x.push(y);
+			}
+			"catalog" | "catalognumber" => {
+				let x = meta.get_or_default_release();
+				x.catalog_number = Some(val);
+			}
+
+			"genre" => {
+				let x = meta.genres.get_or_insert_with(Vec::new);
+				let y = Tag {
+					name: val,
+					type_: TagType::Genre,
+				};
+
+				x.push(y);
+			}
+
+			"musicbrainz_trackid" => {
+				let x = meta.get_or_default_track();
+				x.mbz_id = Some(val);
+			}
+			"musicbrainz_albumid" => {
+				let x = meta.get_or_default_release();
+				x.mbz_id = Some(val);
+			}
+
+			"artists" => {
+				let y = TempInlinedArtist::from(Person {
+					name: val,
+					type_: PersonType::Artist,
+					name_sort: None,
+					mbz_id: None,
+				});
+
+				// It's fine to overwrite the artists array, since the ARTISTS field *should* contain
+				// all artists associated with the track.
+				if !used_artists_field {
+					used_artists_field = true;
+					meta.artists.replace(vec![y]);
+				} else {
+					let x = meta.artists.get_or_insert_with(Vec::new);
+					x.push(y);
+				}
+			}
+
+			"RELEASETYPE" if !primary_release_type_used => {
+				let x = meta.get_or_default_release();
+
+				match ReleaseType::from_tag(val.as_str()) {
+					Ok(y) => {
+						x.type_ = y;
+						primary_release_type_used = true;
+					}
+					Err(_) => {
+						let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap(); // Infallible
+						x.type_secondary.get_or_insert_with(Vec::new).push(y);
+					}
+				}
+			}
+			"RELEASETYPE" if primary_release_type_used => {
+				let x = meta.get_or_default_release();
+				let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap();
+				x.type_secondary.get_or_insert_with(Vec::new).push(y);
+			}
+
+			_ => continue,
 		}
 	}
 
-	unimplemented!()
+	Ok(meta)
+}
+
+#[inline]
+fn get_val_date(x: String) -> Result<OptionedDate> {
+	let date: OptionedDate = if matchers::reg::is_ymd(x.as_str()) {
+		let splits = x.split('-').collect::<Vec<&str>>();
+
+		let year = {
+			let y = splits.first().unwrap();
+			y.parse::<i32>()?
+		};
+		let month = {
+			let y = splits.get(1).unwrap();
+			y.parse::<u32>()?
+		};
+		let day = {
+			let y = splits.get(2).unwrap();
+			y.parse::<u32>()?
+		};
+
+		Some((Some(year), Some(month), Some(day)))
+	} else if matchers::reg::is_ym(x.as_str()) {
+		let splits = x.split('-').collect::<Vec<&str>>();
+
+		let year = {
+			let y = splits.first().unwrap();
+			y.parse::<i32>()?
+		};
+		let month = {
+			let y = splits.get(1).unwrap();
+			y.parse::<u32>()?
+		};
+
+		Some((Some(year), Some(month), None))
+	} else if matchers::reg::is_year(x.as_str()) {
+		let year = crate::parse_str!(x, i32)?;
+		Some((Some(year), None, None))
+	} else {
+		None
+	};
+
+	Ok(date)
+}
+
+/// Reads into a value and tries to get an int followed by an optional int separated by a forward slash.
+///
+/// Useful for handling edge cases like track_no and track_total included in the same tag.
+///
+/// ### Example
+/// ```
+/// "2" -> (2, None)
+/// "1/2" -> (1, None)
+/// ```
+#[inline]
+fn get_no_and_maybe_total(value: String) -> Result<Option<(u32, Option<u32>)>> {
+	let tuple = if matchers::reg::is_no_and_total(value.as_str()) {
+		let splits = value.split('/').collect::<Vec<&str>>();
+		let no_str = splits.first().unwrap();
+		let total_str = splits.last().unwrap();
+
+		let no = crate::parse_str!(no_str, u32)?;
+		let total = crate::parse_str!(total_str, u32)?;
+
+		Some((no, Some(total)))
+	} else {
+		Some((value.parse::<u32>()?, None))
+	};
+
+	Ok(tuple)
 }
 
 #[cfg(test)]
@@ -96,14 +332,10 @@ mod test {
 	use super::read_track_meta;
 	use crate::errors::Result;
 
-	const TRACK_PATH: &str = r"/home/Curstantine/Music/TempLib/Duster/Stratosphere/01 Moon Age.opus";
+	const TRACK_PATH: &str = r"/home/Curstantine/Music/TempLib/Aiobahn/Set You Free/01 Set You Free.flac";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {
-		ffmpeg_next::init().unwrap();
-
-		println!("{}", ffmpeg_next::format::version());
-
 		let path = Path::new(TRACK_PATH);
 		let result = read_track_meta(path)?;
 		println!("{:#?}", result);

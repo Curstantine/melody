@@ -19,7 +19,7 @@ use crate::{
 		CountryCode, FromTag, ScriptCode,
 	},
 	errors::{self, Error, ErrorKind, Result},
-	models::temp::{resource::TempResource, TempInlinedArtist, TempTrackMeta, TempTrackResource},
+	models::temp::{resource::TempResource, OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
 	utils::matchers,
 };
 
@@ -59,7 +59,7 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 		traverse_tags(&mut meta, rev.tags())?;
 		traverse_visuals(&mut resources, rev.visuals())?;
 	} else {
-		return Err(errors::pre::symphonia_no_meta());
+		return Err(errors::pre::probe_no_meta());
 	}
 
 	Ok((meta, resources))
@@ -88,7 +88,7 @@ fn traverse_tags(meta: &mut TempTrackMeta, tags: &[SymphoniaTag]) -> Result<()> 
 	let mut primary_release_type_used = false;
 
 	if tags.is_empty() {
-		return Err(errors::pre::symphonia_no_tags());
+		return Err(errors::pre::probe_no_tags());
 	}
 
 	for tag in tags {
@@ -378,8 +378,6 @@ fn get_val_u32(value: &Value) -> Result<Option<u32>> {
 		_ => Ok(None),
 	}
 }
-
-type OptionedDate = Option<(Option<i32>, Option<u32>, Option<u32>)>;
 
 #[inline]
 fn get_val_date(value: &Value) -> Result<OptionedDate> {

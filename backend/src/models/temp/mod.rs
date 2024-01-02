@@ -6,6 +6,9 @@ pub mod release;
 pub mod resource;
 pub mod track;
 
+/// Type representing a probable date in the (year, month, day) format.
+pub type OptionedDate = Option<(Option<i32>, Option<u32>, Option<u32>)>;
+
 #[derive(Debug)]
 pub struct TempInlinedArtist {
 	pub person: Person,

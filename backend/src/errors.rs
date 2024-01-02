@@ -300,17 +300,17 @@ pub mod pre {
 	use super::{Error, ErrorKind};
 
 	#[inline]
-	pub fn symphonia_no_meta() -> Error {
+	pub fn probe_no_meta() -> Error {
 		Error::new(
-			"Symphonia: No metadata",
+			"Probe: No metadata",
 			Some("Couldn't find any metadata in track while probing"),
 		)
 	}
 
 	#[inline]
-	pub fn symphonia_no_tags() -> Error {
+	pub fn probe_no_tags() -> Error {
 		Error::new(
-			"Symphonia: No metadata",
+			"Probe: No metadata",
 			Some("Couldn't find tags related to the track while probing"),
 		)
 	}
