@@ -330,7 +330,7 @@ mod test {
 	use super::read_track_meta;
 	use crate::errors::Result;
 
-	const TRACK_PATH: &str = r"/home/Curstantine/Music/TempLib/Maison book girl/海と宇宙の子供たち/01 風の脚.flac";
+	const TRACK_PATH: &str = r"/home/Curstantine/Music/TempLib/Duster/Stratosphere/05 Docking the Pod.opus";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {
