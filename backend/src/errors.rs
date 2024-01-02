@@ -301,18 +301,20 @@ pub mod pre {
 
 	#[inline]
 	pub fn probe_no_meta() -> Error {
-		Error::new(
-			"Probe: No metadata",
-			Some("Couldn't find any metadata in track while probing"),
-		)
+		Error {
+			kind: ErrorKind::Encoder,
+			short: Cow::Borrowed("Probe: No metadata"),
+			message: Some(Cow::Borrowed("Couldn't find metadata in the track")),
+		}
 	}
 
 	#[inline]
 	pub fn probe_no_tags() -> Error {
-		Error::new(
-			"Probe: No metadata",
-			Some("Couldn't find tags related to the track while probing"),
-		)
+		Error {
+			kind: ErrorKind::Encoder,
+			short: Cow::Borrowed("Probe: No tags"),
+			message: Some(Cow::Borrowed("Couldn't find tags related to the track while probing")),
+		}
 	}
 
 	pub fn invalid_resource_type(expected: ResourceType, got: &ResourceType) -> Error {

@@ -13,9 +13,8 @@ use crate::{
 	},
 	errors::{self, Result},
 	models::temp::{OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
+	utils::matchers,
 };
-
-use super::matchers;
 
 pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)> {
 	let path_str = path.to_str().unwrap().to_string();
@@ -42,7 +41,6 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 	for tag in dict.into_iter() {
 		let key = tag.key().to_str().unwrap().to_lowercase();
 		let val = tag.value().to_string_lossy().to_string();
-		println!("{:?} {:?}", key, val);
 
 		match key.as_str() {
 			"title" => {
@@ -289,7 +287,7 @@ fn get_val_date(x: String) -> Result<OptionedDate> {
 
 		Some((Some(year), Some(month), None))
 	} else if matchers::reg::is_year(x.as_str()) {
-		let year = crate::parse_str!(x, i32)?;
+		let year = x.parse::<i32>()?;
 		Some((Some(year), None, None))
 	} else {
 		None
@@ -314,8 +312,8 @@ fn get_no_and_maybe_total(value: String) -> Result<Option<(u32, Option<u32>)>> {
 		let no_str = splits.first().unwrap();
 		let total_str = splits.last().unwrap();
 
-		let no = crate::parse_str!(no_str, u32)?;
-		let total = crate::parse_str!(total_str, u32)?;
+		let no = no_str.parse::<u32>()?;
+		let total = total_str.parse::<u32>()?;
 
 		Some((no, Some(total)))
 	} else {
@@ -332,7 +330,7 @@ mod test {
 	use super::read_track_meta;
 	use crate::errors::Result;
 
-	const TRACK_PATH: &str = r"/home/Curstantine/Music/TempLib/Aiobahn/Set You Free/01 Set You Free.flac";
+	const TRACK_PATH: &str = r"/home/Curstantine/Music/TempLib/Maison book girl/海と宇宙の子供たち/01 風の脚.flac";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {
