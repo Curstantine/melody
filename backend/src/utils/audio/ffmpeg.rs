@@ -1,11 +1,7 @@
-use std::{ffi::CString, path::Path};
+use std::{borrow::Cow, ffi::CString, path::Path};
 
 use chrono::NaiveDate;
-use rsmpeg::{
-	avformat::{AVFormatContextInput, AVStream, AVStreamRef},
-	avutil::AVDictionaryRef,
-	ffi::AVMediaType_AVMEDIA_TYPE_AUDIO,
-};
+use rsmpeg::{avformat::AVFormatContextInput, avutil::AVDictionaryRef, ffi::AVMediaType_AVMEDIA_TYPE_AUDIO};
 
 use crate::{
 	database::models::{
@@ -15,7 +11,7 @@ use crate::{
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
-	errors::{self, Result},
+	errors::{self, Error, ErrorKind, Result},
 	models::temp::{OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
 	utils::matchers,
 };
@@ -24,16 +20,16 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 	let path_str = path.to_str().unwrap().to_string();
 	let path_cstr = CString::new(path_str.as_bytes()).unwrap();
 
-	let format = AVFormatContextInput::open(&path_cstr, None, &mut None).unwrap();
+	let format = AVFormatContextInput::open(&path_cstr, None, &mut None)?;
 
 	let (tags, resources) = if let Some(meta) = format.metadata() {
 		let tags = traverse_tags(meta, path_str)?;
 		let resources = TempTrackResource::default();
 
 		(tags, resources)
-	} else if let Some((index, _)) = format.find_best_stream(AVMediaType_AVMEDIA_TYPE_AUDIO).unwrap() {
+	} else if let Some((index, _)) = format.find_best_stream(AVMediaType_AVMEDIA_TYPE_AUDIO)? {
 		let stream = format.streams().get(index).unwrap();
-		let meta = stream.metadata().unwrap();
+		let meta = stream.metadata().ok_or_else(errors::pre::probe_no_meta)?;
 
 		let tags = traverse_tags(meta, path_str)?;
 		let resources = TempTrackResource::default();
@@ -340,6 +336,30 @@ fn get_no_and_maybe_total(value: String) -> Result<Option<(u32, Option<u32>)>> {
 	Ok(tuple)
 }
 
+impl From<rsmpeg::error::RsmpegError> for Error {
+	fn from(value: rsmpeg::error::RsmpegError) -> Self {
+		use rsmpeg::error::RsmpegError as RE;
+
+		let (short, message): (&'static str, Cow<'static, str>) = match value {
+			RE::OpenInputError(int) => {
+				let y = format!("Failed to open the input file.\nFFMpeg returned error code: {int}");
+				("FFmpeg: Failed to open input", Cow::Owned(y))
+			}
+			RE::AVIOOpenError(int) => {
+				let y = format!("FFmpeg returned an AV IO open failure with return code: {int}");
+				("FFmpeg: AV IO error", Cow::Owned(y))
+			}
+			RE::CustomError(msg) => ("FFmpeg: Custom error", Cow::Owned(msg)),
+			_ => ("FFmpeg: Unhandled error", Cow::Owned(value.to_string())),
+		};
+
+		Self {
+			kind: ErrorKind::Encoder,
+			short: Cow::Borrowed(short),
+			message: Some(message),
+		}
+	}
+}
 #[cfg(test)]
 mod test {
 	use std::path::Path;
