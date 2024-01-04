@@ -1,7 +1,11 @@
 use std::{ffi::CString, path::Path};
 
 use chrono::NaiveDate;
-use rsmpeg::{avformat::AVFormatContextInput, avutil::AVDictionaryRef};
+use rsmpeg::{
+	avformat::{AVFormatContextInput, AVStream, AVStreamRef},
+	avutil::AVDictionaryRef,
+	ffi::AVMediaType_AVMEDIA_TYPE_AUDIO,
+};
 
 use crate::{
 	database::models::{
@@ -21,10 +25,23 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 	let path_cstr = CString::new(path_str.as_bytes()).unwrap();
 
 	let format = AVFormatContextInput::open(&path_cstr, None, &mut None).unwrap();
-	let meta = format.metadata().ok_or_else(errors::pre::probe_no_meta)?;
 
-	let tags = traverse_tags(meta, path_str)?;
-	let resources = TempTrackResource::default();
+	let (tags, resources) = if let Some(meta) = format.metadata() {
+		let tags = traverse_tags(meta, path_str)?;
+		let resources = TempTrackResource::default();
+
+		(tags, resources)
+	} else if let Some((index, _)) = format.find_best_stream(AVMediaType_AVMEDIA_TYPE_AUDIO).unwrap() {
+		let stream = format.streams().get(index).unwrap();
+		let meta = stream.metadata().unwrap();
+
+		let tags = traverse_tags(meta, path_str)?;
+		let resources = TempTrackResource::default();
+
+		(tags, resources)
+	} else {
+		return Err(errors::pre::probe_no_meta());
+	};
 
 	Ok((tags, resources))
 }
@@ -330,7 +347,7 @@ mod test {
 	use super::read_track_meta;
 	use crate::errors::Result;
 
-	const TRACK_PATH: &str = r"/home/Curstantine/Music/TempLib/Duster/Stratosphere/05 Docking the Pod.opus";
+	const TRACK_PATH: &str = r"/home/Curstantine/Music/TempLib/Duster/Stratosphere/01 Moon Age.opus";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {
