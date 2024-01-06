@@ -16,11 +16,10 @@ If you are interested in contributing to this project, make sure to go through t
 
 - `pnpm >=8.x.x`
 - `rustc >= 1.71.1`
-- `ffmpeg >= 6.0.0`
 
 #### Compiling ffmpeg
 
-The `ffmpeg` feature used in the backend requires the ffmpeg binary to be linked to it statically. Use the [`scripts/build_dependencies`](./scripts/build_dependencies/README.md) to automatically do it for you, or follow rsmpeg's [guide](https://github.com/larksuite/rsmpeg?tab=readme-ov-file#ffmpeg-compilation).
+The backend requires the ffmpeg binary to be linked to it statically. Use the [`scripts/build_dependencies`](./scripts/build_dependencies/README.md) to automatically do it for you, or follow rsmpeg's [guide](https://github.com/larksuite/rsmpeg?tab=readme-ov-file#ffmpeg-compilation).
 
 ### Starting
 
