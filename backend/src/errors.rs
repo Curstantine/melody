@@ -309,15 +309,6 @@ pub mod pre {
 	}
 
 	#[inline]
-	pub fn probe_no_tags() -> Error {
-		Error {
-			kind: ErrorKind::Encoder,
-			short: Cow::Borrowed("Probe: No tags"),
-			message: Some(Cow::Borrowed("Couldn't find tags related to the track while probing")),
-		}
-	}
-
-	#[inline]
 	pub fn unsupported_media_type(type_: &str) -> Error {
 		let message = format!("Unsupported media type '{type_}' was passed.");
 

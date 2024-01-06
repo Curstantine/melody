@@ -14,7 +14,9 @@ use crate::{
 		models::{cover::Cover, InlinedArtist},
 	},
 	errors::{self, Result},
-	models::temp::{cover::TempCover, TempTrackMeta, TempTrackResource},
+	models::temp::{
+		cover::TempCover, release::TempReleaseIntoArg, track::TempTrackIntoArg, TempTrackMeta, TempTrackResource,
+	},
 };
 
 /// Initializes an image resource and inserts the resource into the database, checking if the resource by same hash exists.
@@ -160,28 +162,28 @@ pub async fn handle_temp_track_meta(
 	}
 
 	if let Some(temp) = meta.release {
-		let release = temp.into_release(
-			release_artists,
+		let release = temp.into_release(TempReleaseIntoArg {
+			artists: release_artists,
 			label_ids,
-			genre_ids.clone(),
-			tag_ids.clone(),
-			release_cover_ids,
-		);
+			genre_ids: genre_ids.clone(),
+			tag_ids: tag_ids.clone(),
+			cover_ids: release_cover_ids,
+		});
 
 		let id = methods::release::get_or_insert(database, release).await?;
 		release_id = Some(id);
 	}
 
 	temp_track
-		.into_track(
+		.into_track(TempTrackIntoArg {
 			artists,
 			release_id,
 			composer_ids,
 			producer_ids,
 			genre_ids,
 			tag_ids,
-			track_cover_ids,
-		)
+			cover_ids: track_cover_ids,
+		})
 		.push_into_async(database)
 		.await?;
 
