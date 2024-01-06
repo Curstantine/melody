@@ -27,12 +27,12 @@ pub async fn initialize_image_resource(
 ) -> Result<u64> {
 	let hash = blake3::hash(&temp.data);
 	let hash_str = hash.to_hex().to_string();
-	let ext = temp.media_type.as_extension();
 
 	if let Some(id) = methods::cover::get_id(database, temp.type_, hash).await? {
 		return Ok(id);
 	};
 
+	let ext = temp.media_type.as_extension();
 	let source_res_path = resource_cover_dir.join(format!("{}.{}", &hash_str, &ext));
 	let thumb_res_path = resource_cover_dir.join(format!("{}@512.{}", &hash_str, &ext));
 

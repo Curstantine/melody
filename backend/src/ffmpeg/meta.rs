@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ffi::CString, path::Path};
+use std::{ffi::CString, path::Path};
 
 use {
 	chrono::NaiveDate,
@@ -18,7 +18,7 @@ use crate::{
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
-	errors::{self, Error, ErrorKind, Result},
+	errors::{self, Result},
 	models::temp::{cover::TempCover, OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
 	utils::matchers,
 };
@@ -27,9 +27,11 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 	let path_str = path.to_str().unwrap().to_string();
 	let path_cstr = CString::new(path_str.as_bytes()).unwrap();
 
-	let format = AVFormatContextInput::open(&path_cstr, None, &mut None)?;
-	// #[cfg(debug_assertions)]
-	// format.dump(0, &path_cstr)?;
+	#[allow(unused_mut)]
+	let mut format = AVFormatContextInput::open(&path_cstr, None, &mut None)?;
+
+	#[cfg(test)]
+	format.dump(0, &path_cstr)?;
 
 	let tags = if let Some(meta) = format.metadata() {
 		traverse_tags(meta, path_str)?
@@ -373,30 +375,6 @@ fn get_no_and_maybe_total(value: String) -> Result<Option<(u32, Option<u32>)>> {
 	Ok(tuple)
 }
 
-impl From<rsmpeg::error::RsmpegError> for Error {
-	fn from(value: rsmpeg::error::RsmpegError) -> Self {
-		use rsmpeg::error::RsmpegError as RE;
-
-		let (short, message): (&'static str, Cow<'static, str>) = match value {
-			RE::OpenInputError(int) => {
-				let y = format!("Failed to open the input file.\nFFMpeg returned error code: {int}");
-				("FFmpeg: Failed to open input", Cow::Owned(y))
-			}
-			RE::AVIOOpenError(int) => {
-				let y = format!("FFmpeg returned an AV IO open failure with return code: {int}");
-				("FFmpeg: AV IO error", Cow::Owned(y))
-			}
-			RE::CustomError(msg) => ("FFmpeg: Custom error", Cow::Owned(msg)),
-			_ => ("FFmpeg: Unhandled error", Cow::Owned(value.to_string())),
-		};
-
-		Self {
-			kind: ErrorKind::Encoder,
-			short: Cow::Borrowed(short),
-			message: Some(message),
-		}
-	}
-}
 #[cfg(test)]
 mod test {
 	use std::path::Path;
