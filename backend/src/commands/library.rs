@@ -131,7 +131,7 @@ pub async fn create_library(
 				});
 			}
 			ChannelData::Error(error, path) => {
-				error!("Error encountered while reading/indexing: {:#?}", path);
+				error!("Error encountered while reading/indexing: {path:#?}\n{error:#?}");
 				em.emit(&window, LibraryEventPayload::error(error, path))?;
 			}
 		};

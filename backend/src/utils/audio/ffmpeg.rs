@@ -25,9 +25,9 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 	let path_str = path.to_str().unwrap().to_string();
 	let path_cstr = CString::new(path_str.as_bytes()).unwrap();
 
-	let mut format = AVFormatContextInput::open(&path_cstr, None, &mut None)?;
-	#[cfg(debug_assertions)]
-	format.dump(0, &path_cstr)?;
+	let format = AVFormatContextInput::open(&path_cstr, None, &mut None)?;
+	// #[cfg(debug_assertions)]
+	// format.dump(0, &path_cstr)?;
 
 	let tags = if let Some(meta) = format.metadata() {
 		traverse_tags(meta, path_str)?

@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use blake3::Hash;
 use bonsaidb::core::{key::Key, schema::Collection};
-use rsmpeg::{avutil::AVMediaType, ffi::AVCodecID_AV_CODEC_ID_MJPEG};
+use rsmpeg::avutil::AVMediaType;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -47,8 +47,12 @@ impl ResourceMediaType {
 	/// Value corresponds to the AVCodecID
 	#[cfg(feature = "ffmpeg")]
 	pub fn from_ffmpeg(value: u32) -> errors::Result<Self> {
+		use rsmpeg::ffi::{AVCodecID_AV_CODEC_ID_MJPEG, AVCodecID_AV_CODEC_ID_PNG};
+
+		#[allow(non_upper_case_globals)]
 		let type_ = match value {
 			AVCodecID_AV_CODEC_ID_MJPEG => Self::Jpeg,
+			AVCodecID_AV_CODEC_ID_PNG => Self::Png,
 			_ => return Err(errors::pre::unsupported_media_type(&value.to_string())),
 		};
 
