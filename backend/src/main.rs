@@ -12,6 +12,7 @@ mod commands;
 mod constants;
 mod database;
 mod errors;
+mod ffmpeg;
 mod models;
 mod utils;
 
