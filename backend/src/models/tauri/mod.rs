@@ -4,9 +4,9 @@ use serde::Serialize;
 
 use crate::errors::{Error, Result};
 
+pub mod cover;
 pub mod library;
 pub mod release;
-pub mod resource;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]

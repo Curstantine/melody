@@ -3,19 +3,19 @@ use std::{
 	path::Path,
 };
 
-use bonsaidb::{core::schema::SerializedCollection, local::AsyncDatabase};
-use image::{imageops::FilterType, load_from_memory_with_format as load_img_from_mem, ImageFormat};
-
-use crate::{
-	errors::{self, pre, Result},
-	models::temp::{resource::TempResource, TempTrackMeta, TempTrackResource},
+use {
+	bonsaidb::{core::schema::SerializedCollection, local::AsyncDatabase},
+	image::{imageops::FilterType, load_from_memory_with_format as load_img_from_mem, ImageFormat},
 };
 
-use super::{
-	methods,
-	models::{
-		resource::{Resource, ResourceType},
-		InlinedArtist,
+use crate::{
+	database::{
+		methods,
+		models::{cover::Cover, InlinedArtist},
+	},
+	errors::{self, Result},
+	models::temp::{
+		cover::TempCover, release::TempReleaseIntoArg, track::TempTrackIntoArg, TempTrackMeta, TempTrackResource,
 	},
 };
 
@@ -23,27 +23,23 @@ use super::{
 pub async fn initialize_image_resource(
 	database: &AsyncDatabase,
 	resource_cover_dir: &Path,
-	temp: TempResource,
+	temp: TempCover,
 ) -> Result<u64> {
-	if temp.type_ != ResourceType::Image {
-		return Err(errors::pre::invalid_resource_type(ResourceType::Image, &temp.type_));
-	}
-
 	let hash = blake3::hash(&temp.data);
 	let hash_str = hash.to_hex().to_string();
-	let ext = temp.media_type.to_extension();
 
-	if let Some(id) = methods::resource::get_id(database, temp.type_, temp.relation_type, hash).await? {
+	if let Some(id) = methods::cover::get_id(database, temp.type_, hash).await? {
 		return Ok(id);
 	};
 
+	let ext = temp.media_type.as_extension();
 	let source_res_path = resource_cover_dir.join(format!("{}.{}", &hash_str, &ext));
 	let thumb_res_path = resource_cover_dir.join(format!("{}@512.{}", &hash_str, &ext));
 
-	let handle = tokio::task::spawn_blocking::<_, Result<Resource>>(move || {
+	let handle = tokio::task::spawn_blocking::<_, Result<Cover>>(move || {
 		fs::write(&source_res_path, &temp.data)?;
 
-		let fmt = ImageFormat::from_extension(ext).ok_or_else(|| pre::unsupported_image_type(ext))?;
+		let fmt = ImageFormat::from_extension(ext).ok_or_else(|| errors::pre::unsupported_image_type(ext))?;
 		let source = load_img_from_mem(&temp.data, fmt)?;
 		let use_thumb = source.height() >= 512;
 
@@ -52,7 +48,7 @@ pub async fn initialize_image_resource(
 			source.resize(512, 512, FilterType::Nearest).write_to(&mut file, fmt)?;
 		}
 
-		Ok(temp.into_resource(use_thumb, hash))
+		Ok(temp.into_cover(hash))
 	});
 
 	let resource = handle.await??;
@@ -166,28 +162,28 @@ pub async fn handle_temp_track_meta(
 	}
 
 	if let Some(temp) = meta.release {
-		let release = temp.into_release(
-			release_artists,
+		let release = temp.into_release(TempReleaseIntoArg {
+			artists: release_artists,
 			label_ids,
-			genre_ids.clone(),
-			tag_ids.clone(),
-			release_cover_ids,
-		);
+			genre_ids: genre_ids.clone(),
+			tag_ids: tag_ids.clone(),
+			cover_ids: release_cover_ids,
+		});
 
 		let id = methods::release::get_or_insert(database, release).await?;
 		release_id = Some(id);
 	}
 
 	temp_track
-		.into_track(
+		.into_track(TempTrackIntoArg {
 			artists,
 			release_id,
 			composer_ids,
 			producer_ids,
 			genre_ids,
 			tag_ids,
-			track_cover_ids,
-		)
+			cover_ids: track_cover_ids,
+		})
 		.push_into_async(database)
 		.await?;
 

@@ -25,15 +25,7 @@ pub struct Error {
 }
 
 impl Error {
-	pub fn new(short: &'static str, message: Option<&'static str>) -> Self {
-		Self {
-			kind: ErrorKind::Other,
-			short: Cow::Borrowed(short),
-			message: message.map(Cow::Borrowed),
-		}
-	}
-
-	pub fn new_dyn(short: &'static str, message: Cow<'static, str>) -> Self {
+	pub fn new(short: &'static str, message: Cow<'static, str>) -> Self {
 		Self {
 			kind: ErrorKind::Other,
 			short: Cow::Borrowed(short),
@@ -121,6 +113,16 @@ impl From<std::num::ParseIntError> for Error {
 			kind: ErrorKind::Conversion,
 			short: Cow::Borrowed("Conversion: integer conversion error"),
 			message: Some(Cow::Borrowed(message)),
+		}
+	}
+}
+
+impl From<std::num::ParseFloatError> for Error {
+	fn from(value: std::num::ParseFloatError) -> Self {
+		Self {
+			kind: ErrorKind::Conversion,
+			short: Cow::Borrowed("Conversion: float conversion error"),
+			message: Some(Cow::Owned(value.to_string())),
 		}
 	}
 }
@@ -282,6 +284,31 @@ impl From<image::ImageError> for Error {
 	}
 }
 
+impl From<rsmpeg::error::RsmpegError> for Error {
+	fn from(value: rsmpeg::error::RsmpegError) -> Self {
+		use rsmpeg::error::RsmpegError as RE;
+
+		let (short, message): (&'static str, Cow<'static, str>) = match value {
+			RE::OpenInputError(int) => {
+				let y = format!("Failed to open the input file.\nFFMpeg returned error code: {int}");
+				("FFmpeg: Failed to open input", Cow::Owned(y))
+			}
+			RE::AVIOOpenError(int) => {
+				let y = format!("FFmpeg returned an AV IO open failure with return code: {int}");
+				("FFmpeg: AV IO error", Cow::Owned(y))
+			}
+			RE::CustomError(msg) => ("FFmpeg: Custom error", Cow::Owned(msg)),
+			_ => ("FFmpeg: Unhandled error", Cow::Owned(value.to_string())),
+		};
+
+		Self {
+			kind: ErrorKind::Encoder,
+			short: Cow::Borrowed(short),
+			message: Some(message),
+		}
+	}
+}
+
 impl From<serde_json::Error> for Error {
 	fn from(value: serde_json::Error) -> Self {
 		Self {
@@ -295,9 +322,7 @@ impl From<serde_json::Error> for Error {
 pub mod pre {
 	use std::borrow::Cow;
 
-	use crate::database::models::resource::ResourceType;
-
-	use super::{Error, ErrorKind};
+	use crate::errors::{Error, ErrorKind};
 
 	#[inline]
 	pub fn probe_no_meta() -> Error {
@@ -309,24 +334,6 @@ pub mod pre {
 	}
 
 	#[inline]
-	pub fn probe_no_tags() -> Error {
-		Error {
-			kind: ErrorKind::Encoder,
-			short: Cow::Borrowed("Probe: No tags"),
-			message: Some(Cow::Borrowed("Couldn't find tags related to the track while probing")),
-		}
-	}
-
-	pub fn invalid_resource_type(expected: ResourceType, got: &ResourceType) -> Error {
-		let message = format!("Expected resource type to be {:?}, but got {:?}", expected, got);
-
-		Error {
-			kind: ErrorKind::Other,
-			short: Cow::Borrowed("Invalid resource type"),
-			message: Some(Cow::Owned(message)),
-		}
-	}
-
 	pub fn unsupported_media_type(type_: &str) -> Error {
 		let message = format!("Unsupported media type '{type_}' was passed.");
 
@@ -337,6 +344,7 @@ pub mod pre {
 		}
 	}
 
+	#[inline]
 	pub fn unsupported_image_type(ext: &str) -> Error {
 		let message = format!("Unsupported image file extension type: '{ext}'");
 

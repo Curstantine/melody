@@ -27,7 +27,7 @@ pub async fn insert_unique(
 
 	if let Some(ex) = matches.first() {
 		let m = format!("Library named '{}' already exists on the database.", ex.key);
-		let e = Error::new_dyn("Library already exists", Cow::Owned(m));
+		let e = Error::new("Library already exists", Cow::Owned(m));
 
 		return Err(e);
 	}

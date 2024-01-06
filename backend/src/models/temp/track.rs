@@ -14,17 +14,18 @@ pub struct TempTrack {
 	pub path: String,
 }
 
+pub struct TempTrackIntoArg {
+	pub artists: Option<Vec<InlinedArtist>>,
+	pub release_id: Option<u64>,
+	pub composer_ids: Option<Vec<u64>>,
+	pub producer_ids: Option<Vec<u64>>,
+	pub genre_ids: Option<Vec<u64>>,
+	pub tag_ids: Option<Vec<u64>>,
+	pub cover_ids: Option<Vec<u64>>,
+}
+
 impl TempTrack {
-	pub fn into_track(
-		self,
-		artists: Option<Vec<InlinedArtist>>,
-		release_id: Option<u64>,
-		composer_ids: Option<Vec<u64>>,
-		producer_ids: Option<Vec<u64>>,
-		genre_ids: Option<Vec<u64>>,
-		tag_ids: Option<Vec<u64>>,
-		cover_ids: Option<Vec<u64>>,
-	) -> Track {
+	pub fn into_track(self, arg: TempTrackIntoArg) -> Track {
 		Track {
 			title: self.title,
 			title_sort: self.title_sort,
@@ -35,13 +36,13 @@ impl TempTrack {
 			mbz_id: self.mbz_id,
 			path: self.path,
 
-			artists,
-			release_id,
-			composer_ids,
-			producer_ids,
-			genre_ids,
-			tag_ids,
-			cover_ids,
+			artists: arg.artists,
+			release_id: arg.release_id,
+			composer_ids: arg.composer_ids,
+			producer_ids: arg.producer_ids,
+			genre_ids: arg.genre_ids,
+			tag_ids: arg.tag_ids,
+			cover_ids: arg.cover_ids,
 		}
 	}
 }

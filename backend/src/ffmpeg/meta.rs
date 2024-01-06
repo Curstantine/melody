@@ -1,23 +1,25 @@
-use std::{borrow::Cow, ffi::CString, path::Path};
+use std::{ffi::CString, path::Path};
 
-use chrono::NaiveDate;
-use rsmpeg::{
-	avformat::AVFormatContextInput,
-	avutil::AVDictionaryRef,
-	ffi::{AVMediaType_AVMEDIA_TYPE_AUDIO, AVMediaType_AVMEDIA_TYPE_VIDEO, AV_DISPOSITION_ATTACHED_PIC},
+use {
+	chrono::NaiveDate,
+	rsmpeg::{
+		avformat::AVFormatContextInput,
+		avutil::AVDictionaryRef,
+		ffi::{AVMediaType_AVMEDIA_TYPE_AUDIO, AVMediaType_AVMEDIA_TYPE_VIDEO, AV_DISPOSITION_ATTACHED_PIC},
+	},
 };
 
 use crate::{
 	database::models::{
+		cover::{CoverMediaType, CoverType},
 		label::Label,
 		person::{Person, PersonType},
 		release::{ReleaseType, ReleaseTypeSecondary},
-		resource::{ResourceMediaType, ResourceRelationType, ResourceType},
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
-	errors::{self, Error, ErrorKind, Result},
-	models::temp::{resource::TempResource, OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
+	errors::{self, Result},
+	models::temp::{cover::TempCover, OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
 	utils::matchers,
 };
 
@@ -25,9 +27,11 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 	let path_str = path.to_str().unwrap().to_string();
 	let path_cstr = CString::new(path_str.as_bytes()).unwrap();
 
-	let format = AVFormatContextInput::open(&path_cstr, None, &mut None)?;
-	// #[cfg(debug_assertions)]
-	// format.dump(0, &path_cstr)?;
+	#[allow(unused_mut)]
+	let mut format = AVFormatContextInput::open(&path_cstr, None, &mut None)?;
+
+	#[cfg(test)]
+	format.dump(0, &path_cstr)?;
 
 	let tags = if let Some(meta) = format.metadata() {
 		traverse_tags(meta, path_str)?
@@ -49,6 +53,14 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 			let codec = stream.codecpar();
 			let opt = resource.release_covers.get_or_insert_with(Vec::new);
 
+			let comment = if let Some(meta) = stream.metadata() {
+				let key = CString::new("comment").unwrap();
+				let h = meta.get(key.as_c_str(), None, 0);
+				h.map(|x| x.value().to_string_lossy().to_string())
+			} else {
+				None
+			};
+
 			// We will have to copy the slice into a vec regardless because we don't own the
 			// memory from libavcodec, and I feel safer this way.
 			let data = unsafe {
@@ -56,10 +68,11 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 				slice.to_vec().into_boxed_slice()
 			};
 
-			opt.push(TempResource {
-				type_: ResourceType::Image,
-				relation_type: ResourceRelationType::Track,
-				media_type: ResourceMediaType::from_ffmpeg(codec.codec_id)?,
+			opt.push(TempCover {
+				type_: CoverType::Release,
+				media_type: CoverMediaType::from_codec_id(codec.codec_id)?,
+				resolution: (codec.height as u16, codec.width as u16),
+				comment,
 				data,
 			});
 		}
@@ -362,30 +375,6 @@ fn get_no_and_maybe_total(value: String) -> Result<Option<(u32, Option<u32>)>> {
 	Ok(tuple)
 }
 
-impl From<rsmpeg::error::RsmpegError> for Error {
-	fn from(value: rsmpeg::error::RsmpegError) -> Self {
-		use rsmpeg::error::RsmpegError as RE;
-
-		let (short, message): (&'static str, Cow<'static, str>) = match value {
-			RE::OpenInputError(int) => {
-				let y = format!("Failed to open the input file.\nFFMpeg returned error code: {int}");
-				("FFmpeg: Failed to open input", Cow::Owned(y))
-			}
-			RE::AVIOOpenError(int) => {
-				let y = format!("FFmpeg returned an AV IO open failure with return code: {int}");
-				("FFmpeg: AV IO error", Cow::Owned(y))
-			}
-			RE::CustomError(msg) => ("FFmpeg: Custom error", Cow::Owned(msg)),
-			_ => ("FFmpeg: Unhandled error", Cow::Owned(value.to_string())),
-		};
-
-		Self {
-			kind: ErrorKind::Encoder,
-			short: Cow::Borrowed(short),
-			message: Some(message),
-		}
-	}
-}
 #[cfg(test)]
 mod test {
 	use std::path::Path;

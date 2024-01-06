@@ -12,15 +12,15 @@ use {
 
 use crate::{
 	database::{
-		models::{person::Person, release::Release, resource::Resource},
+		models::{cover::Cover, person::Person, release::Release},
 		views::release::ReleaseByNameAndArtist,
 	},
 	errors::Result,
 	models::{
 		state::{DatabaseState, DirectoryState},
 		tauri::{
+			cover::DisplayCoverResource,
 			release::{DisplayReleases, ReleaseEntity},
-			resource::DisplayImageResource,
 		},
 	},
 };
@@ -92,16 +92,16 @@ pub async fn get_display_releases(
 	let cover_ids = cover_set.into_iter().map(DocumentId::from_u64).collect::<Vec<_>>();
 
 	let mut artists = HashMap::<u64, Person>::with_capacity(artist_ids.len());
-	let mut covers = HashMap::<u64, DisplayImageResource>::with_capacity(cover_ids.len());
+	let mut covers = HashMap::<u64, DisplayCoverResource>::with_capacity(cover_ids.len());
 
 	for i in Person::get_multiple_async(&artist_ids, database.inner_ref()).await? {
 		artists.insert(i.header.id, i.contents);
 	}
 
-	for i in Resource::get_multiple_async(&cover_ids, database.inner_ref()).await? {
+	for i in Cover::get_multiple_async(&cover_ids, database.inner_ref()).await? {
 		covers.insert(
 			i.header.id,
-			DisplayImageResource::from_resource(i.contents, &resource_cover_dir),
+			DisplayCoverResource::from_cover(i.contents, &resource_cover_dir),
 		);
 	}
 

@@ -27,7 +27,7 @@ pub async fn insert_with_unique_id(
 	match Person::get_async(&id, database).await? {
 		Some(_) => {
 			let m = format!("A person by this document id '{id}' already exists");
-			let e = Error::new_dyn("Person already exists", Cow::Owned(m));
+			let e = Error::new("Person already exists", Cow::Owned(m));
 			Err(e)
 		}
 		None => person.insert_into_async(&id, database).await.map_err(Error::from),

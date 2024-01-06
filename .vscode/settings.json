@@ -11,8 +11,6 @@
 
 	"unocss.root": ["app/"],
 
-	"rust-analyzer.cargo.features": ["ffmpeg"],
-
 	"eslint.workingDirectories": [
 		{
 			"directory": "app",
@@ -21,6 +19,8 @@
 	],
 
 	"cSpell.words": [
+		"avformat",
+		"avutil",
 		"bonsaidb",
 		"Brainz",
 		"bson",
@@ -32,12 +32,14 @@
 		"flac",
 		"Iconify",
 		"Jpan",
+		"MJPEG",
 		"Nebari",
 		"ORIGINALYEAR",
 		"Pathed",
 		"polodb",
 		"RELEASETYPE",
 		"rereduce",
+		"rsmpeg",
 		"serde",
 		"stylesheet",
 		"TASA",
@@ -51,7 +53,7 @@
 	],
 	"files.exclude": {
 		"**/dist": true,
-		// "**/target": true,
+		"**/target": true,
 		"**/node_modules": true
 	}
 }
