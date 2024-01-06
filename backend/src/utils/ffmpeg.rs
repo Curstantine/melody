@@ -1,10 +1,12 @@
 use std::{borrow::Cow, ffi::CString, path::Path};
 
-use chrono::NaiveDate;
-use rsmpeg::{
-	avformat::AVFormatContextInput,
-	avutil::AVDictionaryRef,
-	ffi::{AVMediaType_AVMEDIA_TYPE_AUDIO, AVMediaType_AVMEDIA_TYPE_VIDEO, AV_DISPOSITION_ATTACHED_PIC},
+use {
+	chrono::NaiveDate,
+	rsmpeg::{
+		avformat::AVFormatContextInput,
+		avutil::AVDictionaryRef,
+		ffi::{AVMediaType_AVMEDIA_TYPE_AUDIO, AVMediaType_AVMEDIA_TYPE_VIDEO, AV_DISPOSITION_ATTACHED_PIC},
+	},
 };
 
 use crate::{

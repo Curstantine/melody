@@ -25,15 +25,7 @@ pub struct Error {
 }
 
 impl Error {
-	pub fn new(short: &'static str, message: Option<&'static str>) -> Self {
-		Self {
-			kind: ErrorKind::Other,
-			short: Cow::Borrowed(short),
-			message: message.map(Cow::Borrowed),
-		}
-	}
-
-	pub fn new_dyn(short: &'static str, message: Cow<'static, str>) -> Self {
+	pub fn new(short: &'static str, message: Cow<'static, str>) -> Self {
 		Self {
 			kind: ErrorKind::Other,
 			short: Cow::Borrowed(short),
@@ -295,9 +287,10 @@ impl From<serde_json::Error> for Error {
 pub mod pre {
 	use std::borrow::Cow;
 
-	use crate::database::models::resource::ResourceType;
-
-	use super::{Error, ErrorKind};
+	use crate::{
+		database::models::resource::ResourceType,
+		errors::{Error, ErrorKind},
+	};
 
 	#[inline]
 	pub fn probe_no_meta() -> Error {
@@ -317,6 +310,7 @@ pub mod pre {
 		}
 	}
 
+	#[inline]
 	pub fn invalid_resource_type(expected: ResourceType, got: &ResourceType) -> Error {
 		let message = format!("Expected resource type to be {:?}, but got {:?}", expected, got);
 
@@ -327,6 +321,7 @@ pub mod pre {
 		}
 	}
 
+	#[inline]
 	pub fn unsupported_media_type(type_: &str) -> Error {
 		let message = format!("Unsupported media type '{type_}' was passed.");
 
@@ -337,6 +332,7 @@ pub mod pre {
 		}
 	}
 
+	#[inline]
 	pub fn unsupported_image_type(ext: &str) -> Error {
 		let message = format!("Unsupported image file extension type: '{ext}'");
 
