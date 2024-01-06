@@ -8,6 +8,7 @@ pub enum ErrorKind {
 	Io,
 	Conversion,
 	Database,
+	Encoder,
 	Other,
 }
 
@@ -259,34 +260,6 @@ impl<T: std::fmt::Debug + Send + 'static> From<bonsaidb::core::schema::InsertErr
 	}
 }
 
-impl From<symphonia::core::errors::Error> for Error {
-	fn from(value: symphonia::core::errors::Error) -> Self {
-		use symphonia::core::errors::Error as SE;
-
-		let (short, message): (&'static str, Cow<'static, str>) = match value {
-			SE::DecodeError(x) => (
-				"Symphonia: Decode failure",
-				Cow::Owned(format!("The stream is either malformed or could not be decoded. {x}")),
-			),
-			SE::Unsupported(x) => {
-				let y = format!("Symphonia was invoked with an unsupported codec/container feature: {x}");
-				("Symphonia: Unsupported feature", Cow::Owned(y))
-			}
-			SE::IoError(x) => {
-				let e = Error::from(x);
-				("Symphonia: IO error", Cow::Owned(e.to_string()))
-			}
-			_ => ("Symphonia: Unhandled error", Cow::Owned(value.to_string())),
-		};
-
-		Self {
-			kind: ErrorKind::Database,
-			short: Cow::Borrowed(short),
-			message: Some(message),
-		}
-	}
-}
-
 impl From<image::ImageError> for Error {
 	fn from(value: image::ImageError) -> Self {
 		use image::ImageError as IE;
@@ -327,19 +300,21 @@ pub mod pre {
 	use super::{Error, ErrorKind};
 
 	#[inline]
-	pub fn symphonia_no_meta() -> Error {
-		Error::new(
-			"Symphonia: No metadata",
-			Some("Couldn't find any metadata in track while probing"),
-		)
+	pub fn probe_no_meta() -> Error {
+		Error {
+			kind: ErrorKind::Encoder,
+			short: Cow::Borrowed("Probe: No metadata"),
+			message: Some(Cow::Borrowed("Couldn't find metadata in the track")),
+		}
 	}
 
 	#[inline]
-	pub fn symphonia_no_tags() -> Error {
-		Error::new(
-			"Symphonia: No metadata",
-			Some("Couldn't find tags related to the track while probing"),
-		)
+	pub fn probe_no_tags() -> Error {
+		Error {
+			kind: ErrorKind::Encoder,
+			short: Cow::Borrowed("Probe: No tags"),
+			message: Some(Cow::Borrowed("Couldn't find tags related to the track while probing")),
+		}
 	}
 
 	pub fn invalid_resource_type(expected: ResourceType, got: &ResourceType) -> Error {
@@ -348,6 +323,16 @@ pub mod pre {
 		Error {
 			kind: ErrorKind::Other,
 			short: Cow::Borrowed("Invalid resource type"),
+			message: Some(Cow::Owned(message)),
+		}
+	}
+
+	pub fn unsupported_media_type(type_: &str) -> Error {
+		let message = format!("Unsupported media type '{type_}' was passed.");
+
+		Error {
+			kind: ErrorKind::Other,
+			short: Cow::Borrowed("Invalid media type"),
 			message: Some(Cow::Owned(message)),
 		}
 	}

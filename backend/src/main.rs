@@ -4,9 +4,9 @@
 use tauri::WindowEvent;
 use tracing::info;
 
-use models::state::AppState;
+use crate::models::state::{AppState, DatabaseState, DirectoryState};
 
-use crate::models::state::{DatabaseState, DirectoryState};
+pub mod macros;
 
 mod commands;
 mod constants;
@@ -17,7 +17,6 @@ mod utils;
 
 fn main() {
 	tracing_subscriber::fmt::init();
-
 	info!("Starting application");
 
 	tauri::Builder::default()

@@ -11,6 +11,8 @@
 
 	"unocss.root": ["app/"],
 
+	"rust-analyzer.cargo.features": ["ffmpeg"],
+
 	"eslint.workingDirectories": [
 		{
 			"directory": "app",
@@ -49,7 +51,7 @@
 	],
 	"files.exclude": {
 		"**/dist": true,
-		"**/target": true,
+		// "**/target": true,
 		"**/node_modules": true
 	}
 }

@@ -1,0 +1,2 @@
+[env]
+FFMPEG_PKG_CONFIG_PATH = { value = "target/build_dependencies/ffmpeg_build/lib/pkgconfig/", relative = true }

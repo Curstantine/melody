@@ -1,4 +1,4 @@
-use std::{fs::File, path::Path};
+use std::{borrow::Cow, fs::File, path::Path};
 
 use chrono::NaiveDate;
 use symphonia::core::{
@@ -18,11 +18,10 @@ use crate::{
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
-	errors::{self, Result},
-	models::temp::{resource::TempResource, TempInlinedArtist, TempTrackMeta, TempTrackResource},
+	errors::{self, Error, ErrorKind, Result},
+	models::temp::{resource::TempResource, OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
+	utils::matchers,
 };
-
-use super::matchers;
 
 pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)> {
 	let extension = path.extension().and_then(|s| s.to_str());
@@ -60,7 +59,7 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 		traverse_tags(&mut meta, rev.tags())?;
 		traverse_visuals(&mut resources, rev.visuals())?;
 	} else {
-		return Err(errors::pre::symphonia_no_meta());
+		return Err(errors::pre::probe_no_meta());
 	}
 
 	Ok((meta, resources))
@@ -89,7 +88,7 @@ fn traverse_tags(meta: &mut TempTrackMeta, tags: &[SymphoniaTag]) -> Result<()> 
 	let mut primary_release_type_used = false;
 
 	if tags.is_empty() {
-		return Err(errors::pre::symphonia_no_tags());
+		return Err(errors::pre::probe_no_tags());
 	}
 
 	for tag in tags {
@@ -380,8 +379,6 @@ fn get_val_u32(value: &Value) -> Result<Option<u32>> {
 	}
 }
 
-type OptionedDate = Option<(Option<i32>, Option<u32>, Option<u32>)>;
-
 #[inline]
 fn get_val_date(value: &Value) -> Result<OptionedDate> {
 	let date: OptionedDate = match value {
@@ -461,12 +458,40 @@ fn get_no_and_maybe_total(value: &Value) -> Result<Option<(u32, Option<u32>)>> {
 	Ok(tuple)
 }
 
+impl From<symphonia::core::errors::Error> for Error {
+	fn from(value: symphonia::core::errors::Error) -> Self {
+		use symphonia::core::errors::Error as SE;
+
+		let (short, message): (&'static str, Cow<'static, str>) = match value {
+			SE::DecodeError(x) => (
+				"Symphonia: Decode failure",
+				Cow::Owned(format!("The stream is either malformed or could not be decoded. {x}")),
+			),
+			SE::Unsupported(x) => {
+				let y = format!("Symphonia was invoked with an unsupported codec/container feature: {x}");
+				("Symphonia: Unsupported feature", Cow::Owned(y))
+			}
+			SE::IoError(x) => {
+				let e = Error::from(x);
+				("Symphonia: IO error", Cow::Owned(e.to_string()))
+			}
+			_ => ("Symphonia: Unhandled error", Cow::Owned(value.to_string())),
+		};
+
+		Self {
+			kind: ErrorKind::Encoder,
+			short: Cow::Borrowed(short),
+			message: Some(message),
+		}
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use std::path::Path;
 
+	use super::read_track_meta;
 	use crate::errors::Result;
-	use crate::utils::symphonia::read_track_meta;
 
 	const TRACK_PATH: &str = r"C:\Users\Curstantine\Music\TempLib\Annabel\caracol\10 glimmer.flac";
 

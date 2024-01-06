@@ -26,6 +26,7 @@ pub struct LocalSchema;
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CountryCode {
 	Worldwide,
+	Japan,
 	Other(String),
 }
 
@@ -35,6 +36,7 @@ impl FromTag for CountryCode {
 	fn from_tag(value: &str) -> Result<Self, Self::Error> {
 		let value = match value.to_lowercase().as_str() {
 			"xw" => Self::Worldwide,
+			"jp" => Self::Japan,
 			_ => Self::Other(value.to_owned()),
 		};
 

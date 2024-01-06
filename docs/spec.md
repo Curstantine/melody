@@ -4,14 +4,14 @@ Contains the specification both the frontend and backend should follow. This doc
 
 <!-- dprint-ignore-start -->
 <!-- TOC -->
-* [Specification](#specification)
-  * [Directories](#directories)
-    * [Config Directory](#config-directory)
-    * [Data Directory](#data-directory)
-  * [Persistence](#persistence)
-    * [Primary (BonsaiDB)](#primary-bonsaidb)
-    * [Settings (TOML)](#settings-toml)
-  * [Models](#models)
+- [Specification](#specification)
+  - [Directories](#directories)
+    - [Config Directory](#config-directory)
+    - [Data Directory](#data-directory)
+  - [Persistence](#persistence)
+    - [Primary (BonsaiDB)](#primary-bonsaidb)
+    - [Settings (TOML)](#settings-toml)
+  - [Models](#models)
 <!-- TOC -->
 <!-- dprint-ignore-end -->
 
