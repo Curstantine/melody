@@ -11,15 +11,15 @@ use {
 
 use crate::{
 	database::models::{
+		cover::{CoverMediaType, CoverType},
 		label::Label,
 		person::{Person, PersonType},
 		release::{ReleaseType, ReleaseTypeSecondary},
-		resource::{ResourceMediaType, ResourceRelationType, ResourceType},
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
 	errors::{self, Error, ErrorKind, Result},
-	models::temp::{resource::TempResource, OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
+	models::temp::{cover::TempCover, OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
 	utils::matchers,
 };
 
@@ -51,6 +51,14 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 			let codec = stream.codecpar();
 			let opt = resource.release_covers.get_or_insert_with(Vec::new);
 
+			let comment = if let Some(meta) = stream.metadata() {
+				let key = CString::new("comment").unwrap();
+				let h = meta.get(key.as_c_str(), None, 0);
+				h.map(|x| x.value().to_string_lossy().to_string())
+			} else {
+				None
+			};
+
 			// We will have to copy the slice into a vec regardless because we don't own the
 			// memory from libavcodec, and I feel safer this way.
 			let data = unsafe {
@@ -58,10 +66,11 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 				slice.to_vec().into_boxed_slice()
 			};
 
-			opt.push(TempResource {
-				type_: ResourceType::Image,
-				relation_type: ResourceRelationType::Track,
-				media_type: ResourceMediaType::from_ffmpeg(codec.codec_id)?,
+			opt.push(TempCover {
+				type_: CoverType::Release,
+				media_type: CoverMediaType::from_codec_id(codec.codec_id)?,
+				resolution: (codec.height as u16, codec.width as u16),
+				comment,
 				data,
 			});
 		}

@@ -117,6 +117,16 @@ impl From<std::num::ParseIntError> for Error {
 	}
 }
 
+impl From<std::num::ParseFloatError> for Error {
+    fn from(value: std::num::ParseFloatError) -> Self {
+        Self {
+			kind: ErrorKind::Conversion,
+			short: Cow::Borrowed("Conversion: float conversion error"),
+			message: Some(Cow::Owned(value.to_string()))
+		}
+    }
+}
+
 impl From<chrono::ParseError> for Error {
 	fn from(value: chrono::ParseError) -> Self {
 		use chrono::format::ParseErrorKind as PEK;

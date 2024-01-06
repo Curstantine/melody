@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::constants::UNKNOWN_PERSON_ID;
 
+pub mod cover;
 pub mod label;
 pub mod library;
 pub mod person;
