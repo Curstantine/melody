@@ -1,10 +1,9 @@
 use crate::database::models::{label::Label, person::Person, release::ReleaseType, tag::Tag, InlinedArtist};
 
-use self::{cover::TempCover, release::TempRelease, resource::TempResource, track::TempTrack};
+use self::{cover::TempCover, release::TempRelease, track::TempTrack};
 
 pub mod cover;
 pub mod release;
-pub mod resource;
 pub mod track;
 
 /// Type representing a probable date in the (year, month, day) format.

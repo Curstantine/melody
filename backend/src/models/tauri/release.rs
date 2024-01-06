@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::database::models::{person::Person, release::Release};
 
-use super::{resource::DisplayImageResource, Entity};
+use super::{cover::DisplayCoverResource, Entity};
 
 pub type ReleaseEntity = Entity<Release>;
 
@@ -12,5 +12,5 @@ pub type ReleaseEntity = Entity<Release>;
 pub struct DisplayReleases {
 	pub releases: HashMap<u64, Release>,
 	pub artists: HashMap<u64, Person>,
-	pub covers: HashMap<u64, DisplayImageResource>,
+	pub covers: HashMap<u64, DisplayCoverResource>,
 }

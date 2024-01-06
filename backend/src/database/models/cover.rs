@@ -5,7 +5,7 @@ use {
 };
 
 use crate::{
-	database::views::resource::ResourceByTypeAndHash,
+	database::views::cover::CoverByTypeAndHash,
 	errors::{self, Result},
 };
 
@@ -25,7 +25,7 @@ pub enum CoverMediaType {
 }
 
 #[derive(Debug, Serialize, Deserialize, Collection)]
-#[collection(name = "covers", views = [ResourceByTypeAndHash])]
+#[collection(name = "covers", views = [CoverByTypeAndHash])]
 pub struct Cover {
 	pub type_: CoverType,
 	pub media_type: CoverMediaType,

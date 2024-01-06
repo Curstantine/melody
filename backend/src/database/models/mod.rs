@@ -8,7 +8,6 @@ pub mod label;
 pub mod library;
 pub mod person;
 pub mod release;
-pub mod resource;
 pub mod tag;
 pub mod track;
 
@@ -18,9 +17,9 @@ pub mod track;
     library::Library,
     person::Person,
     release::Release,
-	resource::Resource,
     tag::Tag,
     track::Track,
+	cover::Cover,
 ])]
 pub struct LocalSchema;
 

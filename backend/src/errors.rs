@@ -118,13 +118,13 @@ impl From<std::num::ParseIntError> for Error {
 }
 
 impl From<std::num::ParseFloatError> for Error {
-    fn from(value: std::num::ParseFloatError) -> Self {
-        Self {
+	fn from(value: std::num::ParseFloatError) -> Self {
+		Self {
 			kind: ErrorKind::Conversion,
 			short: Cow::Borrowed("Conversion: float conversion error"),
-			message: Some(Cow::Owned(value.to_string()))
+			message: Some(Cow::Owned(value.to_string())),
 		}
-    }
+	}
 }
 
 impl From<chrono::ParseError> for Error {
@@ -297,10 +297,7 @@ impl From<serde_json::Error> for Error {
 pub mod pre {
 	use std::borrow::Cow;
 
-	use crate::{
-		database::models::resource::ResourceType,
-		errors::{Error, ErrorKind},
-	};
+	use crate::errors::{Error, ErrorKind};
 
 	#[inline]
 	pub fn probe_no_meta() -> Error {
@@ -317,17 +314,6 @@ pub mod pre {
 			kind: ErrorKind::Encoder,
 			short: Cow::Borrowed("Probe: No tags"),
 			message: Some(Cow::Borrowed("Couldn't find tags related to the track while probing")),
-		}
-	}
-
-	#[inline]
-	pub fn invalid_resource_type(expected: ResourceType, got: &ResourceType) -> Error {
-		let message = format!("Expected resource type to be {:?}, but got {:?}", expected, got);
-
-		Error {
-			kind: ErrorKind::Other,
-			short: Cow::Borrowed("Invalid resource type"),
-			message: Some(Cow::Owned(message)),
 		}
 	}
 
