@@ -327,6 +327,16 @@ pub mod pre {
 		}
 	}
 
+	pub fn unsupported_media_type(type_: &str) -> Error {
+		let message = format!("Unsupported media type '{type_}' was passed.");
+
+		Error {
+			kind: ErrorKind::Other,
+			short: Cow::Borrowed("Invalid media type"),
+			message: Some(Cow::Owned(message)),
+		}
+	}
+
 	pub fn unsupported_image_type(ext: &str) -> Error {
 		let message = format!("Unsupported image file extension type: '{ext}'");
 

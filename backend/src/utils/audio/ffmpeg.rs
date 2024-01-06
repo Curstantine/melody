@@ -1,18 +1,23 @@
 use std::{borrow::Cow, ffi::CString, path::Path};
 
 use chrono::NaiveDate;
-use rsmpeg::{avformat::AVFormatContextInput, avutil::AVDictionaryRef, ffi::AVMediaType_AVMEDIA_TYPE_AUDIO};
+use rsmpeg::{
+	avformat::AVFormatContextInput,
+	avutil::AVDictionaryRef,
+	ffi::{AVMediaType_AVMEDIA_TYPE_AUDIO, AVMediaType_AVMEDIA_TYPE_VIDEO, AV_DISPOSITION_ATTACHED_PIC},
+};
 
 use crate::{
 	database::models::{
 		label::Label,
 		person::{Person, PersonType},
 		release::{ReleaseType, ReleaseTypeSecondary},
+		resource::{ResourceMediaType, ResourceRelationType, ResourceType},
 		tag::{Tag, TagType},
 		CountryCode, FromTag, ScriptCode,
 	},
 	errors::{self, Error, ErrorKind, Result},
-	models::temp::{OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
+	models::temp::{resource::TempResource, OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
 	utils::matchers,
 };
 
@@ -20,26 +25,47 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 	let path_str = path.to_str().unwrap().to_string();
 	let path_cstr = CString::new(path_str.as_bytes()).unwrap();
 
-	let format = AVFormatContextInput::open(&path_cstr, None, &mut None)?;
+	let mut format = AVFormatContextInput::open(&path_cstr, None, &mut None)?;
+	#[cfg(debug_assertions)]
+	format.dump(0, &path_cstr)?;
 
-	let (tags, resources) = if let Some(meta) = format.metadata() {
-		let tags = traverse_tags(meta, path_str)?;
-		let resources = TempTrackResource::default();
-
-		(tags, resources)
+	let tags = if let Some(meta) = format.metadata() {
+		traverse_tags(meta, path_str)?
 	} else if let Some((index, _)) = format.find_best_stream(AVMediaType_AVMEDIA_TYPE_AUDIO)? {
 		let stream = format.streams().get(index).unwrap();
 		let meta = stream.metadata().ok_or_else(errors::pre::probe_no_meta)?;
 
-		let tags = traverse_tags(meta, path_str)?;
-		let resources = TempTrackResource::default();
-
-		(tags, resources)
+		traverse_tags(meta, path_str)?
 	} else {
 		return Err(errors::pre::probe_no_meta());
 	};
 
-	Ok((tags, resources))
+	let mut resource = TempTrackResource::default();
+	if let Some((index, _)) = format.find_best_stream(AVMediaType_AVMEDIA_TYPE_VIDEO)? {
+		let stream = format.streams().get(index).unwrap();
+
+		if stream.disposition as u32 == AV_DISPOSITION_ATTACHED_PIC {
+			let pic = stream.attached_pic;
+			let codec = stream.codecpar();
+			let opt = resource.release_covers.get_or_insert_with(Vec::new);
+
+			// We will have to copy the slice into a vec regardless because we don't own the
+			// memory from libavcodec, and I feel safer this way.
+			let data = unsafe {
+				let slice = std::slice::from_raw_parts(pic.data, pic.size as usize);
+				slice.to_vec().into_boxed_slice()
+			};
+
+			opt.push(TempResource {
+				type_: ResourceType::Image,
+				relation_type: ResourceRelationType::Track,
+				media_type: ResourceMediaType::from_ffmpeg(codec.codec_id)?,
+				data,
+			});
+		}
+	}
+
+	Ok((tags, resource))
 }
 
 fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrackMeta> {
@@ -367,7 +393,7 @@ mod test {
 	use super::read_track_meta;
 	use crate::errors::Result;
 
-	const TRACK_PATH: &str = r"/home/Curstantine/Music/TempLib/Duster/Stratosphere/01 Moon Age.opus";
+	const TRACK_PATH: &str = r"/home/Curstantine/Music/TempLib/南ことり(CV.内田彩)/ラブライブ!Solo Live! from μ's 南ことり Extra/01 Anemone heart (KOTORI Mix).opus";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {
