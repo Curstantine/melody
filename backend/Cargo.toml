@@ -64,7 +64,7 @@ version = "1.32.0"
 features = ["full"]
 
 [package.metadata.vcpkg]
-dependencies = ["ffmpeg"]
+dependencies = ["ffmpeg[mp3lame,opus,vorbis]"]
 git = "https://github.com/microsoft/vcpkg"
 rev = "83444c5"
 
