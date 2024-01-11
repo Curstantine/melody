@@ -16,10 +16,21 @@ If you are interested in contributing to this project, make sure to go through t
 
 - `pnpm >=8.x.x`
 - `rustc >= 1.71.1`
+- [`cargo-vcpkg`](https://github.com/mcgoo/cargo-vcpkg)
 
 #### Compiling ffmpeg
 
-The backend requires the ffmpeg binary to be linked to it statically. Use the [`scripts/build_dependencies`](./scripts/build_dependencies/README.md) to automatically do it for you, or follow rsmpeg's [guide](https://github.com/larksuite/rsmpeg?tab=readme-ov-file#ffmpeg-compilation).
+FFmpeg is compiled through the vcpkg definition in the [`backend/Cargo.toml`](./backend//Cargo.toml).
+
+Before running `cargo vcpkg build`, run the setup script specific to your platform.
+
+```sh
+# Windows
+./scripts/setup_windows.ps1
+
+# unix
+./scripts/setup_unix.sh
+```
 
 ### Starting
 

@@ -63,6 +63,11 @@ features = [
 version = "1.32.0"
 features = ["full"]
 
+[package.metadata.vcpkg]
+dependencies = ["ffmpeg"]
+git = "https://github.com/microsoft/vcpkg"
+rev = "83444c5"
+
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.
 # If you use cargo directly instead of tauri's cli you can use this feature flag to switch between tauri's `dev` and `build` modes.
