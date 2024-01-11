@@ -68,12 +68,11 @@ pub fn configure(path: &Path, build_path: &Path) -> Result<()> {
 
 	#[cfg(windows)]
 	Command::new(path)
-		.arg(format!("--prefix={}", build_path))
+		.arg(format!("--prefix={:?}", build_path))
 		.args(FFMPEG_BUILD_FEATURES)
-		.arg("--arch=x86")
-		.arg("--target-os=mingw32")
-		.arg("--cross-prefix=i686-w64-mingw32-")
-		.arg("--pkg-config=pkg-config")
+		.arg("--arch=x86_64")
+		.arg("--target-os=win64")
+		.arg("--toolchain=msvc")
 		.status()?;
 
 	println!("Finished configuring");
