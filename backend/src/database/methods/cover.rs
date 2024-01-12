@@ -19,5 +19,5 @@ pub async fn get_id(database: &AsyncDatabase, type_: CoverType, hash: Hash) -> R
 		.query()
 		.await?;
 
-	Ok(matches.get(0).map(|e| e.source.id))
+	Ok(matches.first().map(|e| e.source.id))
 }

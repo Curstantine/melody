@@ -27,11 +27,12 @@ Paths:
 
 ### Data Directory
 
-The data directory contains all the files that are not user-editable, or are not meant to be edited by the user.
+The data directory contains all the files that are not meant to be edited by the user.
 
 Paths:
 
 - Linux: `${XDG_DATA_HOME}/moe.curstantine.melody/`
+- Windows: `$env:APPDATA/moe.curstantine.melody/`
 
 ## Persistence
 
@@ -61,4 +62,4 @@ Different model types used to store data in the [`primary`](#primary-bonsaidb) d
 - [Person](./models/person.md)
 - [Release](./models/release.md)
 - [Track](./models/track.md)
-- [Resource](./models/resource.md)
+- [Cover](./models/cover.md)
