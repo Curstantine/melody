@@ -68,6 +68,9 @@ dependencies = ["ffmpeg[mp3lame,opus,vorbis]"]
 git = "https://github.com/microsoft/vcpkg"
 rev = "83444c5"
 
+[package.metadata.vcpkg.target]
+x86_64-pc-windows-msvc = { dependencies = ["ffmpeg[mp3lame,opus,vorbis]:x64-windows-static-md"] }
+
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.
 # If you use cargo directly instead of tauri's cli you can use this feature flag to switch between tauri's `dev` and `build` modes.
