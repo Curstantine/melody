@@ -1,11 +1,13 @@
 import type { Theme } from "unocss/preset-uno";
 import { createNestedPropertyValue, mergeDeep } from "utils";
 
-import themeSchema from "../../../resources/schemas/theme.json";
+import { properties as definition } from "../../../resources/schemas/theme.json";
+
+const colorDefinitions = definition.colors.properties;
 
 export function getColorDefinitions(): Theme["colors"] {
 	const obj: Record<string, Record<string, unknown>> = {};
-	const properties = Object.keys(themeSchema.properties.colors.properties);
+	const properties = Object.keys(colorDefinitions);
 
 	for (const key of properties) {
 		const splits = key.split(".");
