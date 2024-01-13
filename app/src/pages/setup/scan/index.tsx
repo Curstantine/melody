@@ -7,6 +7,7 @@ import type {
 	LibraryCreateParameters,
 	LibraryEntity,
 	LibraryEvent,
+	LibraryEventData,
 	LibraryEventPayload,
 } from "@/types/backend/library";
 
@@ -22,6 +23,7 @@ import { SETUP_PATHS } from "@/pages/setup";
 
 import ErrorCard from "@/components/Card/Error";
 import CircularLoader from "@/components/Loader/Circular";
+import { getLibraryEventDataString, getLibraryEventPath, getLibraryEventTypeString } from "@/utils/strings";
 
 export type LocationState = {
 	name: string;
@@ -115,10 +117,14 @@ export default function SetupScanView() {
 									</span>
 
 									<div class="mt-8 flex select-none gap-1 text-text-2">
-										<span>{payload().type === "reading" ? "Reading" : "Indexing"}</span>
-										<span>({payload().current}/{payload().total})</span>
+										<span>{getLibraryEventTypeString(payload().type)}</span>
+										<Show when={typeof payload().data !== "string"}>
+											<span>{getLibraryEventDataString(payload().data as LibraryEventData)}</span>
+										</Show>
 									</div>
-									<span class="min-h-12 text-sm text-text-3">{payload().path}</span>
+									<span class="min-h-12 text-sm text-text-3">
+										{getLibraryEventPath(payload())}
+									</span>
 								</Match>
 								<Match when={completedWithSilentErrors()}>
 									<span class="select-none text-2xl leading-tight font-orbiter-display text-text-1">

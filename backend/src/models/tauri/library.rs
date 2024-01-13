@@ -19,6 +19,10 @@ impl LibraryEventPayload {
 		Self::Ok(LibraryEvent::Indexing(data))
 	}
 
+	pub fn scanning(data: PathBuf) -> Self {
+		Self::Ok(LibraryEvent::Scanning(data))
+	}
+
 	pub fn error(error: Error, path: PathBuf) -> Self {
 		Self::Error(SerializablePathedError { error, path })
 	}
@@ -38,8 +42,9 @@ impl LibraryEventData {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum LibraryEvent {
+	Scanning(PathBuf),
 	Reading(LibraryEventData),
 	Indexing(LibraryEventData),
 }

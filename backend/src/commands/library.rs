@@ -1,13 +1,9 @@
-use std::{
-	path::PathBuf,
-	sync::{mpsc, Arc},
-	thread,
-};
+use std::path::PathBuf;
 
 use {
 	bonsaidb::core::schema::{SerializedCollection, SerializedView},
 	tauri::State,
-	tokio::{task::JoinSet, time::Instant},
+	tokio::time::Instant,
 	tracing::{debug, error, info},
 };
 
@@ -16,12 +12,11 @@ use crate::{
 		helpers::handle_temp_track_meta, methods, models::library::Library as LibraryModel,
 		views::library::LibraryByName,
 	},
-	errors::{Error, Result},
+	errors::Result,
 	ffmpeg::meta::read_track_meta,
 	models::{
 		state::{DatabaseState, DirectoryState},
 		tauri::library::{LibraryEntity, LibraryEventData, LibraryEventManager, LibraryEventPayload, LibraryEventType},
-		temp::{TempTrackMeta, TempTrackResource},
 	},
 	utils::{fs::walkdir_sync, matchers},
 };
@@ -64,83 +59,57 @@ pub async fn create_library(
 		methods::library::insert_unique(database.inner_ref(), LibraryModel::new(name, locs)).await?
 	};
 
-	enum ChannelData {
-		Error(Error, PathBuf),
-		Reading(LibraryEventData),
-		Indexing(LibraryEventData, Box<TempTrackMeta>, TempTrackResource),
-	}
-
-	let (tx, rx) = mpsc::channel::<ChannelData>();
-	let decode_handle = thread::Builder::new()
-		.name("melody_decode".to_string())
-		.spawn::<_, Result<()>>(move || {
-			let scan_location = scan_locations.into_iter().map(PathBuf::from).collect::<Vec<_>>();
-
-			for scan_location in scan_location {
-				let paths = walkdir_sync(&scan_location, matchers::path::audio)?;
-				let total = paths.len() as u64;
-
-				for (i, path) in paths.into_iter().enumerate() {
-					let current = i as u64 + 1;
-
-					let data = LibraryEventData::new(total, current, path.clone());
-					tx.send(ChannelData::Reading(data)).unwrap();
-
-					match read_track_meta(&path) {
-						Ok((meta, resources)) => {
-							let data = LibraryEventData::new(total, current, path);
-							tx.send(ChannelData::Indexing(data, Box::new(meta), resources)).unwrap();
-						}
-						Err(e) => tx.send(ChannelData::Error(e, path)).unwrap(),
-					}
-				}
-			}
-
-			Ok(())
-		})
-		.unwrap();
-
-	let db_arc = Arc::clone(&db_state.0);
-	let cover_dir_arc: Arc<PathBuf> = {
+	let cover_dir: PathBuf = {
 		let dir_guard = dir_state.get();
 		let directories = dir_guard.as_ref().unwrap();
-		Arc::new(directories.resource_cover_dir.clone())
+		directories.resource_cover_dir.clone()
 	};
 
 	let em = LibraryEventManager::new(LibraryEventType::Scan);
-	let mut task_set = JoinSet::<Result<()>>::new();
+	let locations = scan_locations.into_iter().map(PathBuf::from).collect::<Vec<_>>();
 
-	for message in rx.into_iter() {
-		match message {
-			ChannelData::Reading(payload) => {
-				debug!("[{}/{}] Reading: {:#?}", payload.current, payload.total, payload.path);
-				em.emit(&window, LibraryEventPayload::reading(payload))?;
-			}
-			ChannelData::Indexing(payload, meta, resources) => {
-				debug!("[{}/{}] Indexing: {:#?}", payload.current, payload.total, payload.path);
-				em.emit(&window, LibraryEventPayload::indexing(payload))?;
+	for location in locations {
+		info!("Scanning: {location:?}");
+		em.emit(&window, LibraryEventPayload::scanning(location.clone()))?;
 
-				let db_ar = Arc::clone(&db_arc);
-				let dir_ar = Arc::clone(&cover_dir_arc);
-
-				task_set.spawn(async move {
-					let db_guard = db_ar.lock().await;
-					let database = db_guard.as_ref().unwrap();
-					handle_temp_track_meta(database.inner_ref(), &dir_ar, *meta, resources).await?;
-
-					Ok(())
-				});
-			}
-			ChannelData::Error(error, path) => {
-				error!("Error encountered while reading/indexing: {path:#?}\n{error:#?}");
-				em.emit(&window, LibraryEventPayload::error(error, path))?;
-			}
+		let (paths, total) = {
+			let x = location.clone();
+			let paths = tokio::task::spawn_blocking(move || walkdir_sync(&x, matchers::path::audio)).await??;
+			let len = paths.len() as u64;
+			(paths, len)
 		};
-	}
 
-	decode_handle.join().unwrap()?;
-	while let Some(res) = task_set.join_next().await {
-		res.unwrap()?;
+		info!("Scan location '{location:?}' found with {total} files");
+
+		for (i, path) in paths.into_iter().enumerate() {
+			let current = i as u64 + 1;
+
+			debug!("[{current}/{total}] Reading: {path:#?}");
+			let payload = LibraryEventData::new(total, current, path.clone());
+			em.emit(&window, LibraryEventPayload::reading(payload))?;
+
+			let meta = {
+				let x = path.clone();
+				tokio::task::spawn_blocking(move || read_track_meta(&x)).await?
+			};
+
+			match meta {
+				Ok((meta, resources)) => {
+					let db_lock = db_state.get().await;
+					let database = db_lock.as_ref().unwrap();
+
+					debug!("[{current}/{total}] Indexing: {path:#?}");
+					let payload = LibraryEventData::new(total, current, path);
+					em.emit(&window, LibraryEventPayload::indexing(payload))?;
+
+					handle_temp_track_meta(database.inner_ref(), &cover_dir, meta, resources).await?;
+				}
+				Err(e) => {
+					error!("Error encountered while reading/indexing: {path:#?}\n{e:#?}");
+					em.emit(&window, LibraryEventPayload::error(e, path))?
+				}
+			}
+		}
 	}
 
 	info!("Finished building library in {:?}", start.elapsed());

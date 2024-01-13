@@ -12,7 +12,11 @@ export interface Library {
 }
 
 export interface LibraryEvent {
-	type: "reading" | "indexing";
+	type: "reading" | "indexing" | "scanning";
+	data: string | LibraryEventData;
+}
+
+export interface LibraryEventData {
 	total: number;
 	current: number;
 	path: string;
