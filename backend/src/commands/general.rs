@@ -1,5 +1,6 @@
 use {tauri::Manager, tracing::info};
 
+use rsmpeg::ffi::{av_log_set_level, AV_LOG_FATAL};
 use tauri::AppHandle;
 
 use crate::{
@@ -29,6 +30,10 @@ pub async fn setup(app: AppHandle) -> Result<()> {
 		directories.database_dir.clone()
 	};
 	db_state.initialize(&database_dir).await?;
+
+	unsafe {
+		av_log_set_level(AV_LOG_FATAL.try_into().unwrap());
+	}
 
 	info!("Setup was successful");
 
