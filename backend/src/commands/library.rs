@@ -62,7 +62,7 @@ pub async fn create_library(
 	let cover_dir: PathBuf = {
 		let dir_guard = dir_state.get();
 		let directories = dir_guard.as_ref().unwrap();
-		directories.resource_cover_dir.clone()
+		directories.cover_dir.clone()
 	};
 
 	let em = LibraryEventManager::new(LibraryEventType::Scan);

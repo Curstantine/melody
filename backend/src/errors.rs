@@ -36,7 +36,7 @@ impl Error {
 	/// Appends a string to the message field.
 	///
 	/// If the message field is non empty, the string will appended to the field along with a newline.
-	/// For cases where message is null, the string is clone to give the Cow ownership.
+	/// For cases where message is null, the string is cloned to give the Cow ownership.
 	pub fn append_message(mut self, message: &str) -> Self {
 		if let Some(val) = &mut self.message {
 			let x = val.to_mut();

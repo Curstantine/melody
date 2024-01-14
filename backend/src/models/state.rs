@@ -39,7 +39,7 @@ impl AppState {
 
 impl DirectoryState {
 	pub async fn initialize(&self, path_resolver: PathResolver) -> Result<()> {
-		let db = Directories::new(path_resolver).await?;
+		let db = Directories::initialize(path_resolver).await?;
 		self.get().replace(db);
 
 		Ok(())
