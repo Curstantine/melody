@@ -1,16 +1,16 @@
 import { convertFileSrc } from "@tauri-apps/api/tauri";
 import { Accessor, Show } from "solid-js";
 
+import type { DisplayCover } from "@/types/backend/cover";
 import type { InlinedArtist } from "@/types/backend/generic";
 import type { Person } from "@/types/backend/person";
 import type { Release } from "@/types/backend/release";
-import type { DisplayImageResource } from "@/types/backend/resource";
 
 type Props = {
 	id: number;
 	release: Release;
 	artists: Record<number, Person>;
-	cover?: DisplayImageResource;
+	cover?: DisplayCover;
 };
 
 export default function ReleaseListItem(props: Props) {
@@ -19,8 +19,8 @@ export default function ReleaseListItem(props: Props) {
 		return `${ref.credited_as ?? artist.name}${ref.join ?? ""}`;
 	};
 
-	const getCoverPath = (cover: Accessor<DisplayImageResource>) => {
-		return convertFileSrc(cover().thumb_path ?? cover().source_path);
+	const getCoverPath = (cover: DisplayCover) => {
+		return convertFileSrc(cover.path);
 	};
 
 	return (
@@ -30,7 +30,7 @@ export default function ReleaseListItem(props: Props) {
 				classList={{ "bg-background-secondary rounded-md": props.cover === undefined }}
 			>
 				<Show when={props.cover} fallback={<div class="i-symbols-image h-8 w-8 text-text-3" />}>
-					{(cover) => <img class="h-42 w-42 rounded-md" src={getCoverPath(cover)} />}
+					{(cover) => <img class="h-42 w-42 rounded-md" src={getCoverPath(cover())} />}
 				</Show>
 			</div>
 			<div class="h-10 inline-flex flex-col">

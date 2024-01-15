@@ -32,6 +32,7 @@ pub struct Cover {
 	pub resolution: (u16, u16),
 	pub comment: Option<String>,
 	pub has_thumb: bool,
+	// TODO: hash get returned as bytes
 	pub hash: Hash,
 }
 

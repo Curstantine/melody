@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use {blake3::Hash, tauri::PathResolver};
 
 use crate::{
-	database::{models::cover::CoverMediaType, DB_MAIN_NAME},
+	database::DB_MAIN_NAME,
 	errors::{Error, Result},
 };
 
