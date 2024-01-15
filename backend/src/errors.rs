@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt::Debug};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -315,6 +315,18 @@ impl From<serde_json::Error> for Error {
 			kind: ErrorKind::Other,
 			short: Cow::Borrowed("Serde: JSON Serialization error"),
 			message: Some(Cow::Owned(value.to_string())),
+		}
+	}
+}
+
+impl<T: Debug> From<std::sync::mpsc::SendError<T>> for Error {
+	fn from(value: std::sync::mpsc::SendError<T>) -> Self {
+		let message = format!("Failed to send data through the mpsc channel, got: {:?}", value.0);
+
+		Self {
+			kind: ErrorKind::Io,
+			short: Cow::Borrowed("MPSC: Send error"),
+			message: Some(Cow::Owned(message)),
 		}
 	}
 }
