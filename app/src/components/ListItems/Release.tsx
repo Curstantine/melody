@@ -1,5 +1,5 @@
 import { convertFileSrc } from "@tauri-apps/api/tauri";
-import { Accessor, Show } from "solid-js";
+import { Show } from "solid-js";
 
 import type { DisplayCover } from "@/types/backend/cover";
 import type { InlinedArtist } from "@/types/backend/generic";
