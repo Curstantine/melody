@@ -31,13 +31,13 @@ impl Directories {
 			let database_dir = data_dir.join(DB_MAIN_NAME);
 			let cover_dir = data_dir.join(Self::COVER_FOLDER_NAME);
 
-			std::fs::create_dir(&data_dir)
+			std::fs::create_dir_all(&data_dir)
 				.map_err(|e| Error::from(e).append_message("Failed to create 'data' directory"))?;
 
-			std::fs::create_dir(&cover_dir)
+			std::fs::create_dir_all(&cover_dir)
 				.map_err(|e| Error::from(e).append_message("Failed to create 'covers' directory"))?;
 
-			std::fs::create_dir(cover_dir.join(Self::THUMB_FOLDER_NAME))
+			std::fs::create_dir_all(cover_dir.join(Self::THUMB_FOLDER_NAME))
 				.map_err(|e| Error::from(e).append_message("Failed to create 'covers/thumbs' directory"))?;
 
 			Ok(Directories::new(database_dir, cover_dir))
