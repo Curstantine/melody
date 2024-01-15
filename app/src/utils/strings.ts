@@ -4,8 +4,6 @@ export function getLibraryEventTypeString(type: LibraryEvent["type"]): string {
 	switch (type) {
 		case "indexing":
 			return "Indexing";
-		case "reading":
-			return "Reading";
 		case "scanning":
 			return "Scanning";
 	}

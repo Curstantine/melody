@@ -382,7 +382,7 @@ mod test {
 	use super::read_track_meta;
 	use crate::errors::Result;
 
-	const TRACK_PATH: &str = r"/home/Curstantine/Music/TempLib/南ことり(CV.内田彩)/ラブライブ!Solo Live! from μ's 南ことり Extra/01 Anemone heart (KOTORI Mix).opus";
+	const TRACK_PATH: &str = r"C:\\Users\\Curstantine\\Music\\TempLib\\青葉市子\\海底のエデン\\01 海底のエデン.flac";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {

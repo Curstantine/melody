@@ -11,10 +11,6 @@ pub type LibraryEventManager = WindowEventManager<LibraryEventType, LibraryEvent
 
 pub type LibraryEventPayload = EventPayload<LibraryEvent, SerializablePathedError>;
 impl LibraryEventPayload {
-	pub fn reading(data: LibraryEventData) -> Self {
-		Self::Ok(LibraryEvent::Reading(data))
-	}
-
 	pub fn indexing(data: LibraryEventData) -> Self {
 		Self::Ok(LibraryEvent::Indexing(data))
 	}
@@ -45,7 +41,6 @@ impl LibraryEventData {
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum LibraryEvent {
 	Scanning(PathBuf),
-	Reading(LibraryEventData),
 	Indexing(LibraryEventData),
 }
 
