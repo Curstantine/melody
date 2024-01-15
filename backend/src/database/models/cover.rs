@@ -31,16 +31,8 @@ pub struct Cover {
 	pub media_type: CoverMediaType,
 	pub resolution: (u16, u16),
 	pub comment: Option<String>,
+	pub has_thumb: bool,
 	pub hash: Hash,
-}
-
-impl Cover {
-	/// Implies whether this cover needs a thumb.
-	///
-	/// True for all images where [Cover::resolution] is >512
-	pub fn needs_thumb(&self) -> bool {
-		self.resolution.0 > 512 || self.resolution.1 > 512
-	}
 }
 
 impl CoverMediaType {

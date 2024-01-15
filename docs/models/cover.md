@@ -14,12 +14,13 @@ A cover resource of sorts. Could be a release cover-art, track art, or an artist
 
 ### Notes
 
-1. Covers are stored in [`data_directory`](../spec.md#data-directory) under `/covers` directory, accompanied by its `type` sub-directory following the `${hash}.{ext}` format.
-   - `type: track, hash: 123, media_type: png` -> `data_directory/covers/tracks/123.png`
-   - `type: release, hash: 321, media_type: jpg` -> `data_directory/covers/release/321.png`
-2. A cover should be accompanied by a thumb of the same image, if the resolution of the x axis higher than 512.
-   - The thumb must be sized as x: 512 and y relative to x.
-   - Must be stored in jpeg format, saved along with the original cover postfixed with `@512.{ext}`.
+1. Covers are stored in the [`data_directory`](../spec.md#data-directory) under `/covers` directory, following the `${hash}.{ext}` format:
+   - `hash: 123, media_type: png` -> `data_directory/covers/123.png`
+   - `hash: 321, media_type: jpg` -> `data_directory/covers/321.png`
+2. Covers saved to disk are usually thumbs, but in cases where the source image is >= 512, the image is saved as is.
+   - Must be sized as x: 512 and y relative to x.
+   - PNG format must be used if the source is resized.
+3. References in the model are for the source cover (pre-resize), so properties like `resolution` and `hash` are not of the thumb, but rather of the source cover that may or may not be locally saved.
 
 ## Shared Types
 

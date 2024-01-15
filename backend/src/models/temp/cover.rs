@@ -11,13 +11,21 @@ pub struct TempCover {
 }
 
 impl TempCover {
-	pub fn into_cover(self, hash: Hash) -> Cover {
+	/// Implies whether this cover needs a thumb.
+	///
+	/// True for all images where [TempCover::resolution] is >512
+	pub fn needs_thumb(&self) -> bool {
+		self.resolution.0 > 512 || self.resolution.1 > 512
+	}
+
+	pub fn into_cover(self, hash: Hash, has_thumb: bool) -> Cover {
 		Cover {
 			type_: self.type_,
 			media_type: self.media_type,
 			resolution: self.resolution,
 			comment: self.comment,
 			hash,
+			has_thumb,
 		}
 	}
 }

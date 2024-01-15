@@ -19,7 +19,7 @@ impl DisplayCoverResource {
 
 		let source_path = resource_cover_dir.join(format!("{hash_str}.{ext}"));
 		let thumb_path = resource
-			.needs_thumb()
+			.has_thumb
 			.then(|| resource_cover_dir.join(format!("{hash_str}@512.{ext}")));
 
 		Self {

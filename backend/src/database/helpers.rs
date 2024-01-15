@@ -1,11 +1,8 @@
-use std::{
-	fs::{self, File},
-	path::Path,
-};
+use std::{fs, path::Path};
 
 use {
 	bonsaidb::{core::schema::SerializedCollection, local::AsyncDatabase},
-	image::{imageops::FilterType, load_from_memory_with_format as load_img_from_mem, ImageFormat},
+	image::{imageops::FilterType, ImageFormat},
 };
 
 use crate::{
@@ -13,46 +10,44 @@ use crate::{
 		methods,
 		models::{cover::Cover, InlinedArtist},
 	},
-	errors::{self, Result},
-	models::temp::{
-		cover::TempCover, release::TempReleaseIntoArg, track::TempTrackIntoArg, TempTrackMeta, TempTrackResource,
+	errors::{pre::unsupported_image_type, Result},
+	models::{
+		directories,
+		temp::{
+			cover::TempCover, release::TempReleaseIntoArg, track::TempTrackIntoArg, TempTrackMeta, TempTrackResource,
+		},
 	},
 };
 
 /// Initializes an image resource and inserts the resource into the database, checking if the resource by same hash exists.
-pub async fn initialize_image_resource(
-	database: &AsyncDatabase,
-	resource_cover_dir: &Path,
-	temp: TempCover,
-) -> Result<u64> {
+pub async fn initialize_image_resource(database: &AsyncDatabase, cover_dir: &Path, temp: TempCover) -> Result<u64> {
 	let hash = blake3::hash(&temp.data);
-	let hash_str = hash.to_hex().to_string();
 
 	if let Some(id) = methods::cover::get_id(database, temp.type_, hash).await? {
 		return Ok(id);
 	};
 
-	let ext = temp.media_type.as_extension();
-	let source_res_path = resource_cover_dir.join(format!("{}.{}", &hash_str, &ext));
-	let thumb_res_path = resource_cover_dir.join(format!("{}@512.{}", &hash_str, &ext));
+	let needs_thumb = temp.needs_thumb();
+	let extension = temp.media_type.as_extension();
+	let path = directories::get_cover_path(cover_dir, &hash, extension, needs_thumb);
 
-	let handle = tokio::task::spawn_blocking::<_, Result<Cover>>(move || {
-		fs::write(&source_res_path, &temp.data)?;
+	let cover = tokio::task::spawn_blocking::<_, Result<Cover>>(move || {
+		if needs_thumb {
+			let fmt = ImageFormat::from_extension(extension).ok_or_else(|| unsupported_image_type(extension))?;
+			let source = image::load_from_memory_with_format(&temp.data, fmt)?;
 
-		let fmt = ImageFormat::from_extension(ext).ok_or_else(|| errors::pre::unsupported_image_type(ext))?;
-		let source = load_img_from_mem(&temp.data, fmt)?;
-		let use_thumb = source.height() >= 512;
-
-		if use_thumb {
-			let mut file = File::create(thumb_res_path)?;
-			source.resize(512, 512, FilterType::Nearest).write_to(&mut file, fmt)?;
+			source
+				.resize(512, 512, FilterType::Nearest)
+				.save_with_format(path, ImageFormat::Png)?;
+		} else {
+			fs::write(path, &temp.data)?;
 		}
 
-		Ok(temp.into_cover(hash))
-	});
+		Ok(temp.into_cover(hash, needs_thumb))
+	})
+	.await??;
 
-	let resource = handle.await??;
-	let doc = resource.push_into_async(database).await?;
+	let doc = cover.push_into_async(database).await?;
 
 	Ok(doc.header.id)
 }
@@ -60,7 +55,7 @@ pub async fn initialize_image_resource(
 /// Deduplicates and inserts a track with its metadata.
 pub async fn handle_temp_track_meta(
 	database: &AsyncDatabase,
-	resource_cover_dir: &Path,
+	cover_dir: &Path,
 	meta: TempTrackMeta,
 	resource: TempTrackResource,
 ) -> Result<()> {
@@ -147,7 +142,7 @@ pub async fn handle_temp_track_meta(
 		let x = release_cover_ids.insert(Vec::with_capacity(release_covers.len()));
 
 		for temp in release_covers {
-			let res = initialize_image_resource(database, resource_cover_dir, temp).await?;
+			let res = initialize_image_resource(database, cover_dir, temp).await?;
 			x.push(res);
 		}
 	}
@@ -156,7 +151,7 @@ pub async fn handle_temp_track_meta(
 		let x = track_cover_ids.insert(Vec::with_capacity(track_covers.len()));
 
 		for temp in track_covers {
-			let res = initialize_image_resource(database, resource_cover_dir, temp).await?;
+			let res = initialize_image_resource(database, cover_dir, temp).await?;
 			x.push(res);
 		}
 	}

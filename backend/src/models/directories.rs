@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use {blake3::Hash, tauri::PathResolver};
 
@@ -44,15 +44,15 @@ impl Directories {
 		})
 		.await?
 	}
+}
 
-	pub fn get_cover_path(&self, hash: &Hash, media_type: CoverMediaType, is_thumb: bool) -> PathBuf {
-		let hex = hash.to_hex();
-		let x = format!("{}.{}", hex.as_str(), media_type.as_extension());
+pub fn get_cover_path(cover_dir: &Path, hash: &Hash, extension: &str, is_thumb: bool) -> PathBuf {
+	let hex = hash.to_hex();
+	let x = format!("{}.{extension}", hex.as_str());
 
-		if !is_thumb {
-			self.cover_dir.join(x)
-		} else {
-			self.cover_dir.join(format!("{f}/{x}", f = Self::THUMB_FOLDER_NAME))
-		}
+	if !is_thumb {
+		cover_dir.join(x)
+	} else {
+		cover_dir.join(format!("{f}/{x}", f = Directories::THUMB_FOLDER_NAME))
 	}
 }
