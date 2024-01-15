@@ -54,7 +54,7 @@
 	],
 	"files.exclude": {
 		"**/dist": true,
-		"**/target": true,
+		"**/target": false,
 		"**/node_modules": true
 	}
 }
