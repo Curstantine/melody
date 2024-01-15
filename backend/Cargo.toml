@@ -64,12 +64,12 @@ version = "1.32.0"
 features = ["full"]
 
 [package.metadata.vcpkg]
-dependencies = ["ffmpeg[mp3lame,opus,vorbis]"]
+dependencies = ["ffmpeg[mp3lame,opus,vorbis,zlib]"]
 git = "https://github.com/microsoft/vcpkg"
 rev = "83444c5"
 
 [package.metadata.vcpkg.target]
-x86_64-pc-windows-msvc = { dependencies = ["ffmpeg[mp3lame,opus,vorbis]:x64-windows-static-md"] }
+x86_64-pc-windows-msvc = { dependencies = ["ffmpeg[mp3lame,opus,vorbis,zlib]:x64-windows-static-md"] }
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.

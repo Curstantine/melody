@@ -287,6 +287,7 @@ impl From<image::ImageError> for Error {
 impl From<rsmpeg::error::RsmpegError> for Error {
 	fn from(value: rsmpeg::error::RsmpegError) -> Self {
 		use rsmpeg::error::RsmpegError as RE;
+		use rsmpeg::ffi::AVERROR_DECODER_NOT_FOUND;
 
 		let (short, message): (&'static str, Cow<'static, str>) = match value {
 			RE::OpenInputError(int) => {
@@ -298,6 +299,14 @@ impl From<rsmpeg::error::RsmpegError> for Error {
 				("FFmpeg: AV IO error", Cow::Owned(y))
 			}
 			RE::CustomError(msg) => ("FFmpeg: Custom error", Cow::Owned(msg)),
+			RE::AVError(int) => {
+				let message = match int {
+					AVERROR_DECODER_NOT_FOUND => Cow::Borrowed("The required encoder could not be found"),
+					_ => Cow::Owned(format!("Unhandled error tag: {int}")),
+				};
+
+				("FFmpeg: AVError", message)
+			}
 			_ => ("FFmpeg: Unhandled error", Cow::Owned(value.to_string())),
 		};
 

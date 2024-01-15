@@ -383,6 +383,7 @@ mod test {
 	use crate::errors::Result;
 
 	const TRACK_PATH: &str = r"C:\\Users\\Curstantine\\Music\\TempLib\\青葉市子\\海底のエデン\\01 海底のエデン.flac";
+	// const TRACK_PATH: &str = r"C:\Users\Curstantine\Music\TempLib\nowisee\reALIVE\01 明日地球が滅ぶなら.flac";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {
