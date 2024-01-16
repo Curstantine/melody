@@ -26,4 +26,6 @@ pub struct Track {
 
 	pub mbz_id: Option<String>,
 	pub path: String,
+
+	pub library_ids: Vec<u64>,
 }

@@ -375,4 +375,15 @@ pub mod pre {
 			message: Some(Cow::Owned(message)),
 		}
 	}
+
+	#[inline]
+	pub fn database_entry_not_found(collection_name: &'static str, id: u64) -> Error {
+		let message = format!("Couldn't find an entry with id {id} in {collection_name}");
+
+		Error {
+			kind: ErrorKind::Database,
+			short: Cow::Borrowed("BonsaiDB: Not found"),
+			message: Some(Cow::Owned(message)),
+		}
+	}
 }

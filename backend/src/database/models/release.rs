@@ -54,6 +54,7 @@ pub struct Release {
 	pub type_secondary: Option<Vec<ReleaseTypeSecondary>>,
 
 	pub mbz_id: Option<String>,
+	pub library_ids: Vec<u32>,
 }
 
 impl FromTag for ReleaseType {
@@ -117,6 +118,7 @@ impl Default for Release {
 			type_secondary: None,
 
 			mbz_id: None,
+			library_ids: vec![],
 		}
 	}
 }

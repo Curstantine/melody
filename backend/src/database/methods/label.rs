@@ -40,6 +40,7 @@ mod test {
 
 		for i in 0..10 {
 			let label = Label {
+				library_ids: vec![],
 				name: format!("Label {i}"),
 			};
 
@@ -61,11 +62,13 @@ mod test {
 		let dbx = db.0;
 
 		let label = Label {
+			library_ids: vec![],
 			name: "Label 1".to_string(),
 		};
 		let doc = label.push_into_async(&dbx).await?;
 
 		let label = Label {
+			library_ids: vec![],
 			name: "Label 1".to_string(),
 		};
 		let result = get_or_insert(&dbx, label).await?;

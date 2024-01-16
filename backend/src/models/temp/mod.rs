@@ -1,54 +1,38 @@
-use crate::database::models::{label::Label, person::Person, release::ReleaseType, tag::Tag, InlinedArtist};
-
-use self::{cover::TempCover, release::TempRelease, track::TempTrack};
+use crate::{
+	database::models::release::ReleaseType,
+	models::temp::{
+		cover::TempCover,
+		label::TempLabel,
+		person::{TempPerson, TempPersonCredit},
+		release::TempRelease,
+		tag::TempTag,
+		track::TempTrack,
+	},
+};
 
 pub mod cover;
+pub mod label;
+pub mod person;
 pub mod release;
+pub mod tag;
 pub mod track;
 
 /// Type representing a probable date in the (year, month, day) format.
 pub type OptionedDate = Option<(Option<i32>, Option<u32>, Option<u32>)>;
-
-#[derive(Debug)]
-pub struct TempInlinedArtist {
-	pub person: Person,
-	pub credited_as: Option<String>,
-	pub join: Option<String>,
-}
-
-impl From<Person> for TempInlinedArtist {
-	fn from(person: Person) -> Self {
-		Self {
-			person,
-			credited_as: None,
-			join: None,
-		}
-	}
-}
-
-impl TempInlinedArtist {
-	pub fn into_inlined(self, id: u64) -> InlinedArtist {
-		InlinedArtist {
-			id,
-			credited_as: self.credited_as,
-			join: self.join,
-		}
-	}
-}
 
 #[derive(Debug, Default)]
 pub struct TempTrackMeta {
 	pub track: Option<TempTrack>,
 	pub release: Option<TempRelease>,
 
-	pub artists: Option<Vec<TempInlinedArtist>>,
-	pub release_artists: Option<Vec<TempInlinedArtist>>,
-	pub composers: Option<Vec<Person>>,
-	pub producers: Option<Vec<Person>>,
+	pub artists: Option<Vec<TempPersonCredit>>,
+	pub release_artists: Option<Vec<TempPersonCredit>>,
+	pub composers: Option<Vec<TempPerson>>,
+	pub producers: Option<Vec<TempPerson>>,
 
-	pub labels: Option<Vec<Label>>,
-	pub genres: Option<Vec<Tag>>,
-	pub tags: Option<Vec<Tag>>,
+	pub labels: Option<Vec<TempLabel>>,
+	pub genres: Option<Vec<TempTag>>,
+	pub tags: Option<Vec<TempTag>>,
 
 	pub path: String,
 }

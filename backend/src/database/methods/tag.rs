@@ -48,14 +48,16 @@ mod test {
 		let dbx = db.0;
 
 		let tag = Tag {
-			name: "Tag 1".to_string(),
 			type_: TagType::Genre,
+			name: "Tag 1".to_string(),
+			library_ids: vec![],
 		};
 		let doc = tag.push_into_async(&dbx).await?;
 
 		let tag = Tag {
-			name: "Tag 1".to_string(),
 			type_: TagType::Genre,
+			name: "Tag 1".to_string(),
+			library_ids: vec![],
 		};
 		let result = get_or_insert(&dbx, tag).await?;
 		assert_eq!(result, doc.header.id);
@@ -69,18 +71,21 @@ mod test {
 		let dbx = db.0;
 
 		let tag_1 = Tag {
-			name: "Tag 1".to_string(),
 			type_: TagType::Genre,
+			name: "Tag 1".to_string(),
+			library_ids: vec![],
 		};
 
 		let tag_2 = Tag {
-			name: "Tag 2".to_string(),
 			type_: TagType::Genre,
+			name: "Tag 2".to_string(),
+			library_ids: vec![],
 		};
 
 		let tag_1_other = Tag {
-			name: "Tag 1".to_string(),
 			type_: TagType::Other,
+			name: "Tag 1".to_string(),
+			library_ids: vec![],
 		};
 
 		tag_1.push_into_async(&dbx).await?;

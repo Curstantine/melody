@@ -26,6 +26,7 @@ pub struct TempRelease {
 }
 
 pub struct TempReleaseIntoArg {
+	pub library_ids: Vec<u32>,
 	pub artists: Option<Vec<InlinedArtist>>,
 	pub label_ids: Option<Vec<u64>>,
 	pub genre_ids: Option<Vec<u64>>,
@@ -54,6 +55,7 @@ impl TempRelease {
 			genre_ids: arg.genre_ids,
 			tag_ids: arg.tag_ids,
 			cover_ids: arg.cover_ids,
+			library_ids: arg.library_ids,
 		}
 	}
 }

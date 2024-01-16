@@ -22,6 +22,7 @@ pub struct TempTrackIntoArg {
 	pub genre_ids: Option<Vec<u64>>,
 	pub tag_ids: Option<Vec<u64>>,
 	pub cover_ids: Option<Vec<u64>>,
+	pub library_ids: Vec<u64>,
 }
 
 impl TempTrack {
@@ -43,6 +44,7 @@ impl TempTrack {
 			genre_ids: arg.genre_ids,
 			tag_ids: arg.tag_ids,
 			cover_ids: arg.cover_ids,
+			library_ids: arg.library_ids,
 		}
 	}
 }

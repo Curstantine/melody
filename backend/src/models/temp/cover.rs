@@ -18,7 +18,7 @@ impl TempCover {
 		self.resolution.0 > 512 || self.resolution.1 > 512
 	}
 
-	pub fn into_cover(self, hash: Hash, has_thumb: bool) -> Cover {
+	pub fn into_cover(self, library_ids: Vec<u32>, hash: Hash, has_thumb: bool) -> Cover {
 		Cover {
 			type_: self.type_,
 			media_type: self.media_type,
@@ -26,6 +26,7 @@ impl TempCover {
 			comment: self.comment,
 			hash,
 			has_thumb,
+			library_ids,
 		}
 	}
 }

@@ -20,10 +20,16 @@ use crate::{
 };
 
 /// Initializes an image resource and inserts the resource into the database, checking if the resource by same hash exists.
-pub async fn initialize_image_resource(database: &AsyncDatabase, cover_dir: &Path, temp: TempCover) -> Result<u64> {
+pub async fn initialize_image_resource(
+	database: &AsyncDatabase,
+	cover_dir: &Path,
+	library_id: u32,
+	temp: TempCover,
+) -> Result<u64> {
 	let hash = blake3::hash(&temp.data);
 
-	if let Some(id) = methods::cover::get_id(database, temp.type_, hash).await? {
+	if let Some(id) = methods::cover::get_by_type_hash(database, temp.type_, hash).await? {
+		methods::cover::add_library_id(database, id, library_id).await?;
 		return Ok(id);
 	};
 
@@ -43,7 +49,7 @@ pub async fn initialize_image_resource(database: &AsyncDatabase, cover_dir: &Pat
 			fs::write(path, &temp.data)?;
 		}
 
-		Ok(temp.into_cover(hash, needs_thumb))
+		Ok(temp.into_cover(vec![library_id], hash, needs_thumb))
 	})
 	.await??;
 
@@ -56,6 +62,7 @@ pub async fn initialize_image_resource(database: &AsyncDatabase, cover_dir: &Pat
 pub async fn handle_temp_track_meta(
 	database: &AsyncDatabase,
 	cover_dir: &Path,
+	library_id: u32,
 	meta: TempTrackMeta,
 	resource: TempTrackResource,
 ) -> Result<()> {
@@ -79,7 +86,7 @@ pub async fn handle_temp_track_meta(
 		let x = artists.get_or_insert(Vec::with_capacity(temp_artists.len()));
 
 		for temp_artist in temp_artists {
-			let id = methods::person::get_or_insert(database, temp_artist.person.clone()).await?;
+			let id = methods::person::get_or_insert(database, temp_artist.person)).await?;
 			x.push(temp_artist.into_inlined(id));
 		}
 	}

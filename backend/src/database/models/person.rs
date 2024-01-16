@@ -17,12 +17,12 @@ pub enum PersonType {
 #[derive(Debug, Clone, Serialize, Deserialize, Collection)]
 #[collection(name = "people", views = [PersonByNameAndType])]
 pub struct Person {
+	#[serde(rename = "type")]
+	pub type_: PersonType,
 	pub name: String,
 	pub name_sort: Option<String>,
 	pub mbz_id: Option<String>,
-
-	#[serde(rename = "type")]
-	pub type_: PersonType,
+	pub library_ids: Vec<u32>,
 }
 
 impl Person {
@@ -37,6 +37,7 @@ impl Person {
 			type_: PersonType::Unknown,
 			name_sort: None,
 			mbz_id: None,
+			library_ids: vec![],
 		}
 	}
 }
@@ -49,6 +50,7 @@ impl Default for Person {
 			type_: PersonType::Artist,
 			name_sort: None,
 			mbz_id: None,
+			library_ids: vec![],
 		}
 	}
 }

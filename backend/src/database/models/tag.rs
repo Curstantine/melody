@@ -12,8 +12,8 @@ pub enum TagType {
 #[derive(Debug, Serialize, Deserialize, Collection)]
 #[collection(name = "tags", views = [TagByNameAndType])]
 pub struct Tag {
-	pub name: String,
-
 	#[serde(rename = "type")]
 	pub type_: TagType,
+	pub name: String,
+	pub library_ids: Vec<u32>,
 }

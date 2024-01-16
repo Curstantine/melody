@@ -1,17 +1,20 @@
 use {
 	blake3::Hash,
-	bonsaidb::{core::schema::SerializedView, local::AsyncDatabase},
+	bonsaidb::{
+		core::schema::{SerializedCollection, SerializedView},
+		local::AsyncDatabase,
+	},
 };
 
 use crate::{
 	database::{
-		models::cover::CoverType,
+		models::cover::{Cover, CoverType},
 		views::cover::{CoverByTypeAndHash, CoverByTypeAndHashKey},
 	},
-	errors::Result,
+	errors::{pre::database_entry_not_found, Result},
 };
 
-pub async fn get_id(database: &AsyncDatabase, type_: CoverType, hash: Hash) -> Result<Option<u64>> {
+pub async fn get_by_type_hash(database: &AsyncDatabase, type_: CoverType, hash: Hash) -> Result<Option<u64>> {
 	let key = CoverByTypeAndHashKey::new(type_, hash);
 	let matches = CoverByTypeAndHash::entries_async(database)
 		.with_key(&key)
@@ -20,4 +23,15 @@ pub async fn get_id(database: &AsyncDatabase, type_: CoverType, hash: Hash) -> R
 		.await?;
 
 	Ok(matches.first().map(|e| e.source.id))
+}
+
+pub async fn add_library_id(database: &AsyncDatabase, cover_id: u64, library_id: u32) -> Result<()> {
+	if let Some(mut cover) = Cover::get_async(&cover_id, database).await? {
+		cover.contents.library_ids.push(library_id);
+		cover.update_async(database).await?;
+	} else {
+		return Err(database_entry_not_found("covers", cover_id));
+	}
+
+	Ok(())
 }

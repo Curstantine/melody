@@ -12,14 +12,16 @@ use {
 use crate::{
 	database::models::{
 		cover::{CoverMediaType, CoverType},
-		label::Label,
-		person::{Person, PersonType},
+		person::PersonType,
 		release::{ReleaseType, ReleaseTypeSecondary},
-		tag::{Tag, TagType},
+		tag::TagType,
 		CountryCode, FromTag, ScriptCode,
 	},
 	errors::{self, Result},
-	models::temp::{cover::TempCover, OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource},
+	models::temp::{
+		cover::TempCover, label::TempLabel, person::TempPerson, tag::TempTag, OptionedDate, TempPersonCredit,
+		TempTrackMeta, TempTrackResource,
+	},
 	utils::matchers,
 };
 
@@ -106,14 +108,14 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 
 			"artist" if !used_artists_field => {
 				let x = meta.artists.get_or_insert_with(Vec::new);
-				let y = Person {
+				let y = TempPerson {
 					name: val,
 					type_: PersonType::Artist,
 					name_sort: None,
 					mbz_id: None,
 				};
 
-				x.push(TempInlinedArtist::from(y))
+				x.push(TempPersonCredit::from(y))
 			}
 			"artist_sort" | "artistsort" => {
 				let x = meta.get_or_default_track();
@@ -121,7 +123,7 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			}
 			"composer" => {
 				let x = meta.composers.get_or_insert_with(Vec::new);
-				let y = Person {
+				let y = TempPerson {
 					name: val,
 					type_: PersonType::Composer,
 					name_sort: None,
@@ -132,7 +134,7 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			}
 			"producer" => {
 				let x = meta.producers.get_or_insert_with(Vec::new);
-				let y = Person {
+				let y = TempPerson {
 					name: val,
 					type_: PersonType::Producer,
 					name_sort: None,
@@ -152,14 +154,14 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			}
 			"album_artist" | "albumartist" => {
 				let x = meta.release_artists.get_or_insert_with(Vec::new);
-				let y = Person {
+				let y = TempPerson {
 					name: val,
 					type_: PersonType::Artist,
 					name_sort: None,
 					mbz_id: None,
 				};
 
-				x.push(TempInlinedArtist::from(y))
+				x.push(TempPersonCredit::from(y))
 			}
 			"album_artist_sort" | "albumartistsort" => {
 				let x = meta.get_or_default_release();
@@ -233,7 +235,7 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 
 			"label" => {
 				let x = meta.labels.get_or_insert_with(Vec::new);
-				let y = Label { name: val };
+				let y = TempLabel { name: val };
 				x.push(y);
 			}
 			"catalog" | "catalognumber" => {
@@ -243,7 +245,7 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 
 			"genre" => {
 				let x = meta.genres.get_or_insert_with(Vec::new);
-				let y = Tag {
+				let y = TempTag {
 					name: val,
 					type_: TagType::Genre,
 				};
@@ -261,7 +263,7 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			}
 
 			"artists" => {
-				let y = TempInlinedArtist::from(Person {
+				let y = TempPersonCredit::from(TempPerson {
 					name: val,
 					type_: PersonType::Artist,
 					name_sort: None,
