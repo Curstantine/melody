@@ -382,7 +382,19 @@ pub mod pre {
 
 		Error {
 			kind: ErrorKind::Database,
-			short: Cow::Borrowed("BonsaiDB: Not found"),
+			short: Cow::Borrowed("Database: Not found"),
+			message: Some(Cow::Owned(message)),
+		}
+	}
+
+	#[inline]
+	pub fn database_entry_library_id_exists(collection_name: &'static str, id: u64, library_id: u32) -> Error {
+		let message =
+			format!("Library id '{library_id}' already exists within the collection '{collection_name}' ({id})");
+
+		Error {
+			kind: ErrorKind::Database,
+			short: Cow::Borrowed("Database: Already Exists"),
 			message: Some(Cow::Owned(message)),
 		}
 	}

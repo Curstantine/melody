@@ -14,7 +14,7 @@ use crate::{
 	errors::{pre::database_entry_not_found, Result},
 };
 
-pub async fn get_by_type_hash(database: &AsyncDatabase, type_: CoverType, hash: Hash) -> Result<Option<u64>> {
+pub async fn get_by_type_and_hash(database: &AsyncDatabase, type_: CoverType, hash: Hash) -> Result<Option<u64>> {
 	let key = CoverByTypeAndHashKey::new(type_, hash);
 	let matches = CoverByTypeAndHash::entries_async(database)
 		.with_key(&key)

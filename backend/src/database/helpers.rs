@@ -28,7 +28,7 @@ pub async fn initialize_image_resource(
 ) -> Result<u64> {
 	let hash = blake3::hash(&temp.data);
 
-	if let Some(id) = methods::cover::get_by_type_hash(database, temp.type_, hash).await? {
+	if let Some(id) = methods::cover::get_by_type_and_hash(database, temp.type_, hash).await? {
 		methods::cover::add_library_id(database, id, library_id).await?;
 		return Ok(id);
 	};
@@ -85,17 +85,17 @@ pub async fn handle_temp_track_meta(
 	if let Some(temp_artists) = meta.artists {
 		let x = artists.get_or_insert(Vec::with_capacity(temp_artists.len()));
 
-		for temp_artist in temp_artists {
-			let id = methods::person::get_or_insert(database, temp_artist.person)).await?;
-			x.push(temp_artist.into_inlined(id));
+		for rx in temp_artists {
+			let id = methods::person::update_or_insert(database, rx.person, library_id.clone()).await?;
+			x.push(rx.inline.into_inlined(id));
 		}
 	}
 
 	if let Some(temp_composers) = meta.composers {
 		let x = composer_ids.get_or_insert(Vec::with_capacity(temp_composers.len()));
 
-		for temp_composer in temp_composers {
-			let id = methods::person::get_or_insert(database, temp_composer).await?;
+		for rx in temp_composers {
+			let id = methods::person::update_or_insert(database, rx, library_id.clone()).await?;
 			x.push(id);
 		}
 	}
@@ -103,8 +103,8 @@ pub async fn handle_temp_track_meta(
 	if let Some(temp_producers) = meta.producers {
 		let x = producer_ids.get_or_insert(Vec::with_capacity(temp_producers.len()));
 
-		for temp_producer in temp_producers {
-			let id = methods::person::get_or_insert(database, temp_producer).await?;
+		for rx in temp_producers {
+			let id = methods::person::update_or_insert(database, rx, library_id.clone()).await?;
 			x.push(id);
 		}
 	}

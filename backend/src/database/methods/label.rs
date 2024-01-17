@@ -5,8 +5,22 @@ use bonsaidb::{
 
 use crate::{
 	database::{models::label::Label, views::label::LabelByName},
-	errors::Result,
+	errors::{Result, pre::database_entry_library_id_exists},
 };
+
+pub async fn get_by_name(database: &AsyncDatabase, name: &str) -> Result<Option<u64>> {
+	let matches = LabelByName::entries_async(database).with_key(name).query().await?;
+	Ok(matches.first().map(|e| e.source.id))
+}
+
+pub async fn add_library_id(database: &AsyncDatabase, label_id: u64, library_id: u32) -> Result<()> {
+	match Label::get_async(&label_id, database).await? {
+		Some(mut label) if label.contents.library_ids.contains(x) {
+			return Err(database_entry_library_id_exists("labels", label_id, library_id))
+		}
+		_ => (),
+	}
+}
 
 pub async fn get_or_insert(database: &AsyncDatabase, label: Label) -> Result<u64> {
 	let matches = LabelByName::entries_async(database)

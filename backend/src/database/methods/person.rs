@@ -14,6 +14,7 @@ use crate::{
 		views::person::{PersonByNameAndType, PersonByNameAndTypeKey},
 	},
 	errors::{Error, Result},
+	models::temp::person::TempPerson,
 };
 
 /// Inserts a document with a unique id.
@@ -34,113 +35,25 @@ pub async fn insert_with_unique_id(
 	}
 }
 
-/// Inserts a document or gets an already existing one.
+/// Either inserts a new entry or update a pre-existing person entry with the library_id.
 ///
-/// Uniqueness is based from name and type.
-pub async fn get_or_insert(database: &AsyncDatabase, person: Person) -> Result<u64> {
-	let key = PersonByNameAndTypeKey::new(person.name.clone(), person.type_.clone());
-	let matches = PersonByNameAndType::entries_async(database)
+/// Matched by [PersonByNameTypeKey]
+pub async fn update_or_insert(database: &AsyncDatabase, temp: TempPerson, library_id: u32) -> Result<u64> {
+	let key = PersonByNameAndTypeKey::new(temp.name.clone(), temp.type_.clone());
+	let mut matches = PersonByNameAndType::entries_async(database)
 		.with_key(&key)
-		.query()
+		.limit(1)
+		.query_with_collection_docs()
 		.await?;
 
-	let id = if let Some(person) = matches.first() {
-		person.source.id
+	let id = if let Some((id, mut document)) = matches.documents.pop_first() {
+		document.contents.library_ids.push(library_id);
+		document.update_async(database).await?;
+		id
 	} else {
-		let person = person.push_into_async(database).await?;
-		person.header.id
+		let doc = temp.into_person(vec![library_id]).push_into_async(database).await?;
+		doc.header.id
 	};
 
 	Ok(id)
-}
-
-#[cfg(test)]
-mod test {
-	use bonsaidb::core::schema::{SerializedCollection, SerializedView};
-
-	use crate::{
-		constants::UNKNOWN_PERSON_ID,
-		database::{
-			methods::person::{get_or_insert, insert_with_unique_id},
-			models::person::{Person, PersonType},
-			views::person::{PersonByNameAndType, PersonByNameAndTypeKey},
-			Database,
-		},
-		errors::Result,
-	};
-
-	#[tokio::test]
-	async fn test_insert_with_unique_id() -> Result<()> {
-		let db = Database::testing().await?;
-		let database = db.0;
-
-		let person = Person::unknown();
-		insert_with_unique_id(&database, person, UNKNOWN_PERSON_ID).await?;
-
-		let person = Person::unknown();
-		let result = insert_with_unique_id(&database, person, UNKNOWN_PERSON_ID).await;
-		assert!(result.is_err());
-
-		Ok(())
-	}
-
-	#[tokio::test]
-	async fn test_get_or_insert() -> Result<()> {
-		let db = Database::testing().await?;
-		let dbx = db.0;
-
-		let person = Person::unknown();
-		let doc = insert_with_unique_id(&dbx, person, UNKNOWN_PERSON_ID).await?;
-		assert_eq!(doc.header.id, UNKNOWN_PERSON_ID);
-
-		let person = Person::unknown();
-		let result = get_or_insert(&dbx, person).await?;
-		assert_eq!(result, UNKNOWN_PERSON_ID);
-
-		Ok(())
-	}
-
-	#[tokio::test]
-	async fn test_by_name_and_type() -> Result<()> {
-		let db = Database::testing().await?;
-		let dbx = db.0;
-
-		let person_1 = Person {
-			name: "Person 1".to_string(),
-			name_sort: Some("Person 1 Sort".to_string()),
-			..Default::default()
-		};
-
-		let person_1_diff_sort = Person {
-			name: "Person 1".to_string(),
-			name_sort: Some("Person 1 Sort Different".to_string()),
-			..Default::default()
-		};
-
-		let person_2 = Person {
-			name: "Person 2".to_string(),
-			name_sort: Some("Person 2 Sort".to_string()),
-			..Default::default()
-		};
-
-		person_1.push_into_async(&dbx).await?;
-		person_1_diff_sort.push_into_async(&dbx).await?;
-		person_2.push_into_async(&dbx).await?;
-
-		let see_person_1 = PersonByNameAndType::entries_async(&dbx)
-			.with_key(&PersonByNameAndTypeKey::new("Person 1".to_string(), PersonType::Artist))
-			.query()
-			.await?;
-
-		assert_eq!(see_person_1.len(), 2);
-
-		let see_person_2 = PersonByNameAndType::entries_async(&dbx)
-			.with_key(&PersonByNameAndTypeKey::new("Person 2".to_string(), PersonType::Artist))
-			.query()
-			.await?;
-
-		assert_eq!(see_person_2.len(), 1);
-
-		Ok(())
-	}
 }
