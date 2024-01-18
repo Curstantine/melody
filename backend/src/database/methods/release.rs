@@ -33,8 +33,11 @@ pub async fn update_or_insert(
 		.find(|(_, x)| x.contents.artists.iter().all(|x| artist_ids.contains(&x.id)));
 
 	let id = if let Some((id, mut document)) = single_match {
-		document.contents.library_ids.push(library_id);
-		document.update_async(database).await?;
+		if !document.contents.library_ids.contains(&library_id) {
+			document.contents.library_ids.push(library_id);
+			document.update_async(database).await?;
+		}
+
 		id
 	} else {
 		let doc = temp

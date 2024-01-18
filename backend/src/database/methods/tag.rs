@@ -18,8 +18,11 @@ pub async fn update_or_insert(database: &AsyncDatabase, temp: TempTag, library_i
 		.await?;
 
 	let id = if let Some((id, mut document)) = matches.documents.pop_first() {
-		document.contents.library_ids.push(library_id);
-		document.update_async(database).await?;
+		if !document.contents.library_ids.contains(&library_id) {
+			document.contents.library_ids.push(library_id);
+			document.update_async(database).await?;
+		}
+
 		id
 	} else {
 		let doc = temp.into_tag(vec![library_id]).push_into_async(database).await?;

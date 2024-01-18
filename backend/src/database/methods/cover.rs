@@ -27,9 +27,11 @@ pub async fn get_by_type_and_hash(database: &AsyncDatabase, type_: CoverType, ha
 
 /// Updates the [Cover::library_ids] vector with the passed [library_id]
 pub async fn update_entry_lib_ids(database: &AsyncDatabase, cover_id: u64, library_id: u32) -> Result<()> {
-	if let Some(mut cover) = Cover::get_async(&cover_id, database).await? {
-		cover.contents.library_ids.push(library_id);
-		cover.update_async(database).await?;
+	if let Some(mut document) = Cover::get_async(&cover_id, database).await? {
+		if !document.contents.library_ids.contains(&library_id) {
+			document.contents.library_ids.push(library_id);
+			document.update_async(database).await?;
+		}
 	} else {
 		return Err(database_entry_not_found("covers", cover_id));
 	}
