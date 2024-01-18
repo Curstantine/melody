@@ -103,6 +103,8 @@ pub async fn create_library(
 		.unwrap();
 
 	let em = LibraryEventManager::new(LibraryEventType::Scan);
+	let library_id = library.header.id as u32;
+
 	for result in rx.into_iter() {
 		match result {
 			ChannelData::Scanning(location) => {
@@ -117,7 +119,7 @@ pub async fn create_library(
 				let payload = LibraryEventData::new(total, current, path);
 				em.emit(&window, LibraryEventPayload::indexing(payload))?;
 
-				handle_temp_track_meta(database.inner_ref(), &cover_dir, *meta, resources).await?;
+				handle_temp_track_meta(database.inner_ref(), &cover_dir, library_id, *meta, resources).await?;
 			}
 			ChannelData::Err(e, path) => {
 				error!("Error encountered while reading/indexing: {path:#?}\n{e:#?}");

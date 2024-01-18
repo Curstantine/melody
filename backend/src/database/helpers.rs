@@ -86,7 +86,7 @@ pub async fn handle_temp_track_meta(
 		let x = artists.get_or_insert(Vec::with_capacity(temp_artists.len()));
 
 		for rx in temp_artists {
-			let id = methods::person::update_or_insert(database, rx.person, library_id.clone()).await?;
+			let id = methods::person::update_or_insert(database, rx.person, library_id).await?;
 			x.push(rx.inline.into_inlined(id));
 		}
 	}
@@ -95,7 +95,7 @@ pub async fn handle_temp_track_meta(
 		let x = composer_ids.get_or_insert(Vec::with_capacity(temp_composers.len()));
 
 		for rx in temp_composers {
-			let id = methods::person::update_or_insert(database, rx, library_id.clone()).await?;
+			let id = methods::person::update_or_insert(database, rx, library_id).await?;
 			x.push(id);
 		}
 	}
@@ -104,7 +104,7 @@ pub async fn handle_temp_track_meta(
 		let x = producer_ids.get_or_insert(Vec::with_capacity(temp_producers.len()));
 
 		for rx in temp_producers {
-			let id = methods::person::update_or_insert(database, rx, library_id.clone()).await?;
+			let id = methods::person::update_or_insert(database, rx, library_id).await?;
 			x.push(id);
 		}
 	}
@@ -113,7 +113,7 @@ pub async fn handle_temp_track_meta(
 		let x = label_ids.get_or_insert(Vec::with_capacity(temp_labels.len()));
 
 		for temp_label in temp_labels {
-			let id = methods::label::update_or_insert(database, temp_label, library_id.clone()).await?;
+			let id = methods::label::update_or_insert(database, temp_label, library_id).await?;
 			x.push(id);
 		}
 	}
@@ -122,7 +122,7 @@ pub async fn handle_temp_track_meta(
 		let x = genre_ids.get_or_insert(Vec::with_capacity(temp_genres.len()));
 
 		for temp_genre in temp_genres {
-			let id = methods::tag::update_or_insert(database, temp_genre, library_id.clone()).await?;
+			let id = methods::tag::update_or_insert(database, temp_genre, library_id).await?;
 			x.push(id);
 		}
 	}
@@ -131,7 +131,7 @@ pub async fn handle_temp_track_meta(
 		let x = tag_ids.get_or_insert(Vec::with_capacity(temp_tags.len()));
 
 		for temp_tag in temp_tags {
-			let id = methods::tag::update_or_insert(database, temp_tag, library_id.clone()).await?;
+			let id = methods::tag::update_or_insert(database, temp_tag, library_id).await?;
 			x.push(id);
 		}
 	}
@@ -140,7 +140,7 @@ pub async fn handle_temp_track_meta(
 		let y = release_artists.get_or_insert(Vec::with_capacity(temp_release_artists.len()));
 
 		for temp_artist in temp_release_artists {
-			let id = methods::person::update_or_insert(database, temp_artist.person, library_id.clone()).await?;
+			let id = methods::person::update_or_insert(database, temp_artist.person, library_id).await?;
 			y.push(temp_artist.inline.into_inlined(id));
 		}
 	}
@@ -149,7 +149,7 @@ pub async fn handle_temp_track_meta(
 		let x = release_cover_ids.insert(Vec::with_capacity(release_covers.len()));
 
 		for temp in release_covers {
-			let res = initialize_image_resource(database, cover_dir, library_id.clone(), temp).await?;
+			let res = initialize_image_resource(database, cover_dir, library_id, temp).await?;
 			x.push(res);
 		}
 	}
@@ -158,7 +158,7 @@ pub async fn handle_temp_track_meta(
 		let x = track_cover_ids.insert(Vec::with_capacity(track_covers.len()));
 
 		for temp in track_covers {
-			let res = initialize_image_resource(database, cover_dir, library_id.clone(), temp).await?;
+			let res = initialize_image_resource(database, cover_dir, library_id, temp).await?;
 			x.push(res);
 		}
 	}
@@ -167,7 +167,7 @@ pub async fn handle_temp_track_meta(
 		let id = methods::release::update_or_insert(
 			database,
 			temp,
-			library_id.clone(),
+			library_id,
 			TempReleaseIntoArg {
 				artists: release_artists.unwrap_or_else(|| vec![InlinedArtist::unknown()]),
 				label_ids,

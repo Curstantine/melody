@@ -4,35 +4,10 @@ use bonsaidb::{
 };
 
 use crate::{
-	database::{
-		models::release::Release,
-		views::release::{ReleaseByNameAndArtist, ReleaseByNameAndArtistKey},
-	},
+	database::views::release::{ReleaseByNameAndArtist, ReleaseByNameAndArtistKey},
 	errors::Result,
 	models::temp::release::{TempRelease, TempReleaseIntoArg},
 };
-
-/// Inserts a release or gets an already existing one.
-///
-/// Uniqueness is based on name and release artist id.
-pub async fn get_or_insert(database: &AsyncDatabase, release: Release) -> Result<u64> {
-	let artist_ids = release.artists.iter().map(|x| x.id).collect::<Vec<u64>>();
-
-	let key = ReleaseByNameAndArtistKey::new(release.name.clone(), *artist_ids.first().unwrap());
-	let matches = ReleaseByNameAndArtist::entries_async(database)
-		.with_key(&key)
-		.query()
-		.await?;
-
-	let id = if let Some(release) = matches.first() {
-		release.source.id
-	} else {
-		let release = release.push_into_async(database).await?;
-		release.header.id
-	};
-
-	Ok(id)
-}
 
 pub async fn update_or_insert(
 	database: &AsyncDatabase,
@@ -43,7 +18,7 @@ pub async fn update_or_insert(
 	let artist_ids = arg.artists.iter().map(|x| x.id).collect::<Vec<u64>>();
 	let keys = artist_ids
 		.iter()
-		.map(|x| ReleaseByNameAndArtistKey::new(temp.name.clone(), x.clone()))
+		.map(|x| ReleaseByNameAndArtistKey::new(temp.name.clone(), *x))
 		.collect::<Vec<_>>();
 
 	let matches = ReleaseByNameAndArtist::entries_async(database)

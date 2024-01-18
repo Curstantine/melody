@@ -5,11 +5,6 @@ use bonsaidb::{
 
 use crate::{database::views::label::LabelByName, errors::Result, models::temp::label::TempLabel};
 
-pub async fn get_by_name(database: &AsyncDatabase, name: &str) -> Result<Option<u64>> {
-	let matches = LabelByName::entries_async(database).with_key(name).query().await?;
-	Ok(matches.first().map(|e| e.source.id))
-}
-
 pub async fn update_or_insert(database: &AsyncDatabase, temp: TempLabel, library_id: u32) -> Result<u64> {
 	let mut matches = LabelByName::entries_async(database)
 		.with_key(&temp.name)
