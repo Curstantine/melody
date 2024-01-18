@@ -4,115 +4,27 @@ use bonsaidb::{
 };
 
 use crate::{
-	database::{
-		models::tag::Tag,
-		views::tag::{TagByNameAndType, TagByNameAndTypeKey},
-	},
+	database::views::tag::{TagByNameAndType, TagByNameAndTypeKey},
 	errors::Result,
+	models::temp::tag::TempTag,
 };
 
-/// Inserts a tag or gets an already existing one.
-///
-/// Uniqueness is based on name and tag type.
-pub async fn get_or_insert(database: &AsyncDatabase, tag: Tag) -> Result<u64> {
-	let key = TagByNameAndTypeKey::new(tag.name.clone(), tag.type_.clone());
-	let matches = TagByNameAndType::entries_async(database).with_key(&key).query().await?;
+pub async fn update_or_insert(database: &AsyncDatabase, temp: TempTag, library_id: u32) -> Result<u64> {
+	let key = TagByNameAndTypeKey::new(temp.name.clone(), temp.type_.clone());
+	let mut matches = TagByNameAndType::entries_async(database)
+		.with_key(&key)
+		.limit(1)
+		.query_with_collection_docs()
+		.await?;
 
-	let id = if let Some(tag) = matches.first() {
-		tag.source.id
+	let id = if let Some((id, mut document)) = matches.documents.pop_first() {
+		document.contents.library_ids.push(library_id);
+		document.update_async(database).await?;
+		id
 	} else {
-		let tag = tag.push_into_async(database).await?;
-		tag.header.id
+		let doc = temp.into_tag(vec![library_id]).push_into_async(database).await?;
+		doc.header.id
 	};
 
 	Ok(id)
-}
-
-#[cfg(test)]
-mod test {
-	use bonsaidb::core::schema::{SerializedCollection, SerializedView};
-
-	use crate::{
-		database::{
-			methods::tag::get_or_insert,
-			models::tag::{Tag, TagType},
-			views::tag::{TagByNameAndType, TagByNameAndTypeKey},
-			Database,
-		},
-		errors::Result,
-	};
-
-	#[tokio::test]
-	async fn test_get_or_insert() -> Result<()> {
-		let db = Database::testing().await?;
-		let dbx = db.0;
-
-		let tag = Tag {
-			type_: TagType::Genre,
-			name: "Tag 1".to_string(),
-			library_ids: vec![],
-		};
-		let doc = tag.push_into_async(&dbx).await?;
-
-		let tag = Tag {
-			type_: TagType::Genre,
-			name: "Tag 1".to_string(),
-			library_ids: vec![],
-		};
-		let result = get_or_insert(&dbx, tag).await?;
-		assert_eq!(result, doc.header.id);
-
-		Ok(())
-	}
-
-	#[tokio::test]
-	async fn test_by_name_and_type() -> Result<()> {
-		let db = Database::testing().await?;
-		let dbx = db.0;
-
-		let tag_1 = Tag {
-			type_: TagType::Genre,
-			name: "Tag 1".to_string(),
-			library_ids: vec![],
-		};
-
-		let tag_2 = Tag {
-			type_: TagType::Genre,
-			name: "Tag 2".to_string(),
-			library_ids: vec![],
-		};
-
-		let tag_1_other = Tag {
-			type_: TagType::Other,
-			name: "Tag 1".to_string(),
-			library_ids: vec![],
-		};
-
-		tag_1.push_into_async(&dbx).await?;
-		tag_2.push_into_async(&dbx).await?;
-		tag_1_other.push_into_async(&dbx).await?;
-
-		let see_tag_1 = TagByNameAndType::entries_async(&dbx)
-			.with_key(&TagByNameAndTypeKey::new("Tag 1".to_string(), TagType::Genre))
-			.query()
-			.await?;
-
-		assert_eq!(see_tag_1.len(), 1);
-
-		let see_tag_2 = TagByNameAndType::entries_async(&dbx)
-			.with_key(&TagByNameAndTypeKey::new("Tag 2".to_string(), TagType::Genre))
-			.query()
-			.await?;
-
-		assert_eq!(see_tag_2.len(), 1);
-
-		let see_tag_1_other = TagByNameAndType::entries_async(&dbx)
-			.with_key(&TagByNameAndTypeKey::new("Tag 1".to_string(), TagType::Other))
-			.query()
-			.await?;
-
-		assert_eq!(see_tag_1_other.len(), 1);
-
-		Ok(())
-	}
 }

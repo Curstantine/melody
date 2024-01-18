@@ -26,8 +26,7 @@ pub struct TempRelease {
 }
 
 pub struct TempReleaseIntoArg {
-	pub library_ids: Vec<u32>,
-	pub artists: Option<Vec<InlinedArtist>>,
+	pub artists: Vec<InlinedArtist>,
 	pub label_ids: Option<Vec<u64>>,
 	pub genre_ids: Option<Vec<u64>>,
 	pub tag_ids: Option<Vec<u64>>,
@@ -35,7 +34,7 @@ pub struct TempReleaseIntoArg {
 }
 
 impl TempRelease {
-	pub fn into_release(self, arg: TempReleaseIntoArg) -> Release {
+	pub fn into_release(self, arg: TempReleaseIntoArg, library_ids: Vec<u32>) -> Release {
 		Release {
 			name: self.name,
 			name_sort: self.name_sort,
@@ -50,12 +49,12 @@ impl TempRelease {
 			artist_sort: self.artist_sort,
 			mbz_id: self.mbz_id,
 
-			artists: arg.artists.unwrap_or_else(|| vec![InlinedArtist::unknown()]),
+			artists: arg.artists,
 			label_ids: arg.label_ids,
 			genre_ids: arg.genre_ids,
 			tag_ids: arg.tag_ids,
 			cover_ids: arg.cover_ids,
-			library_ids: arg.library_ids,
+			library_ids,
 		}
 	}
 }

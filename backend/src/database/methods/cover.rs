@@ -25,7 +25,8 @@ pub async fn get_by_type_and_hash(database: &AsyncDatabase, type_: CoverType, ha
 	Ok(matches.first().map(|e| e.source.id))
 }
 
-pub async fn add_library_id(database: &AsyncDatabase, cover_id: u64, library_id: u32) -> Result<()> {
+/// Updates the [Cover::library_ids] vector with the passed [library_id]
+pub async fn update_entry_lib_ids(database: &AsyncDatabase, cover_id: u64, library_id: u32) -> Result<()> {
 	if let Some(mut cover) = Cover::get_async(&cover_id, database).await? {
 		cover.contents.library_ids.push(library_id);
 		cover.update_async(database).await?;

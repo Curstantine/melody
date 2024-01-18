@@ -19,8 +19,11 @@ use crate::{
 	},
 	errors::{self, Result},
 	models::temp::{
-		cover::TempCover, label::TempLabel, person::TempPerson, tag::TempTag, OptionedDate, TempPersonCredit,
-		TempTrackMeta, TempTrackResource,
+		cover::TempCover,
+		label::TempLabel,
+		person::{TempPerson, TempPersonCredit},
+		tag::TempTag,
+		OptionedDate, TempTrackMeta, TempTrackResource,
 	},
 	utils::matchers,
 };

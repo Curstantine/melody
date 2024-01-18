@@ -46,6 +46,7 @@ impl Directories {
 	}
 }
 
+#[inline]
 pub fn get_cover_path(cover_dir: &Path, hash: &Hash, extension: &str, is_thumb: bool) -> PathBuf {
 	let hex = hash.to_hex();
 	let x = format!("{}.{extension}", hex.as_str());

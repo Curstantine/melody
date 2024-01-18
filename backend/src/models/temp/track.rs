@@ -15,14 +15,14 @@ pub struct TempTrack {
 }
 
 pub struct TempTrackIntoArg {
-	pub artists: Option<Vec<InlinedArtist>>,
+	pub artists: Vec<InlinedArtist>,
 	pub release_id: Option<u64>,
 	pub composer_ids: Option<Vec<u64>>,
 	pub producer_ids: Option<Vec<u64>>,
 	pub genre_ids: Option<Vec<u64>>,
 	pub tag_ids: Option<Vec<u64>>,
 	pub cover_ids: Option<Vec<u64>>,
-	pub library_ids: Vec<u64>,
+	pub library_ids: Vec<u32>,
 }
 
 impl TempTrack {
