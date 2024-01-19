@@ -47,6 +47,7 @@ pub async fn get_libraries(db_state: State<'_, DatabaseState>) -> Result<Vec<Lib
 pub async fn create_library(
 	name: String,
 	scan_locations: Vec<String>,
+	location: String,
 	window: tauri::Window,
 	dir_state: tauri::State<'_, DirectoryState>,
 	db_state: tauri::State<'_, DatabaseState>,
