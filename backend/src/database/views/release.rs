@@ -12,26 +12,45 @@ pub struct ReleaseByNameAndArtistKey {
 	pub artist_id: u64,
 }
 
+#[derive(Debug, Clone, View, ViewSchema)]
+#[view(collection = Release, key = ReleaseByNameAndArtistKey, value = u64)]
+pub struct ReleaseByNameAndArtist;
+
 impl ReleaseByNameAndArtistKey {
 	pub fn new(name: String, artist_id: u64) -> Self {
 		Self { name, artist_id }
 	}
 }
 
-#[derive(Debug, Clone, View, ViewSchema)]
-#[view(collection = Release, key = ReleaseByNameAndArtistKey, value = u8)]
-pub struct ReleaseByNameAndArtist;
-
 impl CollectionMapReduce for ReleaseByNameAndArtist {
 	fn map<'doc>(&self, document: CollectionDocument<Release>) -> ViewMapResult<'doc, Self::View> {
 		let x = document.contents;
 
-		let mut maps = Vec::<BonsaiMap<ReleaseByNameAndArtistKey, u8>>::with_capacity(x.artists.len());
+		let mut maps = Vec::<BonsaiMap<ReleaseByNameAndArtistKey, u64>>::with_capacity(x.artists.len());
 		let header = Header::try_from(document.header)?;
 
 		for artist in x.artists {
 			let key = ReleaseByNameAndArtistKey::new(x.name.clone(), artist.id);
 			maps.push(BonsaiMap::new(header.clone(), key, 1));
+		}
+
+		Ok(Mappings::List(maps))
+	}
+}
+
+#[derive(Debug, Clone, View, ViewSchema)]
+#[view(collection = Release, key = u32, value = u64)]
+pub struct ReleaseByLibraryId;
+
+impl CollectionMapReduce for ReleaseByLibraryId {
+	fn map<'doc>(&self, document: CollectionDocument<Release>) -> ViewMapResult<'doc, Self::View> {
+		let x = document.contents;
+
+		let mut maps = Vec::<BonsaiMap<u32, u64>>::with_capacity(x.artists.len());
+		let header = Header::try_from(document.header)?;
+
+		for library_id in x.library_ids {
+			maps.push(BonsaiMap::new(header.clone(), library_id, 1));
 		}
 
 		Ok(Mappings::List(maps))

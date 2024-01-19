@@ -4,9 +4,10 @@ use {
 	serde::{Deserialize, Serialize},
 };
 
-use crate::database::views::release::ReleaseByNameAndArtist;
-
-use super::{CountryCode, FromTag, InlinedArtist, ScriptCode};
+use crate::database::{
+	models::{CountryCode, FromTag, InlinedArtist, ScriptCode},
+	views::release::{ReleaseByLibraryId, ReleaseByNameAndArtist},
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -29,7 +30,7 @@ pub enum ReleaseTypeSecondary {
 }
 
 #[derive(Debug, Serialize, Deserialize, Collection)]
-#[collection(name = "releases", views = [ReleaseByNameAndArtist])]
+#[collection(name = "releases", views = [ReleaseByNameAndArtist, ReleaseByLibraryId])]
 pub struct Release {
 	pub name: String,
 	pub name_sort: Option<String>,

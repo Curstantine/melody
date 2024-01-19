@@ -13,7 +13,7 @@ use {
 use crate::{
 	database::{
 		models::{cover::Cover, person::Person, release::Release},
-		views::release::ReleaseByNameAndArtist,
+		views::release::{ReleaseByLibraryId, ReleaseByNameAndArtist},
 	},
 	errors::Result,
 	models::{
@@ -48,7 +48,7 @@ pub async fn get_releases(library_id: u64, db_state: State<'_, DatabaseState>) -
 #[tauri::command]
 #[tracing::instrument(skip(dir_state, db_state), err(Debug))]
 pub async fn get_display_releases(
-	library_id: u64,
+	library_id: u32,
 	dir_state: State<'_, DirectoryState>,
 	db_state: State<'_, DatabaseState>,
 ) -> Result<DisplayReleases> {
@@ -63,33 +63,28 @@ pub async fn get_display_releases(
 	let db_guard = db_state.get().await;
 	let database = db_guard.as_ref().unwrap();
 
-	let entries = ReleaseByNameAndArtist::entries_async(database.inner_ref())
-		.query_with_docs()
+	let entries = ReleaseByLibraryId::entries_async(database.inner_ref())
+		.with_key(&library_id)
+		.query_with_collection_docs()
 		.await?;
 
 	let mut releases = HashMap::with_capacity(entries.len());
-	let mut artist_set = HashSet::<u64>::new();
-	let mut cover_set = HashSet::<u64>::new();
+	let mut artist_ids = HashSet::<DocumentId>::new();
+	let mut cover_ids = Vec::<DocumentId>::new();
 
-	for mapping in &entries {
-		let id = mapping.document.header.id.deserialize::<u64>()?;
-		let release = Release::document_contents(mapping.document)?;
+	for (id, document) in entries.documents {
+		let release = document.contents;
 
-		release.artists.iter().for_each(|e| {
-			artist_set.insert(e.id);
-		});
+		for artist in &release.artists {
+			artist_ids.insert(DocumentId::from_u64(artist.id));
+		}
 
 		if let Some(covers) = &release.cover_ids {
-			covers.iter().for_each(|e| {
-				cover_set.insert(*e);
-			});
+			covers.iter().for_each(|e| cover_ids.push(DocumentId::from_u64(*e)));
 		}
 
 		releases.insert(id, release);
 	}
-
-	let artist_ids = artist_set.into_iter().map(DocumentId::from_u64).collect::<Vec<_>>();
-	let cover_ids = cover_set.into_iter().map(DocumentId::from_u64).collect::<Vec<_>>();
 
 	let mut artists = HashMap::<u64, Person>::with_capacity(artist_ids.len());
 	let mut covers = HashMap::<u64, DisplayCoverResource>::with_capacity(cover_ids.len());
