@@ -11,17 +11,20 @@ use {
 	tracing::debug,
 };
 
-use crate::{constants::UNKNOWN_PERSON_ID, errors::Result};
+use crate::{
+	constants::UNKNOWN_PERSON_ID,
+	database::{
+		constants::KEY_IS_FIRST_RUN,
+		models::{person::Person, LocalSchema},
+	},
+	errors::Result,
+};
 
-use self::models::{person::Person, LocalSchema};
-
+pub mod constants;
 pub mod helpers;
 pub mod methods;
 pub mod models;
 pub mod views;
-
-pub const DB_MAIN_NAME: &str = "main.bonsaidb";
-const KEY_IS_FIRST_RUN: &str = "is_first_run";
 
 pub struct Database(pub BonsaiDatabase);
 
@@ -29,7 +32,7 @@ impl Database {
 	/// Initialize the database.
 	///
 	/// This function should run in the context of tauri.
-	#[tracing::instrument()]
+	#[tracing::instrument]
 	pub async fn new(db_path: &Path) -> Result<Self> {
 		let db_conf = StorageConfiguration::new(db_path);
 		let database = BonsaiDatabase::open::<LocalSchema>(db_conf).await?;
@@ -44,6 +47,8 @@ impl Database {
 
 	#[cfg(test)]
 	pub async fn testing() -> Result<Self> {
+		use crate::database::constants::DB_MAIN_NAME;
+
 		let db_dir = std::env::current_dir()
 			.unwrap()
 			.join("target/testing")
@@ -54,7 +59,6 @@ impl Database {
 		Ok(Self(database))
 	}
 
-	#[tracing::instrument(skip(database), name = "First time setup")]
 	async fn run_first_time_setup(database: &BonsaiDatabase) -> Result<()> {
 		let unknown_person = Person::unknown();
 		methods::person::insert_with_unique_id(database, unknown_person, UNKNOWN_PERSON_ID).await?;

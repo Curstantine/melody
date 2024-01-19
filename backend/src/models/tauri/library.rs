@@ -4,13 +4,9 @@ use serde::Serialize;
 
 use crate::{
 	errors::Error,
-	models::{
-		library::Library,
-		tauri::{Entity, EventPayload, SerializablePathedError, WindowEventManager, WindowEventType},
-	},
+	models::tauri::{EventPayload, SerializablePathedError, WindowEventManager, WindowEventType},
 };
 
-pub type LibraryEntity = Entity<Library>;
 pub type LibraryEventManager = WindowEventManager<LibraryEventType, LibraryEvent, SerializablePathedError>;
 
 pub type LibraryEventPayload = EventPayload<LibraryEvent, SerializablePathedError>;
