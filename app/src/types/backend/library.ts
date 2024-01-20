@@ -18,6 +18,5 @@ export interface LibraryEventData {
 
 export interface LibraryCreateParameters {
 	[key: string]: unknown;
-	name: string;
 	scanLocations: string[];
 }

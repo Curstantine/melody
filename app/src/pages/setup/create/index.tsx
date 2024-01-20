@@ -6,19 +6,16 @@ import { createStore } from "solid-js/store";
 import { ulid } from "ulid";
 
 import { useForm } from "@/hooks/form";
-import { validateLibraryName } from "@/utils/validators";
 
 import { SETUP_PATHS } from "@/pages/setup";
 
 import InputError from "@/components/Input/InputError";
 import LeadingClickableInput from "@/components/Input/LeadingClickableInput";
-import TextInput from "@/components/Input/TextInput";
 
 export default function SetupCreateView() {
 	let homeDirectory: string | null = null;
 
 	const [mode] = createSignal<"create" | "recover">();
-	const [name, setName] = createSignal<string | null>(null);
 	const [continuable, setContinuability] = createSignal<boolean>(false);
 	const [locations, setLocations] = createStore<Array<{ id: string; location: string | null }>>([]);
 
@@ -59,7 +56,6 @@ export default function SetupCreateView() {
 		navigate(SETUP_PATHS.SCAN, {
 			replace: true,
 			state: {
-				name: name(),
 				scanLocations: locations.map((x) => x.location).filter((x) => x !== null) as string[],
 			},
 		});
@@ -89,19 +85,7 @@ export default function SetupCreateView() {
 			</span>
 
 			<div class="my-8 flex flex-col">
-				<span class="pb-1 text-sm font-orbiter-deck">Name</span>
-				<TextInput
-					name="libraryName"
-					value={name() ?? ""}
-					onInput={(e) => setName(e)}
-					placeholder="The name of your library"
-					icon="i-symbols-badge-outline-rounded"
-					validate={validate}
-					validators={[validateLibraryName]}
-				/>
-				<InputError message={errors["libraryName"]} />
-
-				<span class="mt-4 pb-1 text-sm font-orbiter-deck">Scan Locations</span>
+				<span class="pb-1 text-sm font-orbiter-deck">Scan Locations</span>
 				<div class="flex flex-col gap-2">
 					<For each={locations}>
 						{(obj) => (
