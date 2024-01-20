@@ -5,7 +5,6 @@ import { createStore } from "solid-js/store";
 import type { BackendPathedError } from "@/types/backend";
 import type {
 	LibraryCreateParameters,
-	LibraryEntity,
 	LibraryEvent,
 	LibraryEventData,
 	LibraryEventPayload,
@@ -65,7 +64,7 @@ export default function SetupScanView() {
 			},
 		);
 
-		const result = await invoke<LibraryEntity, LibraryCreateParameters>("create_library", { name, scanLocations });
+		const result = await invoke<void, LibraryCreateParameters>("initialize_library", { name, scanLocations });
 		unlisten();
 
 		if (result.isErr()) return setError(result.unwrapErr());
@@ -73,9 +72,6 @@ export default function SetupScanView() {
 			setCompletion(true);
 			return setSilentErrorsVisibility(true);
 		}
-
-		const library = result.unwrap();
-		appModel.setCurrentLibraryId(library.id);
 
 		cont();
 	};

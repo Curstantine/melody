@@ -32,6 +32,7 @@ fn main() {
 		.manage(DatabaseState::default())
 		.invoke_handler(tauri::generate_handler![
 			commands::general::setup,
+			commands::library::get_scan_locations,
 			commands::library::initialize_library,
 			commands::release::get_releases,
 			commands::release::get_display_releases,

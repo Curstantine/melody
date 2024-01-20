@@ -3,22 +3,20 @@ import { createResource, createSignal, For, Match, onCleanup, onMount, Switch } 
 
 import type { DisplayReleases, ReleasesGetParameters } from "@/types/backend/release";
 
-import { useAppModel } from "@/AppModel";
 import { invoke } from "@/utils/tauri";
 
 import ErrorCard from "@/components/Card/Error";
 import ReleaseListItem from "@/components/ListItems/Release";
 
-const getData = async (libraryId: number | undefined): Promise<DisplayReleases> => {
-	const p = await invoke<DisplayReleases, ReleasesGetParameters>("get_display_releases", { libraryId: libraryId! });
+const getData = async (): Promise<DisplayReleases> => {
+	const p = await invoke<DisplayReleases, ReleasesGetParameters>("get_display_releases");
 	console.log(p);
 	return p.unwrap();
 };
 
 export default function Home() {
-	const { currentLibraryId: [currentLibraryId] } = useAppModel();
 	const [gridXSize, setGridXSize] = createSignal(4);
-	const [data] = createResource(currentLibraryId, getData);
+	const [data] = createResource(getData, {});
 
 	// eslint-disable-next-line prefer-const
 	let ref: HTMLDivElement | undefined = undefined;

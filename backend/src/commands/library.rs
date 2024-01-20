@@ -18,6 +18,15 @@ use crate::{
 };
 
 #[tauri::command]
+#[tracing::instrument(skip(db_state), err(Debug))]
+pub async fn get_scan_locations(db_state: tauri::State<'_, DatabaseState>) -> Result<Option<Vec<String>>> {
+	let db_lock = db_state.get().await;
+	let database = db_lock.as_ref().unwrap();
+
+	methods::library::get_scan_locations(database.inner_ref()).await
+}
+
+#[tauri::command]
 #[tracing::instrument(skip(window, dir_state, db_state), err(Debug))]
 pub async fn initialize_library(
 	scan_locations: Vec<String>,
