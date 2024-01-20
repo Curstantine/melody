@@ -1,8 +1,11 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::WindowEvent;
-use tracing::info;
+use {
+	tauri::{Manager, WindowEvent},
+	tracing::info,
+	window_shadows::set_shadow,
+};
 
 use crate::models::state::{AppState, DatabaseState, DirectoryState};
 
@@ -21,6 +24,14 @@ fn main() {
 	info!("Starting application");
 
 	tauri::Builder::default()
+		.setup(|app| {
+			let window = app.get_window("main").unwrap();
+
+			#[cfg(any(windows, target_os = "macos"))]
+			set_shadow(&window, true).expect("Unsupported platform!");
+
+			Ok(())
+		})
 		.on_window_event(|e| {
 			// To alleviate the resize perf bugs mentioned in https://github.com/tauri-apps/tauri/issues/6322
 			if let WindowEvent::Resized(_) = e.event() {

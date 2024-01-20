@@ -20,6 +20,7 @@ export default class AppModel {
 
 	public async initialize() {
 		const [, setAppError] = this.appError;
+		appWindow.show();
 
 		const setup = await invoke<void>("setup");
 		if (setup.isErr()) {
@@ -51,8 +52,6 @@ export default class AppModel {
 				},
 			};
 		}
-
-		appWindow.show();
 	}
 
 	public setAppError(error: ActionableError["error"], dismissible = true, actions?: ActionableError["actions"]) {
