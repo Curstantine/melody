@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use {blake3::Hash, tauri::PathResolver};
 
 use crate::{
-	database::DB_MAIN_NAME,
+	database::constants::DB_MAIN_NAME,
 	errors::{Error, Result},
 };
 

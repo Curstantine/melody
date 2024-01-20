@@ -8,12 +8,9 @@ import { initialize as initializeTheme } from "@/utils/themes";
 
 import { SHARED_PATHS } from "@/pages/(shared)";
 import { SETUP_PATHS } from "@/pages/setup";
-import { LibraryEntity } from "@/types/backend/library";
 
 export default class AppModel {
 	private navigate = useNavigate();
-
-	currentLibraryId = createSignal<number>();
 	appError = createSignal<ActionableError | null>(null);
 
 	constructor() {
@@ -23,7 +20,6 @@ export default class AppModel {
 
 	public async initialize() {
 		const [, setAppError] = this.appError;
-		const [, setCurrentLibraryId] = this.currentLibraryId;
 
 		const setup = await invoke<void>("setup");
 		if (setup.isErr()) {
@@ -35,14 +31,12 @@ export default class AppModel {
 			setAppError({ dismissible: true, error: themeResult.unwrapErr() });
 		}
 
-		const result = await invoke<LibraryEntity[]>("get_libraries");
+		const result = await invoke<string[] | null>("get_scan_locations");
 		if (result.isErr()) {
 			setAppError({ dismissible: true, error: result.unwrapErr() });
 		} else {
 			const libraries = result.unwrap();
-			if (libraries.length > 0) {
-				// TODO: persist id across restarts
-				setCurrentLibraryId(libraries[0].id);
+			if (libraries !== null && libraries.length > 0) {
 				this.navigate(SHARED_PATHS.MUSIC);
 			} else {
 				this.navigate(SETUP_PATHS.CREATE);
@@ -64,11 +58,6 @@ export default class AppModel {
 	public setAppError(error: ActionableError["error"], dismissible = true, actions?: ActionableError["actions"]) {
 		const [, setAppError] = this.appError;
 		setAppError({ error, dismissible, actions });
-	}
-
-	public setCurrentLibraryId(id: number) {
-		const [, setId] = this.currentLibraryId;
-		setId(id);
 	}
 }
 

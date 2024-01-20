@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use crate::{database::models::library::Library, errors::Error};
+use crate::{
+	errors::Error,
+	models::tauri::{EventPayload, SerializablePathedError, WindowEventManager, WindowEventType},
+};
 
-use super::{Entity, EventPayload, SerializablePathedError, WindowEventManager, WindowEventType};
-
-pub type LibraryEntity = Entity<Library>;
 pub type LibraryEventManager = WindowEventManager<LibraryEventType, LibraryEvent, SerializablePathedError>;
 
 pub type LibraryEventPayload = EventPayload<LibraryEvent, SerializablePathedError>;

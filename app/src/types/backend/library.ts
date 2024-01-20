@@ -1,15 +1,9 @@
-import type { BackendEntity, BackendEventPayload, BackendPathedError } from "@/types/backend";
+import type { BackendEventPayload, BackendPathedError } from "@/types/backend";
 
-export type LibraryCommand = "create_library" | "get_libraries";
+export type LibraryCommand = "get_scan_locations" | "initialize_library";
 export type LibraryEventType = "scan";
 
-export type LibraryEntity = BackendEntity<Library>;
 export type LibraryEventPayload = BackendEventPayload<LibraryEvent, BackendPathedError>;
-
-export interface Library {
-	name: string;
-	scanLocations: string[];
-}
 
 export interface LibraryEvent {
 	type: "indexing" | "scanning";
@@ -24,6 +18,5 @@ export interface LibraryEventData {
 
 export interface LibraryCreateParameters {
 	[key: string]: unknown;
-	name: string;
 	scanLocations: string[];
 }

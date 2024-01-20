@@ -6,13 +6,14 @@ use std::{
 use {
 	tauri::PathResolver,
 	tokio::sync::{Mutex as AsyncMutex, MutexGuard as AsyncMutexGuard},
+	tracing::debug,
 };
 
-use tracing::debug;
-
-use crate::{database::Database, errors::Result};
-
-use super::directories::Directories;
+use crate::{
+	database::Database,
+	errors::Result,
+	models::{configuration::Configuration, directories::Directories},
+};
 
 #[derive(Default)]
 pub struct AppState {
@@ -21,6 +22,9 @@ pub struct AppState {
 
 #[derive(Default)]
 pub struct DirectoryState(pub BlockingMutex<Option<Directories>>);
+
+#[derive(Default)]
+pub struct ConfigurationState(pub Arc<BlockingMutex<Option<Configuration>>>);
 
 #[derive(Default)]
 pub struct DatabaseState(pub Arc<AsyncMutex<Option<Database>>>);
@@ -47,6 +51,13 @@ impl DirectoryState {
 
 	#[inline(always)]
 	pub fn get(&self) -> BlockingMutexGuard<'_, Option<Directories>> {
+		self.0.lock().unwrap()
+	}
+}
+
+impl ConfigurationState {
+	#[inline(always)]
+	pub fn get(&self) -> BlockingMutexGuard<'_, Option<Configuration>> {
 		self.0.lock().unwrap()
 	}
 }

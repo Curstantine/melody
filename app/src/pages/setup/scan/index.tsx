@@ -5,7 +5,6 @@ import { createStore } from "solid-js/store";
 import type { BackendPathedError } from "@/types/backend";
 import type {
 	LibraryCreateParameters,
-	LibraryEntity,
 	LibraryEvent,
 	LibraryEventData,
 	LibraryEventPayload,
@@ -26,7 +25,6 @@ import CircularLoader from "@/components/Loader/Circular";
 import { getLibraryEventDataString, getLibraryEventPath, getLibraryEventTypeString } from "@/utils/strings";
 
 export type LocationState = {
-	name: string;
 	scanLocations: string[];
 };
 
@@ -47,11 +45,11 @@ export default function SetupScanView() {
 
 	const cont = () => navigate(SHARED_PATHS.MUSIC, { replace: true });
 
-	const startScan = async (name: string, scanLocations: string[]) => {
+	const startScan = async (scanLocations: string[]) => {
 		const unlisten = await listen<LibraryEventPayload>(
 			"scan",
 			(event) => {
-				console.log(event);
+				// console.log(event);
 				switch (event.payload.type) {
 					case "ok":
 						setPayload(event.payload.data as LibraryEvent);
@@ -65,7 +63,7 @@ export default function SetupScanView() {
 			},
 		);
 
-		const result = await invoke<LibraryEntity, LibraryCreateParameters>("create_library", { name, scanLocations });
+		const result = await invoke<void, LibraryCreateParameters>("initialize_library", { scanLocations });
 		unlisten();
 
 		if (result.isErr()) return setError(result.unwrapErr());
@@ -74,22 +72,18 @@ export default function SetupScanView() {
 			return setSilentErrorsVisibility(true);
 		}
 
-		const library = result.unwrap();
-		appModel.setCurrentLibraryId(library.id);
-
 		cont();
 	};
 
 	onMount(() => {
-		const name = location.state?.name;
 		const scanLocations = location.state?.scanLocations;
 
-		if (!name || !scanLocations) {
-			const error = DataError.missingLocationState(SETUP_PATHS.SCAN, { name, scanLocations });
+		if (!scanLocations) {
+			const error = DataError.missingLocationState(SETUP_PATHS.SCAN, { scanLocations });
 			return appModel.setAppError(error, false);
 		}
 
-		setTimeout(() => startScan(name, scanLocations!), 1000);
+		setTimeout(() => startScan(scanLocations!), 1000);
 	});
 
 	return (
