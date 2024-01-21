@@ -24,15 +24,18 @@ export default function Home() {
 
 	onMount(async () => {
 		const remConst = parseFloat(getComputedStyle(document.documentElement).fontSize);
-		const resizeListener = await appWindow.onResized(() => {
+		const adjustSize = () => {
 			const { width } = ref!.getBoundingClientRect();
 			const widthRem = width / remConst;
 
 			// 10.5 item width + 1 gap
 			const itemLength = widthRem / 11.5;
 			setGridXSize(Math.floor(itemLength));
-		});
+		};
 
+		adjustSize();
+
+		const resizeListener = await appWindow.onResized(adjustSize);
 		listeners.push(resizeListener);
 	});
 
