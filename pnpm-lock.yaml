@@ -38,6 +38,9 @@ importers:
       '@tauri-apps/api':
         specifier: ^1.5.3
         version: 1.5.3
+      '@unocss/reset':
+        specifier: ^0.58.3
+        version: 0.58.3
       preset-theme-unocss:
         specifier: workspace:^
         version: link:../packages/preset-theme-unocss
@@ -60,9 +63,6 @@ importers:
       '@unocss/eslint-config':
         specifier: ^0.56.5
         version: 0.56.5(eslint@8.56.0)(typescript@5.3.3)
-      '@unocss/reset':
-        specifier: ^0.56.5
-        version: 0.56.5
       eslint-define-config:
         specifier: ^1.24.1
         version: 1.24.1
@@ -1760,6 +1760,11 @@ packages:
 
   /@unocss/reset@0.56.5:
     resolution: {integrity: sha512-//Pv2ITAdnpWB9FIr0JiQVl1rL1XgISR8mu3OikhCfi6d/4OH+o6/WyE7evF1pOmk1JjsQlznOABIZXQlcpbHQ==}
+    dev: false
+
+  /@unocss/reset@0.58.3:
+    resolution: {integrity: sha512-Q2KiRQlam2iYsTZgKdvnXEfUN4TA2oVpGIVD9Wa0ggs0XlYj5aOo0g0+4Tgqqn+YaviZQeJKnDs/JWE+ygHhZA==}
+    dev: false
 
   /@unocss/rule-utils@0.56.5:
     resolution: {integrity: sha512-CXIGHCIC9B8WUl9KbbFMSZHcsIgfmI/+X0bjBv6xrgBVC1EQ2Acq4PYnJIbaRGBRAhl9wYjNL7Zq2UWOdowHAw==}
@@ -3822,6 +3827,7 @@ packages:
       nanoid: 3.3.7
       picocolors: 1.0.0
       source-map-js: 1.0.2
+    dev: true
 
   /postcss@8.4.33:
     resolution: {integrity: sha512-Kkpbhhdjw2qQs2O2DGX+8m5OVqEcbB9HRBvuYM9pgrjEFUg30A9LmXNlTAUj4S9kgtGyrMbTzVjH7E+s5Re2yg==}
@@ -4489,7 +4495,7 @@ packages:
     dependencies:
       '@types/node': 20.10.4
       esbuild: 0.18.20
-      postcss: 8.4.32
+      postcss: 8.4.33
       rollup: 3.29.4
     optionalDependencies:
       fsevents: 2.3.3
