@@ -31,8 +31,8 @@ export default function TabBarDestination(props: Props) {
 			draggable={true}
 			onDragStart={onDragStart}
 			onDragEnd={onDragEnd}
-			class="text-text-2 transition-transform,opacity use-transition-standard hover:text-text-1"
-			activeClass="text-text-1"
+			class="text-text-3 transition-transform,opacity use-transition-standard hover:text-text-1"
+			activeClass="text-text-1!"
 			classList={{ "opacity-25": isFloating() }}
 		>
 			{props.label}
