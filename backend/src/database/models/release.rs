@@ -41,6 +41,7 @@ pub struct Release {
 	pub total_tracks: Option<u32>,
 	pub catalog_number: Option<String>,
 
+	/// Either [InlinedArtist::unknown] or populated with artists.
 	pub artists: Vec<InlinedArtist>,
 	pub artist_sort: Option<String>,
 

@@ -1,6 +1,9 @@
 use chrono::NaiveDate;
 
-use crate::database::models::{track::Track, InlinedArtist};
+use crate::{
+	constants,
+	database::models::{track::Track, InlinedArtist},
+};
 
 #[derive(Debug)]
 pub struct TempTrack {
@@ -36,8 +39,8 @@ impl TempTrack {
 			mbz_id: self.mbz_id,
 			path: self.path,
 
-			artists: arg.artists,
-			release_id: arg.release_id,
+			artists: arg.artists.unwrap_or_else(|| vec![InlinedArtist::unknown()]),
+			release_id: arg.release_id.unwrap_or(constants::UNKNOWN_RELEASE_ID),
 			composer_ids: arg.composer_ids,
 			producer_ids: arg.producer_ids,
 			genre_ids: arg.genre_ids,

@@ -13,10 +13,12 @@ pub struct Track {
 	pub disc_number: Option<u32>,
 	pub original_date: Option<NaiveDate>,
 
-	pub artists: Option<Vec<InlinedArtist>>,
+	/// Either [InlinedArtist::unknown] or populated with artists.
+	pub artists: Vec<InlinedArtist>,
 	pub artist_sort: Option<String>,
 
-	pub release_id: Option<u64>,
+	/// Either [constants::UNKNOWN_RELEASE_ID] or a u64 of sorts.
+	pub release_id: u64,
 	pub composer_ids: Option<Vec<u64>>,
 	pub producer_ids: Option<Vec<u64>>,
 	pub cover_ids: Option<Vec<u64>>,
