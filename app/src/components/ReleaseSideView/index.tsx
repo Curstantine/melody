@@ -47,9 +47,12 @@ export default function ReleaseSideView() {
 			}}
 		>
 			<Show when={viewData()}>
-				<div class="min-h-8 inline-flex items-center justify-between border-b-(1 border-main solid) px-4">
+				<div class="min-h-8 inline-flex items-center justify-between border-b-(1 border-main solid) pl-4 pr-2">
 					<span class="text-sm text-text-3">Release Details</span>
-					<button class="button-layout" onClick={() => setVisibility(false)}>
+					<button
+						class="h-6 w-6 icon-button-layout button-template-text"
+						onClick={() => setVisibility(false)}
+					>
 						<div class="i-symbols-close" />
 					</button>
 				</div>
@@ -65,7 +68,7 @@ export default function ReleaseSideView() {
 							{(trackList) => (
 								<For each={trackList().tracks}>
 									{(track) => (
-										<div class="flex items-center px-4 py-1">
+										<div class="flex items-center py-1 pl-4 pr-2">
 											<span class="w-8 self-start text-sm text-text-3">
 												{track.track_number}.
 											</span>
@@ -79,7 +82,7 @@ export default function ReleaseSideView() {
 												</span>
 											</div>
 
-											<button class="2 h-6 w-6 p-0 button-layout button-template-text">
+											<button class="h-6 w-6 icon-button-layout button-template-text">
 												<div class="i-symbols-more-vert" />
 											</button>
 										</div>
