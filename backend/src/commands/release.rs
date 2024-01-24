@@ -19,7 +19,7 @@ use crate::{
 	models::{
 		state::{DatabaseState, DirectoryState},
 		tauri::{
-			cover::DisplayCoverResource,
+			cover::DisplayCover,
 			release::{DisplayReleases, ReleaseEntity},
 		},
 	},
@@ -62,41 +62,35 @@ pub async fn get_display_releases(
 	let db_guard = db_state.get().await;
 	let database = db_guard.as_ref().unwrap();
 
-	let entries = ReleaseByNameAndArtist::entries_async(database.inner_ref())
-		.query_with_docs()
-		.await?;
+	let entries = Release::all_async(database.inner_ref()).await?;
 
 	let mut releases = HashMap::<u64, Release>::with_capacity(entries.len());
 	let mut artist_ids = HashSet::<DocumentId>::new();
 	let mut cover_ids = Vec::<DocumentId>::new();
 
-	for mapping in &entries {
-		let id = mapping.document.header.id.deserialize::<u64>()?;
-		let release = Release::document_contents(mapping.document)?;
+	for document in entries {
+		let id = document.header.id;
 
-		for artist in &release.artists {
+		for artist in &document.contents.artists {
 			artist_ids.insert(DocumentId::from_u64(artist.id));
 		}
 
-		if let Some(covers) = &release.cover_ids {
+		if let Some(covers) = &document.contents.cover_ids {
 			covers.iter().for_each(|e| cover_ids.push(DocumentId::from_u64(*e)));
 		}
 
-		releases.insert(id, release);
+		releases.insert(id, document.contents);
 	}
 
 	let mut artists = HashMap::<u64, Person>::with_capacity(artist_ids.len());
-	let mut covers = HashMap::<u64, DisplayCoverResource>::with_capacity(cover_ids.len());
+	let mut covers = HashMap::<u64, DisplayCover>::with_capacity(cover_ids.len());
 
 	for i in Person::get_multiple_async(&artist_ids, database.inner_ref()).await? {
 		artists.insert(i.header.id, i.contents);
 	}
 
 	for i in Cover::get_multiple_async(&cover_ids, database.inner_ref()).await? {
-		covers.insert(
-			i.header.id,
-			DisplayCoverResource::from_cover(i.contents, &resource_cover_dir),
-		);
+		covers.insert(i.header.id, DisplayCover::from_cover(i.contents, &resource_cover_dir));
 	}
 
 	debug!("Finished building display release query in {:?}", start.elapsed());
