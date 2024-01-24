@@ -5,12 +5,14 @@ import type { DisplayCover } from "@/types/backend/cover";
 import type { InlinedArtist } from "@/types/backend/generic";
 import type { Person } from "@/types/backend/person";
 import type { Release } from "@/types/backend/release";
+import { JSX } from "solid-js";
 
 type Props = {
 	id: number;
 	release: Release;
 	artists: Record<number, Person>;
 	cover?: DisplayCover;
+	onClick: (release: Release, artists: Record<number, Person>) => void;
 };
 
 export default function ReleaseListItem(props: Props) {
@@ -23,8 +25,13 @@ export default function ReleaseListItem(props: Props) {
 		return convertFileSrc(cover.path);
 	};
 
+	const onClick: JSX.EventHandler<HTMLDivElement, MouseEvent> = (e) => {
+		e.preventDefault();
+		props.onClick.call(null, props.release, props.artists);
+	};
+
 	return (
-		<div class="h-52 w-42 flex flex-col gap-2">
+		<div class="h-52 w-42 flex flex-col gap-2" onClick={onClick}>
 			<div
 				class="h-42 w-42 inline-flex items-center justify-center"
 				classList={{ "bg-background-secondary rounded-md": props.cover === undefined }}

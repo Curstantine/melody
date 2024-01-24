@@ -1,8 +1,9 @@
 import type { LibraryCommand, LibraryEventType } from "@/types/backend/library";
 import type { ReleaseCommand } from "@/types/backend/release";
+import type { TrackCommand } from "@/types/backend/track";
 
 export type GeneralCommand = "setup";
-export type BackendCommands = GeneralCommand | LibraryCommand | ReleaseCommand;
+export type BackendCommands = GeneralCommand | LibraryCommand | ReleaseCommand | TrackCommand;
 export type BackendEvents = LibraryEventType;
 
 export interface BackendBaseError {

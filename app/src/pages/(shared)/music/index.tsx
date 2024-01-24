@@ -1,21 +1,23 @@
 import { appWindow } from "@tauri-apps/api/window";
 import { createResource, createSignal, For, Match, onCleanup, onMount, Switch } from "solid-js";
 
-import type { DisplayReleases, ReleasesGetParameters } from "@/types/backend/release";
+import type { Person } from "@/types/backend/person";
+import type { DisplayReleases, Release, ReleasesGetParameters } from "@/types/backend/release";
 
 import { invoke } from "@/utils/tauri";
 
 import ErrorCard from "@/components/Card/Error";
 import ReleaseListItem from "@/components/ListItems/Release";
+import { type ContextType as ReleaseSideViewData, useReleaseSideViewData } from "@/components/ReleaseSideView/context";
 
 const getData = async (): Promise<DisplayReleases> => {
 	const p = await invoke<DisplayReleases, ReleasesGetParameters>("get_display_releases");
-	console.log(p);
 	return p.unwrap();
 };
 
 export default function Home() {
 	const [gridXSize, setGridXSize] = createSignal(4);
+	const [, setSideViewRelease] = useReleaseSideViewData();
 	const [data] = createResource(getData, {});
 
 	// eslint-disable-next-line prefer-const
@@ -40,6 +42,10 @@ export default function Home() {
 	});
 
 	onCleanup(() => listeners.forEach((fn) => fn()));
+
+	const onReleaseItemClick = (release: Release, artists: Record<number, Person>) => {
+		setSideViewRelease({ release, artists } as ReleaseSideViewData);
+	};
 
 	return (
 		<div
@@ -69,6 +75,7 @@ export default function Home() {
 									cover={release.cover_ids === undefined || release.cover_ids === null
 										? undefined
 										: data().covers[release.cover_ids[0]]}
+									onClick={onReleaseItemClick}
 								/>
 							)}
 						</For>

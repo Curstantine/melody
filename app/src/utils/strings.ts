@@ -1,4 +1,6 @@
+import type { InlinedArtist } from "@/types/backend/generic";
 import type { LibraryEvent, LibraryEventData } from "@/types/backend/library";
+import type { Person } from "@/types/backend/person";
 
 export function getLibraryEventTypeString(type: LibraryEvent["type"]): string {
 	switch (type) {
@@ -20,4 +22,9 @@ export function getLibraryEventPath(event: LibraryEvent) {
 
 	const { path } = event.data as LibraryEventData;
 	return path;
+}
+
+// TODO: Support linking using id
+export function joinInlinedArtists(inlined: InlinedArtist[], artists: Record<number, Person>): string {
+	return inlined.map(({ id, join, credited_as }) => `${credited_as ?? artists[id].name}${join}`).join("");
 }
