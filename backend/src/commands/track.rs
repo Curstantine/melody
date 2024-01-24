@@ -51,7 +51,11 @@ pub async fn get_track_list_for_release(
 		artists.insert(i.header.id, i.contents);
 	}
 
-	tracks.sort_by(|a, b| a.track_number.cmp(&b.track_number));
+	tracks.sort_by(|a, b| match a.disc_number.cmp(&b.disc_number) {
+		std::cmp::Ordering::Equal => a.track_number.cmp(&b.track_number),
+		other => other,
+	});
+
 	debug!("Finished building display track list query in {:?}", start.elapsed());
 
 	Ok(DisplayTrackList { tracks, artists })
