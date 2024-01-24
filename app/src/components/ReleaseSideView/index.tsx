@@ -11,15 +11,15 @@ import {
 	useReleaseSideViewData,
 } from "@/components/ReleaseSideView/context";
 
-const getData = async (): Promise<DisplayTrackList> => {
-	const x = await invoke<DisplayTrackList, GetTrackListParameters>("get_track_list_for_release");
+const getData = async (releaseId: number): Promise<DisplayTrackList> => {
+	const x = await invoke<DisplayTrackList, GetTrackListParameters>("get_track_list_for_release", { releaseId });
 	console.log(x);
 	return x.unwrap();
 };
 
 export default function ReleaseSideView() {
 	const [viewData] = useReleaseSideViewData();
-	const [data] = createResource(getData, {});
+	const [data] = createResource(() => viewData()?.releaseId, getData);
 
 	// Note(Curstantine): Convenience un-wrappers for non-null data.
 	// Guard these by Show or something.

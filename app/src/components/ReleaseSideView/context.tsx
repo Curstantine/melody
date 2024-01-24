@@ -3,7 +3,7 @@ import { type Accessor, createContext, createSignal, type JSX, type Setter, useC
 import { Person } from "@/types/backend/person";
 import type { Release } from "@/types/backend/release";
 
-export type ContextType = { release: Release; artists: Record<number, Person> };
+export type ContextType = { releaseId: number; release: Release; artists: Record<number, Person> };
 const ReleaseSideViewContext = createContext<[Accessor<ContextType | null>, Setter<ContextType | null>]>();
 
 type Props = {

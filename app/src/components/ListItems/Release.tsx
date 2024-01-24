@@ -12,7 +12,7 @@ type Props = {
 	release: Release;
 	artists: Record<number, Person>;
 	cover?: DisplayCover;
-	onClick: (release: Release, artists: Record<number, Person>) => void;
+	onClick: (releaseId: number, release: Release, artists: Record<number, Person>) => void;
 };
 
 export default function ReleaseListItem(props: Props) {
@@ -27,7 +27,7 @@ export default function ReleaseListItem(props: Props) {
 
 	const onClick: JSX.EventHandler<HTMLDivElement, MouseEvent> = (e) => {
 		e.preventDefault();
-		props.onClick.call(null, props.release, props.artists);
+		props.onClick.call(null, props.id, props.release, props.artists);
 	};
 
 	return (

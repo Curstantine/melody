@@ -43,8 +43,8 @@ export default function Home() {
 
 	onCleanup(() => listeners.forEach((fn) => fn()));
 
-	const onReleaseItemClick = (release: Release, artists: Record<number, Person>) => {
-		setSideViewRelease({ release, artists } as ReleaseSideViewData);
+	const onReleaseItemClick = (releaseId: number, release: Release, artists: Record<number, Person>) => {
+		setSideViewRelease({ release, artists, releaseId } satisfies ReleaseSideViewData);
 	};
 
 	return (
