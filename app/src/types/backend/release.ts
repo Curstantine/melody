@@ -12,27 +12,27 @@ export type ReleaseTypeSecondary = "compilation" | "remix" | "live" | "soundtrac
 
 export interface Release {
 	name: string;
-	name_sort?: string;
+	name_sort: null | string;
 
-	year?: number;
-	date?: string;
-	country?: CountryCode;
-	script?: ScriptCode;
-	total_tracks?: number;
-	catalog_number?: string;
+	year: null | number;
+	date: null | string;
+	country: null | CountryCode;
+	script: null | ScriptCode;
+	total_tracks: null | number;
+	catalog_number: null | string;
 
 	artists: InlinedArtist[];
-	artist_sort?: string;
+	artist_sort: null | string;
 
-	label_ids?: number[];
-	genre_ids?: number[];
-	tag_ids?: number[];
-	cover_ids?: number[];
+	label_ids: null | number[];
+	genre_ids: null | number[];
+	tag_ids: null | number[];
+	cover_ids: null | number[];
 
 	type: ReleaseType;
-	type_secondary?: ReleaseTypeSecondary;
+	type_secondary: null | ReleaseTypeSecondary;
 
-	mbz_id?: string;
+	mbz_id: null | string;
 }
 
 export interface DisplayReleases {

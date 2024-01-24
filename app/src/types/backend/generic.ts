@@ -3,6 +3,6 @@ export type ScriptCode = "latin" | "japanese";
 
 export interface InlinedArtist {
 	id: number;
-	credited_as?: string;
+	credited_as: null | string;
 	join: string;
 }

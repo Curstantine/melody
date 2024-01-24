@@ -7,7 +7,7 @@ export type BackendEvents = LibraryEventType;
 
 export interface BackendBaseError {
 	short: string;
-	message?: string;
+	message: null | string;
 }
 
 export interface BackendPathedError {
