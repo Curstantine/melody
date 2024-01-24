@@ -21,7 +21,7 @@ use crate::{
 
 #[tauri::command]
 #[tracing::instrument(skip(db_state), err(Debug))]
-pub async fn get_tracks_for_release(
+pub async fn get_track_list_for_release(
 	db_state: tauri::State<'_, DatabaseState>,
 	release_id: u64,
 ) -> Result<DisplayTrackList> {
