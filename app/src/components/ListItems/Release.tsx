@@ -1,11 +1,11 @@
 import { convertFileSrc } from "@tauri-apps/api/tauri";
-import { Show } from "solid-js";
+import { type JSX, Show } from "solid-js";
 
 import type { DisplayCover } from "@/types/backend/cover";
-import type { InlinedArtist } from "@/types/backend/generic";
 import type { Person } from "@/types/backend/person";
 import type { Release } from "@/types/backend/release";
-import { JSX } from "solid-js";
+
+import { joinInlinedArtists } from "@/utils/strings";
 
 type Props = {
 	id: number;
@@ -16,11 +16,6 @@ type Props = {
 };
 
 export default function ReleaseListItem(props: Props) {
-	const getArtist = (ref: InlinedArtist): string => {
-		const artist = props.artists[ref.id];
-		return `${ref.credited_as ?? artist.name}${ref.join ?? ""}`;
-	};
-
 	const getCoverPath = (cover: DisplayCover) => {
 		return convertFileSrc(cover.path);
 	};
@@ -45,7 +40,7 @@ export default function ReleaseListItem(props: Props) {
 					{props.release.name}
 				</span>
 				<span class="line-clamp-1 text-ellipsis text-xs text-text-3">
-					{props.release.artists.map(getArtist).join("")}
+					{joinInlinedArtists(props.release.artists, props.artists)}
 				</span>
 			</div>
 		</div>

@@ -26,5 +26,5 @@ export function getLibraryEventPath(event: LibraryEvent) {
 
 // TODO: Support linking using id
 export function joinInlinedArtists(inlined: InlinedArtist[], artists: Record<number, Person>): string {
-	return inlined.map(({ id, join, credited_as }) => `${credited_as ?? artists[id].name}${join}`).join("");
+	return inlined.map(({ id, join, credited_as }) => `${credited_as ?? artists[id].name}${join ?? ""}`).join("");
 }
