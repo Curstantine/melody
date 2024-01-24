@@ -47,6 +47,7 @@ fn main() {
 			commands::library::initialize_library,
 			commands::release::get_releases,
 			commands::release::get_display_releases,
+			commands::track::get_tracks_for_release,
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running tauri application");

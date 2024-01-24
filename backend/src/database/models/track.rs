@@ -1,11 +1,13 @@
-use bonsaidb::core::schema::Collection;
-use chrono::NaiveDate;
-use serde::{Deserialize, Serialize};
+use {
+	bonsaidb::core::schema::Collection,
+	chrono::NaiveDate,
+	serde::{Deserialize, Serialize},
+};
 
-use super::InlinedArtist;
+use crate::database::{models::InlinedArtist, views::track::TrackByReleaseId};
 
 #[derive(Debug, Serialize, Deserialize, Collection)]
-#[collection(name = "tracks")]
+#[collection(name = "tracks", views = [TrackByReleaseId])]
 pub struct Track {
 	pub title: String,
 	pub title_sort: Option<String>,
