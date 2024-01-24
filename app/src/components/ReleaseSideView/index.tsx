@@ -1,4 +1,4 @@
-import { createResource, For, Match, Show, Switch } from "solid-js";
+import { createEffect, createResource, createSignal, For, Match, Show, Switch } from "solid-js";
 
 import type { DisplayTrackList, GetTrackListParameters } from "@/types/backend/track";
 
@@ -18,19 +18,40 @@ const getData = async (releaseId: number): Promise<DisplayTrackList> => {
 };
 
 export default function ReleaseSideView() {
-	const [viewData] = useReleaseSideViewData();
+	const [viewData, setViewData] = useReleaseSideViewData();
 	const [data] = createResource(() => viewData()?.releaseId, getData);
 
-	// Note(Curstantine): Convenience un-wrappers for non-null data.
+	// This boolean controls the overall visibility of the sheet.
+	// Used to guard data when a close is initiated to let transitions finish before clearing the signal.
+	//
+	// Whenever viewData is set to a non-nullish value, opened should be true.
+	// And when the setVisibility is set to false, viewData should be set to null.
+	const [opened, setVisibility] = createSignal(false);
+
+	// Convenience un-wrappers for non-null data.
 	// Guard these by Show or something.
 	const release = () => viewData()!.release;
 	const artists = () => viewData()!.artists;
 
+	createEffect(() => {
+		if (viewData()) return setVisibility(true);
+		if (!opened()) return setTimeout(() => setViewData(null), 1500);
+	});
+
 	return (
-		<div class="min-w-sm flex flex-col border-l-(1 border-main solid)">
+		<div
+			class="flex flex-col transform-gpu border-l-(1 border-main solid) use-transition-standard"
+			classList={{
+				"translate-x-0 w-xl": opened(),
+				"translate-x-full w-0": !opened(),
+			}}
+		>
 			<Show when={viewData()}>
-				<div class="h-6 inline-flex items-center border-b-(1 border-main solid) px-2">
+				<div class="min-h-8 inline-flex items-center justify-between border-b-(1 border-main solid) px-4">
 					<span class="text-sm text-text-3">Release Details</span>
+					<button class="button-layout" onClick={() => setVisibility(false)}>
+						<div class="i-symbols-close" />
+					</button>
 				</div>
 
 				<div class="flex flex-col gap-2 overflow-y-auto py-2">
@@ -44,19 +65,21 @@ export default function ReleaseSideView() {
 							{(trackList) => (
 								<For each={trackList().tracks}>
 									{(track) => (
-										<div class="grid grid-flow-col grid-rows-2 items-center px-2 py-1">
-											<span class="row-span-2 w-4 self-start text-sm text-text-3">
+										<div class="flex items-center px-4 py-1">
+											<span class="w-8 self-start text-sm text-text-3">
 												{track.track_number}.
 											</span>
 
-											<span class="col-span-7 text-sm leading-snug text-text-1">
-												{track.title}
-											</span>
-											<span class="text-xs leading-snug text-text-2">
-												{joinInlinedArtists(track.artists, trackList().artists)}
-											</span>
+											<div class="flex flex-1 flex-col pr-4">
+												<span class="text-sm leading-snug text-text-1">
+													{track.title}
+												</span>
+												<span class="text-xs leading-snug text-text-2">
+													{joinInlinedArtists(track.artists, trackList().artists)}
+												</span>
+											</div>
 
-											<button class="row-span-2 h-6 w-6 p-0 button-layout button-template-text">
+											<button class="2 h-6 w-6 p-0 button-layout button-template-text">
 												<div class="i-symbols-more-vert" />
 											</button>
 										</div>

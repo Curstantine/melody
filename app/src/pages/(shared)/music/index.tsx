@@ -17,15 +17,16 @@ const getData = async (): Promise<DisplayReleases> => {
 
 export default function Home() {
 	const [gridXSize, setGridXSize] = createSignal(4);
-	const [, setSideViewRelease] = useReleaseSideViewData();
 	const [data] = createResource(getData, {});
+
+	const [, setSideViewRelease] = useReleaseSideViewData();
 
 	// eslint-disable-next-line prefer-const
 	let ref: HTMLDivElement | undefined = undefined;
 	const listeners: Array<() => void> = [];
 
 	onMount(async () => {
-		const remConst = parseFloat(getComputedStyle(document.documentElement).fontSize);
+		const remConst = parseFloat(getComputedStyle(ref!).fontSize);
 		const adjustSize = () => {
 			const { width } = ref!.getBoundingClientRect();
 			const widthRem = width / remConst;
@@ -51,7 +52,7 @@ export default function Home() {
 		<div
 			ref={ref}
 			style={`grid-template-columns: repeat(${gridXSize()}, minmax(0, 1fr));`}
-			class="grid w-full items-center justify-center gap-4 overflow-y-auto p-4"
+			class="grid w-full transform-gpu items-center justify-center gap-4 overflow-y-auto p-4"
 		>
 			<Switch>
 				<Match when={data.loading}>
