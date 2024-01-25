@@ -1,5 +1,5 @@
 import { appWindow } from "@tauri-apps/api/window";
-import { createResource, createSignal, For, Match, onCleanup, onMount, Switch } from "solid-js";
+import { createEffect, createResource, createSignal, For, Match, onCleanup, onMount, Switch, untrack } from "solid-js";
 
 import type { Person } from "@/types/backend/person";
 import type { DisplayReleases, Release, ReleasesGetParameters } from "@/types/backend/release";
@@ -8,7 +8,10 @@ import { invoke } from "@/utils/tauri";
 
 import ErrorCard from "@/components/Card/Error";
 import ReleaseListItem from "@/components/ListItems/Release";
-import { type ContextType as ReleaseSideViewData, useReleaseSideViewData } from "@/components/ReleaseSideView/context";
+import {
+	type ContextDataType as ReleaseSideViewData,
+	useReleaseSideViewData,
+} from "@/components/ReleaseSideView/context";
 
 const getData = async (): Promise<DisplayReleases> => {
 	const p = await invoke<DisplayReleases, ReleasesGetParameters>("get_display_releases");
@@ -19,34 +22,59 @@ export default function Home() {
 	const [gridXSize, setGridXSize] = createSignal(4);
 	const [data] = createResource(getData, {});
 
-	const [, setSideViewRelease] = useReleaseSideViewData();
+	const {
+		visible: [isSideViewVisible],
+		sizer: [sideViewXSize],
+		open: openSideBar,
+	} = useReleaseSideViewData();
 
 	// eslint-disable-next-line prefer-const
 	let ref: HTMLDivElement | undefined = undefined;
 	const listeners: Array<() => void> = [];
 
+	let remUnit = 16;
+	let unrestrictedRemWidth = 0;
+
+	const refreshContainerSizing = () => {
+		const { width } = ref!.getBoundingClientRect();
+		unrestrictedRemWidth = width / remUnit;
+	};
+
+	const adjustGridSize = () => {
+		const isSideVisible = untrack(isSideViewVisible);
+		const sideViewSize = untrack(sideViewXSize);
+		const widthRem = unrestrictedRemWidth - (isSideVisible ? sideViewSize : 0);
+
+		// 10.5 item width + 1 gap
+		const itemLength = widthRem / 11.5;
+		setGridXSize(Math.floor(itemLength));
+	};
+
+	const onReleaseItemClick = (releaseId: number, release: Release, artists: Record<number, Person>) => {
+		openSideBar({ release, artists, releaseId } satisfies ReleaseSideViewData);
+	};
+
 	onMount(async () => {
-		const remConst = parseFloat(getComputedStyle(ref!).fontSize);
-		const adjustSize = () => {
-			const { width } = ref!.getBoundingClientRect();
-			const widthRem = width / remConst;
+		const { fontSize } = getComputedStyle(ref!);
+		remUnit = parseFloat(fontSize);
 
-			// 10.5 item width + 1 gap
-			const itemLength = widthRem / 11.5;
-			setGridXSize(Math.floor(itemLength));
-		};
+		refreshContainerSizing();
+		adjustGridSize();
 
-		adjustSize();
+		const resizeListener = await appWindow.onResized(() => {
+			refreshContainerSizing();
+			adjustGridSize();
+		});
 
-		const resizeListener = await appWindow.onResized(adjustSize);
 		listeners.push(resizeListener);
 	});
 
 	onCleanup(() => listeners.forEach((fn) => fn()));
 
-	const onReleaseItemClick = (releaseId: number, release: Release, artists: Record<number, Person>) => {
-		setSideViewRelease({ release, artists, releaseId } satisfies ReleaseSideViewData);
-	};
+	createEffect(() => {
+		isSideViewVisible();
+		adjustGridSize();
+	});
 
 	return (
 		<div

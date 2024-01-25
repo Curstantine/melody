@@ -1,4 +1,4 @@
-import { createEffect, createResource, createSignal, For, Match, Show, Switch } from "solid-js";
+import { createResource, For, Match, type ResourceFetcher, Show, Switch } from "solid-js";
 
 import type { DisplayTrackList, GetTrackListParameters } from "@/types/backend/track";
 
@@ -6,53 +6,43 @@ import { joinInlinedArtists } from "@/utils/strings";
 import { invoke } from "@/utils/tauri";
 
 import {
-	type ContextType,
+	type ContextDataType,
 	ReleaseSideViewProvider,
 	useReleaseSideViewData,
 } from "@/components/ReleaseSideView/context";
 
-const getData = async (releaseId: number): Promise<DisplayTrackList> => {
+const getData: ResourceFetcher<number, DisplayTrackList> = async (releaseId: number) => {
 	const x = await invoke<DisplayTrackList, GetTrackListParameters>("get_track_list_for_release", { releaseId });
-	console.log(x);
 	return x.unwrap();
 };
 
 export default function ReleaseSideView() {
-	const [viewData, setViewData] = useReleaseSideViewData();
+	const {
+		visible: [isVisible],
+		data: [viewData],
+		sizer: [xSize],
+		close,
+	} = useReleaseSideViewData();
 	const [data] = createResource(() => viewData()?.releaseId, getData);
-
-	// This boolean controls the overall visibility of the sheet.
-	// Used to guard data when a close is initiated to let transitions finish before clearing the signal.
-	//
-	// Whenever viewData is set to a non-nullish value, opened should be true.
-	// And when the setVisibility is set to false, viewData should be set to null.
-	const [opened, setVisibility] = createSignal(false);
 
 	// Convenience un-wrappers for non-null data.
 	// Guard these by Show or something.
 	const release = () => viewData()!.release;
 	const artists = () => viewData()!.artists;
 
-	createEffect(() => {
-		if (viewData()) return setVisibility(true);
-		if (!opened()) return setTimeout(() => setViewData(null), 1500);
-	});
-
 	return (
 		<div
 			class="flex flex-col transform-gpu border-l-(1 border-main solid) use-transition-standard"
+			style={{ width: isVisible() ? `${xSize()}rem` : 0 }}
 			classList={{
-				"translate-x-0 w-xl": opened(),
-				"translate-x-full w-0": !opened(),
+				"translate-x-0": isVisible(),
+				"translate-x-full": !isVisible(),
 			}}
 		>
 			<Show when={viewData()}>
 				<div class="min-h-8 inline-flex items-center justify-between border-b-(1 border-main solid) pl-4 pr-2">
 					<span class="text-sm text-text-3">Release Details</span>
-					<button
-						class="h-6 w-6 icon-button-layout button-template-text"
-						onClick={() => setVisibility(false)}
-					>
+					<button class="h-6 w-6 icon-button-layout button-template-text" onClick={close}>
 						<div class="i-symbols-close" />
 					</button>
 				</div>
@@ -104,4 +94,4 @@ export default function ReleaseSideView() {
 	);
 }
 
-export { ContextType, ReleaseSideViewProvider };
+export { ContextDataType, ReleaseSideViewProvider };
