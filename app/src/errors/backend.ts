@@ -24,7 +24,7 @@ export default class BackendError extends Error implements LocalError {
 				return new BackendError("Unknown Backend Error", error);
 			default: {
 				const e = error as BackendBaseError;
-				return new BackendError(e.short, e.message);
+				return new BackendError(e.short, e.message ?? undefined);
 			}
 		}
 	}
