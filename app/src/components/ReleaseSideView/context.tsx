@@ -18,7 +18,7 @@ type Props = { children: JSX.Element };
 export function ReleaseSideViewProvider(props: Props) {
 	const visible = createSignal<boolean>(false);
 	const data = createSignal<ContextDataType | null>(null);
-	const sizer = createSignal<number>(36);
+	const sizer = createSignal<number>(26);
 
 	const [, setVisibility] = visible;
 	const [, setViewData] = data;

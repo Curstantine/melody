@@ -37,7 +37,12 @@ export default function Home() {
 
 	const refreshContainerSizing = () => {
 		const { width } = ref!.getBoundingClientRect();
-		unrestrictedRemWidth = width / remUnit;
+		const isSideVisible = untrack(isSideViewVisible);
+		const sideViewSize = untrack(sideViewXSize);
+
+		// We need to check if the sideView is opened or not
+		// since the unrestrictedRemWidth is used for checking the max the release container could go given nothing restricts its layout.
+		unrestrictedRemWidth = (width / remUnit) + (isSideVisible ? sideViewSize : 0);
 	};
 
 	const adjustGridSize = () => {
@@ -46,8 +51,9 @@ export default function Home() {
 		const widthRem = unrestrictedRemWidth - (isSideVisible ? sideViewSize : 0);
 
 		// 10.5 item width + 1 gap
-		const itemLength = widthRem / 11.5;
-		setGridXSize(Math.floor(itemLength));
+		const itemLength = Math.floor(widthRem / 11.5);
+
+		setGridXSize(itemLength);
 	};
 
 	const onReleaseItemClick = (releaseId: number, release: Release, artists: Record<number, Person>) => {

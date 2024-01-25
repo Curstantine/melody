@@ -30,10 +30,12 @@ export default function ReleaseSideView() {
 	const release = () => viewData()!.release;
 	const artists = () => viewData()!.artists;
 
+	const width = () => isVisible() ? `${xSize()}rem` : "0rem";
+
 	return (
 		<div
 			class="flex flex-col transform-gpu border-l-(1 border-main solid) use-transition-standard"
-			style={{ width: isVisible() ? `${xSize()}rem` : 0 }}
+			style={{ width: width(), "min-width": width(), "max-width": width() }}
 			classList={{
 				"translate-x-0": isVisible(),
 				"translate-x-full": !isVisible(),
