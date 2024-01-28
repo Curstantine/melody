@@ -5,6 +5,7 @@ import type { DisplayTrackList, GetTrackListParameters } from "@/types/backend/t
 import { joinInlinedArtists } from "@/utils/strings";
 import { invoke } from "@/utils/tauri";
 
+import { SideViewTrackListItem, SideViewTrackListSkeleton } from "@/components/ListItems/SideViewTrack";
 import {
 	type ContextDataType,
 	ReleaseSideViewProvider,
@@ -52,33 +53,14 @@ export default function ReleaseSideView() {
 				<div class="flex flex-col gap-2 overflow-y-auto py-2">
 					<Switch>
 						<Match when={data.loading}>
-							<For each={Array.from({ length: 10 })}>
-								{(_) => <div class="h-18"></div>}
+							<For each={Array.from({ length: 4 })}>
+								{(_) => <SideViewTrackListSkeleton />}
 							</For>
 						</Match>
 						<Match when={data()}>
 							{(trackList) => (
 								<For each={trackList().tracks}>
-									{(track) => (
-										<div class="flex items-center py-1 pl-4 pr-2">
-											<span class="w-8 self-start text-sm text-text-3">
-												{track.track_number}.
-											</span>
-
-											<div class="flex flex-1 flex-col pr-4">
-												<span class="text-sm leading-snug text-text-1">
-													{track.title}
-												</span>
-												<span class="text-xs leading-snug text-text-2">
-													{joinInlinedArtists(track.artists, trackList().artists)}
-												</span>
-											</div>
-
-											<button class="h-6 w-6 icon-button-layout button-template-text">
-												<div class="i-symbols-more-vert" />
-											</button>
-										</div>
-									)}
+									{(track) => <SideViewTrackListItem track={track} artists={trackList().artists} />}
 								</For>
 							)}
 						</Match>
