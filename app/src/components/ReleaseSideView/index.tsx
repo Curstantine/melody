@@ -23,6 +23,7 @@ export default function ReleaseSideView() {
 		data: [viewData],
 		sizer: [xSize],
 		close,
+		transition: [isPending],
 	} = useReleaseSideViewData();
 	const [data] = createResource(() => viewData()?.releaseId, getData);
 
@@ -31,16 +32,14 @@ export default function ReleaseSideView() {
 	const release = () => viewData()!.release;
 	const artists = () => viewData()!.artists;
 
-	const width = () => isVisible() ? `${xSize()}rem` : "0rem";
+	const width = () => `${xSize()}rem`;
+	const marginRight = () => isVisible() ? 0 : `calc(-${width()} - 1px)`;
 
 	return (
 		<div
-			class="flex flex-col transform-gpu border-l-(1 border-main solid) use-transition-standard"
-			style={{ width: width(), "min-width": width(), "max-width": width() }}
-			classList={{
-				"translate-x-0": isVisible(),
-				"translate-x-full": !isVisible(),
-			}}
+			class="flex flex-col transform-gpu border-l-(1 border-main solid) transition-margin use-transition-standard"
+			style={{ width: width(), "min-width": width(), "margin-right": marginRight() }}
+			classList={{ "opacity-50": isPending() }}
 		>
 			<Show when={viewData()}>
 				<div class="min-h-8 inline-flex items-center justify-between border-b-(1 border-main solid) pl-4 pr-2">

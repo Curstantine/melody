@@ -86,7 +86,7 @@ export default function Home() {
 		<div
 			ref={ref}
 			style={`grid-template-columns: repeat(${gridXSize()}, minmax(0, 1fr));`}
-			class="grid w-full transform-gpu items-center justify-center gap-4 overflow-y-auto p-4"
+			class="grid w-full items-center justify-center gap-4 overflow-y-auto p-4"
 		>
 			<Switch>
 				<Match when={data.loading}>
