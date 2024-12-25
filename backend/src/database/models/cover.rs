@@ -44,7 +44,7 @@ impl CoverMediaType {
 		}
 	}
 
-	pub fn from_codec_id(value: i32) -> Result<Self> {
+	pub fn from_codec_id(value: rsmpeg::ffi::AVCodecID) -> Result<Self> {
 		use rsmpeg::ffi::{AVCodecID_AV_CODEC_ID_MJPEG, AVCodecID_AV_CODEC_ID_PNG};
 
 		#[allow(non_upper_case_globals)]
