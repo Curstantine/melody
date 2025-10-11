@@ -5,7 +5,7 @@ use {
 	rsmpeg::{
 		avformat::AVFormatContextInput,
 		avutil::AVDictionaryRef,
-		ffi::{AVMediaType_AVMEDIA_TYPE_AUDIO, AVMediaType_AVMEDIA_TYPE_VIDEO, AV_DISPOSITION_ATTACHED_PIC},
+		ffi::{AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO, AV_DISPOSITION_ATTACHED_PIC},
 	},
 };
 
@@ -27,15 +27,14 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 	let path_str = path.to_str().unwrap().to_string();
 	let path_cstr = CString::new(path_str.as_bytes()).unwrap();
 
-	#[allow(unused_mut)]
-	let mut format = AVFormatContextInput::open(&path_cstr, None, &mut None)?;
+	let format = AVFormatContextInput::open(&path_cstr)?;
 
-	#[cfg(test)]
-	format.dump(0, &path_cstr)?;
+	// #[cfg(test)]
+	// format.dump(0, &path_cstr)?;
 
 	let tags = if let Some(meta) = format.metadata() {
 		traverse_tags(meta, path_str)?
-	} else if let Some((index, _)) = format.find_best_stream(AVMediaType_AVMEDIA_TYPE_AUDIO)? {
+	} else if let Some((index, _)) = format.find_best_stream(AVMEDIA_TYPE_AUDIO)? {
 		let stream = format.streams().get(index).unwrap();
 		let meta = stream.metadata().ok_or_else(errors::pre::probe_no_meta)?;
 
@@ -45,7 +44,7 @@ pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)
 	};
 
 	let mut resource = TempTrackResource::default();
-	if let Some((index, _)) = format.find_best_stream(AVMediaType_AVMEDIA_TYPE_VIDEO)? {
+	if let Some((index, _)) = format.find_best_stream(AVMEDIA_TYPE_VIDEO)? {
 		let stream = format.streams().get(index).unwrap();
 
 		if stream.disposition as u32 == AV_DISPOSITION_ATTACHED_PIC {

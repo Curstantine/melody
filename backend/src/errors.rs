@@ -294,11 +294,12 @@ impl From<rsmpeg::error::RsmpegError> for Error {
 				let y = format!("Failed to open the input file.\nFFMpeg returned error code: {int}");
 				("FFmpeg: Failed to open input", Cow::Owned(y))
 			}
-			RE::AVIOOpenError(int) => {
-				let y = format!("FFmpeg returned an AV IO open failure with return code: {int}");
-				("FFmpeg: AV IO error", Cow::Owned(y))
-			}
-			RE::CustomError(msg) => ("FFmpeg: Custom error", Cow::Owned(msg)),
+			// TODO: Reconfigure these errors
+			// RE::AVIOOpenError(int) => {
+			// 	let y = format!("FFmpeg returned an AV IO open failure with return code: {int}");
+			// 	("FFmpeg: AV IO error", Cow::Owned(y))
+			// }
+			// RE::CustomError(msg) => ("FFmpeg: Custom error", Cow::Owned(msg)),
 			RE::AVError(int) => {
 				let message = match int {
 					AVERROR_DECODER_NOT_FOUND => Cow::Borrowed("The required encoder could not be found"),

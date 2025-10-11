@@ -45,12 +45,12 @@ impl CoverMediaType {
 	}
 
 	pub fn from_codec_id(value: rsmpeg::ffi::AVCodecID) -> Result<Self> {
-		use rsmpeg::ffi::{AVCodecID_AV_CODEC_ID_MJPEG, AVCodecID_AV_CODEC_ID_PNG};
+		use rsmpeg::ffi::{AV_CODEC_ID_MJPEG, AV_CODEC_ID_PNG};
 
 		#[allow(non_upper_case_globals)]
 		let type_ = match value {
-			AVCodecID_AV_CODEC_ID_MJPEG => Self::Jpeg,
-			AVCodecID_AV_CODEC_ID_PNG => Self::Png,
+			AV_CODEC_ID_MJPEG => Self::Jpeg,
+			AV_CODEC_ID_PNG => Self::Png,
 			_ => return Err(errors::pre::unsupported_media_type(&value.to_string())),
 		};
 
