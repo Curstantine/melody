@@ -1,1 +1,0 @@
-$env:FFMPEG_PKG_CONFIG_PATH = "$pwd\target\vcpkg\installed\x64-windows-static-md\lib\pkgconfig"

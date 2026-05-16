@@ -1,0 +1,9 @@
+[package]
+name = "library"
+version = "0.1.0"
+publish.workspace = true
+edition.workspace = true
+
+[dependencies]
+chrono.workspace = true
+rsmpeg.workspace = true

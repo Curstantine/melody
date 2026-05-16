@@ -1,5 +1,2 @@
-node_modules/
-tmp
 target/
-dist/
-*.sublime-workspace
+.direnv/
