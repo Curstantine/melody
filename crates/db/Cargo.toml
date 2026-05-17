@@ -3,17 +3,9 @@ name = "db"
 version = "0.1.0"
 publish.workspace = true
 edition.workspace = true
-license = "GPL-3.0-or-later"
 
 [dependencies]
-anyhow.workspace = true
 gpui.workspace = true
-inventory.workspace = true
-log.workspace = true
-sqlez.workspace = true
-sqlez_macros.workspace = true
-util.workspace = true
-uuid.workspace = true
-
-[dev-dependencies]
-gpui = { workspace = true, features = ["test-support"] }
+serde.workspace = true
+chrono.workspace = true
+rsmpeg.workspace = true

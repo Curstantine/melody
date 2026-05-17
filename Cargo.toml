@@ -9,12 +9,13 @@ edition = "2024"
 [workspace.dependencies]
 anyhow = "1.0.102"
 chrono = "0.4.44"
+serde = { version = "1.0.228", features = ["derive"] }
 dirs = "6.0.0"
 gpui = "*"
 inventory = "0.3.24"
 log = { version = "0.4.16", features = ["kv_unstable_serde", "serde"] }
-rsmpeg = { version = "0.18.0+ffmpeg.8.0", default-features = false, features = ["ffmpeg8","link_system_ffmpeg" ] }
-sqlez = { git = "https://github.com/zed-industries/zed.git", package = "sqlez" }
-sqlez_macros = { git = "https://github.com/zed-industries/zed.git", package = "sqlez_macros" }
-util = { git = "https://github.com/zed-industries/zed.git", package = "util" }
 uuid = "1.23.1"
+rsmpeg = { version = "0.18.0", default-features = false, features = [
+  "ffmpeg8",
+  "link_system_ffmpeg",
+] }
