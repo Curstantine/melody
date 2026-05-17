@@ -23,7 +23,7 @@ regex = "1.12.1"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.20"
 
-rsmpeg = { version = "0.18.0", default-features = false, features = ["ffmpeg7", "link_vcpkg_ffmpeg"] }
+rsmpeg = { version = "0.18.0", default-features = false, features = ["ffmpeg8", "link_system_ffmpeg"]] }
 window-shadows = "0.2.2"
 
 [dependencies.bonsaidb]
@@ -34,30 +34,30 @@ features = ["local", "async", "compression"]
 [dependencies.tauri]
 version = "1.4.0"
 features = [
-	"protocol-asset",
-	"dialog-save",
-	"dialog-open",
-	"dialog-message",
-	"dialog-confirm",
-	"dialog-ask",
-	"fs-read-file",
-	"fs-read-dir",
-	"fs-create-dir",
-	"fs-exists",
-	"fs-write-file",
-	"path-all",
-	"window-close",
-	"window-set-closable",
-	"window-create",
-	"window-minimize",
-	"window-unminimize",
-	"window-show",
-	"window-unmaximize",
-	"window-start-dragging",
-	"window-maximize",
-	"window-hide",
-	"window-set-cursor-grab",
-	"window-set-cursor-icon",
+  "protocol-asset",
+  "dialog-save",
+  "dialog-open",
+  "dialog-message",
+  "dialog-confirm",
+  "dialog-ask",
+  "fs-read-file",
+  "fs-read-dir",
+  "fs-create-dir",
+  "fs-exists",
+  "fs-write-file",
+  "path-all",
+  "window-close",
+  "window-set-closable",
+  "window-create",
+  "window-minimize",
+  "window-unminimize",
+  "window-show",
+  "window-unmaximize",
+  "window-start-dragging",
+  "window-maximize",
+  "window-hide",
+  "window-set-cursor-grab",
+  "window-set-cursor-icon",
 ]
 
 [dependencies.tokio]
@@ -70,7 +70,9 @@ git = "https://github.com/microsoft/vcpkg"
 rev = "master"
 
 [package.metadata.vcpkg.target]
-x86_64-pc-windows-msvc = { dependencies = ["ffmpeg[mp3lame,opus,vorbis,zlib]:x64-windows-static-md"] }
+x86_64-pc-windows-msvc = { dependencies = [
+  "ffmpeg[mp3lame,opus,vorbis,zlib]:x64-windows-static-md",
+] }
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.
