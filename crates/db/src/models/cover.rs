@@ -1,7 +1,7 @@
+use anyhow::{Result, anyhow};
 use blake3::Hash;
 use serde::{Deserialize, Serialize};
-
-use crate::errors::{self, Result};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -20,13 +20,39 @@ pub enum CoverMediaType {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Cover {
+	pub id: Uuid,
 	pub type_: CoverType,
 	pub media_type: CoverMediaType,
 	pub resolution: (u16, u16),
 	pub comment: Option<String>,
 	pub has_thumb: bool,
-	// TODO: hash get returned as bytes
 	pub hash: Hash,
+}
+
+impl Cover {
+	pub fn temp(
+		type_: CoverType,
+		media_type: CoverMediaType,
+		resolution: (u16, u16),
+		comment: Option<String>,
+		has_thumb: bool,
+		hash: Hash,
+	) -> Self {
+		Self {
+			id: Uuid::nil(),
+			type_,
+			media_type,
+			resolution,
+			comment,
+			has_thumb,
+			hash,
+		}
+	}
+
+	pub fn as_new(&mut self) -> &Self {
+		self.id = Uuid::now_v7();
+		self
+	}
 }
 
 impl CoverMediaType {
@@ -37,14 +63,14 @@ impl CoverMediaType {
 		}
 	}
 
-	pub fn from_codec_id(value: rsmpeg::ffi::AVCodecID) -> Result<Self> {
+	pub fn from_codec_id(value: rsmpeg::avcodec::AVCodecID) -> Result<Self> {
 		use rsmpeg::ffi::{AV_CODEC_ID_MJPEG, AV_CODEC_ID_PNG};
 
 		#[allow(non_upper_case_globals)]
 		let type_ = match value {
 			AV_CODEC_ID_MJPEG => Self::Jpeg,
 			AV_CODEC_ID_PNG => Self::Png,
-			_ => return Err(errors::pre::unsupported_media_type(&value.to_string())),
+			_ => return Err(anyhow!("Unknown AVCodecID: {}", value)),
 		};
 
 		Ok(type_)

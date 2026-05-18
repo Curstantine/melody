@@ -49,11 +49,15 @@
           libxkbcommon
           vulkan-loader
           wayland
-          ffmpeg-full
+          ffmpeg
+
+          # Nix related
+          nil
+          nixd
         ];
 
         # Dependencies required at build-time.
-        nativeBuildInputs = with pkgs; [ pkg-config ];
+        nativeBuildInputs = with pkgs; [ pkg-config clang llvmPackages.libclang ];
       in
       {
         # Build with: nix build
@@ -68,6 +72,7 @@
           buildInputs = with pkgs; [ rustToolchain ] ++ buildInputs ++ nativeBuildInputs;
           RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
+          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
         };
 
         # Run checks with: nix flake check

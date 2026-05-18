@@ -5,5 +5,8 @@ publish.workspace = true
 edition.workspace = true
 
 [dependencies]
+db.workspace = true
+
+anyhow.workspace = true
 chrono.workspace = true
 rsmpeg.workspace = true

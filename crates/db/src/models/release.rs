@@ -1,5 +1,6 @@
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
+use uuid::{Uuid, uuid};
 
 use super::{CountryCode, FromTag, ScriptCode, person::InlinePerson};
 
@@ -13,7 +14,7 @@ pub enum ReleaseType {
 	Other,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReleaseTypeSecondary {
 	Compilation,
@@ -25,6 +26,7 @@ pub enum ReleaseTypeSecondary {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Release {
+	pub id: Uuid,
 	pub name: String,
 	pub name_sort: Option<String>,
 
@@ -51,11 +53,11 @@ pub struct Release {
 }
 
 impl Release {
-	pub const UNKNOWN_ID: u64 = 0;
+	pub const UNKNOWN_ID: Uuid = uuid!("00000000-0000-0000-0000-ffff00000001");
 }
 
 impl FromTag for ReleaseType {
-	type Error = ();
+	type Error = std::convert::Infallible;
 
 	fn from_tag(value: &str) -> Result<Self, Self::Error> {
 		let value = match value.to_lowercase().as_str() {
@@ -63,8 +65,7 @@ impl FromTag for ReleaseType {
 			"ep" => Self::Ep,
 			"single" => Self::Single,
 			"broadcast" => Self::Broadcast,
-			"other" => Self::Other,
-			_ => return Err(()),
+			_ => Self::Other,
 		};
 
 		Ok(value)

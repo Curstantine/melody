@@ -1,46 +1,40 @@
-use std::{ffi::CString, path::Path};
+use std::ffi::CString;
 
-use {
-	chrono::NaiveDate,
-	rsmpeg::{
-		avformat::AVFormatContextInput,
-		avutil::AVDictionaryRef,
-		ffi::{AV_DISPOSITION_ATTACHED_PIC, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO},
-	},
+use anyhow::{Result, anyhow, bail};
+use chrono::NaiveDate;
+use rsmpeg::{
+	avformat::AVFormatContextInput,
+	avutil::AVDictionaryRef,
+	ffi::{AV_DISPOSITION_ATTACHED_PIC, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_VIDEO},
 };
 
-use crate::{
-	database::models::{
-		CountryCode, FromTag, ScriptCode,
-		cover::{CoverMediaType, CoverType},
-		label::Label,
-		person::{Person, PersonType},
-		release::{ReleaseType, ReleaseTypeSecondary},
-		tag::{Tag, TagType},
-	},
-	errors::{self, Result},
-	models::temp::{OptionedDate, TempInlinedArtist, TempTrackMeta, TempTrackResource, cover::TempCover},
-	utils::matchers,
+use db::models::{
+	CountryCode, FromTag, ScriptCode,
+	cover::{CoverMediaType, CoverType},
+	label::Label,
+	person::{Person, PersonType},
+	release::{ReleaseType, ReleaseTypeSecondary},
+	tag::{Tag, TagType},
+	temp::{OptionedDate, TempTrackMeta, TempTrackResource, cover::TempCover, person::TempInlinePerson},
 };
 
-pub fn read_track_meta(path: &Path) -> Result<(TempTrackMeta, TempTrackResource)> {
-	let path_str = path.to_str().unwrap().to_string();
-	let path_cstr = CString::new(path_str.as_bytes()).unwrap();
-
+pub fn read_track_meta(path: String) -> Result<(TempTrackMeta, TempTrackResource)> {
+	let path_cstr = CString::new(path.as_bytes())?;
 	let format = AVFormatContextInput::open(&path_cstr)?;
 
 	// #[cfg(test)]
 	// format.dump(0, &path_cstr)?;
 
 	let tags = if let Some(meta) = format.metadata() {
-		traverse_tags(meta, path_str)?
+		traverse_tags(meta, path)?
 	} else if let Some((index, _)) = format.find_best_stream(AVMEDIA_TYPE_AUDIO)? {
 		let stream = format.streams().get(index).unwrap();
-		let meta = stream.metadata().ok_or_else(errors::pre::probe_no_meta)?;
-
-		traverse_tags(meta, path_str)?
+		let meta = stream
+			.metadata()
+			.ok_or_else(|| anyhow!("No metadata for stream: {:?}", path))?;
+		traverse_tags(meta, path)?
 	} else {
-		return Err(errors::pre::probe_no_meta());
+		bail!("Probing led to no data: {:?}", path);
 	};
 
 	let mut resource = TempTrackResource::default();
@@ -105,14 +99,8 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 
 			"artist" if !used_artists_field => {
 				let x = meta.artists.get_or_insert_with(Vec::new);
-				let y = Person {
-					name: val,
-					type_: PersonType::Artist,
-					name_sort: None,
-					mbz_id: None,
-				};
-
-				x.push(TempInlinedArtist::from(y))
+				let y = Person::temp(val, None, None, PersonType::Artist);
+				x.push(TempInlinePerson::from(y))
 			}
 			"artist_sort" | "artistsort" => {
 				let x = meta.get_or_default_track();
@@ -120,24 +108,12 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			}
 			"composer" => {
 				let x = meta.composers.get_or_insert_with(Vec::new);
-				let y = Person {
-					name: val,
-					type_: PersonType::Composer,
-					name_sort: None,
-					mbz_id: None,
-				};
-
+				let y = Person::temp(val, None, None, PersonType::Composer);
 				x.push(y)
 			}
 			"producer" => {
 				let x = meta.producers.get_or_insert_with(Vec::new);
-				let y = Person {
-					name: val,
-					type_: PersonType::Producer,
-					name_sort: None,
-					mbz_id: None,
-				};
-
+				let y = Person::temp(val, None, None, PersonType::Producer);
 				x.push(y)
 			}
 
@@ -151,14 +127,8 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			}
 			"album_artist" | "albumartist" => {
 				let x = meta.release_artists.get_or_insert_with(Vec::new);
-				let y = Person {
-					name: val,
-					type_: PersonType::Artist,
-					name_sort: None,
-					mbz_id: None,
-				};
-
-				x.push(TempInlinedArtist::from(y))
+				let y = Person::temp(val, None, None, PersonType::Artist);
+				x.push(TempInlinePerson::from(y))
 			}
 			"album_artist_sort" | "albumartistsort" => {
 				let x = meta.get_or_default_release();
@@ -167,17 +137,17 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 
 			"script" => {
 				let x = meta.get_or_default_release();
-				let y = ScriptCode::from_tag(val.as_str()).unwrap();
+				let y = ScriptCode::from_tag(&val).unwrap();
 				x.script = Some(y);
 			}
 			"release_country" | "releasecountry" => {
 				let x = meta.get_or_default_release();
-				let y = CountryCode::from_tag(val.as_str()).unwrap();
+				let y = CountryCode::from_tag(&val).unwrap();
 				x.country = Some(y);
 			}
 
 			"track" => {
-				if let Some((track_no, track_total_opt)) = get_no_and_maybe_total(val)? {
+				if let Some((track_no, track_total_opt)) = get_no_and_maybe_total(&val)? {
 					let y = meta.get_or_default_track();
 					y.track_number = Some(track_no);
 
@@ -188,7 +158,7 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 				}
 			}
 			"disc" => {
-				if let Some((disc_no, disc_total_opt)) = get_no_and_maybe_total(val)? {
+				if let Some((disc_no, disc_total_opt)) = get_no_and_maybe_total(&val)? {
 					let y = meta.get_or_default_track();
 					y.disc_number = Some(disc_no);
 
@@ -211,12 +181,12 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			}
 
 			"original_date" | "originaldate" => {
-				if let Some((Some(year), Some(month), day_opt)) = get_val_date(val)? {
+				if let Some((Some(year), Some(month), day_opt)) = get_val_date(&val)? {
 					let y = meta.get_or_default_track();
 					y.original_date = NaiveDate::from_ymd_opt(year, month, day_opt.unwrap_or(1));
 				}
 			}
-			"date" => match get_val_date(val)? {
+			"date" => match get_val_date(&val)? {
 				Some((Some(year), Some(month), day_opt)) => {
 					let y = meta.get_or_default_release();
 					y.date = NaiveDate::from_ymd_opt(year, month, day_opt.unwrap_or(1));
@@ -232,7 +202,7 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 
 			"label" => {
 				let x = meta.labels.get_or_insert_with(Vec::new);
-				let y = Label { name: val };
+				let y = Label::temp(val);
 				x.push(y);
 			}
 			"catalog" | "catalognumber" => {
@@ -242,11 +212,7 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 
 			"genre" => {
 				let x = meta.genres.get_or_insert_with(Vec::new);
-				let y = Tag {
-					name: val,
-					type_: TagType::Genre,
-				};
-
+				let y = Tag::temp(val, TagType::Genre);
 				x.push(y);
 			}
 
@@ -260,12 +226,8 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			}
 
 			"artists" => {
-				let y = TempInlinedArtist::from(Person {
-					name: val,
-					type_: PersonType::Artist,
-					name_sort: None,
-					mbz_id: None,
-				});
+				let person = Person::temp(val, None, None, PersonType::Artist);
+				let y = TempInlinePerson::from(person);
 
 				// It's fine to overwrite the artists array, since the ARTISTS field *should* contain
 				// all artists associated with the track.
@@ -278,23 +240,23 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 				}
 			}
 
-			"RELEASETYPE" if !primary_release_type_used => {
+			"releasetype" if !primary_release_type_used => {
 				let x = meta.get_or_default_release();
 
-				match ReleaseType::from_tag(val.as_str()) {
+				match ReleaseType::from_tag(&val) {
 					Ok(y) => {
 						x.type_ = y;
 						primary_release_type_used = true;
 					}
 					Err(_) => {
-						let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap(); // Infallible
+						let y = ReleaseTypeSecondary::from_tag(&val).unwrap(); // Infallible
 						x.type_secondary.get_or_insert_with(Vec::new).push(y);
 					}
 				}
 			}
-			"RELEASETYPE" if primary_release_type_used => {
+			"releasetype" if primary_release_type_used => {
 				let x = meta.get_or_default_release();
-				let y = ReleaseTypeSecondary::from_tag(val.as_str()).unwrap();
+				let y = ReleaseTypeSecondary::from_tag(&val).unwrap();
 				x.type_secondary.get_or_insert_with(Vec::new).push(y);
 			}
 
@@ -306,42 +268,18 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 }
 
 #[inline]
-fn get_val_date(x: String) -> Result<OptionedDate> {
-	let date: OptionedDate = if matchers::reg::is_ymd(x.as_str()) {
-		let splits = x.split('-').collect::<Vec<&str>>();
+fn get_val_date(x: &str) -> Result<OptionedDate> {
+	let mut parts = x.split('-');
 
-		let year = {
-			let y = splits.first().unwrap();
-			y.parse::<i32>()?
-		};
-		let month = {
-			let y = splits.get(1).unwrap();
-			y.parse::<u32>()?
-		};
-		let day = {
-			let y = splits.get(2).unwrap();
-			y.parse::<u32>()?
-		};
-
-		Some((Some(year), Some(month), Some(day)))
-	} else if matchers::reg::is_ym(x.as_str()) {
-		let splits = x.split('-').collect::<Vec<&str>>();
-
-		let year = {
-			let y = splits.first().unwrap();
-			y.parse::<i32>()?
-		};
-		let month = {
-			let y = splits.get(1).unwrap();
-			y.parse::<u32>()?
-		};
-
-		Some((Some(year), Some(month), None))
-	} else if matchers::reg::is_year(x.as_str()) {
-		let year = x.parse::<i32>()?;
-		Some((Some(year), None, None))
-	} else {
-		None
+	let date = match (parts.next(), parts.next(), parts.next()) {
+		(Some(y), Some(m), Some(d)) => Some((
+			Some(y.parse::<i32>()?),
+			Some(m.parse::<u32>()?),
+			Some(d.parse::<u32>()?),
+		)),
+		(Some(y), Some(m), None) => Some((Some(y.parse::<i32>()?), Some(m.parse::<u32>()?), None)),
+		(Some(y), None, None) => Some((Some(y.parse::<i32>()?), None, None)),
+		_ => None,
 	};
 
 	Ok(date)
@@ -352,23 +290,15 @@ fn get_val_date(x: String) -> Result<OptionedDate> {
 /// Useful for handling edge cases like track_no and track_total included in the same tag.
 ///
 /// ### Example
-/// ```
 /// "2" -> (2, None)
-/// "1/2" -> (1, None)
-/// ```
+/// "1/2" -> (1, 2)
 #[inline]
-fn get_no_and_maybe_total(value: String) -> Result<Option<(u32, Option<u32>)>> {
-	let tuple = if matchers::reg::is_no_and_total(value.as_str()) {
-		let splits = value.split('/').collect::<Vec<&str>>();
-		let no_str = splits.first().unwrap();
-		let total_str = splits.last().unwrap();
-
-		let no = no_str.parse::<u32>()?;
-		let total = total_str.parse::<u32>()?;
-
-		Some((no, Some(total)))
-	} else {
-		Some((value.parse::<u32>()?, None))
+fn get_no_and_maybe_total(value: &str) -> Result<Option<(u32, Option<u32>)>> {
+	let mut parts = value.split('/');
+	let tuple = match (parts.next(), parts.next()) {
+		(Some(no), Some(total)) => Some((no.parse::<u32>()?, Some(total.parse::<u32>()?))),
+		(Some(no), None) => Some((no.parse::<u32>()?, None)),
+		_ => None,
 	};
 
 	Ok(tuple)
@@ -376,18 +306,57 @@ fn get_no_and_maybe_total(value: String) -> Result<Option<(u32, Option<u32>)>> {
 
 #[cfg(test)]
 mod test {
-	use std::path::Path;
+	use anyhow::Result;
 
-	use super::read_track_meta;
-	use crate::errors::Result;
+	use super::{get_no_and_maybe_total, get_val_date, read_track_meta};
 
-	const TRACK_PATH: &str = r"";
+	const TRACK_PATH: &str =
+		r"/home/curstantine/Music/TempLib/Various Artists/IRREGULAR NATION/01 Massive New Krew - MUTANT.flac";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {
-		let path = Path::new(TRACK_PATH);
-		let result = read_track_meta(path)?;
-		println!("{:#?}", result);
+		let (meta, resource) = read_track_meta(TRACK_PATH.into())?;
+		println!("{:#?}", meta);
+		assert_eq!(meta.path, TRACK_PATH);
+
+		Ok(())
+	}
+
+	#[test]
+	fn test_get_no_and_maybe_total() -> Result<()> {
+		// Single number
+		assert_eq!(get_no_and_maybe_total("2")?, Some((2, None)));
+		assert_eq!(get_no_and_maybe_total("0")?, Some((0, None)));
+		assert_eq!(get_no_and_maybe_total("42")?, Some((42, None)));
+
+		// Number with total
+		assert_eq!(get_no_and_maybe_total("1/2")?, Some((1, Some(2))));
+		assert_eq!(get_no_and_maybe_total("3/10")?, Some((3, Some(10))));
+		assert_eq!(get_no_and_maybe_total("0/0")?, Some((0, Some(0))));
+
+		// Non-numeric should error
+		assert!(get_no_and_maybe_total("abc").is_err());
+		assert!(get_no_and_maybe_total("abc/def").is_err());
+		assert!(get_no_and_maybe_total("").is_err());
+
+		Ok(())
+	}
+
+	#[test]
+	fn test_get_val_date() -> Result<()> {
+		// Full date (year, month, day)
+		assert_eq!(get_val_date("2024-01-15")?, Some((Some(2024), Some(1), Some(15))));
+
+		// Year and month only
+		assert_eq!(get_val_date("2024-01")?, Some((Some(2024), Some(1), None)));
+
+		// Year only
+		assert_eq!(get_val_date("2024")?, Some((Some(2024), None, None)));
+
+		// Non-date garbage
+		assert!(get_val_date("not-a-date").is_err());
+		assert!(get_val_date("abc-def").is_err());
+		assert!(get_val_date("").is_err());
 
 		Ok(())
 	}

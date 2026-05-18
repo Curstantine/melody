@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use uuid::{Uuid, uuid};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -13,7 +14,7 @@ pub enum PersonType {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Person {
-	pub id: u64,
+	pub id: Uuid,
 	pub name: String,
 	pub name_sort: Option<String>,
 	pub mbz_id: Option<String>,
@@ -23,7 +24,17 @@ pub struct Person {
 }
 
 impl Person {
-	pub const UNKNOWN_ID: u64 = 0;
+	pub const UNKNOWN_ID: Uuid = uuid!("00000000-0000-0000-0000-ffff00000001");
+
+	pub fn temp(name: String, name_sort: Option<String>, mbz_id: Option<String>, type_: PersonType) -> Self {
+		Self {
+			id: Uuid::nil(),
+			name,
+			name_sort,
+			mbz_id,
+			type_,
+		}
+	}
 
 	/// Create a [Person] that follows the default semantics for an unknown person.
 	///
@@ -37,11 +48,16 @@ impl Person {
 			mbz_id: None,
 		}
 	}
+
+	pub fn as_new(&mut self) -> &Self {
+		self.id = Uuid::now_v7();
+		self
+	}
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InlinePerson {
-	pub id: u64,
+	pub id: Uuid,
 	/// This is different from the [Person::name] field.
 	///
 	/// This field refers to an "alias" used by this [Person] in the context of the related entry.

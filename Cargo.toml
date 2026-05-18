@@ -7,14 +7,22 @@ publish = false
 edition = "2024"
 
 [workspace.dependencies]
+# Internal
+db = { path = "crates/db" }
+library = { path = "crates/library" }
+paths = { path = "crates/paths" }
+ui = { path = "crates/ui" }
+
+# External
 anyhow = "1.0.102"
-chrono = "0.4.44"
-serde = { version = "1.0.228", features = ["derive"] }
+blake3 = { version = "1.8.5", features = ["serde"] }
+chrono = { version = "0.4.44", features = ["serde"] }
 dirs = "6.0.0"
 gpui = "*"
 inventory = "0.3.24"
 log = { version = "0.4.16", features = ["kv_unstable_serde", "serde"] }
-uuid = "1.23.1"
+serde = { version = "1.0.228", features = ["derive"] }
+uuid = { version = "1.23.1", features = ["v7"] }
 rsmpeg = { version = "0.18.0", default-features = false, features = [
   "ffmpeg8",
   "link_system_ffmpeg",
