@@ -17,3 +17,9 @@ impl Label {
 		self
 	}
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InlineLabel {
+	pub id: Uuid,
+	pub resource_id: Uuid,
+}

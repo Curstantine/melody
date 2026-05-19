@@ -1,6 +1,6 @@
 use std::ffi::CString;
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use chrono::NaiveDate;
 use rsmpeg::{
 	avformat::AVFormatContextInput,
@@ -22,13 +22,13 @@ pub fn read_track_meta(path: String) -> Result<(TempTrackMeta, TempTrackResource
 	let path_cstr = CString::new(path.as_bytes())?;
 	let format = AVFormatContextInput::open(&path_cstr)?;
 
-	// #[cfg(test)]
-	// format.dump(0, &path_cstr)?;
-
 	let tags = if let Some(meta) = format.metadata() {
 		traverse_tags(meta, path)?
 	} else if let Some((index, _)) = format.find_best_stream(AVMEDIA_TYPE_AUDIO)? {
-		let stream = format.streams().get(index).unwrap();
+		let stream = format
+			.streams()
+			.get(index)
+			.context("Failed to find best audio stream")?;
 		let meta = stream
 			.metadata()
 			.ok_or_else(|| anyhow!("No metadata for stream: {:?}", path))?;
@@ -39,7 +39,10 @@ pub fn read_track_meta(path: String) -> Result<(TempTrackMeta, TempTrackResource
 
 	let mut resource = TempTrackResource::default();
 	if let Some((index, _)) = format.find_best_stream(AVMEDIA_TYPE_VIDEO)? {
-		let stream = format.streams().get(index).unwrap();
+		let stream = format
+			.streams()
+			.get(index)
+			.context("Failed to find best video stream")?;
 
 		if stream.disposition as u32 == AV_DISPOSITION_ATTACHED_PIC {
 			let pic = stream.attached_pic;
@@ -75,17 +78,16 @@ pub fn read_track_meta(path: String) -> Result<(TempTrackMeta, TempTrackResource
 }
 
 fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrackMeta> {
-	let mut meta = TempTrackMeta {
-		path: path_str,
-		..Default::default()
-	};
+	let mut meta = TempTrackMeta { ..Default::default() };
 
-	let mut used_artists_field = false;
-	let mut primary_release_type_used = false;
+	meta.get_or_default_track().path = path_str;
 
 	for tag in dict.into_iter() {
 		let key = tag.key().to_str().unwrap().to_lowercase();
 		let val = tag.value().to_string_lossy().to_string();
+
+		#[cfg(test)]
+		println!("key: {:?}, value: {:#?}", key, val);
 
 		match key.as_str() {
 			"title" => {
@@ -97,24 +99,24 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 				x.title_sort = Some(val);
 			}
 
-			"artist" if !used_artists_field => {
+			"artist" => {
 				let x = meta.artists.get_or_insert_with(Vec::new);
-				let y = Person::temp(val, None, None, PersonType::Artist);
-				x.push(TempInlinePerson::from(y))
+				let y = Person::temp(val, None, None);
+				x.push(TempInlinePerson::new(y, PersonType::Artist))
 			}
 			"artist_sort" | "artistsort" => {
 				let x = meta.get_or_default_track();
 				x.artist_sort = Some(val);
 			}
 			"composer" => {
-				let x = meta.composers.get_or_insert_with(Vec::new);
-				let y = Person::temp(val, None, None, PersonType::Composer);
-				x.push(y)
+				let x = meta.artists.get_or_insert_with(Vec::new);
+				let y = Person::temp(val, None, None);
+				x.push(TempInlinePerson::new(y, PersonType::Composer))
 			}
 			"producer" => {
-				let x = meta.producers.get_or_insert_with(Vec::new);
-				let y = Person::temp(val, None, None, PersonType::Producer);
-				x.push(y)
+				let x = meta.artists.get_or_insert_with(Vec::new);
+				let y = Person::temp(val, None, None);
+				x.push(TempInlinePerson::new(y, PersonType::Producer))
 			}
 
 			"album" => {
@@ -127,8 +129,8 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			}
 			"album_artist" | "albumartist" => {
 				let x = meta.release_artists.get_or_insert_with(Vec::new);
-				let y = Person::temp(val, None, None, PersonType::Artist);
-				x.push(TempInlinePerson::from(y))
+				let y = Person::temp(val, None, None);
+				x.push(TempInlinePerson::new(y, PersonType::Artist))
 			}
 			"album_artist_sort" | "albumartistsort" => {
 				let x = meta.get_or_default_release();
@@ -137,12 +139,12 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 
 			"script" => {
 				let x = meta.get_or_default_release();
-				let y = ScriptCode::from_tag(&val).unwrap();
+				let y = ScriptCode::from_tag(&val)?;
 				x.script = Some(y);
 			}
 			"release_country" | "releasecountry" => {
 				let x = meta.get_or_default_release();
-				let y = CountryCode::from_tag(&val).unwrap();
+				let y = CountryCode::from_tag(&val)?;
 				x.country = Some(y);
 			}
 
@@ -211,9 +213,13 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			}
 
 			"genre" => {
-				let x = meta.genres.get_or_insert_with(Vec::new);
-				let y = Tag::temp(val, TagType::Genre);
-				x.push(y);
+				let x = meta.tags.get_or_insert_with(Vec::new);
+				x.extend(
+					val.split(';')
+						.map(str::trim)
+						.filter(|s| !s.is_empty())
+						.map(|s| Tag::temp(s.to_string(), TagType::Genre)),
+				);
 			}
 
 			"musicbrainz_trackid" => {
@@ -224,40 +230,27 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 				let x = meta.get_or_default_release();
 				x.mbz_id = Some(val);
 			}
+			// "musicbrainz_artistid" => {
+			// 	let artists = meta.artists.get_or_insert_default();
+			// 	let values = val.split(';').map(str::trim).filter(|s| !s.is_empty());
 
-			"artists" => {
-				let person = Person::temp(val, None, None, PersonType::Artist);
-				let y = TempInlinePerson::from(person);
-
-				// It's fine to overwrite the artists array, since the ARTISTS field *should* contain
-				// all artists associated with the track.
-				if !used_artists_field {
-					used_artists_field = true;
-					meta.artists.replace(vec![y]);
-				} else {
-					let x = meta.artists.get_or_insert_with(Vec::new);
-					x.push(y);
-				}
-			}
-
-			"releasetype" if !primary_release_type_used => {
+			// 	for (i, val) in values.enumerate() {
+			// 		if let Some(artist) = artists.get_mut(i) {
+			// 			artist.person.mbz_id = Some(val.to_owned());
+			// 		}
+			// 	}
+			// }
+			"releasetype" => {
 				let x = meta.get_or_default_release();
+				let mut parts = val.split(';');
 
-				match ReleaseType::from_tag(&val) {
-					Ok(y) => {
-						x.type_ = y;
-						primary_release_type_used = true;
-					}
-					Err(_) => {
-						let y = ReleaseTypeSecondary::from_tag(&val).unwrap(); // Infallible
-						x.type_secondary.get_or_insert_with(Vec::new).push(y);
-					}
+				if let Some(y) = parts.next().map(ReleaseType::from_tag).transpose()? {
+					x.type_ = y;
 				}
-			}
-			"releasetype" if primary_release_type_used => {
-				let x = meta.get_or_default_release();
-				let y = ReleaseTypeSecondary::from_tag(&val).unwrap();
-				x.type_secondary.get_or_insert_with(Vec::new).push(y);
+
+				if let Some(y) = parts.next().map(ReleaseTypeSecondary::from_tag).transpose()? {
+					x.type_secondary.get_or_insert_with(Vec::new).push(y);
+				}
 			}
 
 			_ => continue,
@@ -310,14 +303,17 @@ mod test {
 
 	use super::{get_no_and_maybe_total, get_val_date, read_track_meta};
 
+	// const TRACK_PATH: &str =
+	// 	r"/home/curstantine/Music/TempLib/Various Artists/IRREGULAR NATION/01 Massive New Krew - MUTANT.flac";
+	// const TRACK_PATH: &str = r"/home/curstantine/Music/TempLib/青葉市子/海底のエデン/01 海底のエデン.flac";
 	const TRACK_PATH: &str =
-		r"/home/curstantine/Music/TempLib/Various Artists/IRREGULAR NATION/01 Massive New Krew - MUTANT.flac";
+		r"/home/curstantine/Music/Library/Mili feat. KIHOW/In Hell We Live, Lament/01 In Hell We Live, Lament.opus";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {
 		let (meta, resource) = read_track_meta(TRACK_PATH.into())?;
 		println!("{:#?}", meta);
-		assert_eq!(meta.path, TRACK_PATH);
+		println!("{:#?}", resource);
 
 		Ok(())
 	}

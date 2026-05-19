@@ -30,3 +30,9 @@ impl Tag {
 		self
 	}
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InlineTag {
+	pub id: Uuid,
+	pub resource_id: Uuid,
+}

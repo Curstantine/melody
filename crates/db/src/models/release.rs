@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use uuid::{Uuid, uuid};
 
-use super::{CountryCode, FromTag, ScriptCode, person::InlinePerson};
+use super::{CountryCode, FromTag, ScriptCode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -35,15 +35,11 @@ pub struct Release {
 	pub country: Option<CountryCode>,
 	pub script: Option<ScriptCode>,
 	pub total_tracks: Option<u32>,
+	pub total_discs: Option<u32>,
 	pub catalog_number: Option<String>,
 
-	pub artists: Vec<InlinePerson>,
 	pub artist_sort: Option<String>,
-
-	pub label_ids: Option<Vec<u64>>,
-	pub genre_ids: Option<Vec<u64>>,
-	pub tag_ids: Option<Vec<u64>>,
-	pub cover_ids: Option<Vec<u64>>,
+	pub cover_ids: Option<Vec<Uuid>>,
 
 	#[serde(rename = "type")]
 	pub type_: ReleaseType,

@@ -241,13 +241,16 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			}
 
 			"genre" => {
-				let x = meta.genres.get_or_insert_with(Vec::new);
-				let y = Tag {
-					name: val,
-					type_: TagType::Genre,
-				};
-
-				x.push(y);
+				let genres = meta.genres.get_or_insert_with(Vec::new);
+				for part in val.split(';') {
+					let trimmed = part.trim();
+					if !trimmed.is_empty() {
+						genres.push(Tag {
+							name: trimmed.to_string(),
+							type_: TagType::Genre,
+						});
+					}
+				}
 			}
 
 			"musicbrainz_trackid" => {

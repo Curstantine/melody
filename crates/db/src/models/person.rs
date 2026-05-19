@@ -7,8 +7,6 @@ pub enum PersonType {
 	Artist,
 	Composer,
 	Producer,
-
-	/// Special type strictly for handling unknown people [Person::unknown]
 	Unknown,
 }
 
@@ -18,21 +16,17 @@ pub struct Person {
 	pub name: String,
 	pub name_sort: Option<String>,
 	pub mbz_id: Option<String>,
-
-	#[serde(rename = "type")]
-	pub type_: PersonType,
 }
 
 impl Person {
 	pub const UNKNOWN_ID: Uuid = uuid!("00000000-0000-0000-0000-ffff00000001");
 
-	pub fn temp(name: String, name_sort: Option<String>, mbz_id: Option<String>, type_: PersonType) -> Self {
+	pub fn temp(name: String, name_sort: Option<String>, mbz_id: Option<String>) -> Self {
 		Self {
 			id: Uuid::nil(),
 			name,
 			name_sort,
 			mbz_id,
-			type_,
 		}
 	}
 
@@ -43,7 +37,6 @@ impl Person {
 		Self {
 			id: Self::UNKNOWN_ID,
 			name: "Unknown".to_string(),
-			type_: PersonType::Unknown,
 			name_sort: None,
 			mbz_id: None,
 		}
@@ -58,12 +51,9 @@ impl Person {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InlinePerson {
 	pub id: Uuid,
-	/// This is different from the [Person::name] field.
-	///
-	/// This field refers to an "alias" used by this [Person] in the context of the related entry.
-	/// E.g. A person in release credit may use a different name than the one they use in the artist credit.
-	pub credited_as: Option<String>,
-	pub join: Option<String>,
+	pub resource_id: Uuid,
+	#[serde(rename = "type")]
+	pub type_: PersonType,
 }
 
 impl InlinePerson {
@@ -71,8 +61,8 @@ impl InlinePerson {
 	pub fn unknown() -> Self {
 		Self {
 			id: Person::UNKNOWN_ID,
-			credited_as: None,
-			join: None,
+			resource_id: Uuid::nil(),
+			type_: PersonType::Unknown,
 		}
 	}
 }
