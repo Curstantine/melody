@@ -21,6 +21,7 @@ pub struct TempTrackMeta {
 
 	pub artists: Option<Vec<TempInlinePerson>>,
 	pub release_artists: Option<Vec<TempInlinePerson>>,
+	pub weak_artists: Option<Vec<TempInlinePerson>>,
 
 	pub labels: Option<Vec<Label>>,
 	pub tags: Option<Vec<Tag>>,

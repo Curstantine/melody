@@ -79,6 +79,7 @@ pub fn read_track_meta(path: String) -> Result<(TempTrackMeta, TempTrackResource
 
 fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrackMeta> {
 	let mut meta = TempTrackMeta { ..Default::default() };
+	let mut mbz_artist_ids: Option<Vec<String>> = None;
 
 	meta.get_or_default_track().path = path_str;
 
@@ -99,24 +100,24 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 				x.title_sort = Some(val);
 			}
 
-			"artist" => {
+			"artist" | "composer" | "producer" => {
 				let x = meta.artists.get_or_insert_with(Vec::new);
-				let y = Person::temp(val, None, None);
-				x.push(TempInlinePerson::new(y, PersonType::Artist))
+				x.extend(val.split(';').map(str::trim).filter(|s| !s.is_empty()).map(|s| {
+					let y = Person::temp(s.to_string(), None, None);
+					TempInlinePerson::new(y, PersonType::from_tag(&key))
+				}));
 			}
 			"artist_sort" | "artistsort" => {
 				let x = meta.get_or_default_track();
 				x.artist_sort = Some(val);
 			}
-			"composer" => {
-				let x = meta.artists.get_or_insert_with(Vec::new);
-				let y = Person::temp(val, None, None);
-				x.push(TempInlinePerson::new(y, PersonType::Composer))
-			}
-			"producer" => {
-				let x = meta.artists.get_or_insert_with(Vec::new);
-				let y = Person::temp(val, None, None);
-				x.push(TempInlinePerson::new(y, PersonType::Producer))
+
+			"artists" => {
+				let x = meta.weak_artists.get_or_insert_with(Vec::new);
+				x.extend(val.split(';').map(str::trim).filter(|s| !s.is_empty()).map(|s| {
+					let y = Person::temp(s.to_string(), None, None);
+					TempInlinePerson::new(y, PersonType::Artist)
+				}));
 			}
 
 			"album" => {
@@ -139,17 +140,15 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 
 			"script" => {
 				let x = meta.get_or_default_release();
-				let y = ScriptCode::from_tag(&val)?;
-				x.script = Some(y);
+				x.script = ScriptCode::from_tag(&val).ok()
 			}
 			"release_country" | "releasecountry" => {
 				let x = meta.get_or_default_release();
-				let y = CountryCode::from_tag(&val)?;
-				x.country = Some(y);
+				x.country = CountryCode::from_tag(&val).ok()
 			}
 
 			"track" => {
-				if let Some((track_no, track_total_opt)) = get_no_and_maybe_total(&val)? {
+				if let Ok(Some((track_no, track_total_opt))) = get_no_and_maybe_total(&val) {
 					let y = meta.get_or_default_track();
 					y.track_number = Some(track_no);
 
@@ -160,7 +159,7 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 				}
 			}
 			"disc" => {
-				if let Some((disc_no, disc_total_opt)) = get_no_and_maybe_total(&val)? {
+				if let Ok(Some((disc_no, disc_total_opt))) = get_no_and_maybe_total(&val) {
 					let y = meta.get_or_default_track();
 					y.disc_number = Some(disc_no);
 
@@ -172,28 +171,30 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			}
 
 			"total_tracks" | "totaltracks" => {
-				let y = val.parse::<u32>()?;
-				let x = meta.get_or_default_release();
-				x.total_tracks = Some(y);
+				if let Ok(y) = val.parse::<u32>() {
+					let x = meta.get_or_default_release();
+					x.total_tracks = Some(y);
+				}
 			}
 			"total_discs" | "totaldiscs" => {
-				let y = val.parse::<u32>()?;
-				let x = meta.get_or_default_release();
-				x.total_discs = Some(y);
+				if let Ok(y) = val.parse::<u32>() {
+					let x = meta.get_or_default_release();
+					x.total_discs = Some(y);
+				}
 			}
 
 			"original_date" | "originaldate" => {
-				if let Some((Some(year), Some(month), day_opt)) = get_val_date(&val)? {
+				if let Ok(Some((Some(year), Some(month), day_opt))) = get_val_date(&val) {
 					let y = meta.get_or_default_track();
 					y.original_date = NaiveDate::from_ymd_opt(year, month, day_opt.unwrap_or(1));
 				}
 			}
-			"date" => match get_val_date(&val)? {
-				Some((Some(year), Some(month), day_opt)) => {
+			"date" => match get_val_date(&val) {
+				Ok(Some((Some(year), Some(month), day_opt))) => {
 					let y = meta.get_or_default_release();
 					y.date = NaiveDate::from_ymd_opt(year, month, day_opt.unwrap_or(1));
 				}
-				Some((Some(year), None, None)) => {
+				Ok(Some((Some(year), None, None))) => {
 					let y = meta.get_or_default_release();
 					if y.year.is_none() {
 						y.year = Some(year);
@@ -215,7 +216,7 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 			"genre" => {
 				let x = meta.tags.get_or_insert_with(Vec::new);
 				x.extend(
-					val.split(';')
+					val.split(&[';', ','])
 						.map(str::trim)
 						.filter(|s| !s.is_empty())
 						.map(|s| Tag::temp(s.to_string(), TagType::Genre)),
@@ -230,25 +231,24 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 				let x = meta.get_or_default_release();
 				x.mbz_id = Some(val);
 			}
-			// "musicbrainz_artistid" => {
-			// 	let artists = meta.artists.get_or_insert_default();
-			// 	let values = val.split(';').map(str::trim).filter(|s| !s.is_empty());
-
-			// 	for (i, val) in values.enumerate() {
-			// 		if let Some(artist) = artists.get_mut(i) {
-			// 			artist.person.mbz_id = Some(val.to_owned());
-			// 		}
-			// 	}
-			// }
+			"musicbrainz_artistid" => {
+				mbz_artist_ids = Some(
+					val.split(';')
+						.map(str::trim)
+						.filter(|s| !s.is_empty())
+						.map(|s| s.to_owned())
+						.collect(),
+				);
+			}
 			"releasetype" => {
 				let x = meta.get_or_default_release();
 				let mut parts = val.split(';');
 
-				if let Some(y) = parts.next().map(ReleaseType::from_tag).transpose()? {
+				if let Ok(Some(y)) = parts.next().map(ReleaseType::from_tag).transpose() {
 					x.type_ = y;
 				}
 
-				if let Some(y) = parts.next().map(ReleaseTypeSecondary::from_tag).transpose()? {
+				if let Ok(Some(y)) = parts.next().map(ReleaseTypeSecondary::from_tag).transpose() {
 					x.type_secondary.get_or_insert_with(Vec::new).push(y);
 				}
 			}
@@ -257,12 +257,21 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 		}
 	}
 
+	if let Some((arts, ids)) = meta.weak_artists.as_mut().zip(mbz_artist_ids) {
+		for (art, id) in arts.iter_mut().zip(ids.into_iter()) {
+			if !id.is_empty() {
+				art.person.mbz_id = Some(id.to_owned());
+			}
+		}
+	}
+
 	Ok(meta)
 }
 
 #[inline]
 fn get_val_date(x: &str) -> Result<OptionedDate> {
-	let mut parts = x.split('-');
+	let normalized_date = x.replace(['.', '/'], "-");
+	let mut parts = normalized_date.split('-');
 
 	let date = match (parts.next(), parts.next(), parts.next()) {
 		(Some(y), Some(m), Some(d)) => Some((
@@ -305,9 +314,9 @@ mod test {
 
 	// const TRACK_PATH: &str =
 	// 	r"/home/curstantine/Music/TempLib/Various Artists/IRREGULAR NATION/01 Massive New Krew - MUTANT.flac";
-	// const TRACK_PATH: &str = r"/home/curstantine/Music/TempLib/青葉市子/海底のエデン/01 海底のエデン.flac";
-	const TRACK_PATH: &str =
-		r"/home/curstantine/Music/Library/Mili feat. KIHOW/In Hell We Live, Lament/01 In Hell We Live, Lament.opus";
+	const TRACK_PATH: &str = r"/home/curstantine/Music/TempLib/青葉市子/海底のエデン/01 海底のエデン.flac";
+	// const TRACK_PATH: &str =
+	// 	r"/home/curstantine/Music/Library/Mili feat. KIHOW/In Hell We Live, Lament/01 In Hell We Live, Lament.opus";
 
 	#[test]
 	fn test_read_track_meta() -> Result<()> {
