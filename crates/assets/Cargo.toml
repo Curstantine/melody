@@ -1,0 +1,10 @@
+[package]
+name = "assets"
+version = "0.1.0"
+publish.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+gpui.workspace = true
+rust-embed.workspace = true

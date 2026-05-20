@@ -1,6 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["crates/db", "crates/library", "crates/melody", "crates/paths", "crates/ui"]
+members = [
+  "crates/assets",
+  "crates/db",
+  "crates/library",
+  "crates/melody",
+  "crates/paths", "crates/theme",
+  "crates/ui",
+]
 
 [workspace.package]
 publish = false
@@ -8,6 +15,7 @@ edition = "2024"
 
 [workspace.dependencies]
 # Internal
+assets = { path = "crates/assets" }
 db = { path = "crates/db" }
 library = { path = "crates/library" }
 paths = { path = "crates/paths" }
@@ -20,7 +28,10 @@ chrono = { version = "0.4.44", features = ["serde"] }
 dirs = "6.0.0"
 gpui = "*"
 inventory = "0.3.24"
+env_logger = "0.11"
 log = { version = "0.4.16", features = ["kv_unstable_serde", "serde"] }
+rusqlite = { version = "0.39.0", features = ["bundled", "uuid"] }
+rust-embed = "8.11.0"
 serde = { version = "1.0.228", features = ["derive"] }
 uuid = { version = "1.23.1", features = ["v7"] }
 rsmpeg = { version = "0.18.0", default-features = false, features = [
