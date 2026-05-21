@@ -44,30 +44,33 @@ pub fn read_track_meta(path: String) -> Result<(TempTrackMeta, TempTrackResource
 			.get(index)
 			.context("Failed to find best video stream")?;
 
-		if stream.disposition as u32 == AV_DISPOSITION_ATTACHED_PIC {
+		if stream.disposition as u32 & AV_DISPOSITION_ATTACHED_PIC != 0 {
 			let pic = stream.attached_pic;
 			let codec = stream.codecpar();
 			let opt = resource.release_covers.get_or_insert_with(Vec::new);
 
 			let comment = if let Some(meta) = stream.metadata() {
-				let key = CString::new("comment").unwrap();
+				let key = CString::new("comment")?;
 				let h = meta.get(key.as_c_str(), None, 0);
 				h.map(|x| x.value().to_string_lossy().to_string())
 			} else {
 				None
 			};
 
-			// We will have to copy the slice into a vec regardless because we don't own the
-			// memory from libavcodec, and I feel safer this way.
+			if pic.data.is_null() || pic.size <= 0 {
+				bail!("Picture has invalid data: ptr={:?}, size={}", pic.data, pic.size);
+			}
+
+			// pic.data is verified non-null and pic.size is verified > 0 above
 			let data = unsafe {
 				let slice = std::slice::from_raw_parts(pic.data, pic.size as usize);
-				slice.to_vec().into_boxed_slice()
+				Box::from(slice)
 			};
 
 			opt.push(TempCover {
 				type_: CoverType::Release,
 				media_type: CoverMediaType::from_codec_id(codec.codec_id)?,
-				resolution: (codec.height as u16, codec.width as u16),
+				resolution: (codec.width as u16, codec.height as u16),
 				comment,
 				data,
 			});
@@ -140,11 +143,11 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 
 			"script" => {
 				let x = meta.get_or_default_release();
-				x.script = ScriptCode::from_tag(&val).ok()
+				x.script = Some(ScriptCode::from_tag(&val))
 			}
 			"release_country" | "releasecountry" => {
 				let x = meta.get_or_default_release();
-				x.country = CountryCode::from_tag(&val).ok()
+				x.country = Some(CountryCode::from_tag(&val));
 			}
 
 			"track" => {
@@ -244,11 +247,11 @@ fn traverse_tags(dict: AVDictionaryRef<'_>, path_str: String) -> Result<TempTrac
 				let x = meta.get_or_default_release();
 				let mut parts = val.split(';');
 
-				if let Ok(Some(y)) = parts.next().map(ReleaseType::from_tag).transpose() {
+				if let Some(y) = parts.next().map(ReleaseType::from_tag) {
 					x.type_ = y;
 				}
 
-				if let Ok(Some(y)) = parts.next().map(ReleaseTypeSecondary::from_tag).transpose() {
+				if let Some(y) = parts.next().map(ReleaseTypeSecondary::from_tag) {
 					x.type_secondary.get_or_insert_with(Vec::new).push(y);
 				}
 			}

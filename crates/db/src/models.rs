@@ -16,16 +16,12 @@ pub enum CountryCode {
 }
 
 impl FromTag for CountryCode {
-	type Error = std::convert::Infallible;
-
-	fn from_tag(value: &str) -> Result<Self, Self::Error> {
-		let value = match value.to_lowercase().as_str() {
+	fn from_tag(value: &str) -> Self {
+		match value.to_lowercase().as_str() {
 			"xw" => Self::Worldwide,
 			"jp" => Self::Japan,
 			_ => Self::Other(value.to_owned()),
-		};
-
-		Ok(value)
+		}
 	}
 }
 
@@ -37,20 +33,15 @@ pub enum ScriptCode {
 }
 
 impl FromTag for ScriptCode {
-	type Error = std::convert::Infallible;
-
-	fn from_tag(value: &str) -> Result<Self, Self::Error> {
-		let value = match value.to_lowercase().as_str() {
+	fn from_tag(value: &str) -> Self {
+		match value.to_lowercase().as_str() {
 			"latn" => Self::Latin,
 			"jpan" => Self::Japanese,
 			_ => Self::Other(value.to_owned()),
-		};
-
-		Ok(value)
+		}
 	}
 }
 
 pub trait FromTag: Sized {
-	type Error;
-	fn from_tag(value: &str) -> Result<Self, Self::Error>;
+	fn from_tag(value: &str) -> Self;
 }

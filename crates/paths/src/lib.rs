@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 
 /// The application name, used to derive platform-specific data, config, cache,
 /// and state directory paths.
-pub const APP_NAME: &str = "Melo_ady";
+pub const APP_NAME: &str = "Melody";
 
 /// Lowercased form of [`APP_NAME`], for use in XDG-style paths on
 /// Linux/FreeBSD and the macOS `~/.config` fallback.

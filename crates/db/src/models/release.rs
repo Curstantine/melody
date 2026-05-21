@@ -53,33 +53,25 @@ impl Release {
 }
 
 impl FromTag for ReleaseType {
-	type Error = std::convert::Infallible;
-
-	fn from_tag(value: &str) -> Result<Self, Self::Error> {
-		let value = match value.to_lowercase().as_str() {
+	fn from_tag(value: &str) -> Self {
+		match value.to_lowercase().as_str() {
 			"album" => Self::Album,
 			"ep" => Self::Ep,
 			"single" => Self::Single,
 			"broadcast" => Self::Broadcast,
 			_ => Self::Other,
-		};
-
-		Ok(value)
+		}
 	}
 }
 
 impl FromTag for ReleaseTypeSecondary {
-	type Error = std::convert::Infallible;
-
-	fn from_tag(value: &str) -> Result<Self, Self::Error> {
-		let value = match value.to_lowercase().as_str() {
+	fn from_tag(value: &str) -> Self {
+		match value.to_lowercase().as_str() {
 			"compilation" => Self::Compilation,
 			"remix" => Self::Remix,
 			"live" => Self::Live,
 			"soundtrack" => Self::Soundtrack,
 			x => Self::Other(x.to_string()),
-		};
-
-		Ok(value)
+		}
 	}
 }

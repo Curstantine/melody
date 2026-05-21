@@ -5,7 +5,8 @@ members = [
   "crates/db",
   "crates/library",
   "crates/melody",
-  "crates/paths", "crates/theme",
+  "crates/paths",
+  "crates/theme",
   "crates/ui",
 ]
 
@@ -19,6 +20,7 @@ assets = { path = "crates/assets" }
 db = { path = "crates/db" }
 library = { path = "crates/library" }
 paths = { path = "crates/paths" }
+theme = { path = "crates/theme" }
 ui = { path = "crates/ui" }
 
 # External
