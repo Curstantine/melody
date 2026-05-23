@@ -4,7 +4,7 @@ use assets::Assets;
 use db::AppDatabase;
 use gpui::{App, Application, Size, WindowOptions, prelude::*, px};
 
-use crate::melody::HelloWorld;
+use crate::melody::MainApp;
 
 mod melody;
 
@@ -38,7 +38,7 @@ fn main() {
 				}),
 				..Default::default()
 			},
-			|_, cx| cx.new(|_| HelloWorld { text: "World".into() }),
+			|_, cx| cx.new(|_| MainApp {}),
 		)
 		.unwrap();
 	});

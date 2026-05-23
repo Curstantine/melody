@@ -317,7 +317,7 @@ mod test {
 
 	// const TRACK_PATH: &str =
 	// 	r"/home/curstantine/Music/TempLib/Various Artists/IRREGULAR NATION/01 Massive New Krew - MUTANT.flac";
-	const TRACK_PATH: &str = r"/home/curstantine/Music/TempLib/青葉市子/海底のエデン/01 海底のエデン.flac";
+	const TRACK_PATH: &str = r"/home/curstantine/Music/Library/青葉市子/海底のエデン/01 海底のエデン.flac";
 	// const TRACK_PATH: &str =
 	// 	r"/home/curstantine/Music/Library/Mili feat. KIHOW/In Hell We Live, Lament/01 In Hell We Live, Lament.opus";
 
