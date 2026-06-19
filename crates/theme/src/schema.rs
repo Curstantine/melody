@@ -18,7 +18,7 @@ pub enum WindowBackgroundContent {
 	MicaBackdrop,
 }
 
-#[derive(Refineable, Debug, Clone, PartialEq)]
+#[derive(Refineable, Debug, Clone, PartialEq, Default, Deserialize)]
 #[refineable(Debug, Deserialize)]
 pub struct ThemeColors {
 	pub background: Hsla,
@@ -122,6 +122,13 @@ pub struct Theme {
 	pub id: String,
 	pub name: SharedString,
 	pub styles: ThemeStyles,
+}
+
+pub struct ThemeFamily {
+	pub id: String,
+	pub name: SharedString,
+	pub author: SharedString,
+	pub themes: Vec<Theme>,
 }
 
 #[derive(EnumIter, Debug, Clone, Copy)]
@@ -306,5 +313,37 @@ impl ThemeColors {
 			ThemeColorField::WarningBackground => self.warning_background,
 			ThemeColorField::WarningBorder => self.warning_border,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use gpui::rgb;
+	use serde_json::json;
+
+	use super::*;
+
+	#[test]
+	fn test_theme_colors_refine() {
+		let json = json!({
+			"background": "#FF0000",
+			"border": "#008000",
+			"border_disabled": "#0000FF"
+		});
+
+		let refinement = serde_json::from_value::<ThemeColorsRefinement>(json).unwrap();
+
+		assert_eq!(refinement.background, Some(rgb(0xff0000).into()));
+		assert_eq!(refinement.border, Some(rgb(0x008000).into()));
+		assert_eq!(refinement.border_disabled, Some(rgb(0x0000ff).into()));
+		assert!(refinement.conflict.is_none());
+
+		let mut colors = ThemeColors::default();
+		colors.refine(&refinement);
+
+		assert_eq!(colors.background, refinement.background.unwrap());
+		assert_eq!(colors.border, refinement.border.unwrap());
+		assert_eq!(colors.border_disabled, refinement.border_disabled.unwrap());
+		assert_eq!(colors.conflict, Hsla::default());
 	}
 }
