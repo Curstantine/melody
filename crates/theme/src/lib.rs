@@ -1,14 +1,13 @@
-pub fn add(left: u64, right: u64) -> u64 {
-	left + right
-}
+use gpui::{App, AssetSource, SharedString};
 
-#[cfg(test)]
-mod tests {
-	use super::*;
+use crate::registry::{LoadedThemes, ThemeRegistry};
 
-	#[test]
-	fn it_works() {
-		let result = add(2, 2);
-		assert_eq!(result, 4);
-	}
+pub mod registry;
+pub mod schema;
+
+pub const DEFAULT_THEME: &str = "Dark";
+
+pub fn init(cx: &mut App, to_load: Option<LoadedThemes>) {
+	let themes = to_load.unwrap_or(Box::new(()) as Box<dyn AssetSource>);
+	let theme = ThemeRegistry;
 }

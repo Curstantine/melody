@@ -85,17 +85,17 @@
                     "type": ["string", "null"]
                 },
                 "border.disabled": {
-                    "description": "Border color. Used for disabled elements, like a disabled input or button.",
+                    "description": "Border color. Used for disabled elements, like a disabled playback control or button.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "border.focused": {
-                    "description": "Border color. Used for focused elements, like keyboard focused list item.",
+                    "description": "Border color. Used for focused elements, like a keyboard focused track in the playlist.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "border.selected": {
-                    "description": "Border color. Used for selected elements, like an active search filter or selected checkbox.",
+                    "description": "Border color. Used for selected elements, like an active playlist category or selected track.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -105,12 +105,12 @@
                     "type": ["string", "null"]
                 },
                 "border.variant": {
-                    "description": "Border color. Used for deemphasized borders, like a visual divider between two sections",
+                    "description": "Border color. Used for deemphasized borders, like a visual divider between the sidebar and the track list.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "conflict": {
-                    "description": "Indicates some kind of conflict, like a file changed on disk while it was open, or merge conflicts in a Git repository.",
+                    "description": "Indicates some kind of conflict, like a track file missing on disk or a sync conflict in the music library.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -123,7 +123,7 @@
                     "type": ["string", "null"]
                 },
                 "created": {
-                    "description": "Indicates something new, like a new file added to a Git repository.",
+                    "description": "Indicates something new, like a new track added to the library or a new playlist.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -136,7 +136,7 @@
                     "type": ["string", "null"]
                 },
                 "deleted": {
-                    "description": "Indicates that something no longer exists, like a deleted file.",
+                    "description": "Indicates that a track or playlist no longer exists, like a deleted audio file.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -149,22 +149,22 @@
                     "type": ["string", "null"]
                 },
                 "drop_target.background": {
-                    "description": "Background Color. Used for the area that shows where a dragged element will be dropped.",
+                    "description": "Background Color. Used for the area that shows where a dragged track or playlist will be dropped.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "element.active": {
-                    "description": "Background Color. Used for the active state of an element that should have a different background than the surface it's on.\n\nActive states are triggered by the mouse button being pressed down on an element, or the Return button or other activator being pressd.",
+                    "description": "Background Color. Used for the active state of an element that should have a different background than the surface it's on.\n\nActive states are triggered by clicking an element, or pressing the Play/Pause button or other activator.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "element.background": {
-                    "description": "Background Color. Used for the background of an element that should have a different background than the surface it's on.\n\nElements might include: Buttons, Inputs, Checkboxes, Radio Buttons...\n\nFor an element that should have the same background as the surface it's on, use `ghost_element_background`.",
+                    "description": "Background Color. Used for the background of an element that should have a different background than the surface it's on.\n\nElements might include: Buttons (like Play or Pause), Inputs (like search bar), Checkboxes, Radio Buttons...\n\nFor an element that should have the same background as the surface it's on, use `ghost_element_background`.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "element.disabled": {
-                    "description": "Background Color. Used for the disabled state of an element that should have a different background than the surface it's on.\n\nDisabled states are shown when a user cannot interact with an element, like a disabled button or input.",
+                    "description": "Background Color. Used for the disabled state of an element that should have a different background than the surface it's on.\n\nDisabled states are shown when a user cannot interact with an element, like a disabled player button when the queue is empty.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -174,17 +174,17 @@
                     "type": ["string", "null"]
                 },
                 "element.selected": {
-                    "description": "Background Color. Used for the selected state of an element that should have a different background than the surface it's on.\n\nSelected states are triggered by the element being selected (or \"activated\") by the user.\n\nThis could include a selected checkbox, a toggleable button that is toggled on, etc.",
+                    "description": "Background Color. Used for the selected state of an element that should have a different background than the surface it's on.\n\nSelected states are triggered by the element being selected (or \"activated\") by the user.\n\nThis could include a selected checkbox, a toggleable button that is toggled on (like Repeat or Shuffle), etc.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "elevated_surface.background": {
-                    "description": "Background color. Used for elevated surfaces, like a context menu, popup, or dialog.",
+                    "description": "Background color. Used for elevated surfaces, like a track context menu, popup, or settings dialog.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "error": {
-                    "description": "Indicates a system error, a failed operation or a diagnostic error.",
+                    "description": "Indicates a system error, a failed playback operation, or an audio decoding error.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -197,17 +197,17 @@
                     "type": ["string", "null"]
                 },
                 "ghost_element.active": {
-                    "description": "Background Color. Used for the active state of a ghost element that should have the same background as the surface it's on.\n\nActive states are triggered by the mouse button being pressed down on an element, or the Return button or other activator being pressd.",
+                    "description": "Background Color. Used for the active state of a ghost element that should have the same background as the surface it's on.\n\nActive states are triggered by clicking an element, or pressing the Play/Pause button or other activator.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "ghost_element.background": {
-                    "description": "Used for the background of a ghost element that should have the same background as the surface it's on.\n\nElements might include: Buttons, Inputs, Checkboxes, Radio Buttons...\n\nFor an element that should have a different background than the surface it's on, use `element_background`.",
+                    "description": "Used for the background of a ghost element that should have the same background as the surface it's on.\n\nElements might include: Buttons (like Play or Pause), Inputs (like search bar), Checkboxes, Radio Buttons...\n\nFor an element that should have a different background than the surface it's on, use `element_background`.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "ghost_element.disabled": {
-                    "description": "Background Color. Used for the disabled state of a ghost element that should have the same background as the surface it's on.\n\nDisabled states are shown when a user cannot interact with an element, like a disabled button or input.",
+                    "description": "Background Color. Used for the disabled state of a ghost element that should have the same background as the surface it's on.\n\nDisabled states are shown when a user cannot interact with an element, like a disabled player button when the queue is empty.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -217,12 +217,12 @@
                     "type": ["string", "null"]
                 },
                 "ghost_element.selected": {
-                    "description": "Background Color. Used for the selected state of a ghost element that should have the same background as the surface it's on.\n\nSelected states are triggered by the element being selected (or \"activated\") by the user.\n\nThis could include a selected checkbox, a toggleable button that is toggled on, etc.",
+                    "description": "Background Color. Used for the selected state of a ghost element that should have the same background as the surface it's on.\n\nSelected states are triggered by the element being selected (or \"activated\") by the user.\n\nThis could include a selected checkbox, a toggleable button that is toggled on (like Repeat or Shuffle), etc.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "hidden": {
-                    "description": "Represents a hidden status, such as a file being hidden in a file tree.",
+                    "description": "Represents a hidden status, such as a track being hidden in the library view.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -235,7 +235,7 @@
                     "type": ["string", "null"]
                 },
                 "hint": {
-                    "description": "Indicates a hint or some kind of additional information.",
+                    "description": "Indicates a hint or some kind of additional information, such as keyboard shortcuts for player controls.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -253,27 +253,27 @@
                     "type": ["string", "null"]
                 },
                 "icon.accent": {
-                    "description": "Fill Color. Used for the accent fill color of an icon.\n\nThis might be used to show when a toggleable icon button is selected.",
+                    "description": "Fill Color. Used for the accent fill color of an icon.\n\nThis might be used to show when a toggleable player button (like Repeat or Shuffle) is selected.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "icon.disabled": {
-                    "description": "Fill Color. Used for the disabled fill color of an icon.\n\nDisabled states are shown when a user cannot interact with an element, like a icon button.",
+                    "description": "Fill Color. Used for the disabled fill color of an icon.\n\nDisabled states are shown when a user cannot interact with an element, like a player button.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "icon.muted": {
-                    "description": "Fill Color. Used for the muted or deemphasized fill color of an icon.\n\nThis might be used to show an icon in an inactive pane, or to demphasize a series of icons to give them less visual weight.",
+                    "description": "Fill Color. Used for the muted or deemphasized fill color of an icon.\n\nThis might be used to show an icon in an inactive panel, or to deemphasize a series of icons to give them less visual weight.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "icon.placeholder": {
-                    "description": "Fill Color. Used for the placeholder fill color of an icon.\n\nThis might be used to show an icon in an input that disappears when the user enters text.",
+                    "description": "Fill Color. Used for the placeholder fill color of an icon.\n\nThis might be used to show a search icon in the search field that disappears when the user enters text.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "ignored": {
-                    "description": "Indicates that something is deliberately ignored, such as a file or operation ignored by Git.",
+                    "description": "Indicates that something is deliberately ignored, such as an audio file or directory skipped during library scanning.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -286,7 +286,7 @@
                     "type": ["string", "null"]
                 },
                 "info": {
-                    "description": "Represents informational status updates or messages.",
+                    "description": "Represents informational status updates or messages, like track scanning progress.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -303,7 +303,7 @@
                     "type": ["string", "null"]
                 },
                 "modified": {
-                    "description": "Indicates a changed or altered status, like a file that has been edited.",
+                    "description": "Indicates a changed or altered status, like track metadata that has been edited.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -343,28 +343,8 @@
                     "default": null,
                     "type": ["string", "null"]
                 },
-                "players": {
-                    "default": [],
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/PlayerColorContent"
-                    }
-                },
-                "predictive": {
-                    "description": "Indicates something that is predicted, like automatic code completion, or generated code.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "predictive.background": {
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "predictive.border": {
-                    "default": null,
-                    "type": ["string", "null"]
-                },
                 "renamed": {
-                    "description": "Represents a renamed status, such as a file that has been renamed.",
+                    "description": "Represents a renamed status, such as a playlist that has been renamed.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -410,7 +390,7 @@
                     "type": ["string", "null"]
                 },
                 "success": {
-                    "description": "Indicates a successful operation or task completion.",
+                    "description": "Indicates a successful operation or task completion, like finishing a playlist export or a media library scan.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -423,7 +403,7 @@
                     "type": ["string", "null"]
                 },
                 "surface.background": {
-                    "description": "Background Color. Used for grounded surfaces like a panel or tab.",
+                    "description": "Background Color. Used for grounded surfaces like a playlist panel or queue tab.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -439,158 +419,13 @@
                     "default": null,
                     "type": ["string", "null"]
                 },
-                "terminal.ansi.background": {
-                    "description": "Terminal ANSI background color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.black": {
-                    "description": "Black ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.blue": {
-                    "description": "Blue ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.bright_black": {
-                    "description": "Bright black ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.bright_blue": {
-                    "description": "Bright blue ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.bright_cyan": {
-                    "description": "Bright cyan ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.bright_green": {
-                    "description": "Bright green ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.bright_magenta": {
-                    "description": "Bright magenta ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.bright_red": {
-                    "description": "Bright red ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.bright_white": {
-                    "description": "Bright white ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.bright_yellow": {
-                    "description": "Bright yellow ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.cyan": {
-                    "description": "Cyan ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.dim_black": {
-                    "description": "Dim black ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.dim_blue": {
-                    "description": "Dim blue ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.dim_cyan": {
-                    "description": "Dim cyan ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.dim_green": {
-                    "description": "Dim green ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.dim_magenta": {
-                    "description": "Dim magenta ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.dim_red": {
-                    "description": "Dim red ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.dim_white": {
-                    "description": "Dim white ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.dim_yellow": {
-                    "description": "Dim yellow ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.green": {
-                    "description": "Green ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.magenta": {
-                    "description": "Magenta ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.red": {
-                    "description": "Red ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.white": {
-                    "description": "White ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.ansi.yellow": {
-                    "description": "Yellow ANSI terminal color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.background": {
-                    "description": "Terminal background color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.bright_foreground": {
-                    "description": "Bright terminal foreground color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.dim_foreground": {
-                    "description": "Dim terminal foreground color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "terminal.foreground": {
-                    "description": "Terminal foreground color.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
                 "text": {
-                    "description": "Text Color. Default text color used for most text.",
+                    "description": "Text Color. Default text color used for most text, like track titles and artist names.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "text.accent": {
-                    "description": "Text Color. Color used for emphasis or highlighting certain text, like an active filter or a matched character in a search.",
+                    "description": "Text Color. Color used for emphasis or highlighting certain text, like the currently playing track title or a matched character in a search.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -600,12 +435,12 @@
                     "type": ["string", "null"]
                 },
                 "text.muted": {
-                    "description": "Text Color. Color of muted or deemphasized text. It is a subdued version of the standard text color.",
+                    "description": "Text Color. Color of muted or deemphasized text, such as track durations or album names.",
                     "default": null,
                     "type": ["string", "null"]
                 },
                 "text.placeholder": {
-                    "description": "Text Color. Color of the placeholder text typically shown in input fields to guide the user to enter valid data.",
+                    "description": "Text Color. Color of the placeholder text typically shown in input fields, like the search bar, to guide the user.",
                     "default": null,
                     "type": ["string", "null"]
                 },
@@ -621,21 +456,8 @@
                     "default": null,
                     "type": ["string", "null"]
                 },
-                "unreachable": {
-                    "description": "Indicates some kind of unreachable status, like a block of code that can never be reached.",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "unreachable.background": {
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "unreachable.border": {
-                    "default": null,
-                    "type": ["string", "null"]
-                },
                 "warning": {
-                    "description": "Represents a warning status, like an operation that is about to fail.",
+                    "description": "Represents a warning status, like a network buffer underrun warning during audio streaming.",
                     "default": null,
                     "type": ["string", "null"]
                 },

@@ -28,13 +28,16 @@ anyhow = "1.0.102"
 blake3 = { version = "1.8.5", features = ["serde"] }
 chrono = { version = "0.4.44", features = ["serde"] }
 dirs = "6.0.0"
+env_logger = "0.11"
 gpui = "*"
 inventory = "0.3.24"
-env_logger = "0.11"
 log = { version = "0.4.16", features = ["kv_unstable_serde", "serde"] }
+refineable = { git = "https://github.com/zed-industries/zed", rev = "a3ac59573799d10ec55f88426438a45af08a56fa" }
 rusqlite = { version = "0.39.0", features = ["bundled", "uuid"] }
 rust-embed = "8.11.0"
 serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+strum = { version = "0.28.0", features = ["derive"] }
 uuid = { version = "1.23.1", features = ["v7"] }
 rsmpeg = { version = "0.18.0", default-features = false, features = [
   "ffmpeg8",
