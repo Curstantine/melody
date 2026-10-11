@@ -33,7 +33,6 @@ pub fn view<'a>(
         .width(Length::Fill);
 
     let toolbar = row![
-        Space::with_width(4),
         container(icons::icon(
             icons::SEARCH_SVG,
             16.0,
@@ -233,6 +232,7 @@ pub fn view<'a>(
                 }
 
                 scrollable(track_items)
+                    .on_scroll(Message::LibraryScrolled)
                     .height(Length::Fill)
                     .width(Length::Fill)
                     .style(styles::scrollable_style(theme_cfg))
@@ -343,6 +343,7 @@ pub fn view<'a>(
                         .padding([8, 4])
                         .width(Length::Fill),
                 )
+                .on_scroll(Message::LibraryScrolled)
                 .height(Length::Fill)
                 .width(Length::Fill)
                 .style(styles::scrollable_style(theme_cfg))

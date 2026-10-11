@@ -42,6 +42,7 @@ pub struct App {
     total_tracks: usize,
     page: usize,
     page_size: usize,
+    is_loading_more: bool,
     search_query: String,
     sort_field: SortField,
     sort_dir: SortDirection,
@@ -92,7 +93,7 @@ impl App {
         let page_size = DEFAULT_PAGE_SIZE;
         let total_tracks = db.get_total_track_count(None).unwrap_or(0);
         let visible_tracks = db
-            .get_tracks_window(0, total_tracks.max(1), None, SortField::Title, SortDirection::Ascending)
+            .get_tracks_window(0, page_size, None, SortField::Title, SortDirection::Ascending)
             .unwrap_or_default();
 
         let app = Self {
@@ -115,6 +116,7 @@ impl App {
             total_tracks,
             page: 0,
             page_size,
+            is_loading_more: false,
             search_query: String::new(),
             sort_field: SortField::Title,
             sort_dir: SortDirection::Ascending,
@@ -500,6 +502,24 @@ impl App {
             Message::TracksLoaded(tracks, total) => {
                 self.visible_tracks = tracks;
                 self.total_tracks = total;
+                self.is_loading_more = false;
+                Task::none()
+            }
+
+            Message::LibraryScrolled(viewport) => {
+                let rel_offset = viewport.relative_offset();
+                if rel_offset.y >= 0.8 && !self.is_loading_more && self.visible_tracks.len() < self.total_tracks {
+                    self.is_loading_more = true;
+                    return self.load_more_tracks_task();
+                }
+                Task::none()
+            }
+
+            Message::MoreTracksLoaded(tracks) => {
+                self.is_loading_more = false;
+                if !tracks.is_empty() {
+                    self.visible_tracks.extend(tracks);
+                }
                 Task::none()
             }
 
@@ -632,6 +652,7 @@ impl App {
 
     fn reload_tracks_task(&self) -> Task<Message> {
         let db = self.db.clone();
+        let page_size = self.page_size;
         let query = if self.search_query.trim().is_empty() {
             None
         } else {
@@ -644,11 +665,32 @@ impl App {
             async move {
                 let total = db.get_total_track_count(query.as_deref()).unwrap_or(0);
                 let tracks = db
-                    .get_tracks_window(0, total.max(1), query.as_deref(), sort_field, sort_dir)
+                    .get_tracks_window(0, page_size, query.as_deref(), sort_field, sort_dir)
                     .unwrap_or_default();
                 (tracks, total)
             },
             |(tracks, total)| Message::TracksLoaded(tracks, total),
+        )
+    }
+
+    fn load_more_tracks_task(&self) -> Task<Message> {
+        let db = self.db.clone();
+        let offset = self.visible_tracks.len();
+        let limit = self.page_size;
+        let query = if self.search_query.trim().is_empty() {
+            None
+        } else {
+            Some(self.search_query.clone())
+        };
+        let sort_field = self.sort_field;
+        let sort_dir = self.sort_dir;
+
+        Task::perform(
+            async move {
+                db.get_tracks_window(offset, limit, query.as_deref(), sort_field, sort_dir)
+                    .unwrap_or_default()
+            },
+            Message::MoreTracksLoaded,
         )
     }
 

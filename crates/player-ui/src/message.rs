@@ -59,6 +59,8 @@ pub enum Message {
     // Library & Pagination
     SearchInputChanged(String),
     SortChanged(SortField),
+    LibraryScrolled(iced::widget::scrollable::Viewport),
+    MoreTracksLoaded(Vec<Track>),
     NextPage,
     PrevPage,
     GoToPage(usize),

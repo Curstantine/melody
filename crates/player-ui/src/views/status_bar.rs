@@ -6,6 +6,7 @@ use crate::icons;
 use crate::message::{Message, ViewTab};
 use crate::theme::{styles, ThemeConfig};
 
+#[allow(dead_code)]
 pub struct StatusBarContext<'a> {
     pub active_tab: ViewTab,
     // Tracks (Music) context
@@ -35,13 +36,7 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
             } else if ctx.visible_count >= ctx.total_tracks {
                 format!("{} tracks in library", ctx.total_tracks)
             } else {
-                let start_idx = if ctx.total_tracks == 0 {
-                    0
-                } else {
-                    ctx.page * ctx.page_size + 1
-                };
-                let end_idx = (start_idx + ctx.visible_count).saturating_sub(1);
-                format!("Showing {}-{} of {} tracks", start_idx, end_idx, ctx.total_tracks)
+                format!("Loaded {} of {} tracks", ctx.visible_count, ctx.total_tracks)
             };
 
             let filter_indicator: Element<'a, Message> = if !ctx.search_query.trim().is_empty() {
