@@ -67,14 +67,23 @@ impl LibraryDatabase {
                 file_path TEXT NOT NULL UNIQUE,
                 title TEXT NOT NULL,
                 artist TEXT NOT NULL,
+                album_artist TEXT,
                 album TEXT NOT NULL,
                 genre TEXT,
                 duration_ms INTEGER NOT NULL,
                 track_num INTEGER,
+                disc_num INTEGER,
+                year INTEGER,
+                composer TEXT,
+                label TEXT,
+                musicbrainz_track_id TEXT,
+                musicbrainz_artist_id TEXT,
+                musicbrainz_album_id TEXT,
                 added_timestamp INTEGER NOT NULL
             );
 
             CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
+            CREATE INDEX IF NOT EXISTS idx_tracks_album_artist ON tracks(album_artist);
             CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album);
             CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);
             CREATE INDEX IF NOT EXISTS idx_tracks_path ON tracks(file_path);
@@ -94,6 +103,16 @@ impl LibraryDatabase {
             "#,
         )?;
 
+        // Safe migrations for databases created before schema additions
+        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN album_artist TEXT", []);
+        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN disc_num INTEGER", []);
+        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN year INTEGER", []);
+        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN composer TEXT", []);
+        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN label TEXT", []);
+        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN musicbrainz_track_id TEXT", []);
+        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN musicbrainz_artist_id TEXT", []);
+        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN musicbrainz_album_id TEXT", []);
+
         info!("Database schema initialized successfully");
         Ok(())
     }
@@ -107,24 +126,44 @@ impl LibraryDatabase {
 
         conn.execute(
             r#"
-            INSERT INTO tracks (file_path, title, artist, album, genre, duration_ms, track_num, added_timestamp)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            INSERT INTO tracks (
+                file_path, title, artist, album_artist, album, genre, duration_ms,
+                track_num, disc_num, year, composer, label,
+                musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
             ON CONFLICT(file_path) DO UPDATE SET
                 title = excluded.title,
                 artist = excluded.artist,
+                album_artist = excluded.album_artist,
                 album = excluded.album,
                 genre = excluded.genre,
                 duration_ms = excluded.duration_ms,
-                track_num = excluded.track_num
+                track_num = excluded.track_num,
+                disc_num = excluded.disc_num,
+                year = excluded.year,
+                composer = excluded.composer,
+                label = excluded.label,
+                musicbrainz_track_id = excluded.musicbrainz_track_id,
+                musicbrainz_artist_id = excluded.musicbrainz_artist_id,
+                musicbrainz_album_id = excluded.musicbrainz_album_id
             "#,
             params![
                 track.file_path,
                 track.title,
                 track.artist,
+                track.album_artist,
                 track.album,
                 track.genre,
                 track.duration_ms,
                 track.track_num,
+                track.disc_num,
+                track.year,
+                track.composer,
+                track.label,
+                track.musicbrainz_track_id,
+                track.musicbrainz_artist_id,
+                track.musicbrainz_album_id,
                 now,
             ],
         )?;
@@ -149,15 +188,27 @@ impl LibraryDatabase {
         {
             let mut stmt = tx.prepare_cached(
                 r#"
-                INSERT INTO tracks (file_path, title, artist, album, genre, duration_ms, track_num, added_timestamp)
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                INSERT INTO tracks (
+                    file_path, title, artist, album_artist, album, genre, duration_ms,
+                    track_num, disc_num, year, composer, label,
+                    musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
+                )
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
                 ON CONFLICT(file_path) DO UPDATE SET
                     title = excluded.title,
                     artist = excluded.artist,
+                    album_artist = excluded.album_artist,
                     album = excluded.album,
                     genre = excluded.genre,
                     duration_ms = excluded.duration_ms,
-                    track_num = excluded.track_num
+                    track_num = excluded.track_num,
+                    disc_num = excluded.disc_num,
+                    year = excluded.year,
+                    composer = excluded.composer,
+                    label = excluded.label,
+                    musicbrainz_track_id = excluded.musicbrainz_track_id,
+                    musicbrainz_artist_id = excluded.musicbrainz_artist_id,
+                    musicbrainz_album_id = excluded.musicbrainz_album_id
                 "#,
             )?;
 
@@ -166,10 +217,18 @@ impl LibraryDatabase {
                     track.file_path,
                     track.title,
                     track.artist,
+                    track.album_artist,
                     track.album,
                     track.genre,
                     track.duration_ms,
                     track.track_num,
+                    track.disc_num,
+                    track.year,
+                    track.composer,
+                    track.label,
+                    track.musicbrainz_track_id,
+                    track.musicbrainz_artist_id,
+                    track.musicbrainz_album_id,
                     now,
                 ])?;
                 count += 1;
@@ -179,27 +238,44 @@ impl LibraryDatabase {
         tx.commit()?;
         Ok(count)
     }
+}
 
+fn map_track_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Track> {
+    Ok(Track {
+        id: row.get(0)?,
+        file_path: row.get(1)?,
+        title: row.get(2)?,
+        artist: row.get(3)?,
+        album_artist: row.get(4)?,
+        album: row.get(5)?,
+        genre: row.get(6)?,
+        duration_ms: row.get(7)?,
+        track_num: row.get(8)?,
+        disc_num: row.get(9)?,
+        year: row.get(10)?,
+        composer: row.get(11)?,
+        label: row.get(12)?,
+        musicbrainz_track_id: row.get(13)?,
+        musicbrainz_artist_id: row.get(14)?,
+        musicbrainz_album_id: row.get(15)?,
+        added_timestamp: row.get(16)?,
+    })
+}
+
+impl LibraryDatabase {
     pub fn get_track_by_id(&self, id: i64) -> Result<Option<Track>, DbError> {
         let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
         let mut stmt = conn.prepare_cached(
-            "SELECT id, file_path, title, artist, album, genre, duration_ms, track_num, added_timestamp FROM tracks WHERE id = ?1",
+            r#"
+            SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
+                   track_num, disc_num, year, composer, label,
+                   musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
+            FROM tracks WHERE id = ?1
+            "#,
         )?;
 
         let track = stmt
-            .query_row(params![id], |row| {
-                Ok(Track {
-                    id: row.get(0)?,
-                    file_path: row.get(1)?,
-                    title: row.get(2)?,
-                    artist: row.get(3)?,
-                    album: row.get(4)?,
-                    genre: row.get(5)?,
-                    duration_ms: row.get(6)?,
-                    track_num: row.get(7)?,
-                    added_timestamp: row.get(8)?,
-                })
-            })
+            .query_row(params![id], map_track_row)
             .optional()?;
 
         Ok(track)
@@ -208,23 +284,16 @@ impl LibraryDatabase {
     pub fn get_track_by_path(&self, file_path: &str) -> Result<Option<Track>, DbError> {
         let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
         let mut stmt = conn.prepare_cached(
-            "SELECT id, file_path, title, artist, album, genre, duration_ms, track_num, added_timestamp FROM tracks WHERE file_path = ?1",
+            r#"
+            SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
+                   track_num, disc_num, year, composer, label,
+                   musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
+            FROM tracks WHERE file_path = ?1
+            "#,
         )?;
 
         let track = stmt
-            .query_row(params![file_path], |row| {
-                Ok(Track {
-                    id: row.get(0)?,
-                    file_path: row.get(1)?,
-                    title: row.get(2)?,
-                    artist: row.get(3)?,
-                    album: row.get(4)?,
-                    genre: row.get(5)?,
-                    duration_ms: row.get(6)?,
-                    track_num: row.get(7)?,
-                    added_timestamp: row.get(8)?,
-                })
-            })
+            .query_row(params![file_path], map_track_row)
             .optional()?;
 
         Ok(track)
@@ -279,7 +348,9 @@ impl LibraryDatabase {
             let pattern = format!("%{}%", f.trim());
             let query = format!(
                 r#"
-                SELECT id, file_path, title, artist, album, genre, duration_ms, track_num, added_timestamp
+                SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
+                       track_num, disc_num, year, composer, label,
+                       musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
                 FROM tracks
                 WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1
                 ORDER BY {} {} NULLS LAST
@@ -289,19 +360,7 @@ impl LibraryDatabase {
             );
 
             let mut stmt = conn.prepare(&query)?;
-            let rows = stmt.query_map(params![pattern, limit as i64, offset as i64], |row| {
-                Ok(Track {
-                    id: row.get(0)?,
-                    file_path: row.get(1)?,
-                    title: row.get(2)?,
-                    artist: row.get(3)?,
-                    album: row.get(4)?,
-                    genre: row.get(5)?,
-                    duration_ms: row.get(6)?,
-                    track_num: row.get(7)?,
-                    added_timestamp: row.get(8)?,
-                })
-            })?;
+            let rows = stmt.query_map(params![pattern, limit as i64, offset as i64], map_track_row)?;
 
             for row in rows {
                 tracks.push(row?);
@@ -309,7 +368,9 @@ impl LibraryDatabase {
         } else {
             let query = format!(
                 r#"
-                SELECT id, file_path, title, artist, album, genre, duration_ms, track_num, added_timestamp
+                SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
+                       track_num, disc_num, year, composer, label,
+                       musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
                 FROM tracks
                 ORDER BY {} {} NULLS LAST
                 LIMIT ?1 OFFSET ?2
@@ -318,19 +379,7 @@ impl LibraryDatabase {
             );
 
             let mut stmt = conn.prepare(&query)?;
-            let rows = stmt.query_map(params![limit as i64, offset as i64], |row| {
-                Ok(Track {
-                    id: row.get(0)?,
-                    file_path: row.get(1)?,
-                    title: row.get(2)?,
-                    artist: row.get(3)?,
-                    album: row.get(4)?,
-                    genre: row.get(5)?,
-                    duration_ms: row.get(6)?,
-                    track_num: row.get(7)?,
-                    added_timestamp: row.get(8)?,
-                })
-            })?;
+            let rows = stmt.query_map(params![limit as i64, offset as i64], map_track_row)?;
 
             for row in rows {
                 tracks.push(row?);
@@ -365,9 +414,18 @@ impl LibraryDatabase {
         let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
         let mut stmt = conn.prepare_cached(
             r#"
-            SELECT album, artist, COUNT(*) as track_count, SUM(duration_ms) as total_duration
+            SELECT 
+                album,
+                COALESCE(
+                    NULLIF(album_artist, ''),
+                    CASE WHEN COUNT(DISTINCT artist) = 1 THEN MIN(artist) ELSE 'Various Artists' END
+                ) as dominant_artist,
+                COUNT(*) as track_count,
+                SUM(duration_ms) as total_duration,
+                MIN(year) as year,
+                MIN(file_path) as cover_track_path
             FROM tracks
-            GROUP BY album, artist
+            GROUP BY album, COALESCE(NULLIF(album_artist, ''), '')
             ORDER BY album ASC
             "#,
         )?;
@@ -377,11 +435,15 @@ impl LibraryDatabase {
             let artist: String = row.get(1)?;
             let count: i64 = row.get(2)?;
             let duration: i64 = row.get(3)?;
+            let year: Option<u32> = row.get(4)?;
+            let cover_track_path: Option<String> = row.get(5)?;
             Ok(AlbumSummary {
                 album,
                 artist,
                 track_count: count as usize,
                 total_duration_ms: duration as u64,
+                year,
+                cover_track_path,
             })
         })?;
 

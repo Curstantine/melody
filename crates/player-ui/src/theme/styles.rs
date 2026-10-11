@@ -27,6 +27,7 @@ pub fn surface_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Sty
     }
 }
 
+#[allow(dead_code)]
 pub fn sidebar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_theme| container::Style {
         background: Some(Background::Color(cfg.surface_color())),
@@ -42,6 +43,19 @@ pub fn sidebar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Sty
 
 pub fn player_bar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_theme| container::Style {
+        background: Some(Background::Color(cfg.player_bar_bg_color())),
+        text_color: Some(cfg.player_bar_text_color()),
+        border: Border {
+            color: cfg.border_color(),
+            width: 1.0,
+            radius: Radius::default(),
+        },
+        shadow: Shadow::default(),
+    }
+}
+
+pub fn top_bar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
+    move |_theme| container::Style {
         background: Some(Background::Color(cfg.surface_color())),
         text_color: Some(cfg.text_color()),
         border: Border {
@@ -50,6 +64,106 @@ pub fn player_bar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::
             radius: Radius::default(),
         },
         shadow: Shadow::default(),
+    }
+}
+
+pub fn header_tab_button(
+    cfg: &ThemeConfig,
+    is_active: bool,
+) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
+    move |_theme, status| {
+        let (bg, text) = match status {
+            button::Status::Active => {
+                if is_active {
+                    (cfg.surface_hover_color(), cfg.primary_color())
+                } else {
+                    (Color::TRANSPARENT, cfg.text_muted_color())
+                }
+            }
+            button::Status::Hovered => (cfg.surface_hover_color(), cfg.text_color()),
+            button::Status::Pressed => (cfg.surface_hover_color(), cfg.primary_color()),
+            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted_color()),
+        };
+
+        button::Style {
+            background: Some(Background::Color(bg)),
+            text_color: text,
+            border: Border {
+                color: if is_active {
+                    cfg.primary_color()
+                } else {
+                    Color::TRANSPARENT
+                },
+                width: if is_active { 1.0 } else { 0.0 },
+                radius: Radius::from(4.0),
+            },
+            shadow: Shadow::default(),
+        }
+    }
+}
+
+pub fn player_bar_button(
+    cfg: &ThemeConfig,
+    is_active: bool,
+) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
+    move |_theme, status| {
+        let hover_bg = blend_color(cfg.player_bar_bg_color(), Color::WHITE, 0.15);
+        let active_bg = blend_color(cfg.player_bar_bg_color(), Color::WHITE, 0.25);
+        let normal_fg = cfg.player_bar_text_color();
+        let highlight_fg = if is_active {
+            cfg.primary_color()
+        } else {
+            cfg.player_bar_text_color()
+        };
+
+        let (bg, text) = match status {
+            button::Status::Active => {
+                if is_active {
+                    (active_bg, cfg.primary_color())
+                } else {
+                    (Color::TRANSPARENT, normal_fg)
+                }
+            }
+            button::Status::Hovered => (hover_bg, highlight_fg),
+            button::Status::Pressed => (active_bg, highlight_fg),
+            button::Status::Disabled => {
+                (Color::TRANSPARENT, blend_color(normal_fg, Color::TRANSPARENT, 0.5))
+            }
+        };
+
+        button::Style {
+            background: Some(Background::Color(bg)),
+            text_color: text,
+            border: Border {
+                radius: Radius::from(16.0),
+                ..Border::default()
+            },
+            shadow: Shadow::default(),
+        }
+    }
+}
+
+pub fn player_bar_play_button(
+    cfg: &ThemeConfig,
+) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
+    move |_theme, status| {
+        let bg = match status {
+            button::Status::Active => Color::WHITE,
+            button::Status::Hovered => Color::from_rgb(0.92, 0.92, 0.92),
+            button::Status::Pressed => Color::from_rgb(0.80, 0.80, 0.80),
+            button::Status::Disabled => Color::from_rgb(0.5, 0.5, 0.5),
+        };
+        let fg = cfg.player_bar_bg_color();
+
+        button::Style {
+            background: Some(Background::Color(bg)),
+            text_color: fg,
+            border: Border {
+                radius: Radius::from(18.0),
+                ..Border::default()
+            },
+            shadow: Shadow::default(),
+        }
     }
 }
 
@@ -73,13 +187,14 @@ pub fn table_row_container(
                     Color::TRANSPARENT
                 },
                 width: if is_selected { 1.0 } else { 0.0 },
-                radius: Radius::from(6.0),
+                radius: Radius::from(4.0),
             },
             shadow: Shadow::default(),
         }
     }
 }
 
+#[allow(dead_code)]
 pub fn primary_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
         let (bg, text) = match status {
@@ -152,7 +267,7 @@ pub fn icon_control_button(
             background: Some(Background::Color(bg)),
             text_color: text,
             border: Border {
-                radius: Radius::from(20.0),
+                radius: Radius::from(16.0),
                 ..Border::default()
             },
             shadow: Shadow::default(),
@@ -171,11 +286,11 @@ pub fn search_input_style(
         };
 
         text_input::Style {
-            background: Background::Color(cfg.surface_color()),
+            background: Background::Color(cfg.surface_hover_color()),
             border: Border {
                 color: border_color,
                 width: 1.0,
-                radius: Radius::from(6.0),
+                radius: Radius::from(4.0),
             },
             icon: cfg.text_muted_color(),
             placeholder: cfg.text_muted_color(),
@@ -188,48 +303,60 @@ pub fn search_input_style(
 pub fn seek_slider_style(
     cfg: &ThemeConfig,
 ) -> impl Fn(&Theme, slider::Status) -> slider::Style + '_ {
-    move |_theme, _status| slider::Style {
-        rail: slider::Rail {
-            backgrounds: (
-                Background::Color(cfg.primary_color()),
-                Background::Color(cfg.surface_hover_color()),
-            ),
-            width: 4.0,
-            border: Border {
-                radius: Radius::from(2.0),
-                ..Border::default()
+    move |_theme, status| {
+        let handle_radius = match status {
+            slider::Status::Hovered | slider::Status::Dragged => 7.0,
+            _ => 5.5,
+        };
+        slider::Style {
+            rail: slider::Rail {
+                backgrounds: (
+                    Background::Color(cfg.slider_active_color()),
+                    Background::Color(cfg.slider_rail_color()),
+                ),
+                width: 3.5,
+                border: Border {
+                    radius: Radius::from(2.0),
+                    ..Border::default()
+                },
             },
-        },
-        handle: slider::Handle {
-            shape: slider::HandleShape::Circle { radius: 7.0 },
-            background: Background::Color(cfg.primary_color()),
-            border_width: 1.5,
-            border_color: cfg.surface_color(),
-        },
+            handle: slider::Handle {
+                shape: slider::HandleShape::Circle { radius: handle_radius },
+                background: Background::Color(cfg.slider_active_color()),
+                border_width: 1.0,
+                border_color: cfg.player_bar_bg_color(),
+            },
+        }
     }
 }
 
 pub fn volume_slider_style(
     cfg: &ThemeConfig,
 ) -> impl Fn(&Theme, slider::Status) -> slider::Style + '_ {
-    move |_theme, _status| slider::Style {
-        rail: slider::Rail {
-            backgrounds: (
-                Background::Color(cfg.accent_color()),
-                Background::Color(cfg.surface_hover_color()),
-            ),
-            width: 4.0,
-            border: Border {
-                radius: Radius::from(2.0),
-                ..Border::default()
+    move |_theme, status| {
+        let handle_radius = match status {
+            slider::Status::Hovered | slider::Status::Dragged => 6.0,
+            _ => 4.5,
+        };
+        slider::Style {
+            rail: slider::Rail {
+                backgrounds: (
+                    Background::Color(cfg.slider_active_color()),
+                    Background::Color(cfg.slider_rail_color()),
+                ),
+                width: 3.5,
+                border: Border {
+                    radius: Radius::from(2.0),
+                    ..Border::default()
+                },
             },
-        },
-        handle: slider::Handle {
-            shape: slider::HandleShape::Circle { radius: 6.0 },
-            background: Background::Color(cfg.accent_color()),
-            border_width: 1.0,
-            border_color: cfg.surface_color(),
-        },
+            handle: slider::Handle {
+                shape: slider::HandleShape::Circle { radius: handle_radius },
+                background: Background::Color(cfg.slider_active_color()),
+                border_width: 1.0,
+                border_color: cfg.player_bar_bg_color(),
+            },
+        }
     }
 }
 

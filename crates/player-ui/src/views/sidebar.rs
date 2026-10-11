@@ -1,9 +1,11 @@
-use iced::widget::{button, column, container, pick_list, text, Space};
-use iced::{Element, Length};
+use iced::widget::{button, column, container, pick_list, row, text, Space};
+use iced::{Alignment, Element, Length};
 
+use crate::icons;
 use crate::message::{Message, ViewTab};
 use crate::theme::{styles, ThemeConfig};
 
+#[allow(dead_code)]
 pub fn view<'a>(
     active_tab: ViewTab,
     theme_cfg: &'a ThemeConfig,
@@ -12,51 +14,72 @@ pub fn view<'a>(
     total_tracks: usize,
     is_scanning: bool,
 ) -> Element<'a, Message> {
-    let brand = column![
-        text("VIBECORE")
-            .size(20)
-            .color(theme_cfg.primary_color()),
-        text("Hi-Fi Rust Music Player")
-            .size(11)
-            .color(theme_cfg.text_muted_color()),
+    let brand = row![
+        icons::icon(icons::MUSIC_NOTE_SVG, 20.0, theme_cfg.primary_color()),
+        Space::with_width(8),
+        column![
+            text("VIBECORE")
+                .size(15)
+                .color(theme_cfg.text_color()),
+            text("MusicBee Fluenx Edition")
+                .size(10)
+                .color(theme_cfg.text_muted_color()),
+        ]
+        .spacing(1),
     ]
-    .spacing(2);
+    .align_y(Alignment::Center);
 
-    let nav_btn = |label: &'static str, tab: ViewTab| {
+    let nav_btn = |label: &'static str, tab: ViewTab, svg: &'static str| {
         let is_selected = active_tab == tab;
-        button(
+        let color = if is_selected {
+            theme_cfg.primary_color()
+        } else {
+            theme_cfg.text_color()
+        };
+
+        let content = row![
+            icons::icon(svg, 15.0, color),
+            Space::with_width(10),
             text(label)
-                .size(14)
-                .color(if is_selected {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_color()
-                }),
-        )
-        .padding([8, 12])
-        .width(Length::Fill)
-        .style(styles::ghost_button(theme_cfg, is_selected))
-        .on_press(Message::SelectTab(tab))
+                .size(13)
+                .color(color),
+        ]
+        .align_y(Alignment::Center)
+        .padding([6, 10]);
+
+        button(content)
+            .width(Length::Fill)
+            .style(styles::ghost_button(theme_cfg, is_selected))
+            .on_press(Message::SelectTab(tab))
     };
 
+    let library_header = text("LIBRARY")
+        .size(11)
+        .color(theme_cfg.text_muted_color());
+
     let nav_items = column![
-        nav_btn("Tracks", ViewTab::Tracks),
-        nav_btn("Albums", ViewTab::Albums),
-        nav_btn("Artists", ViewTab::Artists),
-        nav_btn("Now Playing", ViewTab::Lyrics),
+        library_header,
+        Space::with_height(4),
+        nav_btn("Tracks", ViewTab::Tracks, icons::MUSIC_NOTE_SVG),
+        nav_btn("Albums", ViewTab::Albums, icons::ALBUM_SVG),
+        nav_btn("Artists", ViewTab::Artists, icons::ARTIST_SVG),
+        nav_btn("Now Playing", ViewTab::Lyrics, icons::SPECTRUM_SVG),
     ]
     .spacing(4);
 
     let scan_label = if is_scanning {
-        "Scanning..."
+        "Scanning Library..."
     } else {
-        "+ Scan Folder"
+        "+ Scan Music Folder"
     };
 
     let scan_btn = button(
-        text(scan_label)
-            .size(13)
-            .color(theme_cfg.surface_color()),
+        row![
+            text(scan_label)
+                .size(12)
+                .color(theme_cfg.surface_color()),
+        ]
+        .align_y(Alignment::Center),
     )
     .padding([8, 12])
     .width(Length::Fill)
@@ -68,7 +91,7 @@ pub fn view<'a>(
     });
 
     let theme_picker = column![
-        text("THEME")
+        text("SKIN / THEME")
             .size(11)
             .color(theme_cfg.text_muted_color()),
         pick_list(theme_names, Some(active_theme), Message::SelectTheme)
@@ -76,7 +99,7 @@ pub fn view<'a>(
     ]
     .spacing(4);
 
-    let stats = text(format!("{} tracks indexed", total_tracks))
+    let stats = text(format!("{} tracks in library", total_tracks))
         .size(11)
         .color(theme_cfg.text_muted_color());
 
@@ -84,16 +107,16 @@ pub fn view<'a>(
         brand,
         Space::with_height(16),
         nav_items,
-        Space::with_height(16),
+        Space::with_height(14),
         scan_btn,
         Space::with_height(Length::Fill),
         theme_picker,
-        Space::with_height(8),
+        Space::with_height(6),
         stats,
     ]
-    .spacing(6)
-    .padding(16)
-    .width(220);
+    .spacing(4)
+    .padding([14, 14])
+    .width(200);
 
     container(content)
         .style(styles::sidebar_container(theme_cfg))

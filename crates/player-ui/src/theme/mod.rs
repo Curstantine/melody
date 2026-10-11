@@ -23,23 +23,35 @@ pub struct ThemeConfig {
     pub success: String,
     pub danger: String,
     #[serde(default)]
+    pub player_bar_bg: Option<String>,
+    #[serde(default)]
+    pub player_bar_text: Option<String>,
+    #[serde(default)]
+    pub slider_active: Option<String>,
+    #[serde(default)]
+    pub slider_rail: Option<String>,
+    #[serde(default)]
     pub font_family: Option<String>,
 }
 
 impl Default for ThemeConfig {
     fn default() -> Self {
         Self {
-            name: "Catppuccin Mocha".to_string(),
-            background: "#1e1e2e".to_string(),
-            surface: "#181825".to_string(),
-            surface_hover: "#313244".to_string(),
-            border: "#45475a".to_string(),
-            primary: "#cba6f7".to_string(),
-            accent: "#89b4fa".to_string(),
-            text: "#cdd6f4".to_string(),
-            text_muted: "#a6adc8".to_string(),
-            success: "#a6e3a1".to_string(),
-            danger: "#f38ba8".to_string(),
+            name: "Fluenx Dark".to_string(),
+            background: "#161616".to_string(),
+            surface: "#191919".to_string(),
+            surface_hover: "#282828".to_string(),
+            border: "#282828".to_string(),
+            primary: "#7fad2f".to_string(),
+            accent: "#606d43".to_string(),
+            text: "#f0f0f0".to_string(),
+            text_muted: "#787878".to_string(),
+            success: "#7fad2f".to_string(),
+            danger: "#e74c3c".to_string(),
+            player_bar_bg: Some("#606d43".to_string()),
+            player_bar_text: Some("#ffffff".to_string()),
+            slider_active: Some("#ffffff".to_string()),
+            slider_rail: Some("#45532c".to_string()),
             font_family: None,
         }
     }
@@ -106,6 +118,34 @@ impl ThemeConfig {
         parse_hex(&self.danger)
     }
 
+    pub fn player_bar_bg_color(&self) -> Color {
+        self.player_bar_bg
+            .as_deref()
+            .map(parse_hex)
+            .unwrap_or_else(|| self.surface_color())
+    }
+
+    pub fn player_bar_text_color(&self) -> Color {
+        self.player_bar_text
+            .as_deref()
+            .map(parse_hex)
+            .unwrap_or_else(|| self.text_color())
+    }
+
+    pub fn slider_active_color(&self) -> Color {
+        self.slider_active
+            .as_deref()
+            .map(parse_hex)
+            .unwrap_or_else(|| self.primary_color())
+    }
+
+    pub fn slider_rail_color(&self) -> Color {
+        self.slider_rail
+            .as_deref()
+            .map(parse_hex)
+            .unwrap_or_else(|| self.surface_hover_color())
+    }
+
     pub fn to_palette(&self) -> Palette {
         Palette {
             background: self.bg_color(),
@@ -150,7 +190,7 @@ impl ThemeManager {
     pub fn new() -> Self {
         let mut manager = Self {
             themes: HashMap::new(),
-            active_theme_name: "Catppuccin Mocha".to_string(),
+            active_theme_name: "Fluenx Dark".to_string(),
             current_config: ThemeConfig::default(),
         };
 
@@ -159,7 +199,7 @@ impl ThemeManager {
     }
 
     pub fn theme_dir() -> PathBuf {
-        if let Some(proj_dirs) = ProjectDirs::from("org", "vibecore", "player") {
+        if let Some(proj_dirs) = ProjectDirs::from("org", "vibecore", "vibecore") {
             proj_dirs.config_dir().join("themes")
         } else {
             PathBuf::from("themes")
@@ -170,6 +210,42 @@ impl ThemeManager {
         // First register default builtin themes
         let defaults = vec![
             ThemeConfig::default(),
+            ThemeConfig {
+                name: "Fluenx Dark (Obsidian)".to_string(),
+                background: "#161616".to_string(),
+                surface: "#191919".to_string(),
+                surface_hover: "#282828".to_string(),
+                border: "#282828".to_string(),
+                primary: "#7fad2f".to_string(),
+                accent: "#606d43".to_string(),
+                text: "#f0f0f0".to_string(),
+                text_muted: "#787878".to_string(),
+                success: "#7fad2f".to_string(),
+                danger: "#e74c3c".to_string(),
+                player_bar_bg: Some("#191919".to_string()),
+                player_bar_text: Some("#f0f0f0".to_string()),
+                slider_active: Some("#7fad2f".to_string()),
+                slider_rail: Some("#363636".to_string()),
+                font_family: None,
+            },
+            ThemeConfig {
+                name: "Catppuccin Mocha".to_string(),
+                background: "#1e1e2e".to_string(),
+                surface: "#181825".to_string(),
+                surface_hover: "#313244".to_string(),
+                border: "#45475a".to_string(),
+                primary: "#cba6f7".to_string(),
+                accent: "#89b4fa".to_string(),
+                text: "#cdd6f4".to_string(),
+                text_muted: "#a6adc8".to_string(),
+                success: "#a6e3a1".to_string(),
+                danger: "#f38ba8".to_string(),
+                player_bar_bg: None,
+                player_bar_text: None,
+                slider_active: None,
+                slider_rail: None,
+                font_family: None,
+            },
             ThemeConfig {
                 name: "Tokyo Night".to_string(),
                 background: "#1a1b26".to_string(),
@@ -182,6 +258,10 @@ impl ThemeManager {
                 text_muted: "#565f89".to_string(),
                 success: "#9ece6a".to_string(),
                 danger: "#f7768e".to_string(),
+                player_bar_bg: None,
+                player_bar_text: None,
+                slider_active: None,
+                slider_rail: None,
                 font_family: None,
             },
             ThemeConfig {
@@ -196,6 +276,10 @@ impl ThemeManager {
                 text_muted: "#d8dee9".to_string(),
                 success: "#a3be8c".to_string(),
                 danger: "#bf616a".to_string(),
+                player_bar_bg: None,
+                player_bar_text: None,
+                slider_active: None,
+                slider_rail: None,
                 font_family: None,
             },
             ThemeConfig {
@@ -210,6 +294,10 @@ impl ThemeManager {
                 text_muted: "#949bb2".to_string(),
                 success: "#50fa7b".to_string(),
                 danger: "#ff5555".to_string(),
+                player_bar_bg: None,
+                player_bar_text: None,
+                slider_active: None,
+                slider_rail: None,
                 font_family: None,
             },
             ThemeConfig {
@@ -224,6 +312,10 @@ impl ThemeManager {
                 text_muted: "#9a9da1".to_string(),
                 success: "#2ecc71".to_string(),
                 danger: "#e74c3c".to_string(),
+                player_bar_bg: None,
+                player_bar_text: None,
+                slider_active: None,
+                slider_rail: None,
                 font_family: None,
             },
         ];

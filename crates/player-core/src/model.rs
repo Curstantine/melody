@@ -6,16 +6,34 @@ pub struct Track {
     pub file_path: String,
     pub title: String,
     pub artist: String,
+    pub album_artist: Option<String>,
     pub album: String,
     pub genre: Option<String>,
     pub duration_ms: u64,
     pub track_num: Option<u32>,
+    pub disc_num: Option<u32>,
+    pub year: Option<u32>,
+    pub composer: Option<String>,
+    pub label: Option<String>,
+    pub musicbrainz_track_id: Option<String>,
+    pub musicbrainz_artist_id: Option<String>,
+    pub musicbrainz_album_id: Option<String>,
     pub added_timestamp: i64,
 }
 
 impl Track {
     pub fn formatted_duration(&self) -> String {
         format_duration(self.duration_ms)
+    }
+
+    pub fn display_artist(&self) -> &str {
+        if !self.artist.is_empty() {
+            &self.artist
+        } else if let Some(aa) = self.album_artist.as_deref() {
+            aa
+        } else {
+            "Unknown Artist"
+        }
     }
 }
 
@@ -40,15 +58,23 @@ pub struct TrackIdHeader {
     pub duration_ms: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct NewTrack {
     pub file_path: String,
     pub title: String,
     pub artist: String,
+    pub album_artist: Option<String>,
     pub album: String,
     pub genre: Option<String>,
     pub duration_ms: u64,
     pub track_num: Option<u32>,
+    pub disc_num: Option<u32>,
+    pub year: Option<u32>,
+    pub composer: Option<String>,
+    pub label: Option<String>,
+    pub musicbrainz_track_id: Option<String>,
+    pub musicbrainz_artist_id: Option<String>,
+    pub musicbrainz_album_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -57,6 +83,8 @@ pub struct AlbumSummary {
     pub artist: String,
     pub track_count: usize,
     pub total_duration_ms: u64,
+    pub year: Option<u32>,
+    pub cover_track_path: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

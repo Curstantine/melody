@@ -9,6 +9,24 @@ pub enum ViewTab {
     Albums,
     Artists,
     Lyrics,
+    Settings,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ViewMode {
+    #[default]
+    List,
+    Tile,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AlbumSortField {
+    #[default]
+    Title,
+    Artist,
+    Year,
+    TrackCount,
+    Duration,
 }
 
 #[derive(Debug, Clone)]
@@ -24,9 +42,19 @@ pub enum Message {
     SeekFinished,
     VolumeChanged(f32),
     AudioTick,
+    ToggleShuffle,
+    ToggleRepeat,
+    ToggleLoveCurrentTrack,
 
     // Navigation & Views
     SelectTab(ViewTab),
+    SetLibraryViewMode(ViewMode),
+    SetAlbumsViewMode(ViewMode),
+    SetArtistsViewMode(ViewMode),
+
+    // Track interactions
+    TrackClicked(i64),
+    TrackHovered(Option<i64>),
 
     // Library & Pagination
     SearchInputChanged(String),
@@ -34,17 +62,20 @@ pub enum Message {
     NextPage,
     PrevPage,
     GoToPage(usize),
+    SetPageSize(usize),
 
     // Scanning & File Picking
     ScanFolderClicked,
     FolderSelected(Option<PathBuf>),
     ScanFinished(ScanSummary),
 
-    // Album / Artist Selection
+    // Album / Artist Selection & Sorting
     SelectAlbum(String),
     SelectArtist(String),
+    AlbumSortChanged(AlbumSortField),
+    AlbumCoversLoaded(Vec<(String, Vec<u8>)>),
 
-    // Themes
+    // Themes & Settings
     SelectTheme(String),
     ReloadThemes,
 

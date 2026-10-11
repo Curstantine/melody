@@ -17,50 +17,53 @@ pub fn view<'a>(
     volume: f32,
     is_seeking: bool,
     seek_pos_ms: u64,
+    is_shuffle: bool,
+    is_repeat: bool,
+    is_loved: bool,
 ) -> Element<'a, Message> {
+    let bar_fg = theme_cfg.player_bar_text_color();
+
     // 1. Left: Track Info & Cover Thumbnail
     let cover_art: Element<'a, Message> = match current_cover {
         Some(handle) => container(
             image(handle.clone())
-                .width(Length::Fixed(48.0))
-                .height(Length::Fixed(48.0))
+                .width(Length::Fixed(46.0))
+                .height(Length::Fixed(46.0))
                 .content_fit(ContentFit::Cover),
         )
-        .width(48)
-        .height(48)
+        .width(46)
+        .height(46)
         .style(|_theme| container::Style {
             border: Border {
-                radius: Radius::from(6.0),
+                radius: Radius::from(3.0),
                 color: theme_cfg.border_color(),
                 width: 1.0,
             },
             ..Default::default()
         })
         .into(),
-        None => container(
-            icons::icon(icons::MUSIC_NOTE_SVG, 22.0, theme_cfg.primary_color())
-        )
-        .width(48)
-        .height(48)
-        .center_x(48)
-        .center_y(48)
-        .style(|_theme| container::Style {
-            background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-            border: Border {
-                radius: Radius::from(6.0),
-                color: theme_cfg.border_color(),
-                width: 1.0,
-            },
-            ..Default::default()
-        })
-        .into(),
+        None => container(icons::icon(icons::DISC_SVG, 22.0, bar_fg))
+            .width(46)
+            .height(46)
+            .center_x(46)
+            .center_y(46)
+            .style(|_theme| container::Style {
+                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+                border: Border {
+                    radius: Radius::from(3.0),
+                    color: theme_cfg.border_color(),
+                    width: 1.0,
+                },
+                ..Default::default()
+            })
+            .into(),
     };
 
     let track_details = match current_track {
         Some(track) => column![
             text(&track.title)
                 .size(13)
-                .color(theme_cfg.text_color()),
+                .color(bar_fg),
             text(format!("{} • {}", track.artist, track.album))
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
@@ -68,10 +71,10 @@ pub fn view<'a>(
         .spacing(2)
         .width(Length::Fill),
         None => column![
-            text("No track playing")
+            text("MusicBee Fluenx Player")
                 .size(13)
                 .color(theme_cfg.text_muted_color()),
-            text("Select a song to start listening")
+            text("No track playing")
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
         ]
@@ -82,7 +85,7 @@ pub fn view<'a>(
     let track_section = row![cover_art, Space::with_width(10), track_details]
         .spacing(2)
         .align_y(Alignment::Center)
-        .width(280);
+        .width(260);
 
     // 2. Center: Controls and Seek Bar
     let play_pause_icon_svg = if is_playing {
@@ -91,29 +94,46 @@ pub fn view<'a>(
         icons::PLAY_SVG
     };
 
-    let prev_btn = button(icons::icon(icons::PREV_SVG, 16.0, theme_cfg.text_color()))
-        .padding([6, 10])
-        .style(styles::icon_control_button(theme_cfg))
+    let prev_btn = button(icons::icon(icons::PREV_SVG, 15.0, bar_fg))
+        .padding([6, 8])
+        .style(styles::player_bar_button(theme_cfg, false))
         .on_press(Message::PreviousTrack);
 
-    let play_pause_btn = button(icons::icon(play_pause_icon_svg, 18.0, theme_cfg.surface_color()))
-        .padding([8, 14])
-        .style(styles::primary_button(theme_cfg))
+    let play_pause_btn = button(icons::icon(play_pause_icon_svg, 17.0, theme_cfg.player_bar_bg_color()))
+        .padding([8, 12])
+        .style(styles::player_bar_play_button(theme_cfg))
         .on_press(Message::TogglePlayPause);
 
-    let stop_btn = button(icons::icon(icons::STOP_SVG, 14.0, theme_cfg.text_color()))
-        .padding([6, 10])
-        .style(styles::icon_control_button(theme_cfg))
+    let stop_btn = button(icons::icon(icons::STOP_SVG, 13.0, bar_fg))
+        .padding([6, 8])
+        .style(styles::player_bar_button(theme_cfg, false))
         .on_press(Message::Stop);
 
-    let next_btn = button(icons::icon(icons::NEXT_SVG, 16.0, theme_cfg.text_color()))
-        .padding([6, 10])
-        .style(styles::icon_control_button(theme_cfg))
+    let next_btn = button(icons::icon(icons::NEXT_SVG, 15.0, bar_fg))
+        .padding([6, 8])
+        .style(styles::player_bar_button(theme_cfg, false))
         .on_press(Message::NextTrack);
 
-    let buttons = row![prev_btn, play_pause_btn, stop_btn, next_btn]
-        .spacing(8)
-        .align_y(Alignment::Center);
+    let spectrum_indicator = container(icons::icon(
+        icons::SPECTRUM_SVG,
+        14.0,
+        if is_playing {
+            theme_cfg.primary_color()
+        } else {
+            theme_cfg.text_muted_color()
+        },
+    ))
+    .padding([0, 4]);
+
+    let buttons = row![
+        prev_btn,
+        play_pause_btn,
+        stop_btn,
+        next_btn,
+        spectrum_indicator,
+    ]
+    .spacing(6)
+    .align_y(Alignment::Center);
 
     let active_pos = if is_seeking { seek_pos_ms } else { position_ms };
     let cur_time_str = format_duration(active_pos);
@@ -137,13 +157,13 @@ pub fn view<'a>(
     let progress_bar = row![
         text(cur_time_str)
             .size(11)
-            .color(theme_cfg.text_muted_color())
-            .width(45),
+            .color(bar_fg)
+            .width(42),
         seek_slider,
         text(total_time_str)
             .size(11)
-            .color(theme_cfg.text_muted_color())
-            .width(45),
+            .color(bar_fg)
+            .width(42),
     ]
     .spacing(8)
     .align_y(Alignment::Center)
@@ -154,7 +174,43 @@ pub fn view<'a>(
         .align_x(Alignment::Center)
         .width(Length::FillPortion(2));
 
-    // 3. Right: Volume Control
+    // 3. Right: Secondary Controls (Love, Shuffle, Repeat) & Volume Control
+    let love_icon = if is_loved {
+        icons::icon(icons::HEART_FILLED_SVG, 16.0, theme_cfg.danger_color())
+    } else {
+        icons::icon(icons::HEART_SVG, 16.0, bar_fg)
+    };
+    let love_btn = button(love_icon)
+        .padding([6, 8])
+        .style(styles::player_bar_button(theme_cfg, is_loved))
+        .on_press(Message::ToggleLoveCurrentTrack);
+
+    let shuffle_btn = button(icons::icon(
+        icons::SHUFFLE_SVG,
+        15.0,
+        if is_shuffle {
+            theme_cfg.primary_color()
+        } else {
+            bar_fg
+        },
+    ))
+    .padding([6, 8])
+    .style(styles::player_bar_button(theme_cfg, is_shuffle))
+    .on_press(Message::ToggleShuffle);
+
+    let repeat_btn = button(icons::icon(
+        icons::REPEAT_SVG,
+        15.0,
+        if is_repeat {
+            theme_cfg.primary_color()
+        } else {
+            bar_fg
+        },
+    ))
+    .padding([6, 8])
+    .style(styles::player_bar_button(theme_cfg, is_repeat))
+    .on_press(Message::ToggleRepeat);
+
     let vol_pct = (volume * 100.0).round() as u32;
     let vol_icon_svg = if volume <= 0.01 {
         icons::VOL_MUTE_SVG
@@ -166,34 +222,43 @@ pub fn view<'a>(
 
     let vol_slider = slider(0.0..=1.0, volume, Message::VolumeChanged)
         .style(styles::volume_slider_style(theme_cfg))
-        .width(100);
+        .width(90);
 
     let vol_control = row![
-        icons::icon(vol_icon_svg, 16.0, theme_cfg.text_color()),
+        icons::icon(vol_icon_svg, 15.0, bar_fg),
         vol_slider,
         text(format!("{}%", vol_pct))
             .size(11)
             .color(theme_cfg.text_muted_color())
-            .width(36),
+            .width(32),
     ]
-    .spacing(8)
-    .align_y(Alignment::Center)
-    .width(180);
+    .spacing(6)
+    .align_y(Alignment::Center);
+
+    let right_controls = row![
+        love_btn,
+        shuffle_btn,
+        repeat_btn,
+        Space::with_width(6),
+        vol_control,
+    ]
+    .spacing(4)
+    .align_y(Alignment::Center);
 
     let content = row![
         track_section,
         Space::with_width(Length::FillPortion(1)),
         center_panel,
         Space::with_width(Length::FillPortion(1)),
-        vol_control,
+        right_controls,
     ]
-    .spacing(16)
+    .spacing(12)
     .align_y(Alignment::Center)
-    .padding([8, 18]);
+    .padding([6, 16]);
 
     container(content)
         .style(styles::player_bar_container(theme_cfg))
         .width(Length::Fill)
-        .height(80)
+        .height(72)
         .into()
 }

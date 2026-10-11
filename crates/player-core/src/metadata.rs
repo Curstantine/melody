@@ -35,9 +35,17 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
 
     let mut title: Option<String> = None;
     let mut artist: Option<String> = None;
+    let mut album_artist: Option<String> = None;
     let mut album: Option<String> = None;
     let mut genre: Option<String> = None;
     let mut track_num: Option<u32> = None;
+    let mut disc_num: Option<u32> = None;
+    let mut year: Option<u32> = None;
+    let mut composer: Option<String> = None;
+    let mut label: Option<String> = None;
+    let mut musicbrainz_track_id: Option<String> = None;
+    let mut musicbrainz_artist_id: Option<String> = None;
+    let mut musicbrainz_album_id: Option<String> = None;
 
     // Helper to extract tag values
     let mut parse_tag = |std_key: Option<StandardTagKey>, key: &str, value: &Value| {
@@ -52,14 +60,32 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
             match sk {
                 StandardTagKey::TrackTitle if title.is_none() => title = Some(val_str),
                 StandardTagKey::Artist if artist.is_none() => artist = Some(val_str),
+                StandardTagKey::AlbumArtist if album_artist.is_none() => album_artist = Some(val_str),
                 StandardTagKey::Album if album.is_none() => album = Some(val_str),
                 StandardTagKey::Genre if genre.is_none() => genre = Some(val_str),
                 StandardTagKey::TrackNumber if track_num.is_none() => {
-                    if let Ok(num) = val_str.parse::<u32>() {
-                        track_num = Some(num);
-                    } else if let Some(first) = val_str.split('/').next() {
-                        track_num = first.trim().parse::<u32>().ok();
-                    }
+                    track_num = parse_index_slash(&val_str);
+                }
+                StandardTagKey::DiscNumber if disc_num.is_none() => {
+                    disc_num = parse_index_slash(&val_str);
+                }
+                StandardTagKey::Date | StandardTagKey::ReleaseDate | StandardTagKey::OriginalDate
+                    if year.is_none() =>
+                {
+                    year = parse_year(&val_str);
+                }
+                StandardTagKey::Composer if composer.is_none() => composer = Some(val_str),
+                StandardTagKey::Label if label.is_none() => label = Some(val_str),
+                StandardTagKey::MusicBrainzTrackId | StandardTagKey::MusicBrainzRecordingId
+                    if musicbrainz_track_id.is_none() =>
+                {
+                    musicbrainz_track_id = Some(val_str);
+                }
+                StandardTagKey::MusicBrainzArtistId if musicbrainz_artist_id.is_none() => {
+                    musicbrainz_artist_id = Some(val_str);
+                }
+                StandardTagKey::MusicBrainzAlbumId if musicbrainz_album_id.is_none() => {
+                    musicbrainz_album_id = Some(val_str);
                 }
                 _ => {}
             }
@@ -68,14 +94,38 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
             match key_upper.as_str() {
                 "TITLE" | "TIT2" if title.is_none() => title = Some(val_str),
                 "ARTIST" | "TPE1" if artist.is_none() => artist = Some(val_str),
+                "ALBUMARTIST" | "ALBUM ARTIST" | "TPE2" | "AART" if album_artist.is_none() => {
+                    album_artist = Some(val_str)
+                }
                 "ALBUM" | "TALB" if album.is_none() => album = Some(val_str),
                 "GENRE" | "TCON" if genre.is_none() => genre = Some(val_str),
                 "TRACK" | "TRACKNUMBER" | "TRCK" if track_num.is_none() => {
-                    if let Ok(num) = val_str.parse::<u32>() {
-                        track_num = Some(num);
-                    } else if let Some(first) = val_str.split('/').next() {
-                        track_num = first.trim().parse::<u32>().ok();
-                    }
+                    track_num = parse_index_slash(&val_str);
+                }
+                "DISC" | "DISCNUMBER" | "TPOS" if disc_num.is_none() => {
+                    disc_num = parse_index_slash(&val_str);
+                }
+                "DATE" | "YEAR" | "TYER" | "TDRC" | "TDRL" | "ORIGINALDATE" if year.is_none() => {
+                    year = parse_year(&val_str);
+                }
+                "COMPOSER" | "TCOM" if composer.is_none() => composer = Some(val_str),
+                "LABEL" | "PUBLISHER" | "ORGANIZATION" | "TPUB" if label.is_none() => {
+                    label = Some(val_str)
+                }
+                "MUSICBRAINZ_TRACKID" | "MUSICBRAINZ TRACK ID" | "MUSICBRAINZ_RECORDINGID"
+                    if musicbrainz_track_id.is_none() =>
+                {
+                    musicbrainz_track_id = Some(val_str);
+                }
+                "MUSICBRAINZ_ARTISTID" | "MUSICBRAINZ ARTIST ID"
+                    if musicbrainz_artist_id.is_none() =>
+                {
+                    musicbrainz_artist_id = Some(val_str);
+                }
+                "MUSICBRAINZ_ALBUMID" | "MUSICBRAINZ ALBUM ID"
+                    if musicbrainz_album_id.is_none() =>
+                {
+                    musicbrainz_album_id = Some(val_str);
                 }
                 _ => {}
             }
@@ -116,8 +166,6 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
         // If duration is still 0 and we have a bitrate and file length, estimate duration
         if duration_ms == 0 {
             let mut bit_rate = None;
-            // Some formats store bitrate in bits per second
-            // e.g. MP3 / AAC
             if let Some(br) = params.bits_per_sample {
                 if let Some(sr) = params.sample_rate {
                     bit_rate = Some((br as u64) * (sr as u64) * (params.channels.map(|c| c.count() as u64).unwrap_or(2)));
@@ -145,11 +193,43 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
         file_path: path.to_string_lossy().to_string(),
         title,
         artist,
+        album_artist,
         album,
         genre,
         duration_ms,
         track_num,
+        disc_num,
+        year,
+        composer,
+        label,
+        musicbrainz_track_id,
+        musicbrainz_artist_id,
+        musicbrainz_album_id,
     })
+}
+
+fn parse_year(val: &str) -> Option<u32> {
+    let s = val.trim();
+    for window in s.as_bytes().windows(4) {
+        if window.iter().all(|b| b.is_ascii_digit()) {
+            if let Ok(y_str) = std::str::from_utf8(window) {
+                if let Ok(y) = y_str.parse::<u32>() {
+                    if (1800..=2100).contains(&y) {
+                        return Some(y);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+fn parse_index_slash(val: &str) -> Option<u32> {
+    if let Ok(n) = val.parse::<u32>() {
+        Some(n)
+    } else {
+        val.split('/').next().and_then(|s| s.trim().parse::<u32>().ok())
+    }
 }
 
 /// Extracts album cover art image data from either embedded audio metadata
