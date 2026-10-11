@@ -45,6 +45,7 @@ pub enum SettingsTab {
     #[default]
     Appearance,
     Library,
+    Scrobbling,
     Debug,
 }
 
@@ -108,6 +109,20 @@ pub enum Message {
     SelectFont(String),
     CustomFontInputChanged(String),
     ConfigSaved,
+
+    // Scrobbling
+    ToggleListenBrainz(bool),
+    ListenBrainzTokenChanged(String),
+    ListenBrainzUrlChanged(String),
+    ToggleLastFm(bool),
+    LastFmApiKeyChanged(String),
+    LastFmApiSecretChanged(String),
+    LastFmSessionKeyChanged(String),
+    LastFmUrlChanged(String),
+    ToggleSubmitNowPlaying(bool),
+    SetScrobblePercent(u32),
+    TestScrobble(player_plugins::scrobbler::ScrobbleService),
+    ScrobbleTestFinished(player_plugins::scrobbler::ScrobbleService, Result<String, String>),
 
     // Library Maintenance
     AddLibraryFolderClicked,

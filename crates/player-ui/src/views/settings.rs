@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use iced::border::Radius;
 use iced::widget::{button, column, container, row, scrollable, text_input, Space};
-use iced::{Alignment, Border, Element, Length};
+use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::components::{self, border_hori, text};
 use crate::icons;
@@ -35,6 +35,25 @@ pub struct SettingsViewData<'a> {
     pub cache_size_bytes: u64,
     pub is_scanning: bool,
 
+    // Scrobbling
+    pub listenbrainz_enabled: bool,
+    pub listenbrainz_token: &'a str,
+    pub listenbrainz_api_url: &'a str,
+    pub listenbrainz_status: String,
+    pub listenbrainz_scrobbles: u64,
+
+    pub lastfm_enabled: bool,
+    pub lastfm_api_key: &'a str,
+    pub lastfm_api_secret: &'a str,
+    pub lastfm_session_key: &'a str,
+    pub lastfm_api_url: &'a str,
+    pub lastfm_status: String,
+    pub lastfm_scrobbles: u64,
+
+    pub submit_now_playing: bool,
+    pub scrobble_percent: u32,
+    pub scrobble_test_status: Option<&'a (player_plugins::scrobbler::ScrobbleService, Result<String, String>)>,
+
     // Debug
     pub volume: f32,
     pub active_plugins_count: usize,
@@ -48,6 +67,7 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, data: SettingsViewData<'a>) -> Eleme
     let content = match data.active_tab {
         SettingsTab::Appearance => view_appearance(theme_cfg, &data),
         SettingsTab::Library => view_library(theme_cfg, &data),
+        SettingsTab::Scrobbling => view_scrobbling(theme_cfg, &data),
         SettingsTab::Debug => view_debug(theme_cfg, &data),
     };
 
@@ -117,6 +137,12 @@ fn view_sidebar<'a>(theme_cfg: &'a ThemeConfig, active_tab: SettingsTab) -> Elem
                 icons::DATABASE_SVG,
                 "Library",
                 "Folders, Indexes & Cache",
+            ),
+            nav_item(
+                SettingsTab::Scrobbling,
+                icons::RADIO_SVG,
+                "Scrobbling",
+                "ListenBrainz & Last.fm",
             ),
             nav_item(
                 SettingsTab::Debug,
@@ -815,7 +841,397 @@ fn view_library<'a>(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. Debug & Pipeline Section
+// 3. Scrobbling Section
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn view_scrobbling<'a>(
+    theme_cfg: &'a ThemeConfig,
+    data: &SettingsViewData<'a>,
+) -> Element<'a, Message> {
+    let header = column![
+        text(theme_cfg, "Scrobbling & Social Audio")
+            .size(20)
+            .color(theme_cfg.text_color()),
+        text(
+            theme_cfg,
+            "Track your listening habits and broadcast live playback status to ListenBrainz and Last.fm"
+        )
+        .size(12)
+        .color(theme_cfg.text_muted_color()),
+    ]
+    .spacing(4);
+
+    // 1. General Preferences Card
+    let prefs_card = components::settings_card(
+        theme_cfg,
+        "Scrobble Preferences",
+        column![
+            text(theme_cfg, "Playback notification and logging thresholds")
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+            row![
+                column![
+                    text(theme_cfg, "Now Playing Notifications")
+                        .size(13)
+                        .color(theme_cfg.text_color()),
+                    text(
+                        theme_cfg,
+                        "Broadcast currently playing track metadata when playback begins"
+                    )
+                    .size(11)
+                    .color(theme_cfg.text_muted_color()),
+                ]
+                .width(Length::Fill),
+                components::chip_with_icon(
+                    theme_cfg,
+                    if data.submit_now_playing {
+                        icons::CHECK_SVG
+                    } else {
+                        icons::RADIO_SVG
+                    },
+                    if data.submit_now_playing {
+                        "Enabled"
+                    } else {
+                        "Disabled"
+                    },
+                    data.submit_now_playing,
+                    Message::ToggleSubmitNowPlaying(!data.submit_now_playing),
+                ),
+            ]
+            .align_y(Alignment::Center),
+            Space::with_height(6),
+            column![
+                text(theme_cfg, "Scrobble Threshold")
+                    .size(13)
+                    .color(theme_cfg.text_color()),
+                text(
+                    theme_cfg,
+                    "Percentage of track length to listen to before logging a scrobble (capped at 4 minutes)"
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+                row![
+                    components::chip(
+                        theme_cfg,
+                        "50% (Standard)",
+                        data.scrobble_percent == 50,
+                        Message::SetScrobblePercent(50),
+                    ),
+                    components::chip(
+                        theme_cfg,
+                        "75%",
+                        data.scrobble_percent == 75,
+                        Message::SetScrobblePercent(75),
+                    ),
+                    components::chip(
+                        theme_cfg,
+                        "100% (Complete)",
+                        data.scrobble_percent == 100,
+                        Message::SetScrobblePercent(100),
+                    ),
+                ]
+                .spacing(8),
+            ]
+            .spacing(6),
+        ]
+        .spacing(12),
+    );
+
+    // 2. ListenBrainz Card
+    let lb_test_banner = if let Some((player_plugins::scrobbler::ScrobbleService::ListenBrainz, res)) = data.scrobble_test_status {
+        let (color, msg) = match res {
+            Ok(ref m) => (Color::from_rgb(0.2, 0.8, 0.4), m.as_str()),
+            Err(ref e) => (Color::from_rgb(0.9, 0.3, 0.3), e.as_str()),
+        };
+        Some(
+            container(
+                text(theme_cfg, msg)
+                    .size(12)
+                    .color(color),
+            )
+            .padding([6, 10])
+            .style(move |_theme| container::Style {
+                background: Some(iced::Background::Color(Color::from_rgba(color.r, color.g, color.b, 0.1))),
+                border: Border {
+                    radius: Radius::from(4.0),
+                    color,
+                    width: 1.0,
+                },
+                ..Default::default()
+            }),
+        )
+    } else {
+        None
+    };
+
+    let lb_test_btn = button(
+        row![
+            icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary_color()),
+            Space::with_width(6),
+            text(theme_cfg, "Test ListenBrainz Connection")
+                .size(11)
+                .color(theme_cfg.primary_color()),
+        ]
+        .align_y(Alignment::Center),
+    )
+    .padding([6, 12])
+    .style(styles::ghost_button(theme_cfg, false))
+    .on_press(Message::TestScrobble(player_plugins::scrobbler::ScrobbleService::ListenBrainz));
+
+    let mut lb_column = column![
+        row![
+            column![
+                text(theme_cfg, "MetaBrainz ListenBrainz")
+                    .size(14)
+                    .color(theme_cfg.text_color()),
+                text(
+                    theme_cfg,
+                    "Open-source community listening registry operated by MetaBrainz"
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .width(Length::Fill),
+            components::chip_with_icon(
+                theme_cfg,
+                if data.listenbrainz_enabled {
+                    icons::CHECK_SVG
+                } else {
+                    icons::RADIO_SVG
+                },
+                if data.listenbrainz_enabled {
+                    "Plugin Active"
+                } else {
+                    "Plugin Inactive"
+                },
+                data.listenbrainz_enabled,
+                Message::ToggleListenBrainz(!data.listenbrainz_enabled),
+            ),
+        ]
+        .align_y(Alignment::Center),
+        row![
+            components::metric_box(theme_cfg, "Status", data.listenbrainz_status.to_string()),
+            components::metric_box(
+                theme_cfg,
+                "Session Scrobbles",
+                data.listenbrainz_scrobbles.to_string(),
+            ),
+        ]
+        .spacing(12),
+        column![
+            text(theme_cfg, "User Token")
+                .size(12)
+                .color(theme_cfg.text_color()),
+            text_input(
+                "Enter ListenBrainz user token...",
+                data.listenbrainz_token
+            )
+            .on_input(Message::ListenBrainzTokenChanged)
+            .style(styles::search_input_style(theme_cfg))
+            .padding([7, 10]),
+            text(
+                theme_cfg,
+                "Obtain your user token from your profile at https://listenbrainz.org/profile/"
+            )
+            .size(11)
+            .color(theme_cfg.text_muted_color()),
+        ]
+        .spacing(4),
+        column![
+            text(theme_cfg, "API Endpoint URL")
+                .size(12)
+                .color(theme_cfg.text_color()),
+            text_input(
+                "https://api.listenbrainz.org/1/submit-listens",
+                data.listenbrainz_api_url
+            )
+            .on_input(Message::ListenBrainzUrlChanged)
+            .style(styles::search_input_style(theme_cfg))
+            .padding([7, 10]),
+        ]
+        .spacing(4),
+        lb_test_btn,
+    ]
+    .spacing(12);
+
+    if let Some(banner) = lb_test_banner {
+        lb_column = lb_column.push(banner);
+    }
+
+    let listenbrainz_card = components::settings_card(
+        theme_cfg,
+        "ListenBrainz Plugin",
+        lb_column,
+    );
+
+    // 3. Last.fm Card
+    let lastfm_test_banner = if let Some((player_plugins::scrobbler::ScrobbleService::LastFm, res)) = data.scrobble_test_status {
+        let (color, msg) = match res {
+            Ok(ref m) => (Color::from_rgb(0.2, 0.8, 0.4), m.as_str()),
+            Err(ref e) => (Color::from_rgb(0.9, 0.3, 0.3), e.as_str()),
+        };
+        Some(
+            container(
+                text(theme_cfg, msg)
+                    .size(12)
+                    .color(color),
+            )
+            .padding([6, 10])
+            .style(move |_theme| container::Style {
+                background: Some(iced::Background::Color(Color::from_rgba(color.r, color.g, color.b, 0.1))),
+                border: Border {
+                    radius: Radius::from(4.0),
+                    color,
+                    width: 1.0,
+                },
+                ..Default::default()
+            }),
+        )
+    } else {
+        None
+    };
+
+    let lastfm_test_btn = button(
+        row![
+            icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary_color()),
+            Space::with_width(6),
+            text(theme_cfg, "Test Last.fm Connection")
+                .size(11)
+                .color(theme_cfg.primary_color()),
+        ]
+        .align_y(Alignment::Center),
+    )
+    .padding([6, 12])
+    .style(styles::ghost_button(theme_cfg, false))
+    .on_press(Message::TestScrobble(player_plugins::scrobbler::ScrobbleService::LastFm));
+
+    let mut lastfm_column = column![
+        row![
+            column![
+                text(theme_cfg, "Last.fm Scrobbler")
+                    .size(14)
+                    .color(theme_cfg.text_color()),
+                text(
+                    theme_cfg,
+                    "Submit listening history and now playing status to Last.fm"
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .width(Length::Fill),
+            components::chip_with_icon(
+                theme_cfg,
+                if data.lastfm_enabled {
+                    icons::CHECK_SVG
+                } else {
+                    icons::RADIO_SVG
+                },
+                if data.lastfm_enabled {
+                    "Plugin Active"
+                } else {
+                    "Plugin Inactive"
+                },
+                data.lastfm_enabled,
+                Message::ToggleLastFm(!data.lastfm_enabled),
+            ),
+        ]
+        .align_y(Alignment::Center),
+        row![
+            components::metric_box(theme_cfg, "Status", data.lastfm_status.to_string()),
+            components::metric_box(
+                theme_cfg,
+                "Session Scrobbles",
+                data.lastfm_scrobbles.to_string(),
+            ),
+        ]
+        .spacing(12),
+        column![
+            text(theme_cfg, "API Key")
+                .size(12)
+                .color(theme_cfg.text_color()),
+            text_input(
+                "Enter Last.fm API Key...",
+                data.lastfm_api_key
+            )
+            .on_input(Message::LastFmApiKeyChanged)
+            .style(styles::search_input_style(theme_cfg))
+            .padding([7, 10]),
+        ]
+        .spacing(4),
+        column![
+            text(theme_cfg, "Shared Secret")
+                .size(12)
+                .color(theme_cfg.text_color()),
+            text_input(
+                "Enter Last.fm Shared Secret...",
+                data.lastfm_api_secret
+            )
+            .on_input(Message::LastFmApiSecretChanged)
+            .style(styles::search_input_style(theme_cfg))
+            .padding([7, 10]),
+        ]
+        .spacing(4),
+        column![
+            text(theme_cfg, "Session Key (sk)")
+                .size(12)
+                .color(theme_cfg.text_color()),
+            text_input(
+                "Enter Last.fm Session Key (sk)...",
+                data.lastfm_session_key
+            )
+            .on_input(Message::LastFmSessionKeyChanged)
+            .style(styles::search_input_style(theme_cfg))
+            .padding([7, 10]),
+            text(
+                theme_cfg,
+                "Obtain your API Key and Session Key from your Last.fm API account settings"
+            )
+            .size(11)
+            .color(theme_cfg.text_muted_color()),
+        ]
+        .spacing(4),
+        column![
+            text(theme_cfg, "API Endpoint URL")
+                .size(12)
+                .color(theme_cfg.text_color()),
+            text_input(
+                "https://ws.audioscrobbler.com/2.0/",
+                data.lastfm_api_url
+            )
+            .on_input(Message::LastFmUrlChanged)
+            .style(styles::search_input_style(theme_cfg))
+            .padding([7, 10]),
+        ]
+        .spacing(4),
+        lastfm_test_btn,
+    ]
+    .spacing(12);
+
+    if let Some(banner) = lastfm_test_banner {
+        lastfm_column = lastfm_column.push(banner);
+    }
+
+    let lastfm_card = components::settings_card(
+        theme_cfg,
+        "Last.fm Plugin",
+        lastfm_column,
+    );
+
+    column![
+        header,
+        prefs_card,
+        listenbrainz_card,
+        lastfm_card,
+        Space::with_height(20),
+    ]
+    .spacing(18)
+    .padding(24)
+    .width(Length::Fill)
+    .into()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. Debug & Pipeline Section
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> Element<'a, Message> {

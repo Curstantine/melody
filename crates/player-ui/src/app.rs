@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use crossbeam_channel::Receiver;
@@ -10,11 +11,12 @@ use player_audio::{AudioController, AudioEngine};
 use player_core::{AlbumSummary, ArtistSummary, LibraryDatabase, SortDirection, SortField, Track};
 #[cfg(target_os = "linux")]
 use player_plugins::MprisPlugin;
+use player_plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 use player_plugins::{PlayerAction, PluginManager, TrackMetadata};
 use tracing::{error, info};
 
 use crate::components::{border_vert, text};
-use crate::config::AppConfig;
+use crate::config::{AppConfig, ScrobbleConfig};
 use crate::icons;
 use crate::message::{AlbumSortField, ArtistSortField, Message, SettingsTab, ViewMode, ViewTab};
 use crate::theme::{styles, ThemeManager};
@@ -89,6 +91,12 @@ pub struct App {
     primary_font: Option<String>,
     custom_font_input: String,
 
+    // Scrobbling Plugins
+    listenbrainz_plugin: Arc<ListenBrainzPlugin>,
+    lastfm_plugin: Arc<LastFmPlugin>,
+    scrobble_config: ScrobbleConfig,
+    scrobble_test_status: Option<(ScrobbleService, Result<String, String>)>,
+
     mpris_rx: Option<Receiver<PlayerAction>>,
 }
 
@@ -114,6 +122,15 @@ impl App {
         audio_controller.set_volume(config.volume);
 
         let plugin_manager = PluginManager::new();
+
+        let listenbrainz_plugin = Arc::new(ListenBrainzPlugin::new(
+            config.scrobble.to_listenbrainz_config(),
+        ));
+        let lastfm_plugin = Arc::new(LastFmPlugin::new(
+            config.scrobble.to_lastfm_config(),
+        ));
+        plugin_manager.register_plugin(listenbrainz_plugin.clone());
+        plugin_manager.register_plugin(lastfm_plugin.clone());
 
         #[cfg(target_os = "linux")]
         let (mpris_plugin, mpris_rx) = {
@@ -216,6 +233,11 @@ impl App {
             available_fonts,
             primary_font,
             custom_font_input: String::new(),
+
+            listenbrainz_plugin,
+            lastfm_plugin,
+            scrobble_config: config.scrobble,
+            scrobble_test_status: None,
 
             mpris_rx,
         };
@@ -832,6 +854,93 @@ impl App {
                 Task::none()
             }
 
+            Message::ToggleListenBrainz(enabled) => {
+                self.scrobble_config.listenbrainz_enabled = enabled;
+                self.listenbrainz_plugin.set_enabled(enabled);
+                self.save_config_task()
+            }
+
+            Message::ListenBrainzTokenChanged(token) => {
+                self.scrobble_config.listenbrainz_token = token.clone();
+                self.listenbrainz_plugin.set_user_token(token);
+                self.save_config_task()
+            }
+
+            Message::ListenBrainzUrlChanged(url) => {
+                self.scrobble_config.listenbrainz_api_url = url.clone();
+                self.listenbrainz_plugin.set_api_url(url);
+                self.save_config_task()
+            }
+
+            Message::ToggleLastFm(enabled) => {
+                self.scrobble_config.lastfm_enabled = enabled;
+                self.lastfm_plugin.set_enabled(enabled);
+                self.save_config_task()
+            }
+
+            Message::LastFmApiKeyChanged(key) => {
+                self.scrobble_config.lastfm_api_key = key.clone();
+                self.lastfm_plugin.set_api_key(key);
+                self.save_config_task()
+            }
+
+            Message::LastFmApiSecretChanged(secret) => {
+                self.scrobble_config.lastfm_api_secret = secret.clone();
+                self.lastfm_plugin.set_api_secret(secret);
+                self.save_config_task()
+            }
+
+            Message::LastFmSessionKeyChanged(sk) => {
+                self.scrobble_config.lastfm_session_key = sk.clone();
+                self.lastfm_plugin.set_session_key(sk);
+                self.save_config_task()
+            }
+
+            Message::LastFmUrlChanged(url) => {
+                self.scrobble_config.lastfm_api_url = url.clone();
+                self.lastfm_plugin.set_api_url(url);
+                self.save_config_task()
+            }
+
+            Message::ToggleSubmitNowPlaying(submit) => {
+                self.scrobble_config.submit_now_playing = submit;
+                self.listenbrainz_plugin.set_submit_now_playing(submit);
+                self.lastfm_plugin.set_submit_now_playing(submit);
+                self.save_config_task()
+            }
+
+            Message::SetScrobblePercent(pct) => {
+                self.scrobble_config.scrobble_percent = pct;
+                self.listenbrainz_plugin.set_scrobble_percent(pct);
+                self.lastfm_plugin.set_scrobble_percent(pct);
+                self.save_config_task()
+            }
+
+            Message::TestScrobble(service) => {
+                let plugin_lb = self.listenbrainz_plugin.clone();
+                let plugin_lfm = self.lastfm_plugin.clone();
+                Task::perform(
+                    async move {
+                        tokio::task::spawn_blocking(move || match service {
+                            ScrobbleService::ListenBrainz => {
+                                (service, plugin_lb.test_connection())
+                            }
+                            ScrobbleService::LastFm => {
+                                (service, plugin_lfm.test_connection())
+                            }
+                        })
+                        .await
+                        .unwrap_or_else(|e| (service, Err(format!("Task execution error: {}", e))))
+                    },
+                    |(service, res)| Message::ScrobbleTestFinished(service, res),
+                )
+            }
+
+            Message::ScrobbleTestFinished(service, res) => {
+                self.scrobble_test_status = Some((service, res));
+                Task::none()
+            }
+
             Message::TracksLoaded(tracks, total) => {
                 self.visible_tracks = tracks;
                 self.total_tracks = total;
@@ -1016,6 +1125,7 @@ impl App {
             volume: self.volume,
             is_shuffle: self.is_shuffle,
             is_repeat: self.is_repeat,
+            scrobble: self.scrobble_config.clone(),
         }
     }
 
@@ -1356,6 +1466,25 @@ impl App {
                         cache_file_count: cache_stats.file_count,
                         cache_size_bytes: cache_stats.total_bytes,
                         is_scanning: self.is_scanning,
+
+                        listenbrainz_enabled: self.scrobble_config.listenbrainz_enabled,
+                        listenbrainz_token: &self.scrobble_config.listenbrainz_token,
+                        listenbrainz_api_url: &self.scrobble_config.listenbrainz_api_url,
+                        listenbrainz_status: self.listenbrainz_plugin.status(),
+                        listenbrainz_scrobbles: self.listenbrainz_plugin.scrobble_count(),
+
+                        lastfm_enabled: self.scrobble_config.lastfm_enabled,
+                        lastfm_api_key: &self.scrobble_config.lastfm_api_key,
+                        lastfm_api_secret: &self.scrobble_config.lastfm_api_secret,
+                        lastfm_session_key: &self.scrobble_config.lastfm_session_key,
+                        lastfm_api_url: &self.scrobble_config.lastfm_api_url,
+                        lastfm_status: self.lastfm_plugin.status(),
+                        lastfm_scrobbles: self.lastfm_plugin.scrobble_count(),
+
+                        submit_now_playing: self.scrobble_config.submit_now_playing,
+                        scrobble_percent: self.scrobble_config.scrobble_percent,
+                        scrobble_test_status: self.scrobble_test_status.as_ref(),
+
                         volume: self.volume,
                         active_plugins_count: self.plugin_manager.plugin_count(),
                     },

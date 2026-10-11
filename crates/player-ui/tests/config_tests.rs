@@ -26,6 +26,9 @@ fn test_default_app_config() {
     assert_eq!(cfg.volume, 1.0);
     assert!(!cfg.is_shuffle);
     assert!(!cfg.is_repeat);
+    assert!(!cfg.scrobble.listenbrainz_enabled);
+    assert!(!cfg.scrobble.lastfm_enabled);
+    assert_eq!(cfg.scrobble.scrobble_percent, 50);
 }
 
 #[test]
@@ -44,6 +47,18 @@ fn test_config_toml_roundtrip() {
         volume: 0.65,
         is_shuffle: true,
         is_repeat: true,
+        scrobble: config::ScrobbleConfig {
+            listenbrainz_enabled: true,
+            listenbrainz_token: "test_token".to_string(),
+            listenbrainz_api_url: "https://custom.listenbrainz/api".to_string(),
+            lastfm_enabled: true,
+            lastfm_api_key: "api_key".to_string(),
+            lastfm_api_secret: "secret".to_string(),
+            lastfm_session_key: "sk".to_string(),
+            lastfm_api_url: "https://custom.lastfm/api".to_string(),
+            submit_now_playing: false,
+            scrobble_percent: 75,
+        },
     };
 
     let temp_dir = std::env::temp_dir();

@@ -25,11 +25,13 @@ fn test_settings_tab_variants_and_defaults() {
     let tabs = [
         SettingsTab::Appearance,
         SettingsTab::Library,
+        SettingsTab::Scrobbling,
         SettingsTab::Debug,
     ];
     assert_ne!(tabs[0], tabs[1]);
     assert_ne!(tabs[1], tabs[2]);
-    assert_ne!(tabs[0], tabs[2]);
+    assert_ne!(tabs[2], tabs[3]);
+    assert_ne!(tabs[0], tabs[3]);
 }
 
 #[test]
@@ -42,6 +44,7 @@ fn test_settings_views_render_without_panicking() {
     for tab in [
         SettingsTab::Appearance,
         SettingsTab::Library,
+        SettingsTab::Scrobbling,
         SettingsTab::Debug,
     ] {
         let data = SettingsViewData {
@@ -65,8 +68,27 @@ fn test_settings_views_render_without_panicking() {
             cache_file_count: 42,
             cache_size_bytes: 524288,
             is_scanning: false,
+
+            listenbrainz_enabled: true,
+            listenbrainz_token: "test_token",
+            listenbrainz_api_url: "https://api.listenbrainz.org/1/submit-listens",
+            listenbrainz_status: "Ready".to_string(),
+            listenbrainz_scrobbles: 12,
+
+            lastfm_enabled: true,
+            lastfm_api_key: "test_api_key",
+            lastfm_api_secret: "test_secret",
+            lastfm_session_key: "test_sk",
+            lastfm_api_url: "https://ws.audioscrobbler.com/2.0/",
+            lastfm_status: "Ready".to_string(),
+            lastfm_scrobbles: 8,
+
+            submit_now_playing: true,
+            scrobble_percent: 50,
+            scrobble_test_status: None,
+
             volume: 0.85,
-            active_plugins_count: 2,
+            active_plugins_count: 4,
         };
 
         // Render each view and verify it builds valid Iced elements without panic

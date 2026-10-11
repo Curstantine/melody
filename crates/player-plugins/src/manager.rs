@@ -36,6 +36,12 @@ pub trait Plugin: Send + Sync {
     fn discord_presence_update(&self, _track: &TrackMetadata) -> Result<(), String> {
         Ok(())
     }
+    fn scrobble(&self, _track: &TrackMetadata, _timestamp: u64) -> Result<(), String> {
+        Ok(())
+    }
+    fn update_now_playing(&self, _track: &TrackMetadata) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 pub struct LyricsPlugin {
@@ -223,6 +229,26 @@ impl PluginManager {
             }
         }
         None
+    }
+
+    pub fn scrobble(&self, track: &TrackMetadata, timestamp: u64) {
+        if let Ok(list) = self.plugins.read() {
+            for p in list.iter() {
+                if let Err(e) = p.scrobble(track, timestamp) {
+                    error!("Plugin {} scrobble error: {}", p.metadata().id, e);
+                }
+            }
+        }
+    }
+
+    pub fn update_now_playing(&self, track: &TrackMetadata) {
+        if let Ok(list) = self.plugins.read() {
+            for p in list.iter() {
+                if let Err(e) = p.update_now_playing(track) {
+                    error!("Plugin {} update_now_playing error: {}", p.metadata().id, e);
+                }
+            }
+        }
     }
 
     /// Scan directory for Wasm or dynamic plugins

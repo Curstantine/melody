@@ -25,6 +25,8 @@ pub enum PluginHook {
     OnVolumeChange,
     OnPlaybackStatusChange,
     OnPositionChange,
+    OnScrobble,
+    OnNowPlaying,
 }
 
 #[derive(Debug, Clone, PartialEq)]

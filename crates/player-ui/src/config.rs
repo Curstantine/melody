@@ -40,6 +40,92 @@ pub struct AppConfig {
     pub is_shuffle: bool,
     #[serde(default)]
     pub is_repeat: bool,
+
+    #[serde(default)]
+    pub scrobble: ScrobbleConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ScrobbleConfig {
+    #[serde(default)]
+    pub listenbrainz_enabled: bool,
+    #[serde(default)]
+    pub listenbrainz_token: String,
+    #[serde(default = "default_listenbrainz_url")]
+    pub listenbrainz_api_url: String,
+
+    #[serde(default)]
+    pub lastfm_enabled: bool,
+    #[serde(default)]
+    pub lastfm_api_key: String,
+    #[serde(default)]
+    pub lastfm_api_secret: String,
+    #[serde(default)]
+    pub lastfm_session_key: String,
+    #[serde(default = "default_lastfm_url")]
+    pub lastfm_api_url: String,
+
+    #[serde(default = "default_true")]
+    pub submit_now_playing: bool,
+    #[serde(default = "default_scrobble_percent")]
+    pub scrobble_percent: u32,
+}
+
+fn default_listenbrainz_url() -> String {
+    player_plugins::scrobbler::listenbrainz::DEFAULT_LISTENBRAINZ_API_URL.to_string()
+}
+
+fn default_lastfm_url() -> String {
+    player_plugins::scrobbler::lastfm::DEFAULT_LASTFM_API_URL.to_string()
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_scrobble_percent() -> u32 {
+    50
+}
+
+impl Default for ScrobbleConfig {
+    fn default() -> Self {
+        Self {
+            listenbrainz_enabled: false,
+            listenbrainz_token: String::new(),
+            listenbrainz_api_url: default_listenbrainz_url(),
+            lastfm_enabled: false,
+            lastfm_api_key: String::new(),
+            lastfm_api_secret: String::new(),
+            lastfm_session_key: String::new(),
+            lastfm_api_url: default_lastfm_url(),
+            submit_now_playing: true,
+            scrobble_percent: 50,
+        }
+    }
+}
+
+impl ScrobbleConfig {
+    pub fn to_listenbrainz_config(&self) -> player_plugins::ListenBrainzConfig {
+        player_plugins::ListenBrainzConfig {
+            enabled: self.listenbrainz_enabled,
+            user_token: self.listenbrainz_token.clone(),
+            api_url: self.listenbrainz_api_url.clone(),
+            submit_now_playing: self.submit_now_playing,
+            scrobble_percent: self.scrobble_percent,
+        }
+    }
+
+    pub fn to_lastfm_config(&self) -> player_plugins::LastFmConfig {
+        player_plugins::LastFmConfig {
+            enabled: self.lastfm_enabled,
+            api_key: self.lastfm_api_key.clone(),
+            api_secret: self.lastfm_api_secret.clone(),
+            session_key: self.lastfm_session_key.clone(),
+            api_url: self.lastfm_api_url.clone(),
+            submit_now_playing: self.submit_now_playing,
+            scrobble_percent: self.scrobble_percent,
+        }
+    }
 }
 
 fn default_theme_name() -> String {
@@ -70,6 +156,7 @@ impl Default for AppConfig {
             volume: default_volume(),
             is_shuffle: false,
             is_repeat: false,
+            scrobble: ScrobbleConfig::default(),
         }
     }
 }

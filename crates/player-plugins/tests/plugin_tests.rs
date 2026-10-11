@@ -170,3 +170,102 @@ fn test_mpris_plugin_instantiation_and_metadata() {
     assert!(mpris.on_shuffle_change(true).is_ok());
     assert!(mpris.on_playback_end().is_ok());
 }
+
+#[test]
+fn test_listenbrainz_plugin_lifecycle_and_thresholds() {
+    use player_plugins::scrobbler::{ListenBrainzConfig, ListenBrainzPlugin};
+
+    let config = ListenBrainzConfig {
+        enabled: true,
+        user_token: "test_token_123".to_string(),
+        api_url: "http://127.0.0.1:9/submit".to_string(), // non-routable port for safety
+        submit_now_playing: true,
+        scrobble_percent: 50,
+    };
+
+    let plugin = ListenBrainzPlugin::new(config.clone());
+    assert_eq!(plugin.metadata().id, "builtin.listenbrainz");
+    assert_eq!(plugin.config().user_token, "test_token_123");
+    assert_eq!(plugin.scrobble_count(), 0);
+
+    let short_track = TrackMetadata {
+        title: "Short Intro".to_string(),
+        artist: "Artist".to_string(),
+        album: "Album".to_string(),
+        duration_ms: 20_000, // < 30 seconds
+        file_path: "/music/short.mp3".to_string(),
+    };
+
+    assert!(plugin.on_track_change(&short_track).is_ok());
+    // Should not scrobble short track (< 30s)
+    assert!(plugin.on_position_change(15_000).is_ok());
+    assert!(plugin.on_playback_end().is_ok());
+
+    let long_track = TrackMetadata {
+        title: "Standard Song".to_string(),
+        artist: "Artist".to_string(),
+        album: "Album".to_string(),
+        duration_ms: 200_000, // 200s, 50% = 100s
+        file_path: "/music/song.mp3".to_string(),
+    };
+
+    assert!(plugin.on_track_change(&long_track).is_ok());
+    // Position 50s (below threshold)
+    assert!(plugin.on_position_change(50_000).is_ok());
+    // Position 105s (above threshold) -> triggers scrobble
+    assert!(plugin.on_position_change(105_000).is_ok());
+
+    // Updating config dynamically
+    plugin.set_enabled(false);
+    assert!(!plugin.config().enabled);
+}
+
+#[test]
+fn test_lastfm_signature_and_plugin_lifecycle() {
+    use player_plugins::scrobbler::lastfm::calculate_lastfm_signature;
+    use player_plugins::scrobbler::{LastFmConfig, LastFmPlugin};
+
+    let params = vec![
+        ("method", "track.scrobble"),
+        ("artist", "Pink Floyd"),
+        ("track", "Time"),
+        ("api_key", "mock_key"),
+        ("sk", "mock_session"),
+        ("timestamp", "1600000000"),
+    ];
+    let secret = "mock_secret";
+    let sig = calculate_lastfm_signature(&params, secret);
+    assert!(!sig.is_empty());
+    assert_eq!(sig.len(), 32); // MD5 hex length
+
+    let config = LastFmConfig {
+        enabled: true,
+        api_key: "api_key_test".to_string(),
+        api_secret: "api_secret_test".to_string(),
+        session_key: "session_key_test".to_string(),
+        api_url: "http://127.0.0.1:9/2.0/".to_string(),
+        submit_now_playing: true,
+        scrobble_percent: 50,
+    };
+
+    let plugin = LastFmPlugin::new(config.clone());
+    assert_eq!(plugin.metadata().id, "builtin.lastfm");
+    assert_eq!(plugin.config().session_key, "session_key_test");
+    assert_eq!(plugin.scrobble_count(), 0);
+
+    let track = TrackMetadata {
+        title: "Comfortably Numb".to_string(),
+        artist: "Pink Floyd".to_string(),
+        album: "The Wall".to_string(),
+        duration_ms: 380_000, // threshold is min(190s, 240s) = 190s
+        file_path: "/music/pinkfloyd.mp3".to_string(),
+    };
+
+    assert!(plugin.on_track_change(&track).is_ok());
+    assert!(plugin.on_position_change(100_000).is_ok());
+    assert!(plugin.on_position_change(195_000).is_ok()); // triggers scrobble
+
+    plugin.set_enabled(false);
+    assert!(!plugin.config().enabled);
+}
+

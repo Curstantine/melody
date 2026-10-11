@@ -79,6 +79,8 @@ pub const PLUS_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0
 #[allow(dead_code)]
 pub const INFO_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="16" x2="12" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="8" r="1" fill="currentColor"/></svg>"#;
 
+pub const RADIO_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>"#;
+
 pub fn icon<'a>(svg_str: &'static str, size: f32, color: Color) -> Svg<'a, Theme> {
     iced::widget::svg(Handle::from_memory(svg_str.as_bytes()))
         .width(Length::Fixed(size))
