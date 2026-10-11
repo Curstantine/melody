@@ -102,28 +102,33 @@ pub fn sort_chip<'a, T: Copy + PartialEq>(
     on_press: Message,
 ) -> Element<'a, Message> {
     let is_active = active_field == field;
-    let arrow = if is_active {
-        match sort_dir {
-            SortDirection::Ascending => " ▲",
-            SortDirection::Descending => " ▼",
-        }
+    let text_color = if is_active {
+        theme_cfg.primary_color()
     } else {
-        ""
+        theme_cfg.text_muted_color()
     };
 
-    button(
-        text(format!("{}{}", label, arrow))
-            .size(11)
-            .color(if is_active {
-                theme_cfg.primary_color()
-            } else {
-                theme_cfg.text_muted_color()
-            }),
-    )
-    .padding([3, 6])
-    .style(styles::ghost_button(theme_cfg, is_active))
-    .on_press(on_press)
-    .into()
+    let content: Element<'a, Message> = if is_active {
+        let sort_icon_svg = match sort_dir {
+            SortDirection::Ascending => icons::CHEVRON_UP_SVG,
+            SortDirection::Descending => icons::CHEVRON_DOWN_SVG,
+        };
+        row![
+            text(label).size(11).color(text_color),
+            Space::with_width(3),
+            icons::icon(sort_icon_svg, 11.0, text_color),
+        ]
+        .align_y(Alignment::Center)
+        .into()
+    } else {
+        text(label).size(11).color(text_color).into()
+    };
+
+    button(content)
+        .padding([3, 6])
+        .style(styles::ghost_button(theme_cfg, is_active))
+        .on_press(on_press)
+        .into()
 }
 
 /// A unified sort chip list with a "Sort:" label and multiple sort chips.

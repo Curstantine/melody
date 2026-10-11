@@ -96,7 +96,7 @@ pub fn view<'a>(
                 text(&track.title)
                     .size(22)
                     .color(theme_cfg.text_color()),
-                text(format!("{} — {}", track.artist, track.album))
+                text(format!("{} • {}", track.artist, track.album))
                     .size(15)
                     .color(theme_cfg.text_muted_color()),
                 stars,

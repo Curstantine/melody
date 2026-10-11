@@ -38,8 +38,8 @@ pub fn view<'a>(
             16.0,
             theme_cfg.text_muted_color(),
         ))
-        .width(28)
-        .center_x(28),
+        .width(24)
+        .center_x(24),
         search_input,
         Space::with_width(12),
         components::view_mode_toggle(theme_cfg, view_mode, Message::SetLibraryViewMode),
@@ -51,7 +51,7 @@ pub fn view<'a>(
         top: 0.0,
         right: 16.0,
         bottom: 0.0,
-        left: 0.0,
+        left: 8.0,
     });
 
     // 2. Table Header (for List view)
@@ -82,13 +82,9 @@ pub fn view<'a>(
     };
 
     let table_header = row![
-        container(
-            text("#")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-        )
-        .width(36)
-        .center_x(36),
+        container(text("#").size(12).color(theme_cfg.text_muted_color()),)
+            .width(36)
+            .center_x(36),
         header_btn("Title", SortField::Title, Length::FillPortion(4)),
         header_btn("Artist", SortField::Artist, Length::FillPortion(3)),
         header_btn("Album", SortField::Album, Length::FillPortion(3)),
@@ -159,11 +155,15 @@ pub fn view<'a>(
                         }
                     } else if is_hovered {
                         button(
-                            container(icons::icon(icons::PLAY_SVG, 12.0, theme_cfg.primary_color()))
-                                .width(36)
-                                .height(24)
-                                .center_x(36)
-                                .center_y(24),
+                            container(icons::icon(
+                                icons::PLAY_SVG,
+                                12.0,
+                                theme_cfg.primary_color(),
+                            ))
+                            .width(36)
+                            .height(24)
+                            .center_x(36)
+                            .center_y(24),
                         )
                         .style(styles::icon_control_button(theme_cfg))
                         .padding(0)
@@ -246,15 +246,13 @@ pub fn view<'a>(
                     let is_selected = selected_track_id == Some(track.id);
                     let is_hovered = hovered_track_id == Some(track.id);
 
-                    let disc_box = container(
-                        if is_active && !is_hovered {
-                            icons::icon(icons::SPEAKER_PLAYING_SVG, 32.0, theme_cfg.primary_color())
-                        } else if is_hovered {
-                            icons::icon(icons::PLAY_SVG, 32.0, theme_cfg.primary_color())
-                        } else {
-                            icons::icon(icons::DISC_SVG, 36.0, theme_cfg.text_muted_color())
-                        },
-                    )
+                    let disc_box = container(if is_active && !is_hovered {
+                        icons::icon(icons::SPEAKER_PLAYING_SVG, 32.0, theme_cfg.primary_color())
+                    } else if is_hovered {
+                        icons::icon(icons::PLAY_SVG, 32.0, theme_cfg.primary_color())
+                    } else {
+                        icons::icon(icons::DISC_SVG, 36.0, theme_cfg.text_muted_color())
+                    })
                     .width(160)
                     .height(110)
                     .center_x(160)
@@ -276,13 +274,11 @@ pub fn view<'a>(
 
                     let info_box = container(
                         column![
-                            text(&track.title)
-                                .size(13)
-                                .color(if is_active {
-                                    theme_cfg.primary_color()
-                                } else {
-                                    theme_cfg.text_color()
-                                }),
+                            text(&track.title).size(13).color(if is_active {
+                                theme_cfg.primary_color()
+                            } else {
+                                theme_cfg.text_color()
+                            }),
                             text(&track.artist)
                                 .size(11)
                                 .color(theme_cfg.text_muted_color()),
@@ -292,13 +288,9 @@ pub fn view<'a>(
                                     .color(theme_cfg.text_muted_color()),
                                 Space::with_width(Length::Fill),
                                 if is_active {
-                                    text("Playing")
-                                        .size(10)
-                                        .color(theme_cfg.primary_color())
+                                    text("Playing").size(10).color(theme_cfg.primary_color())
                                 } else {
-                                    text("")
-                                        .size(10)
-                                        .color(theme_cfg.text_muted_color())
+                                    text("").size(10).color(theme_cfg.text_muted_color())
                                 },
                             ]
                             .align_y(Alignment::Center),

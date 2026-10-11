@@ -32,11 +32,17 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
     let left_items: Element<'a, Message> = match ctx.active_tab {
         ViewTab::Tracks => {
             let count_text = if !ctx.search_query.trim().is_empty() {
-                format!("Showing {} of {} tracks", ctx.visible_count, ctx.total_tracks)
+                format!(
+                    "Showing {} of {} tracks",
+                    ctx.visible_count, ctx.total_tracks
+                )
             } else if ctx.visible_count >= ctx.total_tracks {
                 format!("{} tracks in library", ctx.total_tracks)
             } else {
-                format!("Loaded {} of {} tracks", ctx.visible_count, ctx.total_tracks)
+                format!(
+                    "Loaded {} of {} tracks",
+                    ctx.visible_count, ctx.total_tracks
+                )
             };
 
             let filter_indicator: Element<'a, Message> = if !ctx.search_query.trim().is_empty() {
@@ -50,9 +56,7 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
 
             row![
                 icons::icon(icons::MUSIC_NOTE_SVG, 11.0, muted),
-                text(count_text)
-                    .size(11)
-                    .color(muted),
+                text(count_text).size(11).color(muted),
                 filter_indicator,
             ]
             .spacing(6)
@@ -120,7 +124,7 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
                         11.0,
                         muted,
                     ),
-                    text(format!("Now Playing: {} — {}", track.title, track.artist))
+                    text(format!("Now Playing: {} • {}", track.title, track.artist))
                         .size(11)
                         .color(muted),
                     text("·").size(11).color(muted),
@@ -169,14 +173,10 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
         Space::with_width(0).into()
     };
 
-    let status_row = row![
-        left_items,
-        Space::with_width(Length::Fill),
-        right_items,
-    ]
-    .spacing(8)
-    .align_y(Alignment::Center)
-    .height(Length::Fill);
+    let status_row = row![left_items, Space::with_width(Length::Fill), right_items,]
+        .spacing(8)
+        .align_y(Alignment::Center)
+        .height(Length::Fill);
 
     container(status_row)
         .style(styles::status_bar_container(theme_cfg))

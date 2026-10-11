@@ -1,5 +1,5 @@
 use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, slider, text, Space};
+use iced::widget::{button, column, container, image, row, slider, stack, text, Space};
 use iced::{Alignment, Element, Length};
 use player_core::{format_duration, Track};
 
@@ -98,28 +98,12 @@ pub fn view<'a>(
     let cur_time_str = format_duration(active_pos);
     let total_time_str = format_duration(duration_ms);
 
-    let seek_range_max = if duration_ms > 0 {
-        duration_ms as f32
-    } else {
-        100.0
-    };
+    let time_info = text(format!("{cur_time_str} / {total_time_str}"))
+        .size(10)
+        .width(48)
+        .color(theme_cfg.text_muted_color());
 
-    let seek_slider = slider(0.0..=seek_range_max, active_pos as f32, Message::Seek)
-        .on_release(Message::SeekFinished)
-        .style(styles::seek_slider_style(theme_cfg))
-        .width(Length::Fill);
-
-    let progress_bar = row![
-        text(cur_time_str).size(11).color(bar_fg).width(42),
-        seek_slider,
-        text(total_time_str).size(11).color(bar_fg).width(42),
-    ]
-    .spacing(8)
-    .align_y(Alignment::Center)
-    .width(Length::Fill);
-
-    let center_panel = column![buttons, progress_bar]
-        .spacing(4)
+    let center_panel = column![buttons]
         .align_x(Alignment::Center)
         .width(Length::FillPortion(2));
 
@@ -194,7 +178,7 @@ pub fn view<'a>(
     .spacing(4)
     .align_y(Alignment::Center);
 
-    let content = row![
+    let main_row = row![
         track_section,
         Space::with_width(Length::FillPortion(1)),
         center_panel,
@@ -203,12 +187,38 @@ pub fn view<'a>(
     ]
     .spacing(12)
     .align_y(Alignment::Center)
-    .padding([0, 16]);
+    .padding([0, 16])
+    .width(Length::Fill)
+    .height(Length::Fill);
 
-    container(content)
+    let seek_range_max = if duration_ms > 0 {
+        duration_ms as f32
+    } else {
+        100.0
+    };
+
+    let seek_bar = slider(0.0..=seek_range_max, active_pos as f32, Message::Seek)
+        .on_release(Message::SeekFinished)
+        .style(styles::seek_slider_style(theme_cfg))
+        .width(Length::Fill)
+        .height(8);
+
+    let top_right_timing = row![Space::with_width(Length::Fill), time_info,]
+        .padding(iced::Padding {
+            top: 8.0,
+            right: 16.0,
+            bottom: 0.0,
+            left: 0.0,
+        })
+        .width(Length::Fill);
+
+    let bar_stack = stack![main_row, top_right_timing, seek_bar,]
+        .width(Length::Fill)
+        .height(72);
+
+    container(bar_stack)
         .style(styles::player_bar_container(theme_cfg))
         .width(Length::Fill)
         .height(72)
-        .center_y(72)
         .into()
 }
