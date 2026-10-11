@@ -9,27 +9,91 @@ use iced::{theme::Palette, Color, Theme};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
+mod hex_color {
+    use iced::Color;
+    use serde::{de::Error as _, Deserialize, Deserializer, Serializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Color, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Color::parse(&s).ok_or_else(|| D::Error::custom(format!("invalid hex color: {s}")))
+    }
+
+    pub fn serialize<S>(color: &Color, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let [r, g, b, a] = color.into_rgba8();
+        let hex = if a == 255 {
+            format!("#{r:02x}{g:02x}{b:02x}")
+        } else {
+            format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+        };
+        serializer.serialize_str(&hex)
+    }
+}
+
+mod opt_hex_color {
+    use iced::Color;
+    use serde::{de::Error as _, Deserialize, Deserializer, Serializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Color>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let opt = Option::<String>::deserialize(deserializer)?;
+        match opt {
+            Some(s) => Color::parse(&s)
+                .map(Some)
+                .ok_or_else(|| D::Error::custom(format!("invalid hex color: {s}"))),
+            None => Ok(None),
+        }
+    }
+
+    pub fn serialize<S>(color: &Option<Color>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match color {
+            Some(c) => super::hex_color::serialize(c, serializer),
+            None => serializer.serialize_none(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeConfig {
     pub name: String,
-    pub background: String,
-    pub surface: String,
-    pub surface_hover: String,
-    pub border: String,
-    pub primary: String,
-    pub accent: String,
-    pub text: String,
-    pub text_muted: String,
-    pub success: String,
-    pub danger: String,
-    #[serde(default)]
-    pub player_bar_bg: Option<String>,
-    #[serde(default)]
-    pub player_bar_text: Option<String>,
-    #[serde(default)]
-    pub slider_active: Option<String>,
-    #[serde(default)]
-    pub slider_rail: Option<String>,
+    #[serde(with = "hex_color")]
+    pub background: Color,
+    #[serde(with = "hex_color")]
+    pub surface: Color,
+    #[serde(with = "hex_color")]
+    pub surface_hover: Color,
+    #[serde(with = "hex_color")]
+    pub border: Color,
+    #[serde(with = "hex_color")]
+    pub primary: Color,
+    #[serde(with = "hex_color")]
+    pub accent: Color,
+    #[serde(with = "hex_color")]
+    pub text: Color,
+    #[serde(with = "hex_color")]
+    pub text_muted: Color,
+    #[serde(with = "hex_color")]
+    pub success: Color,
+    #[serde(with = "hex_color")]
+    pub danger: Color,
+    #[serde(default, with = "opt_hex_color")]
+    pub player_bar_bg: Option<Color>,
+    #[serde(default, with = "opt_hex_color")]
+    pub player_bar_text: Option<Color>,
+    #[serde(default, with = "opt_hex_color")]
+    pub slider_active: Option<Color>,
+    #[serde(default, with = "opt_hex_color")]
+    pub slider_rail: Option<Color>,
     #[serde(default)]
     pub font_family: Option<String>,
 }
@@ -38,112 +102,84 @@ impl Default for ThemeConfig {
     fn default() -> Self {
         Self {
             name: "Default".to_string(),
-            background: "#161616".to_string(),
-            surface: "#191919".to_string(),
-            surface_hover: "#282828".to_string(),
-            border: "#282828".to_string(),
-            primary: "#ffffff".to_string(),
-            accent: "#888888".to_string(),
-            text: "#f0f0f0".to_string(),
-            text_muted: "#787878".to_string(),
-            success: "#ffffff".to_string(),
-            danger: "#888888".to_string(),
-            player_bar_bg: Some("#191919".to_string()),
-            player_bar_text: Some("#f0f0f0".to_string()),
-            slider_active: Some("#ffffff".to_string()),
-            slider_rail: Some("#363636".to_string()),
+            background: parse_hex("#161616"),
+            surface: parse_hex("#191919"),
+            surface_hover: parse_hex("#282828"),
+            border: parse_hex("#282828"),
+            primary: parse_hex("#ffffff"),
+            accent: parse_hex("#888888"),
+            text: parse_hex("#f0f0f0"),
+            text_muted: parse_hex("#787878"),
+            success: parse_hex("#ffffff"),
+            danger: parse_hex("#888888"),
+            player_bar_bg: Some(parse_hex("#191919")),
+            player_bar_text: Some(parse_hex("#f0f0f0")),
+            slider_active: Some(parse_hex("#ffffff")),
+            slider_rail: Some(parse_hex("#363636")),
             font_family: None,
         }
     }
 }
 
 pub fn parse_hex(hex: &str) -> Color {
-    let clean = hex.trim().trim_start_matches('#');
-    match clean.len() {
-        6 => {
-            let r = u8::from_str_radix(&clean[0..2], 16).unwrap_or(0) as f32 / 255.0;
-            let g = u8::from_str_radix(&clean[2..4], 16).unwrap_or(0) as f32 / 255.0;
-            let b = u8::from_str_radix(&clean[4..6], 16).unwrap_or(0) as f32 / 255.0;
-            Color::from_rgb(r, g, b)
-        }
-        8 => {
-            let r = u8::from_str_radix(&clean[0..2], 16).unwrap_or(0) as f32 / 255.0;
-            let g = u8::from_str_radix(&clean[2..4], 16).unwrap_or(0) as f32 / 255.0;
-            let b = u8::from_str_radix(&clean[4..6], 16).unwrap_or(0) as f32 / 255.0;
-            let a = u8::from_str_radix(&clean[6..8], 16).unwrap_or(255) as f32 / 255.0;
-            Color::from_rgba(r, g, b, a)
-        }
-        _ => Color::BLACK,
-    }
+    Color::parse(hex.trim()).unwrap_or(Color::BLACK)
 }
 
 impl ThemeConfig {
     pub fn bg_color(&self) -> Color {
-        parse_hex(&self.background)
+        self.background
     }
 
     pub fn surface_color(&self) -> Color {
-        parse_hex(&self.surface)
+        self.surface
     }
 
     pub fn surface_hover_color(&self) -> Color {
-        parse_hex(&self.surface_hover)
+        self.surface_hover
     }
 
     pub fn border_color(&self) -> Color {
-        parse_hex(&self.border)
+        self.border
     }
 
     pub fn primary_color(&self) -> Color {
-        parse_hex(&self.primary)
+        self.primary
     }
 
     pub fn accent_color(&self) -> Color {
-        parse_hex(&self.accent)
+        self.accent
     }
 
     pub fn text_color(&self) -> Color {
-        parse_hex(&self.text)
+        self.text
     }
 
     pub fn text_muted_color(&self) -> Color {
-        parse_hex(&self.text_muted)
+        self.text_muted
     }
 
     pub fn success_color(&self) -> Color {
-        parse_hex(&self.success)
+        self.success
     }
 
     pub fn danger_color(&self) -> Color {
-        parse_hex(&self.danger)
+        self.danger
     }
 
     pub fn player_bar_bg_color(&self) -> Color {
-        self.player_bar_bg
-            .as_deref()
-            .map(parse_hex)
-            .unwrap_or_else(|| self.surface_color())
+        self.player_bar_bg.unwrap_or(self.surface)
     }
 
     pub fn player_bar_text_color(&self) -> Color {
-        self.player_bar_text
-            .as_deref()
-            .map(parse_hex)
-            .unwrap_or_else(|| self.text_color())
+        self.player_bar_text.unwrap_or(self.text)
     }
 
     pub fn slider_active_color(&self) -> Color {
-        self.slider_active
-            .as_deref()
-            .map(parse_hex)
-            .unwrap_or_else(|| self.primary_color())
+        self.slider_active.unwrap_or(self.primary)
     }
 
     pub fn slider_rail_color(&self) -> Color {
-        self.slider_rail
-            .as_deref()
-            .map(parse_hex)
-            .unwrap_or_else(|| self.surface_hover_color())
+        self.slider_rail.unwrap_or(self.surface_hover)
     }
 
     pub fn to_palette(&self) -> Palette {
