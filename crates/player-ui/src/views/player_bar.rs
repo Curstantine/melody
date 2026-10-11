@@ -100,7 +100,7 @@ pub fn view<'a>(
 
     let time_info = text(format!("{cur_time_str} / {total_time_str}"))
         .size(10)
-        .width(48)
+        .align_x(Alignment::End)
         .color(theme_cfg.text_muted_color());
 
     let center_panel = column![buttons]
@@ -206,7 +206,7 @@ pub fn view<'a>(
     let top_right_timing = row![Space::with_width(Length::Fill), time_info,]
         .padding(iced::Padding {
             top: 8.0,
-            right: 16.0,
+            right: 20.0, // 16 base + 4 to align text end to %
             bottom: 0.0,
             left: 0.0,
         })

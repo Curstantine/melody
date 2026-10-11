@@ -20,7 +20,7 @@ fn main() -> iced::Result {
 
     // Discover and load CJK fonts to ensure Chinese, Japanese, and Korean
     // characters are rendered properly without corrupted glyphs.
-    let cjk_fonts = font::load_cjk_font_data();
+    let font_bundle = font::load_cjk_fonts();
 
     let mut builder = iced::application(App::title, App::update, App::view)
         .theme(App::theme)
@@ -32,7 +32,13 @@ fn main() -> iced::Result {
             ..Default::default()
         });
 
-    for font_bytes in cjk_fonts {
+    if let Some(family) = &font_bundle.primary_family {
+        tracing::info!("Setting default font to: {}", family);
+        let family_static: &'static str = Box::leak(family.clone().into_boxed_str());
+        builder = builder.default_font(iced::Font::with_name(family_static));
+    }
+
+    for font_bytes in font_bundle.font_data {
         builder = builder.font(font_bytes);
     }
 

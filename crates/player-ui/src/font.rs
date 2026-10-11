@@ -72,22 +72,24 @@ fn scan_dir_for_fonts(dir: &Path, paths: &mut Vec<PathBuf>) {
 fn discover_linux_cjk_fonts(paths: &mut Vec<PathBuf>) {
     let initial_count = paths.len();
 
-    // A. Primary: Query fontconfig using fc-match for CJK languages and families
+    // A. Primary: Query fontconfig using fc-match for specific CJK families and verified CJK language tags
     let fc_queries = [
-        vec![":lang=zh", "-f", "%{file}\n"],
-        vec![":lang=ja", "-f", "%{file}\n"],
-        vec![":lang=ko", "-f", "%{file}\n"],
-        vec!["Noto Sans CJK SC", "-f", "%{file}\n"],
-        vec!["Noto Sans CJK TC", "-f", "%{file}\n"],
-        vec!["Noto Sans CJK JP", "-f", "%{file}\n"],
-        vec!["Noto Sans CJK KR", "-f", "%{file}\n"],
-        vec!["IBM Plex Sans SC", "-f", "%{file}\n"],
-        vec!["IBM Plex Sans TC", "-f", "%{file}\n"],
-        vec!["IBM Plex Sans JP", "-f", "%{file}\n"],
-        vec!["IBM Plex Sans KR", "-f", "%{file}\n"],
-        vec!["WenQuanYi Zen Hei", "-f", "%{file}\n"],
-        vec!["WenQuanYi Micro Hei", "-f", "%{file}\n"],
-        vec!["Droid Sans Fallback", "-f", "%{file}\n"],
+        vec!["Noto Sans CJK JP", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["Noto Sans CJK SC", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["Noto Sans CJK TC", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["Noto Sans CJK KR", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["Noto Sans CJK HK", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["IBM Plex Sans JP", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["IBM Plex Sans SC", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["IBM Plex Sans TC", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["IBM Plex Sans KR", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["WenQuanYi Zen Hei", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["WenQuanYi Micro Hei", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["Droid Sans Fallback", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec![":lang=ja", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec![":lang=zh-cn", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec![":lang=zh-tw", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec![":lang=ko", "-f", "%{file}###%{family}###%{lang}\n"],
     ];
 
     for args in fc_queries {
@@ -95,9 +97,29 @@ fn discover_linux_cjk_fonts(paths: &mut Vec<PathBuf>) {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 for line in stdout.lines() {
-                    let trimmed = line.trim();
-                    if !trimmed.is_empty() {
-                        let path = PathBuf::from(trimmed);
+                    let parts: Vec<&str> = line.split("###").collect();
+                    if parts.is_empty() {
+                        continue;
+                    }
+                    let file_path = parts[0].trim();
+                    if file_path.is_empty() {
+                        continue;
+                    }
+
+                    // Verify that the font actually supports CJK languages if lang is available
+                    let supports_cjk = if parts.len() >= 3 {
+                        let lang = parts[2];
+                        lang.contains("ja")
+                            || lang.contains("zh")
+                            || lang.contains("ko")
+                            || lang.contains("cmn")
+                            || lang.contains("yue")
+                    } else {
+                        true
+                    };
+
+                    if supports_cjk {
+                        let path = PathBuf::from(file_path);
                         if path.exists() && is_font_file(&path) {
                             paths.push(path);
                         }
@@ -239,15 +261,88 @@ fn is_font_file(path: &Path) -> bool {
     }
 }
 
-/// Loads all discovered CJK font files as raw byte buffers.
-/// Returns a vector of font byte vectors ready to be fed to Iced.
-pub fn load_cjk_font_data() -> Vec<Vec<u8>> {
+/// Queries the primary font family name for a given font file path via fc-query or filename heuristic.
+pub fn query_font_family(path: &Path) -> Option<String> {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(output) = Command::new("fc-query")
+            .arg(path)
+            .args(["-f", "%{family}\n"])
+            .output()
+        {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if let Some(first_line) = stdout.lines().next() {
+                    let first_family = first_line.split(',').next().unwrap_or("").trim();
+                    if !first_family.is_empty() {
+                        return Some(first_family.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Heuristic fallback based on well-known font file names
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    if file_name.contains("notosanscjk") || file_name.contains("noto-cjk") {
+        Some("Noto Sans CJK JP".to_string())
+    } else if file_name.contains("ibmplexsansjp") {
+        Some("IBM Plex Sans JP".to_string())
+    } else if file_name.contains("ibmplexsanssc") {
+        Some("IBM Plex Sans SC".to_string())
+    } else if file_name.contains("ibmplexsanstc") {
+        Some("IBM Plex Sans TC".to_string())
+    } else if file_name.contains("ibmplexsanskr") {
+        Some("IBM Plex Sans KR".to_string())
+    } else if file_name.contains("msyh") {
+        Some("Microsoft YaHei".to_string())
+    } else if file_name.contains("msjh") {
+        Some("Microsoft JhengHei".to_string())
+    } else if file_name.contains("meiryo") {
+        Some("Meiryo".to_string())
+    } else if file_name.contains("msgothic") {
+        Some("MS Gothic".to_string())
+    } else if file_name.contains("yugoth") {
+        Some("Yu Gothic".to_string())
+    } else if file_name.contains("malgun") {
+        Some("Malgun Gothic".to_string())
+    } else if file_name.contains("pingfang") {
+        Some("PingFang SC".to_string())
+    } else if file_name.contains("hiragino") {
+        Some("Hiragino Sans GB".to_string())
+    } else {
+        None
+    }
+}
+
+/// Discovered CJK font bundle with raw byte data and optional primary family name.
+pub struct CjkFontBundle {
+    pub font_data: Vec<Vec<u8>>,
+    pub primary_family: Option<String>,
+}
+
+/// Loads all discovered CJK font files as raw byte buffers and determines
+/// the primary CJK font family name to use as default font.
+pub fn load_cjk_fonts() -> CjkFontBundle {
     let font_paths = discover_cjk_font_paths();
-    let mut fonts = Vec::new();
+    let mut font_data = Vec::new();
+    let mut primary_family = None;
 
     info!("Discovered {} candidate CJK font paths", font_paths.len());
 
     for path in font_paths {
+        if primary_family.is_none() {
+            if let Some(family) = query_font_family(&path) {
+                info!("Selected primary CJK font family: {}", family);
+                primary_family = Some(family);
+            }
+        }
+
         match fs::read(&path) {
             Ok(bytes) => {
                 info!(
@@ -255,7 +350,7 @@ pub fn load_cjk_font_data() -> Vec<Vec<u8>> {
                     path.file_name().unwrap_or_default(),
                     bytes.len() as f64 / 1_048_576.0
                 );
-                fonts.push(bytes);
+                font_data.push(bytes);
             }
             Err(e) => {
                 warn!("Failed to read font file {:?}: {}", path, e);
@@ -263,5 +358,16 @@ pub fn load_cjk_font_data() -> Vec<Vec<u8>> {
         }
     }
 
-    fonts
+    CjkFontBundle {
+        font_data,
+        primary_family,
+    }
 }
+
+/// Loads all discovered CJK font files as raw byte buffers.
+/// Preserved for backward compatibility and tests.
+#[allow(dead_code)]
+pub fn load_cjk_font_data() -> Vec<Vec<u8>> {
+    load_cjk_fonts().font_data
+}
+

@@ -30,3 +30,10 @@ fn test_cjk_font_loading() {
         assert!(!font_bytes.is_empty(), "Loaded font buffer must not be empty");
     }
 }
+
+#[test]
+fn test_cjk_font_bundle() {
+    let bundle = font::load_cjk_fonts();
+    println!("Loaded font bundle with primary family: {:?}", bundle.primary_family);
+    assert!(!bundle.font_data.is_empty(), "Font data must not be empty");
+}
