@@ -22,12 +22,11 @@ pub fn view<'a>(
     sort_dir: SortDirection,
     page: usize,
     page_size: usize,
-    total_tracks: usize,
 ) -> Element<'a, Message> {
     // 1. Search Bar & View Mode Toolbar
     let search_input = text_input("Search tracks, artists, albums...", search_query)
         .on_input(Message::SearchInputChanged)
-        .padding(8)
+        .padding([4, 8])
         .style(styles::search_input_style(theme_cfg))
         .width(Length::Fill);
 
@@ -53,7 +52,7 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .padding([5, 8])
+    .padding([2, 6])
     .style(styles::ghost_button(theme_cfg, view_mode == ViewMode::List))
     .on_press(Message::SetLibraryViewMode(ViewMode::List));
 
@@ -79,12 +78,12 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .padding([5, 8])
+    .padding([2, 6])
     .style(styles::ghost_button(theme_cfg, view_mode == ViewMode::Tile))
     .on_press(Message::SetLibraryViewMode(ViewMode::Tile));
 
     let toolbar = row![
-        icons::icon(icons::SEARCH_SVG, 16.0, theme_cfg.text_muted_color()),
+        icons::icon(icons::SEARCH_SVG, 15.0, theme_cfg.text_muted_color()),
         search_input,
         Space::with_width(12),
         list_mode_btn,
@@ -118,7 +117,7 @@ pub fn view<'a>(
                 }),
         )
         .style(styles::ghost_button(theme_cfg, false))
-        .padding([4, 6])
+        .padding([2, 6])
         .width(width)
         .on_press(Message::SortChanged(field))
     };
@@ -138,7 +137,12 @@ pub fn view<'a>(
     ]
     .spacing(8)
     .align_y(Alignment::Center)
-    .padding([8, 12]);
+    .padding(iced::Padding {
+        top: 2.0,
+        right: 12.0,
+        bottom: 6.0,
+        left: 12.0,
+    });
 
     // 3. Track Content (List vs Tile)
     let content: Element<'a, Message> = if tracks.is_empty() {
@@ -391,68 +395,20 @@ pub fn view<'a>(
         }
     };
 
-    // 4. Pagination Footer
-    let total_pages = if total_tracks == 0 {
-        1
-    } else {
-        (total_tracks + page_size - 1) / page_size
-    };
-
-    let start_idx = if total_tracks == 0 {
-        0
-    } else {
-        page * page_size + 1
-    };
-    let end_idx = (start_idx + tracks.len()).saturating_sub(1);
-
-    let prev_btn = button(text("◀ Prev").size(12).color(theme_cfg.text_color()))
-        .style(styles::ghost_button(theme_cfg, false))
-        .padding([4, 10])
-        .on_press_maybe(if page > 0 {
-            Some(Message::PrevPage)
-        } else {
-            None
-        });
-
-    let next_btn = button(text("Next ▶").size(12).color(theme_cfg.text_color()))
-        .style(styles::ghost_button(theme_cfg, false))
-        .padding([4, 10])
-        .on_press_maybe(if page + 1 < total_pages {
-            Some(Message::NextPage)
-        } else {
-            None
-        });
-
-    let pagination_info = text(format!(
-        "Showing {}-{} of {} tracks (Page {} of {})",
-        start_idx,
-        end_idx,
-        total_tracks,
-        page + 1,
-        total_pages
-    ))
-    .size(12)
-    .color(theme_cfg.text_muted_color());
-
-    let pagination_bar = row![
-        pagination_info,
-        Space::with_width(Length::Fill),
-        prev_btn,
-        next_btn,
-    ]
-    .spacing(8)
-    .align_y(Alignment::Center)
-    .padding([8, 12]);
-
     let mut main_col = column![toolbar];
     if view_mode == ViewMode::List {
         main_col = main_col.push(table_header);
     }
-    main_col = main_col.push(content).push(pagination_bar);
+    main_col = main_col.push(content);
 
     main_col
-        .spacing(8)
-        .padding(16)
+        .spacing(4)
+        .padding(iced::Padding {
+            top: 8.0,
+            right: 16.0,
+            bottom: 16.0,
+            left: 16.0,
+        })
         .height(Length::Fill)
         .width(Length::Fill)
         .into()

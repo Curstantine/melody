@@ -5,3 +5,4 @@ pub mod lyrics;
 pub mod player_bar;
 pub mod settings;
 pub mod sidebar;
+pub mod status_bar;

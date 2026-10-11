@@ -55,7 +55,7 @@ pub fn view<'a>(
                     theme_cfg.text_muted_color()
                 }),
         )
-        .padding([4, 8])
+        .padding([2, 6])
         .style(styles::ghost_button(theme_cfg, is_active))
         .on_press(Message::AlbumSortChanged(field))
     };
@@ -82,7 +82,7 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .padding([5, 8])
+    .padding([2, 6])
     .style(styles::ghost_button(theme_cfg, view_mode == ViewMode::Tile))
     .on_press(Message::SetAlbumsViewMode(ViewMode::Tile));
 
@@ -108,15 +108,11 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
-    .padding([5, 8])
+    .padding([2, 6])
     .style(styles::ghost_button(theme_cfg, view_mode == ViewMode::List))
     .on_press(Message::SetAlbumsViewMode(ViewMode::List));
 
     let header_bar = row![
-        text(format!("Albums ({})", albums.len()))
-            .size(18)
-            .color(theme_cfg.text_color()),
-        Space::with_width(16),
         row![
             text("Sort:")
                 .size(11)
@@ -136,7 +132,12 @@ pub fn view<'a>(
     ]
     .spacing(8)
     .align_y(Alignment::Center)
-    .padding([0, 4]);
+    .padding(iced::Padding {
+        top: 0.0,
+        right: 16.0,
+        bottom: 6.0,
+        left: 0.0,
+    });
 
     let content_area: Element<'a, Message> = match view_mode {
         ViewMode::Tile => {
@@ -341,9 +342,14 @@ pub fn view<'a>(
         }
     };
 
-    column![header_bar, Space::with_height(6), content_area]
-        .spacing(6)
-        .padding(16)
+    column![header_bar, content_area]
+        .spacing(4)
+        .padding(iced::Padding {
+            top: 8.0,
+            right: 1.0,
+            bottom: 0.0,
+            left: 16.0,
+        })
         .height(Length::Fill)
         .width(Length::Fill)
         .into()

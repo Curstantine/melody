@@ -255,11 +255,12 @@ pub fn view<'a>(
     ]
     .spacing(12)
     .align_y(Alignment::Center)
-    .padding([6, 16]);
+    .padding([0, 16]);
 
     container(content)
         .style(styles::player_bar_container(theme_cfg))
         .width(Length::Fill)
         .height(72)
+        .center_y(72)
         .into()
 }

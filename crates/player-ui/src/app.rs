@@ -724,7 +724,6 @@ impl App {
                 self.sort_dir,
                 self.page,
                 self.page_size,
-                self.total_tracks,
             ),
             ViewTab::Albums => views::albums::view(
                 theme_cfg,
@@ -780,7 +779,23 @@ impl App {
             is_loved,
         );
 
-        let full_layout = column![top_bar, body, player_bar]
+        let status_bar_ctx = views::status_bar::StatusBarContext {
+            active_tab: self.active_tab,
+            page: self.page,
+            page_size: self.page_size,
+            total_tracks: self.total_tracks,
+            visible_count: self.visible_tracks.len(),
+            search_query: &self.search_query,
+            albums: &self.albums,
+            artists: &self.artists,
+            current_track: self.current_track.as_ref(),
+            is_playing: self.is_playing,
+            is_scanning: self.is_scanning,
+        };
+
+        let status_bar = views::status_bar::view(theme_cfg, status_bar_ctx);
+
+        let full_layout = column![top_bar, body, player_bar, status_bar]
             .width(Length::Fill)
             .height(Length::Fill);
 
