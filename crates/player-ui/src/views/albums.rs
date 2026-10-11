@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, scrollable, Space};
-use iced::{Alignment, Element, Length};
+use iced::{Alignment, Element, Length, Padding};
 use player_core::{format_duration, AlbumSummary, SortDirection};
 
 use crate::components::{self, text};
@@ -49,7 +49,7 @@ pub fn view<'a>(
         top: 0.0,
         right: 16.0,
         bottom: 6.0,
-        left: 0.0,
+        left: 16.0,
     });
 
     let content_area: Element<'a, Message> = match view_mode {
@@ -62,12 +62,7 @@ pub fn view<'a>(
                     theme_cfg,
                     album_covers.get(&key),
                     170.0,
-                    Radius {
-                        top_left: 6.0,
-                        top_right: 6.0,
-                        bottom_left: 0.0,
-                        bottom_right: 0.0,
-                    },
+                    Radius::default(),
                     icons::DISC_SVG,
                     54.0,
                     theme_cfg.primary_color(),
@@ -107,18 +102,26 @@ pub fn view<'a>(
 
                 let card_content = column![cover_art, meta];
                 let card_btn = button(card_content)
-                    .style(styles::ghost_button(theme_cfg, false))
+                    .style(styles::tile(theme_cfg))
                     .padding(0)
                     .on_press(Message::SelectAlbum(album.album.clone()));
 
                 tiles = tiles.push(card_btn);
             }
 
-            scrollable(container(tiles.wrap()).width(Length::Fill))
-                .on_scroll(Message::AlbumsScrolled)
-                .height(Length::Fill)
-                .style(styles::scrollable_style(theme_cfg))
-                .into()
+            scrollable(
+                container(tiles.wrap())
+                    .width(Length::Fill)
+                    .padding(Padding {
+                        left: 16.0,
+                        right: 16.0,
+                        ..Default::default()
+                    }),
+            )
+            .on_scroll(Message::AlbumsScrolled)
+            .height(Length::Fill)
+            .style(styles::scrollable_style(theme_cfg))
+            .into()
         }
         ViewMode::List => {
             let mut album_list = column![].spacing(4);
@@ -167,10 +170,10 @@ pub fn view<'a>(
                 let album_row = row![disc_thumbnail, Space::with_width(12), title_block, details,]
                     .spacing(4)
                     .align_y(Alignment::Center)
-                    .padding([6, 12]);
+                    .padding([0, 8]);
 
                 let row_btn = button(album_row)
-                    .style(styles::ghost_button(theme_cfg, false))
+                    .style(styles::tile(theme_cfg))
                     .width(Length::Fill)
                     .on_press(Message::SelectAlbum(album.album.clone()));
 
@@ -191,7 +194,7 @@ pub fn view<'a>(
             top: 8.0,
             right: 1.0,
             bottom: 0.0,
-            left: 16.0,
+            left: 0.0,
         })
         .height(Length::Fill)
         .width(Length::Fill)

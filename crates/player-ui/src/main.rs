@@ -23,8 +23,8 @@ fn main() -> iced::Result {
         .theme(App::theme)
         .subscription(App::subscription)
         .window(window::Settings {
-            size: iced::Size::new(1100.0, 740.0),
-            min_size: Some(iced::Size::new(820.0, 520.0)),
+            size: iced::Size::new(1130.0, 740.0),
+            min_size: Some(iced::Size::new(580.0, 520.0)),
             position: window::Position::Centered,
             ..Default::default()
         });

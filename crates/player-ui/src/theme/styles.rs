@@ -249,6 +249,24 @@ pub fn primary_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> b
     }
 }
 
+pub fn tile(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
+    move |_theme, status| {
+        let (bg, text) = match status {
+            button::Status::Active => (Color::TRANSPARENT, cfg.text_color()),
+            button::Status::Hovered => (cfg.surface_hover_color(), cfg.primary_color()),
+            button::Status::Pressed => (cfg.surface_hover_color(), cfg.text_color()),
+            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted_color()),
+        };
+
+        button::Style {
+            background: Some(Background::Color(bg)),
+            text_color: text,
+            border: Border::default(),
+            shadow: Shadow::default(),
+        }
+    }
+}
+
 pub fn ghost_button(
     cfg: &ThemeConfig,
     is_active: bool,

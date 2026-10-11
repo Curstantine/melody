@@ -203,7 +203,7 @@ impl App {
     pub fn title(&self) -> String {
         match &self.current_track {
             Some(track) => format!("{} - {} | Vibecore", track.title, track.artist),
-            None => "Vibecore Native Music Player".to_string(),
+            None => "Vibecore".to_string(),
         }
     }
 

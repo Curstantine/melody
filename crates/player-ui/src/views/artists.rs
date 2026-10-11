@@ -1,6 +1,6 @@
 use iced::border::Radius;
 use iced::widget::{button, column, container, row, scrollable, Space};
-use iced::{Alignment, Border, Element, Length};
+use iced::{Alignment, Border, Element, Length, Padding};
 use player_core::ArtistSummary;
 
 use crate::components::{self, text};
@@ -30,7 +30,7 @@ pub fn view<'a>(
         top: 0.0,
         right: 16.0,
         bottom: 6.0,
-        left: 0.0,
+        left: 16.0,
     });
 
     let content_area: Element<'a, Message> = match view_mode {
@@ -98,11 +98,19 @@ pub fn view<'a>(
                 tiles = tiles.push(card_btn);
             }
 
-            scrollable(container(tiles.wrap()).width(Length::Fill))
-                .on_scroll(Message::ArtistsScrolled)
-                .height(Length::Fill)
-                .style(styles::scrollable_style(theme_cfg))
-                .into()
+            scrollable(
+                container(tiles.wrap())
+                    .width(Length::Fill)
+                    .padding(Padding {
+                        left: 16.0,
+                        right: 16.0,
+                        ..Default::default()
+                    }),
+            )
+            .on_scroll(Message::ArtistsScrolled)
+            .height(Length::Fill)
+            .style(styles::scrollable_style(theme_cfg))
+            .into()
         }
         ViewMode::List => {
             let mut artist_list = column![].spacing(4);
@@ -150,7 +158,7 @@ pub fn view<'a>(
                     .padding([6, 12]);
 
                 let row_btn = button(artist_row)
-                    .style(styles::ghost_button(theme_cfg, false))
+                    .style(styles::tile(theme_cfg))
                     .width(Length::Fill)
                     .on_press(Message::SelectArtist(artist.artist.clone()));
 
@@ -171,7 +179,7 @@ pub fn view<'a>(
             top: 8.0,
             right: 1.0,
             bottom: 0.0,
-            left: 16.0,
+            left: 0.0,
         })
         .height(Length::Fill)
         .width(Length::Fill)
