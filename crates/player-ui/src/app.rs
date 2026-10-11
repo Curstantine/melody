@@ -1057,7 +1057,7 @@ impl App {
         )
         .style(styles::top_bar_container(theme_cfg))
         .width(Length::Fill)
-        .height(34);
+        .height(32);
 
         let main_view: Element<'_, Message> = match self.active_tab {
             ViewTab::Tracks => views::library::view(
