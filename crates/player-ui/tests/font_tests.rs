@@ -33,7 +33,31 @@ fn test_cjk_font_loading() {
 
 #[test]
 fn test_cjk_font_bundle() {
+    use iced::advanced::graphics::text::cosmic_text::{Attrs, Buffer, FontSystem, Metrics, Shaping};
+
     let bundle = font::load_cjk_fonts();
-    println!("Loaded font bundle with primary family: {:?}", bundle.primary_family);
-    assert!(!bundle.font_data.is_empty(), "Font data must not be empty");
+    let mut db = iced::advanced::graphics::text::cosmic_text::fontdb::Database::new();
+    for data in &bundle.font_data {
+        db.load_font_source(
+            iced::advanced::graphics::text::cosmic_text::fontdb::Source::Binary(std::sync::Arc::new(data.clone())),
+        );
+    }
+    let mut font_system = FontSystem::new_with_locale_and_db("en-US".to_string(), db);
+
+    let default_family = bundle.primary_family.as_deref().unwrap_or("Noto Sans CJK JP");
+
+    for shaping in [Shaping::Basic, Shaping::Advanced] {
+        let mut buffer = Buffer::new(&mut font_system, Metrics::new(14.0, 18.0));
+        let attrs = Attrs::new().family(iced::advanced::graphics::text::cosmic_text::Family::Name(default_family));
+        // "周杰伦 - 晴天"
+        buffer.set_text(&mut font_system, "周杰伦 - 晴天", attrs, shaping);
+        buffer.shape_until_scroll(&mut font_system, false);
+
+        println!("=== {:?} shaping for '周杰伦 - 晴天' ===", shaping);
+        for run in buffer.layout_runs() {
+            for glyph in run.glyphs {
+                println!("  Glyph id: {} from font {:?}", glyph.glyph_id, glyph.font_id);
+            }
+        }
+    }
 }

@@ -341,6 +341,92 @@ pub fn icon_control_button(
     }
 }
 
+pub fn settings_nav_button(
+    cfg: &ThemeConfig,
+    is_active: bool,
+) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
+    move |_theme, status| {
+        let (bg, text, border_color) = match status {
+            button::Status::Active => {
+                if is_active {
+                    (cfg.surface_hover_color(), cfg.primary_color(), cfg.primary_color())
+                } else {
+                    (Color::TRANSPARENT, cfg.text_color(), Color::TRANSPARENT)
+                }
+            }
+            button::Status::Hovered => {
+                if is_active {
+                    (cfg.surface_hover_color(), cfg.primary_color(), cfg.primary_color())
+                } else {
+                    (cfg.surface_hover_color(), cfg.text_color(), cfg.border_color())
+                }
+            }
+            button::Status::Pressed => (
+                cfg.surface_hover_color(),
+                cfg.primary_color(),
+                cfg.primary_color(),
+            ),
+            button::Status::Disabled => (
+                Color::TRANSPARENT,
+                cfg.text_muted_color(),
+                Color::TRANSPARENT,
+            ),
+        };
+
+        button::Style {
+            background: Some(Background::Color(bg)),
+            text_color: text,
+            border: Border {
+                radius: Radius::from(6.0),
+                color: border_color,
+                width: if is_active { 1.5 } else { 1.0 },
+            },
+            shadow: Shadow::default(),
+        }
+    }
+}
+
+pub fn danger_button(
+    cfg: &ThemeConfig,
+) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
+    move |_theme, status| {
+        let (bg, text, border_color) = match status {
+            button::Status::Active => (
+                Color::from_rgba(0.9, 0.2, 0.2, 0.1),
+                Color::from_rgb(0.95, 0.35, 0.35),
+                Color::from_rgba(0.9, 0.2, 0.2, 0.4),
+            ),
+            button::Status::Hovered => (
+                Color::from_rgba(0.9, 0.2, 0.2, 0.2),
+                Color::from_rgb(1.0, 0.4, 0.4),
+                Color::from_rgba(0.9, 0.2, 0.2, 0.7),
+            ),
+            button::Status::Pressed => (
+                Color::from_rgba(0.9, 0.2, 0.2, 0.3),
+                Color::from_rgb(1.0, 0.3, 0.3),
+                Color::from_rgba(0.9, 0.2, 0.2, 1.0),
+            ),
+            button::Status::Disabled => (
+                Color::TRANSPARENT,
+                cfg.text_muted_color(),
+                cfg.border_color(),
+            ),
+        };
+
+        button::Style {
+            background: Some(Background::Color(bg)),
+            text_color: text,
+            border: Border {
+                radius: Radius::from(5.0),
+                color: border_color,
+                width: 1.0,
+            },
+            shadow: Shadow::default(),
+        }
+    }
+}
+
+
 pub fn search_input_style(
     cfg: &ThemeConfig,
 ) -> impl Fn(&Theme, text_input::Status) -> text_input::Style + '_ {

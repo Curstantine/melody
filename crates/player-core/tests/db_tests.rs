@@ -241,3 +241,48 @@ fn test_extra_metadata_tags_persistence() {
     );
 }
 
+#[test]
+fn test_library_folders_and_clear_tracks() {
+    let db = LibraryDatabase::in_memory().expect("Failed to create in-memory db");
+
+    // Initially empty
+    let folders = db.get_library_folders().expect("get folders failed");
+    assert!(folders.is_empty());
+
+    // Add folders
+    let added = db.add_library_folder("/home/user/Music").expect("add folder failed");
+    assert!(added);
+    let added_dup = db.add_library_folder("/home/user/Music").expect("add dup failed");
+    assert!(!added_dup); // Ignored due to UNIQUE constraint
+    db.add_library_folder("/mnt/external/Audio").expect("add 2nd folder failed");
+
+    let folders = db.get_library_folders().expect("get folders failed");
+    assert_eq!(folders.len(), 2);
+    assert!(folders.contains(&"/home/user/Music".to_string()));
+    assert!(folders.contains(&"/mnt/external/Audio".to_string()));
+
+    // Remove folder
+    let removed = db.remove_library_folder("/home/user/Music").expect("remove failed");
+    assert!(removed);
+    let folders = db.get_library_folders().expect("get folders failed");
+    assert_eq!(folders.len(), 1);
+    assert_eq!(folders[0], "/mnt/external/Audio");
+
+    // Insert track and verify clear_all_tracks
+    let track = NewTrack {
+        file_path: "/mnt/external/Audio/test.mp3".to_string(),
+        title: "Test".to_string(),
+        artist: "Test Artist".to_string(),
+        album: "Test Album".to_string(),
+        genre: None,
+        duration_ms: 60000,
+        ..Default::default()
+    };
+    db.insert_or_update_track(&track).expect("insert track failed");
+    assert_eq!(db.get_total_track_count(None).unwrap(), 1);
+
+    let cleared = db.clear_all_tracks().expect("clear failed");
+    assert_eq!(cleared, 1);
+    assert_eq!(db.get_total_track_count(None).unwrap(), 0);
+}
+

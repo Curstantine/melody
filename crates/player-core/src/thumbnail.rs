@@ -113,3 +113,54 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
         }
     }
 }
+
+/// Disk cache summary statistics for cover thumbnails
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CacheStats {
+    pub file_count: usize,
+    pub total_bytes: u64,
+}
+
+/// Calculates the number of thumbnail cache files and their total footprint in bytes
+pub fn get_thumbnail_cache_stats() -> CacheStats {
+    let dir = thumbnail_cache_dir();
+    let mut file_count = 0;
+    let mut total_bytes = 0;
+
+    if dir.is_dir() {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                if let Ok(meta) = entry.metadata() {
+                    if meta.is_file() {
+                        file_count += 1;
+                        total_bytes += meta.len();
+                    }
+                }
+            }
+        }
+    }
+
+    CacheStats {
+        file_count,
+        total_bytes,
+    }
+}
+
+/// Deletes all cached thumbnail files and negative lookup markers from disk
+pub fn clear_thumbnail_cache() -> std::io::Result<usize> {
+    let dir = thumbnail_cache_dir();
+    let mut removed = 0;
+
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            if entry.file_type()?.is_file() {
+                if fs::remove_file(entry.path()).is_ok() {
+                    removed += 1;
+                }
+            }
+        }
+    }
+
+    Ok(removed)
+}

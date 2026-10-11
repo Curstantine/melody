@@ -59,11 +59,12 @@ fn test_audio_converter_resampling() {
     // 22050 Hz to 44100 Hz stereo (2x upsampling)
     let mut converter = AudioConverter::new(2, 22050, 2, 44100);
 
-    let input = vec![0.0, 0.0, 1.0, 1.0];
+    // FFT resampler operates in 1024-frame chunks
+    let input = vec![0.5f32; 1024 * 2];
     let mut output = Vec::new();
 
     converter.convert(&input, &mut output);
 
-    // Should produce roughly 4 frames (8 samples)
-    assert!(output.len() >= 6);
+    // 2x upsampling of 1024 stereo frames should produce ~2048 stereo frames (4096 samples)
+    assert!(output.len() >= 2048);
 }

@@ -13,7 +13,7 @@ use player_plugins::{PluginManager, TrackMetadata};
 use tracing::{error, info};
 
 use crate::icons;
-use crate::message::{AlbumSortField, Message, ViewMode, ViewTab};
+use crate::message::{AlbumSortField, Message, SettingsTab, ViewMode, ViewTab};
 use crate::theme::{styles, ThemeManager};
 use crate::views;
 
@@ -21,6 +21,7 @@ pub const DEFAULT_PAGE_SIZE: usize = 50;
 
 pub struct App {
     db: LibraryDatabase,
+    db_path: PathBuf,
     _audio_engine: AudioEngine,
     audio_controller: AudioController,
     plugin_manager: PluginManager,
@@ -28,6 +29,7 @@ pub struct App {
 
     // Navigation & Tabs
     active_tab: ViewTab,
+    settings_tab: SettingsTab,
 
     // View Modes & Selection
     library_view_mode: ViewMode,
@@ -47,12 +49,13 @@ pub struct App {
     sort_field: SortField,
     sort_dir: SortDirection,
 
-    // Catalogs
+    // Catalogs & Folders
     albums: Vec<AlbumSummary>,
     album_covers: HashMap<String, image::Handle>,
     album_sort_field: AlbumSortField,
     album_sort_dir: SortDirection,
     artists: Vec<ArtistSummary>,
+    library_folders: Vec<String>,
 
     // Playback State
     current_track: Option<Track>,
@@ -69,8 +72,10 @@ pub struct App {
     is_repeat: bool,
     loved_tracks: HashSet<i64>,
 
-    // Library Scanning
+    // Library Scanning & Fonts
     is_scanning: bool,
+    font_paths: Vec<PathBuf>,
+    primary_font: Option<String>,
 }
 
 impl App {
@@ -80,7 +85,7 @@ impl App {
         let db_path = get_database_path();
         info!("Using SQLite database at: {:?}", db_path);
 
-        let db = LibraryDatabase::new(db_path).unwrap_or_else(|e| {
+        let db = LibraryDatabase::new(&db_path).unwrap_or_else(|e| {
             error!("Failed to open disk database, falling back to in-memory: {}", e);
             LibraryDatabase::in_memory().expect("In-memory SQLite failed")
         });
@@ -95,15 +100,22 @@ impl App {
         let visible_tracks = db
             .get_tracks_window(0, page_size, None, SortField::Title, SortDirection::Ascending)
             .unwrap_or_default();
+        let albums = db.get_albums().unwrap_or_default();
+        let artists = db.get_artists().unwrap_or_default();
+        let library_folders = db.get_library_folders().unwrap_or_default();
+        let font_paths = crate::font::discover_cjk_font_paths();
+        let primary_font = font_paths.first().and_then(|p| crate::font::query_font_family(p));
 
         let app = Self {
             db,
+            db_path,
             _audio_engine: audio_engine,
             audio_controller,
             plugin_manager,
             theme_manager,
 
             active_tab: ViewTab::Tracks,
+            settings_tab: SettingsTab::Appearance,
 
             library_view_mode: ViewMode::List,
             albums_view_mode: ViewMode::Tile,
@@ -121,11 +133,12 @@ impl App {
             sort_field: SortField::Title,
             sort_dir: SortDirection::Ascending,
 
-            albums: Vec::new(),
+            albums,
             album_covers: HashMap::new(),
             album_sort_field: AlbumSortField::Title,
             album_sort_dir: SortDirection::Ascending,
-            artists: Vec::new(),
+            artists,
+            library_folders,
 
             current_track: None,
             current_track_id: None,
@@ -142,6 +155,8 @@ impl App {
             loved_tracks: HashSet::new(),
 
             is_scanning: false,
+            font_paths,
+            primary_font,
         };
 
         (app, Task::none())
@@ -448,6 +463,9 @@ impl App {
                 match maybe_path {
                     Some(path) => {
                         info!("Scanning folder: {:?}", path);
+                        let path_str = path.to_string_lossy().to_string();
+                        let _ = self.db.add_library_folder(&path_str);
+                        self.library_folders = self.db.get_library_folders().unwrap_or_default();
                         let db = self.db.clone();
                         Task::perform(
                             async move {
@@ -466,13 +484,126 @@ impl App {
                 }
             }
 
+            Message::AddLibraryFolderClicked => {
+                self.is_scanning = true;
+                Task::perform(
+                    async {
+                        let folder = rfd::AsyncFileDialog::new()
+                            .set_title("Add Music Folder to Library")
+                            .pick_folder()
+                            .await;
+                        folder.map(|f| f.path().to_path_buf())
+                    },
+                    Message::LibraryFolderAdded,
+                )
+            }
+
+            Message::LibraryFolderAdded(maybe_path) => {
+                match maybe_path {
+                    Some(path) => {
+                        let path_str = path.to_string_lossy().to_string();
+                        info!("Adding library folder: {}", path_str);
+                        let _ = self.db.add_library_folder(&path_str);
+                        self.library_folders = self.db.get_library_folders().unwrap_or_default();
+                        let db = self.db.clone();
+                        Task::perform(
+                            async move {
+                                let summary = db
+                                    .scan_directory(&path, None::<fn(usize, usize)>)
+                                    .unwrap_or_default();
+                                summary
+                            },
+                            Message::ScanFinished,
+                        )
+                    }
+                    None => {
+                        self.is_scanning = false;
+                        Task::none()
+                    }
+                }
+            }
+
+            Message::RemoveLibraryFolder(path_str) => {
+                info!("Removing library folder: {}", path_str);
+                let _ = self.db.remove_library_folder(&path_str);
+                self.library_folders = self.db.get_library_folders().unwrap_or_default();
+                Task::none()
+            }
+
+            Message::RescanLibraryFolder(path) => {
+                self.is_scanning = true;
+                info!("Rescanning library folder: {:?}", path);
+                let db = self.db.clone();
+                Task::perform(
+                    async move {
+                        let summary = db
+                            .scan_directory(&path, None::<fn(usize, usize)>)
+                            .unwrap_or_default();
+                        summary
+                    },
+                    Message::ScanFinished,
+                )
+            }
+
+            Message::ReindexLibrary => {
+                self.is_scanning = true;
+                info!("Reindexing all library folders: {:?}", self.library_folders);
+                let db = self.db.clone();
+                let folders = self.library_folders.clone();
+                Task::perform(
+                    async move {
+                        let mut total_summary = player_core::ScanSummary::default();
+                        for folder_str in folders {
+                            let path = PathBuf::from(folder_str);
+                            if let Ok(summary) = db.scan_directory(&path, None::<fn(usize, usize)>) {
+                                total_summary.scanned_files += summary.scanned_files;
+                                total_summary.inserted_tracks += summary.inserted_tracks;
+                                total_summary.updated_tracks += summary.updated_tracks;
+                                total_summary.failed_files += summary.failed_files;
+                            }
+                        }
+                        total_summary
+                    },
+                    Message::ScanFinished,
+                )
+            }
+
+            Message::ClearLibrary => {
+                info!("Clearing all tracks from library database");
+                let _ = self.db.clear_all_tracks();
+                self.visible_tracks.clear();
+                self.total_tracks = 0;
+                self.albums.clear();
+                self.album_covers.clear();
+                self.artists.clear();
+                self.current_track = None;
+                self.current_track_id = None;
+                self.current_cover = None;
+                self.is_playing = false;
+                self.audio_controller.stop();
+                Task::none()
+            }
+
+            Message::ClearThumbnailCache => {
+                info!("Purging thumbnail disk and GPU cache");
+                let _ = player_core::clear_thumbnail_cache();
+                self.album_covers.clear();
+                Task::none()
+            }
+
             Message::ScanFinished(summary) => {
                 info!(
                     "Scan completed: {} tracks indexed",
                     summary.inserted_tracks
                 );
                 self.is_scanning = false;
-                self.reload_tracks_task()
+                self.library_folders = self.db.get_library_folders().unwrap_or_default();
+                self.reload_after_scan_task()
+            }
+
+            Message::SelectSettingsTab(tab) => {
+                self.settings_tab = tab;
+                Task::none()
             }
 
             Message::SelectAlbum(album_name) => {
@@ -673,6 +804,45 @@ impl App {
         )
     }
 
+    fn reload_after_scan_task(&self) -> Task<Message> {
+        let db = self.db.clone();
+        let page_size = self.page_size;
+        let query = if self.search_query.trim().is_empty() {
+            None
+        } else {
+            Some(self.search_query.clone())
+        };
+        let sort_field = self.sort_field;
+        let sort_dir = self.sort_dir;
+
+        Task::batch([
+            Task::perform(
+                async move {
+                    let total = db.get_total_track_count(query.as_deref()).unwrap_or(0);
+                    let tracks = db
+                        .get_tracks_window(0, page_size, query.as_deref(), sort_field, sort_dir)
+                        .unwrap_or_default();
+                    (tracks, total)
+                },
+                |(tracks, total)| Message::TracksLoaded(tracks, total),
+            ),
+            {
+                let db = self.db.clone();
+                Task::perform(
+                    async move { db.get_albums().unwrap_or_default() },
+                    Message::AlbumsLoaded,
+                )
+            },
+            {
+                let db = self.db.clone();
+                Task::perform(
+                    async move { db.get_artists().unwrap_or_default() },
+                    Message::ArtistsLoaded,
+                )
+            },
+        ])
+    }
+
     fn load_more_tracks_task(&self) -> Task<Message> {
         let db = self.db.clone();
         let offset = self.visible_tracks.len();
@@ -779,18 +949,39 @@ impl App {
                 self.current_cover.as_ref(),
                 self.current_lyrics.as_deref(),
             ),
-            ViewTab::Settings => views::settings::view(
-                theme_cfg,
-                self.theme_manager.theme_names(),
-                &self.theme_manager.active_theme_name,
-                self.total_tracks,
-                self.albums.len(),
-                self.artists.len(),
-                self.is_scanning,
-                self.page_size,
-                self.library_view_mode,
-                self.volume,
-            ),
+            ViewTab::Settings => {
+                let cache_stats = player_core::get_thumbnail_cache_stats();
+                let db_size_bytes = std::fs::metadata(&self.db_path)
+                    .map(|m| m.len())
+                    .unwrap_or(0);
+
+                views::settings::view(
+                    theme_cfg,
+                    views::settings::SettingsViewData {
+                        active_tab: self.settings_tab,
+                        theme_names: self.theme_manager.theme_names(),
+                        active_theme_name: &self.theme_manager.active_theme_name,
+                        library_view_mode: self.library_view_mode,
+                        albums_view_mode: self.albums_view_mode,
+                        artists_view_mode: self.artists_view_mode,
+                        page_size: self.page_size,
+                        primary_font: self.primary_font.as_deref(),
+                        font_paths: &self.font_paths,
+                        library_folders: &self.library_folders,
+                        total_tracks: self.total_tracks,
+                        total_albums: self.albums.len(),
+                        total_artists: self.artists.len(),
+                        db_path: &self.db_path,
+                        db_size_bytes,
+                        cache_file_count: cache_stats.file_count,
+                        cache_size_bytes: cache_stats.total_bytes,
+                        in_memory_covers_count: self.album_covers.len(),
+                        is_scanning: self.is_scanning,
+                        volume: self.volume,
+                        active_plugins_count: self.plugin_manager.plugin_count(),
+                    },
+                )
+            }
         };
 
         let body = container(main_view)

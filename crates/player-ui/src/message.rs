@@ -29,6 +29,14 @@ pub enum AlbumSortField {
     Duration,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SettingsTab {
+    #[default]
+    Appearance,
+    Library,
+    Debug,
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Message {
@@ -79,8 +87,18 @@ pub enum Message {
     AlbumCoverChunkLoaded(Vec<(String, Vec<u8>)>, Vec<(String, PathBuf)>),
 
     // Themes & Settings
+    SelectSettingsTab(SettingsTab),
     SelectTheme(String),
     ReloadThemes,
+
+    // Library Maintenance
+    AddLibraryFolderClicked,
+    LibraryFolderAdded(Option<PathBuf>),
+    RemoveLibraryFolder(String),
+    RescanLibraryFolder(PathBuf),
+    ReindexLibrary,
+    ClearLibrary,
+    ClearThumbnailCache,
 
     // Loaded data callbacks
     TracksLoaded(Vec<Track>, usize),

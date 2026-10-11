@@ -147,4 +147,10 @@ impl PluginManager {
         // Safe discovery: iterate files in directory, load wasm plugins if wasm feature enabled
         info!("Plugin directory scanned");
     }
+
+    /// Returns the number of currently registered plugins
+    pub fn plugin_count(&self) -> usize {
+        self.plugins.read().map(|l| l.len()).unwrap_or(0)
+    }
 }
+

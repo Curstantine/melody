@@ -100,6 +100,12 @@ impl LibraryDatabase {
                 position INTEGER NOT NULL,
                 PRIMARY KEY (playlist_id, track_id)
             );
+
+            CREATE TABLE IF NOT EXISTS library_folders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                path TEXT NOT NULL UNIQUE,
+                added_timestamp INTEGER NOT NULL
+            );
             "#,
         )?;
 
@@ -487,6 +493,48 @@ impl LibraryDatabase {
         let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
         let affected = conn.execute("DELETE FROM tracks WHERE id = ?1", params![id])?;
         Ok(affected > 0)
+    }
+
+    /// Retrieves all configured music library scan paths
+    pub fn get_library_folders(&self) -> Result<Vec<String>, DbError> {
+        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
+        let mut stmt = conn.prepare("SELECT path FROM library_folders ORDER BY id ASC")?;
+        let rows = stmt.query_map([], |row| row.get(0))?;
+        let mut folders = Vec::new();
+        for r in rows {
+            folders.push(r?);
+        }
+        Ok(folders)
+    }
+
+    /// Adds a directory path to the library folders list if not already present
+    pub fn add_library_folder(&self, path: &str) -> Result<bool, DbError> {
+        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        let affected = conn.execute(
+            "INSERT OR IGNORE INTO library_folders (path, added_timestamp) VALUES (?1, ?2)",
+            params![path, now],
+        )?;
+        Ok(affected > 0)
+    }
+
+    /// Removes a directory path from the library folders list
+    pub fn remove_library_folder(&self, path: &str) -> Result<bool, DbError> {
+        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
+        let affected = conn.execute("DELETE FROM library_folders WHERE path = ?1", params![path])?;
+        Ok(affected > 0)
+    }
+
+    /// Wipes all indexed tracks and playlist associations from the database
+    pub fn clear_all_tracks(&self) -> Result<usize, DbError> {
+        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
+        let count = conn.execute("DELETE FROM tracks", [])?;
+        let _ = conn.execute("DELETE FROM playlist_tracks", []);
+        let _ = conn.execute("VACUUM", []);
+        Ok(count)
     }
 
     /// Recursively scan directory and index all supported audio files into SQLite

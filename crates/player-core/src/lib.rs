@@ -10,6 +10,6 @@ pub use model::{
     TrackIdHeader,
 };
 pub use thumbnail::{
-    compute_thumbnail_cache_key, get_or_create_thumbnail, thumbnail_cache_dir,
-    DEFAULT_THUMBNAIL_SIZE,
+    clear_thumbnail_cache, compute_thumbnail_cache_key, get_or_create_thumbnail,
+    get_thumbnail_cache_stats, thumbnail_cache_dir, CacheStats, DEFAULT_THUMBNAIL_SIZE,
 };
