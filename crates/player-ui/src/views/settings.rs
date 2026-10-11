@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use iced::border::Radius;
-use iced::widget::{button, column, container, row, scrollable, text, Space};
+use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
 use iced::{Alignment, Border, Element, Length};
 
 use crate::components;
@@ -20,6 +20,8 @@ pub struct SettingsViewData<'a> {
     pub page_size: usize,
     pub primary_font: Option<&'a str>,
     pub font_paths: &'a [PathBuf],
+    pub available_fonts: Vec<String>,
+    pub custom_font_input: String,
     // Library
     pub library_folders: &'a [String],
     pub total_tracks: usize,
@@ -29,7 +31,6 @@ pub struct SettingsViewData<'a> {
     pub db_size_bytes: u64,
     pub cache_file_count: usize,
     pub cache_size_bytes: u64,
-    pub in_memory_covers_count: usize,
     pub is_scanning: bool,
     // Debug
     pub volume: f32,
@@ -66,7 +67,7 @@ fn view_sidebar<'a>(
     active_tab: SettingsTab,
 ) -> Element<'a, Message> {
     let sidebar_title = column![
-        text("PREFERENCES")
+        text("Preferences")
             .size(11)
             .color(theme_cfg.primary_color()),
         text("System Configuration")
@@ -156,7 +157,7 @@ fn view_appearance<'a>(
         text("Appearance & Interface")
             .size(20)
             .color(theme_cfg.text_color()),
-        text("Customize color palette, default display modes, typography fallbacks, and layout density")
+        text("Customize color palette, typography font family, default display modes, and layout density")
             .size(12)
             .color(theme_cfg.text_muted_color()),
     ]
@@ -209,7 +210,7 @@ fn view_appearance<'a>(
 
     let themes_card = components::settings_card(
         theme_cfg,
-        "THEME & COLOR PALETTE",
+        "Theme & Color Palette",
         column![
             text("Installed Theme Skins")
                 .size(12)
@@ -240,7 +241,7 @@ fn view_appearance<'a>(
 
     let view_modes_card = components::settings_card(
         theme_cfg,
-        "DEFAULT VIEW MODES",
+        "Default View Modes",
         column![
             text("Choose preferred layout presentation for library catalogs")
                 .size(12)
@@ -264,14 +265,14 @@ fn view_appearance<'a>(
         .spacing(10),
     );
 
-    // Typography & CJK Font Discovery Card
-    let primary_font_str = data
+    // Typography & Font Configuration Card
+    let active_font_family = data
         .primary_font
-        .unwrap_or("System Sans-Serif")
+        .unwrap_or("Default")
         .to_string();
 
     let font_metrics = row![
-        components::metric_box(theme_cfg, "Primary Font Family", primary_font_str),
+        components::metric_box(theme_cfg, "Active Font Family", active_font_family.clone()),
         components::metric_box(
             theme_cfg,
             "Discovered Font Files",
@@ -285,24 +286,100 @@ fn view_appearance<'a>(
     ]
     .spacing(12);
 
+    // Font selection chips
+    let font_chips = {
+        let mut row_wrap = row![].spacing(6);
+        for font_name in &data.available_fonts {
+            let is_active = match data.primary_font {
+                Some(active) => active == font_name || (font_name == "Default" && active.is_empty()),
+                None => font_name == "Default",
+            };
+            let icon_svg = if is_active {
+                icons::CHECK_SVG
+            } else {
+                icons::DISC_SVG
+            };
+            let btn = components::chip_with_icon(
+                theme_cfg,
+                icon_svg,
+                font_name.clone(),
+                is_active,
+                Message::SelectFont(font_name.clone()),
+            );
+            row_wrap = row_wrap.push(btn);
+        }
+        row_wrap.wrap()
+    };
+
+    // Custom font input row
+    let custom_font_trimmed = data.custom_font_input.trim().to_string();
+    let has_custom_input = !custom_font_trimmed.is_empty();
+
+    let apply_custom_font_btn = button(
+        row![
+            icons::icon(icons::CHECK_SVG, 12.0, if has_custom_input {
+                theme_cfg.primary_color()
+            } else {
+                theme_cfg.text_muted_color()
+            }),
+            Space::with_width(4),
+            text("Apply Font").size(11).color(if has_custom_input {
+                theme_cfg.primary_color()
+            } else {
+                theme_cfg.text_muted_color()
+            }),
+        ]
+        .align_y(Alignment::Center),
+    )
+    .padding([5, 10])
+    .style(styles::ghost_button(theme_cfg, false))
+    .on_press_maybe(if has_custom_input {
+        Some(Message::SelectFont(custom_font_trimmed))
+    } else {
+        None
+    });
+
+    let custom_font_row = row![
+        text_input(
+            "Enter custom system font family (e.g. Inter, Roboto, Arial)...",
+            &data.custom_font_input,
+        )
+        .size(12)
+        .padding([5, 8])
+        .style(styles::search_input_style(theme_cfg))
+        .on_input(Message::CustomFontInputChanged)
+        .on_submit(Message::SelectFont(data.custom_font_input.trim().to_string()))
+        .width(Length::Fill),
+        Space::with_width(8),
+        apply_custom_font_btn,
+    ]
+    .align_y(Alignment::Center);
+
+    let active_iced_font = theme_cfg.font();
+
     let sample_text_box = container(
         column![
             text("Multilingual Glyph Rendering Preview:")
                 .size(11)
-                .color(theme_cfg.primary_color()),
+                .color(theme_cfg.primary_color())
+                .font(active_iced_font),
             Space::with_height(4),
-            text("English: The quick brown fox jumps over the lazy dog.")
+            components::cjk_text("English: The quick brown fox jumps over the lazy dog.")
                 .size(12)
-                .color(theme_cfg.text_color()),
-            text("日本語: あのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら")
+                .color(theme_cfg.text_color())
+                .font(active_iced_font),
+            components::cjk_text("日本語: あのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら")
                 .size(12)
-                .color(theme_cfg.text_color()),
-            text("中文: 落霞与孤齐飞，秋水共长天一色")
+                .color(theme_cfg.text_color())
+                .font(active_iced_font),
+            components::cjk_text("中文: 落霞与孤齐飞，秋水共长天一色")
                 .size(12)
-                .color(theme_cfg.text_color()),
-            text("한국어: 별 하나에 추억과 별 하나에 사랑과 쓸쓸함과 동경")
+                .color(theme_cfg.text_color())
+                .font(active_iced_font),
+            components::cjk_text("한국어: 별 하나에 추억과 별 하나에 사랑과 쓸쓸함과 동경")
                 .size(12)
-                .color(theme_cfg.text_color()),
+                .color(theme_cfg.text_color())
+                .font(active_iced_font),
         ]
         .spacing(4),
     )
@@ -320,13 +397,23 @@ fn view_appearance<'a>(
 
     let font_card = components::settings_card(
         theme_cfg,
-        "TYPOGRAPHY & CJK FONT DISCOVERY",
+        "Typography & Font Configuration",
         column![
-            text("Cross-platform CJK font discovery prevents corrupt glyphs (tofu boxes)")
+            text("Select from discovered system/CJK fonts or specify any installed font family")
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
             font_metrics,
             Space::with_height(4),
+            text("Choose Font:")
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+            font_chips,
+            Space::with_height(4),
+            text("Or Specify Custom Font:")
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+            custom_font_row,
+            Space::with_height(6),
             sample_text_box,
         ]
         .spacing(8),
@@ -356,7 +443,7 @@ fn view_appearance<'a>(
 
     let density_card = components::settings_card(
         theme_cfg,
-        "VIEWPORT DENSITY & PERFORMANCE",
+        "Viewport Density & Performance",
         column![
             text("Controls the SQLite LIMIT per windowed viewport. Queries only retrieve visible rows into memory.")
                 .size(12)
@@ -369,8 +456,8 @@ fn view_appearance<'a>(
     column![
         header,
         themes_card,
-        view_modes_card,
         font_card,
+        view_modes_card,
         density_card,
         Space::with_height(20),
     ]
@@ -398,20 +485,20 @@ fn view_library<'a>(
     ]
     .spacing(4);
 
-    // Statistics Metric Boxes
+    // Storage and Index Metrics
     let storage_stats_row1 = row![
         components::metric_box(theme_cfg, "Songs Indexed", format!("{}", data.total_tracks)),
         components::metric_box(theme_cfg, "Albums Cataloged", format!("{}", data.total_albums)),
         components::metric_box(theme_cfg, "Artists Cataloged", format!("{}", data.total_artists)),
+    ]
+    .spacing(12);
+
+    let storage_stats_row2 = row![
         components::metric_box(
             theme_cfg,
             "Database File Size",
             format_file_size(data.db_size_bytes),
         ),
-    ]
-    .spacing(12);
-
-    let storage_stats_row2 = row![
         components::metric_box(
             theme_cfg,
             "Disk Thumbnail Cache",
@@ -421,18 +508,12 @@ fn view_library<'a>(
                 format_file_size(data.cache_size_bytes)
             ),
         ),
-        components::metric_box(
-            theme_cfg,
-            "GPU Cover Art Cache",
-            format!("{} in RAM", data.in_memory_covers_count),
-        ),
-        components::metric_box(theme_cfg, "Storage Engine", "SQLite WAL".to_string()),
     ]
     .spacing(12);
 
     let stats_card = components::settings_card(
         theme_cfg,
-        "STORAGE & INDEX METRICS",
+        "Storage & Index Metrics",
         column![
             storage_stats_row1,
             storage_stats_row2,
@@ -560,7 +641,7 @@ fn view_library<'a>(
 
     let folders_card = components::settings_card(
         theme_cfg,
-        "SCANNED MUSIC DIRECTORIES",
+        "Scanned Music Directories",
         column![
             row![
                 text("Audio files inside these directories are indexed recursively.")
@@ -631,7 +712,7 @@ fn view_library<'a>(
 
     let actions_card = components::settings_card(
         theme_cfg,
-        "LIBRARY ACTIONS & MAINTENANCE",
+        "Library Actions & Maintenance",
         column![
             // Action 1: Reindex
             row![
@@ -719,7 +800,7 @@ fn view_debug<'a>(
     // Audio Pipeline Architecture Card
     let audio_pipeline_card = components::settings_card(
         theme_cfg,
-        "LOCK-FREE REALTIME AUDIO PIPELINE",
+        "Lock-Free Realtime Audio Pipeline",
         column![
             text("Dedicated audio decoding thread completely decoupled from the UI event loop")
                 .size(12)
@@ -770,7 +851,7 @@ fn view_debug<'a>(
     // Embedded Storage Pipeline Card
     let db_pipeline_card = components::settings_card(
         theme_cfg,
-        "SQLITE WAL DATABASE PIPELINE",
+        "SQLite WAL Database Pipeline",
         column![
             text("Windowed queries and B-Tree indexing preserve a 30-50 MB RAM baseline")
                 .size(12)
@@ -818,7 +899,7 @@ fn view_debug<'a>(
     // Plugins & Extension Pipeline Card
     let plugins_card = components::settings_card(
         theme_cfg,
-        "EXTENSIBILITY & PLUGINS PIPELINE",
+        "Extensibility & Plugins Pipeline",
         column![
             text("Plugin manager event dispatch system")
                 .size(12)
@@ -844,7 +925,7 @@ fn view_debug<'a>(
     // Environment & System Paths Card
     let env_card = components::settings_card(
         theme_cfg,
-        "SYSTEM ENVIRONMENT & PATHS",
+        "System Environment & Paths",
         column![
             text("Platform runtime and filesystem locations")
                 .size(12)

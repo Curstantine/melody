@@ -76,9 +76,9 @@ pub fn view<'a>(
                 let year_str = album.year.map(|y| format!("{}", y)).unwrap_or_default();
                 let meta = container(
                     column![
-                        text(&album.album).size(13).color(theme_cfg.text_color()),
+                        components::cjk_text(&album.album).size(13).color(theme_cfg.text_color()),
                         row![
-                            text(&album.artist)
+                            components::cjk_text(&album.artist)
                                 .size(11)
                                 .color(theme_cfg.text_muted_color())
                                 .width(Length::Fill),
@@ -137,8 +137,8 @@ pub fn view<'a>(
                 };
 
                 let title_block = column![
-                    text(&album.album).size(13).color(theme_cfg.text_color()),
-                    text(subtitle).size(11).color(theme_cfg.text_muted_color()),
+                    components::cjk_text(&album.album).size(13).color(theme_cfg.text_color()),
+                    components::cjk_text(subtitle).size(11).color(theme_cfg.text_muted_color()),
                 ]
                 .spacing(2)
                 .width(Length::Fill);

@@ -37,8 +37,8 @@ pub fn view<'a>(
 
     let track_details = match current_track {
         Some(track) => column![
-            text(&track.title).size(13).color(bar_fg),
-            text(format!("{} • {}", track.artist, track.album))
+            components::cjk_text(&track.title).size(13).color(bar_fg),
+            components::cjk_text(format!("{} • {}", track.artist, track.album))
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
         ]

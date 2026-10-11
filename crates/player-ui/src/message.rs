@@ -90,6 +90,8 @@ pub enum Message {
     SelectSettingsTab(SettingsTab),
     SelectTheme(String),
     ReloadThemes,
+    SelectFont(String),
+    CustomFontInputChanged(String),
 
     // Library Maintenance
     AddLibraryFolderClicked,

@@ -2,6 +2,7 @@ use iced::widget::{container, row, text, Space};
 use iced::{Alignment, Element, Length};
 use player_core::{format_duration, AlbumSummary, ArtistSummary, Track};
 
+use crate::components;
 use crate::icons;
 use crate::message::{Message, ViewTab};
 use crate::theme::{styles, ThemeConfig};
@@ -46,7 +47,7 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
             };
 
             let filter_indicator: Element<'a, Message> = if !ctx.search_query.trim().is_empty() {
-                text(format!("·  Filter: \"{}\"", ctx.search_query.trim()))
+                components::cjk_text(format!("·  Filter: \"{}\"", ctx.search_query.trim()))
                     .size(11)
                     .color(muted)
                     .into()
@@ -124,11 +125,11 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
                         11.0,
                         muted,
                     ),
-                    text(format!("Now Playing: {} • {}", track.title, track.artist))
+                    components::cjk_text(format!("Now Playing: {} • {}", track.title, track.artist))
                         .size(11)
                         .color(muted),
                     text("·").size(11).color(muted),
-                    text(&track.album).size(11).color(muted),
+                    components::cjk_text(&track.album).size(11).color(muted),
                     text("·").size(11).color(muted),
                     text(track.formatted_duration()).size(11).color(muted),
                 ]

@@ -7,6 +7,12 @@ use crate::icons;
 use crate::message::{Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
+/// A text widget configured with `Shaping::Advanced` to ensure cross-script font fallback
+/// for Chinese, Japanese, Korean, and multilingual Unicode characters without rendering tofu boxes.
+pub fn cjk_text<'a>(content: impl iced::widget::text::IntoFragment<'a>) -> iced::widget::Text<'a> {
+    text(content).shaping(iced::widget::text::Shaping::Advanced)
+}
+
 /// A reusable chip button with active state styling.
 pub fn chip<'a>(
     theme_cfg: &'a ThemeConfig,

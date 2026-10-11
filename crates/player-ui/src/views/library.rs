@@ -186,7 +186,7 @@ pub fn view<'a>(
 
                     let track_row = row![
                         left_action,
-                        text(&track.title)
+                        components::cjk_text(&track.title)
                             .size(13)
                             .color(if is_active {
                                 theme_cfg.primary_color()
@@ -194,11 +194,11 @@ pub fn view<'a>(
                                 theme_cfg.text_color()
                             })
                             .width(Length::FillPortion(4)),
-                        text(&track.artist)
+                        components::cjk_text(&track.artist)
                             .size(12)
                             .color(theme_cfg.text_muted_color())
                             .width(Length::FillPortion(3)),
-                        text(&track.album)
+                        components::cjk_text(&track.album)
                             .size(12)
                             .color(theme_cfg.text_muted_color())
                             .width(Length::FillPortion(3)),
@@ -274,12 +274,12 @@ pub fn view<'a>(
 
                     let info_box = container(
                         column![
-                            text(&track.title).size(13).color(if is_active {
+                            components::cjk_text(&track.title).size(13).color(if is_active {
                                 theme_cfg.primary_color()
                             } else {
                                 theme_cfg.text_color()
                             }),
-                            text(&track.artist)
+                            components::cjk_text(&track.artist)
                                 .size(11)
                                 .color(theme_cfg.text_muted_color()),
                             row![

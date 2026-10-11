@@ -58,7 +58,7 @@ pub fn view<'a>(
             if let Some(ref alb_artist) = track.album_artist {
                 if !alb_artist.trim().is_empty() && alb_artist != &track.artist {
                     extra_tags = extra_tags.push(
-                        text(format!("Album Artist: {}", alb_artist))
+                        components::cjk_text(format!("Album Artist: {}", alb_artist))
                             .size(11)
                             .color(theme_cfg.text_muted_color()),
                     );
@@ -67,7 +67,7 @@ pub fn view<'a>(
             if let Some(ref comp) = track.composer {
                 if !comp.trim().is_empty() {
                     extra_tags = extra_tags.push(
-                        text(format!("Composer: {}", comp))
+                        components::cjk_text(format!("Composer: {}", comp))
                             .size(11)
                             .color(theme_cfg.text_muted_color()),
                     );
@@ -76,7 +76,7 @@ pub fn view<'a>(
             if let Some(ref lbl) = track.label {
                 if !lbl.trim().is_empty() {
                     extra_tags = extra_tags.push(
-                        text(format!("Label: {}", lbl))
+                        components::cjk_text(format!("Label: {}", lbl))
                             .size(11)
                             .color(theme_cfg.text_muted_color()),
                     );
@@ -93,14 +93,14 @@ pub fn view<'a>(
             }
 
             let metadata = column![
-                text(&track.title)
+                components::cjk_text(&track.title)
                     .size(22)
                     .color(theme_cfg.text_color()),
-                text(format!("{} • {}", track.artist, track.album))
+                components::cjk_text(format!("{} • {}", track.artist, track.album))
                     .size(15)
                     .color(theme_cfg.text_muted_color()),
                 stars,
-                text(details_items.join("  ·  "))
+                components::cjk_text(details_items.join("  ·  "))
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 extra_tags,
@@ -109,7 +109,7 @@ pub fn view<'a>(
             .align_x(Alignment::Center);
 
             let lyrics_body = if let Some(lyr) = lyrics {
-                text(lyr)
+                components::cjk_text(lyr)
                     .size(15)
                     .color(theme_cfg.text_color())
             } else {

@@ -54,10 +54,17 @@ fn test_cjk_font_bundle() {
         buffer.shape_until_scroll(&mut font_system, false);
 
         println!("=== {:?} shaping for '周杰伦 - 晴天' ===", shaping);
+        let mut missing_glyphs = 0;
         for run in buffer.layout_runs() {
             for glyph in run.glyphs {
                 println!("  Glyph id: {} from font {:?}", glyph.glyph_id, glyph.font_id);
+                if glyph.glyph_id == 0 {
+                    missing_glyphs += 1;
+                }
             }
+        }
+        if shaping == Shaping::Advanced {
+            assert_eq!(missing_glyphs, 0, "Shaping::Advanced must find valid glyphs for all CJK characters");
         }
     }
 }

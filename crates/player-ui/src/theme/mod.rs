@@ -196,12 +196,19 @@ impl ThemeConfig {
         Theme::custom(self.name.clone(), self.to_palette())
     }
 
-    #[allow(dead_code)]
     pub fn font(&self) -> iced::Font {
         if let Some(ref name) = self.font_family {
-            iced::Font {
-                family: iced::font::Family::Name(Box::leak(name.clone().into_boxed_str())),
-                ..iced::Font::DEFAULT
+            match name.as_str() {
+                "System Monospace" | "Monospace" => iced::Font::MONOSPACE,
+                "System Serif" | "Serif" => iced::Font {
+                    family: iced::font::Family::Serif,
+                    ..iced::Font::DEFAULT
+                },
+                "System Sans-Serif" | "Sans-Serif" | "Default" => iced::Font::DEFAULT,
+                _ => {
+                    let family_static: &'static str = Box::leak(name.clone().into_boxed_str());
+                    iced::Font::with_name(family_static)
+                }
             }
         } else {
             iced::Font::DEFAULT
@@ -299,6 +306,11 @@ impl ThemeManager {
         } else {
             false
         }
+    }
+
+    pub fn set_font(&mut self, font_name: Option<String>) {
+        info!("Setting active theme font family to: {:?}", font_name);
+        self.current_config.font_family = font_name;
     }
 
     pub fn theme_names(&self) -> Vec<String> {

@@ -59,7 +59,7 @@ pub fn view<'a>(
                     column![
                         avatar,
                         Space::with_height(6),
-                        text(&artist.artist)
+                        components::cjk_text(&artist.artist)
                             .size(13)
                             .color(theme_cfg.text_color()),
                         text(format!(
@@ -120,7 +120,7 @@ pub fn view<'a>(
                 });
 
                 let title_block = column![
-                    text(&artist.artist)
+                    components::cjk_text(&artist.artist)
                         .size(13)
                         .color(theme_cfg.text_color()),
                     text(format!(

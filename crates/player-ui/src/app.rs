@@ -76,6 +76,7 @@ pub struct App {
     is_scanning: bool,
     font_paths: Vec<PathBuf>,
     primary_font: Option<String>,
+    custom_font_input: String,
 }
 
 impl App {
@@ -93,7 +94,7 @@ impl App {
         let audio_engine = AudioEngine::new();
         let audio_controller = audio_engine.controller();
         let plugin_manager = PluginManager::new();
-        let theme_manager = ThemeManager::new();
+        let mut theme_manager = ThemeManager::new();
 
         let page_size = DEFAULT_PAGE_SIZE;
         let total_tracks = db.get_total_track_count(None).unwrap_or(0);
@@ -105,6 +106,10 @@ impl App {
         let library_folders = db.get_library_folders().unwrap_or_default();
         let font_paths = crate::font::discover_cjk_font_paths();
         let primary_font = font_paths.first().and_then(|p| crate::font::query_font_family(p));
+
+        if let Some(ref fam) = primary_font {
+            theme_manager.set_font(Some(fam.clone()));
+        }
 
         let app = Self {
             db,
@@ -157,6 +162,7 @@ impl App {
             is_scanning: false,
             font_paths,
             primary_font,
+            custom_font_input: String::new(),
         };
 
         (app, Task::none())
@@ -630,6 +636,18 @@ impl App {
                 Task::none()
             }
 
+            Message::SelectFont(font_name) => {
+                info!("Selected font: {}", font_name);
+                self.primary_font = Some(font_name.clone());
+                self.theme_manager.set_font(Some(font_name));
+                Task::none()
+            }
+
+            Message::CustomFontInputChanged(input) => {
+                self.custom_font_input = input;
+                Task::none()
+            }
+
             Message::TracksLoaded(tracks, total) => {
                 self.visible_tracks = tracks;
                 self.total_tracks = total;
@@ -864,6 +882,23 @@ impl App {
         )
     }
 
+    fn get_available_fonts(&self) -> Vec<String> {
+        let mut fonts = Vec::new();
+        fonts.push("Default".to_string());
+        fonts.push("System Sans-Serif".to_string());
+        fonts.push("System Monospace".to_string());
+        fonts.push("System Serif".to_string());
+
+        for path in &self.font_paths {
+            if let Some(fam) = crate::font::query_font_family(path) {
+                if !fonts.contains(&fam) {
+                    fonts.push(fam);
+                }
+            }
+        }
+        fonts
+    }
+
     pub fn view(&self) -> Element<'_, Message> {
         let theme_cfg = &self.theme_manager.current_config;
 
@@ -885,10 +920,10 @@ impl App {
         };
 
         let top_tabs = row![
-            tab_btn("LIBRARY", ViewTab::Tracks),
-            tab_btn("NOW PLAYING", ViewTab::Lyrics),
-            tab_btn("ALBUMS", ViewTab::Albums),
-            tab_btn("ARTISTS", ViewTab::Artists),
+            tab_btn("Library", ViewTab::Tracks),
+            tab_btn("Now Playing", ViewTab::Lyrics),
+            tab_btn("Albums", ViewTab::Albums),
+            tab_btn("Artists", ViewTab::Artists),
         ]
         .spacing(4)
         .align_y(iced::Alignment::Center);
@@ -967,6 +1002,8 @@ impl App {
                         page_size: self.page_size,
                         primary_font: self.primary_font.as_deref(),
                         font_paths: &self.font_paths,
+                        available_fonts: self.get_available_fonts(),
+                        custom_font_input: self.custom_font_input.clone(),
                         library_folders: &self.library_folders,
                         total_tracks: self.total_tracks,
                         total_albums: self.albums.len(),
@@ -975,7 +1012,6 @@ impl App {
                         db_size_bytes,
                         cache_file_count: cache_stats.file_count,
                         cache_size_bytes: cache_stats.total_bytes,
-                        in_memory_covers_count: self.album_covers.len(),
                         is_scanning: self.is_scanning,
                         volume: self.volume,
                         active_plugins_count: self.plugin_manager.plugin_count(),
