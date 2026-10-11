@@ -98,13 +98,11 @@ pub fn view<'a>(
                 },
             ),
             Space::with_width(4),
-            text("List")
-                .size(11)
-                .color(if view_mode == ViewMode::List {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                }),
+            text("List").size(11).color(if view_mode == ViewMode::List {
+                theme_cfg.primary_color()
+            } else {
+                theme_cfg.text_muted_color()
+            }),
         ]
         .align_y(Alignment::Center),
     )
@@ -114,9 +112,7 @@ pub fn view<'a>(
 
     let header_bar = row![
         row![
-            text("Sort:")
-                .size(11)
-                .color(theme_cfg.text_muted_color()),
+            text("Sort:").size(11).color(theme_cfg.text_muted_color()),
             Space::with_width(4),
             sort_chip("Title", AlbumSortField::Title),
             sort_chip("Artist", AlbumSortField::Artist),
@@ -130,7 +126,7 @@ pub fn view<'a>(
         tile_btn,
         list_btn,
     ]
-    .spacing(8)
+    .spacing(4)
     .align_y(Alignment::Center)
     .padding(iced::Padding {
         top: 0.0,
@@ -188,9 +184,11 @@ pub fn view<'a>(
                     .clip(true)
                     .style(move |_theme| cover_border_style)
                 } else {
-                    container(
-                        icons::icon(icons::DISC_SVG, 54.0, theme_cfg.primary_color()),
-                    )
+                    container(icons::icon(
+                        icons::DISC_SVG,
+                        54.0,
+                        theme_cfg.primary_color(),
+                    ))
                     .width(170)
                     .height(170)
                     .center_x(170)
@@ -201,17 +199,13 @@ pub fn view<'a>(
                 let year_str = album.year.map(|y| format!("{}", y)).unwrap_or_default();
                 let meta = container(
                     column![
-                        text(&album.album)
-                            .size(13)
-                            .color(theme_cfg.text_color()),
+                        text(&album.album).size(13).color(theme_cfg.text_color()),
                         row![
                             text(&album.artist)
                                 .size(11)
                                 .color(theme_cfg.text_muted_color())
                                 .width(Length::Fill),
-                            text(year_str)
-                                .size(11)
-                                .color(theme_cfg.text_muted_color()),
+                            text(year_str).size(11).color(theme_cfg.text_muted_color()),
                         ]
                         .align_y(Alignment::Center),
                         row![
@@ -281,9 +275,11 @@ pub fn view<'a>(
                     .clip(true)
                     .style(move |_theme| list_cover_style)
                 } else {
-                    container(
-                        icons::icon(icons::DISC_SVG, 20.0, theme_cfg.primary_color()),
-                    )
+                    container(icons::icon(
+                        icons::DISC_SVG,
+                        20.0,
+                        theme_cfg.primary_color(),
+                    ))
                     .width(42)
                     .height(42)
                     .center_x(42)
@@ -298,12 +294,8 @@ pub fn view<'a>(
                 };
 
                 let title_block = column![
-                    text(&album.album)
-                        .size(13)
-                        .color(theme_cfg.text_color()),
-                    text(subtitle)
-                        .size(11)
-                        .color(theme_cfg.text_muted_color()),
+                    text(&album.album).size(13).color(theme_cfg.text_color()),
+                    text(subtitle).size(11).color(theme_cfg.text_muted_color()),
                 ]
                 .spacing(2)
                 .width(Length::Fill);
@@ -320,15 +312,10 @@ pub fn view<'a>(
                 .align_x(Alignment::End)
                 .width(100);
 
-                let album_row = row![
-                    disc_thumbnail,
-                    Space::with_width(12),
-                    title_block,
-                    details,
-                ]
-                .spacing(4)
-                .align_y(Alignment::Center)
-                .padding([6, 12]);
+                let album_row = row![disc_thumbnail, Space::with_width(12), title_block, details,]
+                    .spacing(4)
+                    .align_y(Alignment::Center)
+                    .padding([6, 12]);
 
                 let row_btn = button(album_row)
                     .style(styles::ghost_button(theme_cfg, false))

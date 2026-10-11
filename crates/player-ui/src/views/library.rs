@@ -91,7 +91,13 @@ pub fn view<'a>(
     ]
     .spacing(8)
     .align_y(Alignment::Center)
-    .width(Length::Fill);
+    .width(Length::Fill)
+    .padding(iced::Padding {
+        top: 0.0,
+        right: 15.0,
+        bottom: 0.0,
+        left: 0.0,
+    });
 
     // 2. Table Header (for List view)
     let dir_arrow = match sort_dir {
@@ -139,7 +145,7 @@ pub fn view<'a>(
     .align_y(Alignment::Center)
     .padding(iced::Padding {
         top: 2.0,
-        right: 12.0,
+        right: 15.0,
         bottom: 6.0,
         left: 12.0,
     });
@@ -405,8 +411,8 @@ pub fn view<'a>(
         .spacing(4)
         .padding(iced::Padding {
             top: 8.0,
-            right: 16.0,
-            bottom: 16.0,
+            right: 1.0,
+            bottom: 0.0,
             left: 16.0,
         })
         .height(Length::Fill)
