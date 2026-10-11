@@ -127,13 +127,8 @@ pub fn header_tab_button(
             background: Some(Background::Color(bg)),
             text_color: text,
             border: Border {
-                color: if is_active {
-                    cfg.primary_color()
-                } else {
-                    Color::TRANSPARENT
-                },
-                width: if is_active { 1.0 } else { 0.0 },
                 radius: Radius::from(4.0),
+                ..Border::default()
             },
             shadow: Shadow::default(),
         }
