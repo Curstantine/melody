@@ -1188,7 +1188,7 @@ impl App {
 }
 
 fn get_database_path() -> PathBuf {
-    if let Some(proj_dirs) = ProjectDirs::from("org", "vibecore", "vibecore") {
+    if let Some(proj_dirs) = ProjectDirs::from("moe", "curstantine", "vibecore") {
         let data_dir = proj_dirs.data_dir();
         let _ = std::fs::create_dir_all(data_dir);
         data_dir.join("library.db")

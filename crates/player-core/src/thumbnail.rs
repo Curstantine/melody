@@ -15,7 +15,7 @@ pub const DEFAULT_THUMBNAIL_SIZE: u32 = 200;
 
 /// Returns the platform-specific directory where cover thumbnails are cached on disk
 pub fn thumbnail_cache_dir() -> PathBuf {
-    if let Some(proj) = ProjectDirs::from("org", "vibecore", "vibecore") {
+    if let Some(proj) = ProjectDirs::from("moe", "curstantine", "vibecore") {
         proj.cache_dir().join("thumbnails")
     } else {
         PathBuf::from(".cache/thumbnails")

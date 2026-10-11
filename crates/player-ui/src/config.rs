@@ -73,7 +73,7 @@ impl Default for AppConfig {
 
 impl AppConfig {
     pub fn config_path() -> PathBuf {
-        if let Some(proj_dirs) = ProjectDirs::from("org", "vibecore", "vibecore") {
+        if let Some(proj_dirs) = ProjectDirs::from("moe", "curstantine", "vibecore") {
             let config_dir = proj_dirs.config_dir();
             let _ = fs::create_dir_all(config_dir);
             config_dir.join("config.toml")

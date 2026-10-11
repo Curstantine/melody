@@ -242,7 +242,7 @@ impl ThemeManager {
     }
 
     pub fn theme_dir() -> PathBuf {
-        if let Some(proj_dirs) = ProjectDirs::from("org", "vibecore", "vibecore") {
+        if let Some(proj_dirs) = ProjectDirs::from("moe", "curstantine", "vibecore") {
             proj_dirs.config_dir().join("themes")
         } else {
             PathBuf::from("themes")

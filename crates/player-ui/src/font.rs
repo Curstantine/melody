@@ -19,7 +19,7 @@ pub fn discover_cjk_font_paths() -> Vec<PathBuf> {
         scan_dir_for_fonts(&local_fonts, &mut candidate_paths);
     }
 
-    if let Some(proj_dirs) = directories::ProjectDirs::from("org", "vibecore", "vibecore") {
+    if let Some(proj_dirs) = directories::ProjectDirs::from("moe", "curstantine", "vibecore") {
         let user_fonts = proj_dirs.config_dir().join("fonts");
         if user_fonts.exists() {
             scan_dir_for_fonts(&user_fonts, &mut candidate_paths);
