@@ -5,7 +5,7 @@ use player_core::Track;
 
 use crate::icons;
 use crate::message::Message;
-use crate::theme::ThemeConfig;
+use crate::theme::{styles, ThemeConfig};
 
 pub fn view<'a>(
     theme_cfg: &'a ThemeConfig,
@@ -149,7 +149,9 @@ pub fn view<'a>(
                 Space::with_height(16),
                 metadata,
                 Space::with_height(20),
-                scrollable(lyrics_body).height(Length::Fill),
+                scrollable(lyrics_body)
+                    .height(Length::Fill)
+                    .style(styles::scrollable_style(theme_cfg)),
             ]
             .spacing(12)
             .align_x(Alignment::Center)

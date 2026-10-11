@@ -257,6 +257,7 @@ pub fn view<'a>(
     scrollable(content)
         .width(Length::Fill)
         .height(Length::Fill)
+        .style(styles::scrollable_style(theme_cfg))
         .into()
 }
 

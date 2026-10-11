@@ -83,7 +83,13 @@ pub fn view<'a>(
     .on_press(Message::SetLibraryViewMode(ViewMode::Tile));
 
     let toolbar = row![
-        icons::icon(icons::SEARCH_SVG, 15.0, theme_cfg.text_muted_color()),
+        container(icons::icon(
+            icons::SEARCH_SVG,
+            14.0,
+            theme_cfg.text_muted_color(),
+        ))
+        .width(36)
+        .center_x(36),
         search_input,
         Space::with_width(12),
         list_mode_btn,
@@ -147,7 +153,7 @@ pub fn view<'a>(
         top: 2.0,
         right: 15.0,
         bottom: 6.0,
-        left: 12.0,
+        left: 0.0,
     });
 
     // 3. Track Content (List vs Tile)
@@ -267,12 +273,17 @@ pub fn view<'a>(
                     ]
                     .spacing(8)
                     .align_y(Alignment::Center)
-                    .padding([6, 12]);
+                    .padding(iced::Padding {
+                        top: 5.0,
+                        right: 15.0,
+                        bottom: 5.0,
+                        left: 0.0,
+                    });
 
                     let row_container = container(track_row)
                         .style(styles::table_row_container(
                             theme_cfg,
-                            is_active || is_selected,
+                            is_active || is_selected || is_hovered,
                         ))
                         .width(Length::Fill);
 
@@ -287,6 +298,7 @@ pub fn view<'a>(
                 scrollable(track_items)
                     .height(Length::Fill)
                     .width(Length::Fill)
+                    .style(styles::scrollable_style(theme_cfg))
                     .into()
             }
             ViewMode::Tile => {
@@ -396,6 +408,7 @@ pub fn view<'a>(
                 )
                 .height(Length::Fill)
                 .width(Length::Fill)
+                .style(styles::scrollable_style(theme_cfg))
                 .into()
             }
         }
@@ -413,7 +426,7 @@ pub fn view<'a>(
             top: 8.0,
             right: 1.0,
             bottom: 0.0,
-            left: 16.0,
+            left: 0.0,
         })
         .height(Length::Fill)
         .width(Length::Fill)

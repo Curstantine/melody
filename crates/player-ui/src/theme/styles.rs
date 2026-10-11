@@ -1,5 +1,5 @@
 use iced::border::Radius;
-use iced::widget::{button, container, slider, text_input};
+use iced::widget::{button, container, scrollable, slider, text_input};
 use iced::{Background, Border, Color, Shadow, Theme};
 
 use super::ThemeConfig;
@@ -218,15 +218,7 @@ pub fn table_row_container(
         container::Style {
             background: Some(Background::Color(bg)),
             text_color: Some(cfg.text_color()),
-            border: Border {
-                color: if is_selected {
-                    cfg.primary_color()
-                } else {
-                    Color::TRANSPARENT
-                },
-                width: if is_selected { 1.0 } else { 0.0 },
-                radius: Radius::from(4.0),
-            },
+            border: Border::default(),
             shadow: Shadow::default(),
         }
     }
@@ -405,5 +397,51 @@ fn blend_color(c1: Color, c2: Color, factor: f32) -> Color {
         g: c1.g * (1.0 - factor) + c2.g * factor,
         b: c1.b * (1.0 - factor) + c2.b * factor,
         a: c1.a,
+    }
+}
+
+pub fn scrollable_style(
+    cfg: &ThemeConfig,
+) -> impl Fn(&Theme, scrollable::Status) -> scrollable::Style + '_ {
+    move |_theme, status| {
+        let (vertical_hovered, horizontal_hovered) = match status {
+            scrollable::Status::Hovered {
+                is_horizontal_scrollbar_hovered,
+                is_vertical_scrollbar_hovered,
+            } => (is_vertical_scrollbar_hovered, is_horizontal_scrollbar_hovered),
+            scrollable::Status::Dragged {
+                is_horizontal_scrollbar_dragged,
+                is_vertical_scrollbar_dragged,
+            } => (is_vertical_scrollbar_dragged, is_horizontal_scrollbar_dragged),
+            scrollable::Status::Active => (false, false),
+        };
+
+        let make_rail = |is_hovered: bool| {
+            let scroller_color = if is_hovered {
+                cfg.text_muted_color()
+            } else {
+                blend_color(cfg.border_color(), cfg.text_muted_color(), 0.35)
+            };
+
+            scrollable::Rail {
+                background: Some(Background::Color(blend_color(
+                    cfg.bg_color(),
+                    cfg.border_color(),
+                    0.25,
+                ))),
+                border: Border::default(),
+                scroller: scrollable::Scroller {
+                    color: scroller_color,
+                    border: Border::default(),
+                },
+            }
+        };
+
+        scrollable::Style {
+            container: container::Style::default(),
+            vertical_rail: make_rail(vertical_hovered),
+            horizontal_rail: make_rail(horizontal_hovered),
+            gap: None,
+        }
     }
 }

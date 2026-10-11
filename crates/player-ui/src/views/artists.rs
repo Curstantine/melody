@@ -159,6 +159,7 @@ pub fn view<'a>(
 
             scrollable(container(tiles.wrap()).width(Length::Fill))
                 .height(Length::Fill)
+                .style(styles::scrollable_style(theme_cfg))
                 .into()
         }
         ViewMode::List => {
@@ -213,7 +214,10 @@ pub fn view<'a>(
                 artist_list = artist_list.push(row_btn);
             }
 
-            scrollable(artist_list).height(Length::Fill).into()
+            scrollable(artist_list)
+                .height(Length::Fill)
+                .style(styles::scrollable_style(theme_cfg))
+                .into()
         }
     };
 
