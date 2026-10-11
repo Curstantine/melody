@@ -1,5 +1,9 @@
+#[cfg(target_os = "linux")]
+pub mod mpris;
 pub mod manager;
 pub mod types;
 
 pub use manager::{DiscordRpcPlugin, LyricsPlugin, Plugin, PluginManager};
-pub use types::{PluginHook, PluginMetadata, PluginResult, TrackMetadata};
+#[cfg(target_os = "linux")]
+pub use mpris::MprisPlugin;
+pub use types::{PlayerAction, PluginHook, PluginMetadata, PluginResult, TrackMetadata};

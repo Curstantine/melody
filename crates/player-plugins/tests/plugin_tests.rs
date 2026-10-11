@@ -74,3 +74,99 @@ fn test_plugin_manager_lifecycle() {
     let no_lyrics = manager.fetch_lyrics("Unknown", "Song");
     assert_eq!(no_lyrics, None);
 }
+
+#[test]
+fn test_plugin_hooks_dispatch() {
+    use std::sync::atomic::AtomicU64;
+
+    struct FullPlugin {
+        meta: PluginMetadata,
+        playing: Arc<AtomicBool>,
+        position: Arc<AtomicU64>,
+        repeat: Arc<AtomicBool>,
+        shuffle: Arc<AtomicBool>,
+    }
+
+    impl Plugin for FullPlugin {
+        fn metadata(&self) -> &PluginMetadata {
+            &self.meta
+        }
+        fn on_playback_status_change(&self, is_playing: bool) -> Result<(), String> {
+            self.playing.store(is_playing, Ordering::SeqCst);
+            Ok(())
+        }
+        fn on_position_change(&self, pos: u64) -> Result<(), String> {
+            self.position.store(pos, Ordering::SeqCst);
+            Ok(())
+        }
+        fn on_repeat_change(&self, is_repeat: bool) -> Result<(), String> {
+            self.repeat.store(is_repeat, Ordering::SeqCst);
+            Ok(())
+        }
+        fn on_shuffle_change(&self, is_shuffle: bool) -> Result<(), String> {
+            self.shuffle.store(is_shuffle, Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    let manager = PluginManager::new();
+    let playing = Arc::new(AtomicBool::new(false));
+    let position = Arc::new(AtomicU64::new(0));
+    let repeat = Arc::new(AtomicBool::new(false));
+    let shuffle = Arc::new(AtomicBool::new(false));
+
+    let plugin = Arc::new(FullPlugin {
+        meta: PluginMetadata {
+            id: "test.full".to_string(),
+            name: "Full".to_string(),
+            version: "1.0.0".to_string(),
+            author: "Tester".to_string(),
+            description: "".to_string(),
+        },
+        playing: playing.clone(),
+        position: position.clone(),
+        repeat: repeat.clone(),
+        shuffle: shuffle.clone(),
+    });
+
+    manager.register_plugin(plugin);
+
+    manager.on_playback_status_change(true);
+    assert!(playing.load(Ordering::SeqCst));
+
+    manager.on_position_change(42000);
+    assert_eq!(position.load(Ordering::SeqCst), 42000);
+
+    manager.on_repeat_change(true);
+    assert!(repeat.load(Ordering::SeqCst));
+
+    manager.on_shuffle_change(true);
+    assert!(shuffle.load(Ordering::SeqCst));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_mpris_plugin_instantiation_and_metadata() {
+    use player_plugins::MprisPlugin;
+
+    let (tx, _rx) = crossbeam_channel::unbounded();
+    let mpris = MprisPlugin::new(tx);
+    assert_eq!(mpris.metadata().id, "builtin.mpris");
+
+    let meta = TrackMetadata {
+        title: "Test Track".to_string(),
+        artist: "Test Artist".to_string(),
+        album: "Test Album".to_string(),
+        duration_ms: 240000,
+        file_path: "/music/test.mp3".to_string(),
+    };
+
+    assert!(mpris.on_track_change(&meta).is_ok());
+    assert!(mpris.on_playback_status_change(true).is_ok());
+    assert!(mpris.on_position_change(5000).is_ok());
+    assert!(mpris.on_seeked(6000).is_ok());
+    assert!(mpris.on_volume_change(0.8).is_ok());
+    assert!(mpris.on_repeat_change(true).is_ok());
+    assert!(mpris.on_shuffle_change(true).is_ok());
+    assert!(mpris.on_playback_end().is_ok());
+}

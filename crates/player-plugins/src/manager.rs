@@ -12,6 +12,24 @@ pub trait Plugin: Send + Sync {
     fn on_playback_end(&self) -> Result<(), String> {
         Ok(())
     }
+    fn on_playback_status_change(&self, _is_playing: bool) -> Result<(), String> {
+        Ok(())
+    }
+    fn on_position_change(&self, _position_ms: u64) -> Result<(), String> {
+        Ok(())
+    }
+    fn on_seeked(&self, _position_ms: u64) -> Result<(), String> {
+        Ok(())
+    }
+    fn on_volume_change(&self, _volume: f32) -> Result<(), String> {
+        Ok(())
+    }
+    fn on_repeat_change(&self, _is_repeat: bool) -> Result<(), String> {
+        Ok(())
+    }
+    fn on_shuffle_change(&self, _is_shuffle: bool) -> Result<(), String> {
+        Ok(())
+    }
     fn fetch_lyrics(&self, _artist: &str, _title: &str) -> Result<Option<String>, String> {
         Ok(None)
     }
@@ -127,6 +145,66 @@ impl PluginManager {
             for p in list.iter() {
                 if let Err(e) = p.on_playback_end() {
                     error!("Plugin {} on_playback_end error: {}", p.metadata().id, e);
+                }
+            }
+        }
+    }
+
+    pub fn on_playback_status_change(&self, is_playing: bool) {
+        if let Ok(list) = self.plugins.read() {
+            for p in list.iter() {
+                if let Err(e) = p.on_playback_status_change(is_playing) {
+                    error!("Plugin {} on_playback_status_change error: {}", p.metadata().id, e);
+                }
+            }
+        }
+    }
+
+    pub fn on_position_change(&self, position_ms: u64) {
+        if let Ok(list) = self.plugins.read() {
+            for p in list.iter() {
+                if let Err(e) = p.on_position_change(position_ms) {
+                    error!("Plugin {} on_position_change error: {}", p.metadata().id, e);
+                }
+            }
+        }
+    }
+
+    pub fn on_seeked(&self, position_ms: u64) {
+        if let Ok(list) = self.plugins.read() {
+            for p in list.iter() {
+                if let Err(e) = p.on_seeked(position_ms) {
+                    error!("Plugin {} on_seeked error: {}", p.metadata().id, e);
+                }
+            }
+        }
+    }
+
+    pub fn on_volume_change(&self, volume: f32) {
+        if let Ok(list) = self.plugins.read() {
+            for p in list.iter() {
+                if let Err(e) = p.on_volume_change(volume) {
+                    error!("Plugin {} on_volume_change error: {}", p.metadata().id, e);
+                }
+            }
+        }
+    }
+
+    pub fn on_repeat_change(&self, is_repeat: bool) {
+        if let Ok(list) = self.plugins.read() {
+            for p in list.iter() {
+                if let Err(e) = p.on_repeat_change(is_repeat) {
+                    error!("Plugin {} on_repeat_change error: {}", p.metadata().id, e);
+                }
+            }
+        }
+    }
+
+    pub fn on_shuffle_change(&self, is_shuffle: bool) {
+        if let Ok(list) = self.plugins.read() {
+            for p in list.iter() {
+                if let Err(e) = p.on_shuffle_change(is_shuffle) {
+                    error!("Plugin {} on_shuffle_change error: {}", p.metadata().id, e);
                 }
             }
         }

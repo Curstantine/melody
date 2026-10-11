@@ -312,6 +312,36 @@ impl LibraryDatabase {
         Ok(track)
     }
 
+    pub fn get_next_track(&self, current_id: i64) -> Result<Option<Track>, DbError> {
+        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
+        let mut stmt = conn.prepare_cached(
+            r#"
+            SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
+                   track_num, disc_num, year, composer, label,
+                   musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
+            FROM tracks WHERE id > ?1 ORDER BY id ASC LIMIT 1
+            "#,
+        )?;
+
+        let track = stmt.query_row(params![current_id], map_track_row).optional()?;
+        if track.is_some() {
+            return Ok(track);
+        }
+
+        // Wrap around to first track
+        let mut stmt_first = conn.prepare_cached(
+            r#"
+            SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
+                   track_num, disc_num, year, composer, label,
+                   musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
+            FROM tracks ORDER BY id ASC LIMIT 1
+            "#,
+        )?;
+
+        let first_track = stmt_first.query_row([], map_track_row).optional()?;
+        Ok(first_track)
+    }
+
     pub fn get_total_track_count(&self, filter: Option<&str>) -> Result<usize, DbError> {
         let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
         let count: i64 = match filter {

@@ -2,12 +2,15 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
+use crossbeam_channel::Receiver;
 use directories::ProjectDirs;
 use iced::widget::{button, column, container, image, row, Space};
 use iced::{Element, Length, Subscription, Task, Theme};
 use player_audio::{AudioController, AudioEngine};
 use player_core::{AlbumSummary, ArtistSummary, LibraryDatabase, SortDirection, SortField, Track};
-use player_plugins::{PluginManager, TrackMetadata};
+#[cfg(target_os = "linux")]
+use player_plugins::MprisPlugin;
+use player_plugins::{PlayerAction, PluginManager, TrackMetadata};
 use tracing::{error, info};
 
 use crate::components::{border_vert, text};
@@ -74,12 +77,16 @@ pub struct App {
     is_shuffle: bool,
     is_repeat: bool,
     loved_tracks: HashSet<i64>,
+    current_palette: player_core::ExtractedColors,
+    start_time: std::time::Instant,
 
     // Library Scanning & Fonts
     is_scanning: bool,
     available_fonts: Vec<String>,
     primary_font: Option<String>,
     custom_font_input: String,
+
+    mpris_rx: Option<Receiver<PlayerAction>>,
 }
 
 impl App {
@@ -104,6 +111,18 @@ impl App {
         audio_controller.set_volume(config.volume);
 
         let plugin_manager = PluginManager::new();
+
+        #[cfg(target_os = "linux")]
+        let (mpris_plugin, mpris_rx) = {
+            let (tx, rx) = crossbeam_channel::unbounded();
+            (std::sync::Arc::new(MprisPlugin::new(tx)), Some(rx))
+        };
+        #[cfg(target_os = "linux")]
+        plugin_manager.register_plugin(mpris_plugin);
+
+        #[cfg(not(target_os = "linux"))]
+        let mpris_rx = None;
+
         let mut theme_manager = ThemeManager::new();
         theme_manager.set_theme(&config.theme_name);
         if let Some(ref font) = config.primary_font {
@@ -184,11 +203,15 @@ impl App {
             is_shuffle: config.is_shuffle,
             is_repeat: config.is_repeat,
             loved_tracks: HashSet::new(),
+            current_palette: player_core::ExtractedColors::default(),
+            start_time: std::time::Instant::now(),
 
             is_scanning: false,
             available_fonts,
             primary_font,
             custom_font_input: String::new(),
+
+            mpris_rx,
         };
 
         let initial_task = if app.active_tab == ViewTab::Albums {
@@ -212,18 +235,29 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        // Poll audio playback status at 50ms intervals (~20 FPS smooth seekbar)
-        iced::time::every(Duration::from_millis(50)).map(|_| Message::AudioTick)
+        // Poll audio playback status and drive smooth background animations
+        let interval = if self.active_tab == ViewTab::Lyrics {
+            Duration::from_millis(33)
+        } else {
+            Duration::from_millis(50)
+        };
+        iced::time::every(interval).map(|_| Message::AudioTick)
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::AudioTick => {
                 let status = self.audio_controller.status();
+                let was_playing = self.is_playing;
                 self.is_playing = status.is_playing();
+
+                if was_playing != self.is_playing {
+                    self.plugin_manager.on_playback_status_change(self.is_playing);
+                }
 
                 if !self.is_seeking {
                     self.position_ms = status.position_ms();
+                    self.plugin_manager.on_position_change(self.position_ms);
                 }
 
                 if status.duration_ms() > 0 {
@@ -237,6 +271,17 @@ impl App {
                     return self.update(Message::NextTrack);
                 }
 
+                // Drain any incoming MPRIS actions
+                let mut mpris_action = None;
+                if let Some(ref rx) = self.mpris_rx {
+                    while let Ok(action) = rx.try_recv() {
+                        mpris_action = Some(action);
+                    }
+                }
+                if let Some(action) = mpris_action {
+                    return self.update(Message::MprisAction(action));
+                }
+
                 Task::none()
             }
 
@@ -245,10 +290,16 @@ impl App {
                     info!("Playing track: {} (ID {})", track.title, track.id);
                     let path = PathBuf::from(&track.file_path);
 
-                    let cover_handle = player_core::get_or_create_thumbnail(&path, 500)
-                        .or_else(|| player_core::extract_cover_art(&path))
-                        .map(image::Handle::from_bytes);
-                    self.current_cover = cover_handle;
+                    let cover_bytes = player_core::get_or_create_thumbnail(&path, 500)
+                        .or_else(|| player_core::extract_cover_art(&path));
+
+                    if let Some(ref bytes) = cover_bytes {
+                        self.current_palette = player_core::extract_palette(bytes);
+                    } else {
+                        self.current_palette = player_core::ExtractedColors::default();
+                    }
+
+                    self.current_cover = cover_bytes.map(image::Handle::from_bytes);
 
                     self.audio_controller.load(path, true);
                     self.current_track = Some(track.clone());
@@ -318,12 +369,14 @@ impl App {
             Message::ToggleShuffle => {
                 self.is_shuffle = !self.is_shuffle;
                 info!("Shuffle toggled: {}", self.is_shuffle);
+                self.plugin_manager.on_shuffle_change(self.is_shuffle);
                 self.save_config_task()
             }
 
             Message::ToggleRepeat => {
                 self.is_repeat = !self.is_repeat;
                 info!("Repeat toggled: {}", self.is_repeat);
+                self.plugin_manager.on_repeat_change(self.is_repeat);
                 self.save_config_task()
             }
 
@@ -370,13 +423,83 @@ impl App {
                 self.audio_controller
                     .seek(Duration::from_millis(self.seek_pos_ms));
                 self.position_ms = self.seek_pos_ms;
+                self.plugin_manager.on_seeked(self.position_ms);
                 Task::none()
             }
 
             Message::VolumeChanged(vol) => {
                 self.volume = vol;
                 self.audio_controller.set_volume(vol);
+                self.plugin_manager.on_volume_change(vol);
                 self.save_config_task()
+            }
+
+            Message::MprisAction(action) => {
+                match action {
+                    PlayerAction::Play => {
+                        self.audio_controller.play();
+                        Task::none()
+                    }
+                    PlayerAction::Pause => {
+                        self.audio_controller.pause();
+                        Task::none()
+                    }
+                    PlayerAction::TogglePlayPause => self.update(Message::TogglePlayPause),
+                    PlayerAction::Stop => self.update(Message::Stop),
+                    PlayerAction::Next => self.update(Message::NextTrack),
+                    PlayerAction::Previous => self.update(Message::PreviousTrack),
+                    PlayerAction::Seek(offset) => {
+                        let current = Duration::from_millis(self.position_ms);
+                        let target = current.saturating_add(offset);
+                        let target_ms = target.as_millis().min(self.duration_ms as u128) as u64;
+                        self.audio_controller.seek(Duration::from_millis(target_ms));
+                        self.position_ms = target_ms;
+                        self.plugin_manager.on_seeked(target_ms);
+                        Task::none()
+                    }
+                    PlayerAction::SetPosition(pos) => {
+                        let target_ms = pos.as_millis().min(self.duration_ms as u128) as u64;
+                        self.audio_controller.seek(Duration::from_millis(target_ms));
+                        self.position_ms = target_ms;
+                        self.plugin_manager.on_seeked(target_ms);
+                        Task::none()
+                    }
+                    PlayerAction::SetVolume(vol) => self.update(Message::VolumeChanged(vol)),
+                    PlayerAction::SetShuffle(shuffle) => {
+                        if self.is_shuffle != shuffle {
+                            self.update(Message::ToggleShuffle)
+                        } else {
+                            Task::none()
+                        }
+                    }
+                    PlayerAction::SetRepeat(repeat) => {
+                        if self.is_repeat != repeat {
+                            self.update(Message::ToggleRepeat)
+                        } else {
+                            Task::none()
+                        }
+                    }
+                    PlayerAction::OpenUri(uri) => {
+                        if let Ok(url) = url::Url::parse(&uri) {
+                            if url.scheme() == "file" {
+                                if let Ok(path) = url.to_file_path() {
+                                    if let Ok(Some(track)) = self.db.get_track_by_path(path.to_str().unwrap_or_default()) {
+                                        return self.update(Message::PlayTrack(track.id));
+                                    }
+                                }
+                            }
+                        }
+                        Task::none()
+                    }
+                    PlayerAction::Raise => {
+                        info!("MPRIS Raise requested");
+                        Task::none()
+                    }
+                    PlayerAction::Quit => {
+                        info!("MPRIS Quit requested");
+                        iced::window::get_latest().and_then(iced::window::close)
+                    }
+                }
             }
 
             Message::SelectTab(tab) => {
@@ -808,6 +931,41 @@ impl App {
         }
     }
 
+    pub fn get_next_track(&self) -> Option<Track> {
+        if self.is_repeat {
+            return self.current_track.clone();
+        }
+
+        if self.is_shuffle && !self.visible_tracks.is_empty() {
+            let rand_idx =
+                (self.position_ms as usize ^ 0x9e3779b9) % self.visible_tracks.len();
+            return Some(self.visible_tracks[rand_idx].clone());
+        }
+
+        if let Some(cur_id) = self.current_track_id {
+            // Try to find next track from currently loaded window
+            if let Some(pos) = self.visible_tracks.iter().position(|t| t.id == cur_id) {
+                if pos + 1 < self.visible_tracks.len() {
+                    return Some(self.visible_tracks[pos + 1].clone());
+                }
+            }
+            // If at end of window or not in visible tracks, query database
+            if let Ok(Some(next)) = self.db.get_next_track(cur_id) {
+                if Some(next.id) != self.current_track_id {
+                    return Some(next);
+                }
+            }
+        }
+
+        // Fallback: first track if available
+        if let Some(first) = self.visible_tracks.first() {
+            if Some(first.id) != self.current_track_id {
+                return Some(first.clone());
+            }
+        }
+        None
+    }
+
     pub fn to_config(&self) -> AppConfig {
         AppConfig {
             active_tab: self.active_tab,
@@ -1082,12 +1240,27 @@ impl App {
                     &self.artists[..self.visible_artists_count.min(self.artists.len())];
                 views::artists::view(theme_cfg, visible_slice, self.artists_view_mode)
             }
-            ViewTab::Lyrics => views::lyrics::view(
-                theme_cfg,
-                self.current_track.as_ref(),
-                self.current_cover.as_ref(),
-                self.current_lyrics.as_deref(),
-            ),
+            ViewTab::Lyrics => {
+                let next_track = self.get_next_track();
+                let animation_time = self.start_time.elapsed().as_secs_f32();
+                let is_loved = self
+                    .current_track_id
+                    .map(|id| self.loved_tracks.contains(&id))
+                    .unwrap_or(false);
+
+                views::lyrics::view(
+                    theme_cfg,
+                    self.current_track.as_ref(),
+                    self.current_cover.as_ref(),
+                    self.current_lyrics.as_deref(),
+                    next_track,
+                    &self.current_palette,
+                    animation_time,
+                    self.is_repeat,
+                    self.is_shuffle,
+                    is_loved,
+                )
+            }
             ViewTab::Settings => {
                 let cache_stats = player_core::get_thumbnail_cache_stats();
                 let db_size_bytes = std::fs::metadata(&self.db_path)

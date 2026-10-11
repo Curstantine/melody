@@ -23,6 +23,26 @@ pub enum PluginHook {
     OnTrackChange,
     OnPlaybackEnd,
     OnVolumeChange,
+    OnPlaybackStatusChange,
+    OnPositionChange,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum PlayerAction {
+    Play,
+    Pause,
+    TogglePlayPause,
+    Stop,
+    Next,
+    Previous,
+    Seek(std::time::Duration),
+    SetPosition(std::time::Duration),
+    SetVolume(f32),
+    SetShuffle(bool),
+    SetRepeat(bool),
+    OpenUri(String),
+    Raise,
+    Quit,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

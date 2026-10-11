@@ -13,6 +13,13 @@ thiserror = "2.0"
 tracing = "0.1"
 extism = { version = "1.41", optional = true }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+mpris-server = "0.10.0"
+async-io = "2.6"
+futures-lite = "2.6"
+crossbeam-channel = "0.5"
+url = "2.5"
+
 [features]
 default = []
 wasm = ["extism"]

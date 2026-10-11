@@ -55,6 +55,7 @@ pub enum Message {
     ToggleShuffle,
     ToggleRepeat,
     ToggleLoveCurrentTrack,
+    MprisAction(player_plugins::PlayerAction),
 
     // Navigation & Views
     SelectTab(ViewTab),
