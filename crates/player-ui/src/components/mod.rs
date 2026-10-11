@@ -1,6 +1,6 @@
 use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, Space};
-use iced::{Alignment, Border, ContentFit, Element, Length};
+use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length};
 use player_core::SortDirection;
 
 use crate::icons;
@@ -27,6 +27,28 @@ pub fn text<'a>(
     iced::widget::text(text_cow)
         .font(theme_cfg.font())
         .shaping(shaping)
+}
+
+pub fn border_vert<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
+    container("")
+        .width(Length::Fill)
+        .height(width)
+        .style(move |_| container::Style {
+            background: Some(Background::Color(color)),
+            ..Default::default()
+        })
+        .into()
+}
+
+pub fn border_hori<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
+    container("")
+        .width(width)
+        .height(Length::Fill)
+        .style(move |_| container::Style {
+            background: Some(Background::Color(color)),
+            ..Default::default()
+        })
+        .into()
 }
 
 /// A reusable chip button with active state styling.

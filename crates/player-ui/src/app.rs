@@ -10,7 +10,7 @@ use player_core::{AlbumSummary, ArtistSummary, LibraryDatabase, SortDirection, S
 use player_plugins::{PluginManager, TrackMetadata};
 use tracing::{error, info};
 
-use crate::components::text;
+use crate::components::{border_vert, text};
 use crate::config::AppConfig;
 use crate::icons;
 use crate::message::{AlbumSortField, Message, SettingsTab, ViewMode, ViewTab};
@@ -1018,15 +1018,6 @@ impl App {
             .on_press(Message::SelectTab(tab))
         };
 
-        let top_tabs = row![
-            tab_btn("Library", ViewTab::Tracks),
-            tab_btn("Now Playing", ViewTab::Lyrics),
-            tab_btn("Albums", ViewTab::Albums),
-            tab_btn("Artists", ViewTab::Artists),
-        ]
-        .spacing(4)
-        .align_y(iced::Alignment::Center);
-
         let settings_btn = button(icons::icon(
             icons::SETTINGS_SVG,
             14.0,
@@ -1040,14 +1031,24 @@ impl App {
         .style(styles::icon_control_button(theme_cfg))
         .on_press(Message::SelectTab(ViewTab::Settings));
 
-        let top_bar = container(
-            row![top_tabs, Space::with_width(Length::Fill), settings_btn,]
-                .align_y(iced::Alignment::Center)
-                .padding([4, 12]),
-        )
+        let top_bar = container(column![
+            row![
+                tab_btn("Library", ViewTab::Tracks),
+                tab_btn("Now Playing", ViewTab::Lyrics),
+                tab_btn("Albums", ViewTab::Albums),
+                tab_btn("Artists", ViewTab::Artists),
+                Space::with_width(Length::Fill),
+                settings_btn,
+            ]
+            .spacing(4)
+            .align_y(iced::Alignment::Center)
+            .padding([4, 12])
+            .height(32),
+            border_vert(1.0, theme_cfg.border_color()),
+        ])
         .style(styles::top_bar_container(theme_cfg))
         .width(Length::Fill)
-        .height(32);
+        .height(33);
 
         let main_view: Element<'_, Message> = match self.active_tab {
             ViewTab::Tracks => views::library::view(

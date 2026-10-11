@@ -13,40 +13,20 @@ pub fn main_background(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style
     }
 }
 
-#[allow(dead_code)]
-pub fn surface_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
-    move |_theme| container::Style {
-        background: Some(Background::Color(cfg.surface_color())),
-        text_color: Some(cfg.text_color()),
-        border: Border {
-            color: cfg.border_color(),
-            width: 1.0,
-            radius: Radius::from(8.0),
-        },
-        shadow: Shadow::default(),
-    }
-}
-
-#[allow(dead_code)]
 pub fn sidebar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_theme| container::Style {
         background: Some(Background::Color(cfg.surface_color())),
         text_color: Some(cfg.text_color()),
-        border: Border {
-            color: cfg.border_color(),
-            width: 1.0,
-            radius: Radius::default(),
-        },
-        shadow: Shadow::default(),
+        ..Default::default()
     }
 }
 
 pub fn player_bar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_theme| container::Style {
-        background: Some(Background::Color(cfg.player_bar_bg_color())),
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        // background: Some(Background::Color(cfg.player_bar_bg_color())),
         text_color: Some(cfg.player_bar_text_color()),
-        border: Border::default(),
-        shadow: Shadow::default(),
+        ..Default::default()
     }
 }
 
@@ -54,12 +34,7 @@ pub fn top_bar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Sty
     move |_theme| container::Style {
         background: Some(Background::Color(cfg.surface_color())),
         text_color: Some(cfg.text_color()),
-        border: Border {
-            color: cfg.border_color(),
-            width: 1.0,
-            radius: Radius::default(),
-        },
-        shadow: Shadow::default(),
+        ..Default::default()
     }
 }
 
@@ -67,42 +42,7 @@ pub fn status_bar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::
     move |_theme| container::Style {
         background: Some(Background::Color(cfg.surface_color())),
         text_color: Some(cfg.text_muted_color()),
-        border: Border {
-            color: cfg.border_color(),
-            width: 1.0,
-            radius: Radius::default(),
-        },
-        shadow: Shadow::default(),
-    }
-}
-
-#[allow(dead_code)]
-pub fn status_bar_button(
-    cfg: &ThemeConfig,
-    is_enabled: bool,
-) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
-    move |_theme, status| {
-        let (bg, text) = match status {
-            button::Status::Active if is_enabled => (Color::TRANSPARENT, cfg.text_color()),
-            button::Status::Hovered if is_enabled => {
-                (cfg.surface_hover_color(), cfg.primary_color())
-            }
-            button::Status::Pressed if is_enabled => (cfg.surface_hover_color(), cfg.text_color()),
-            _ => (
-                Color::TRANSPARENT,
-                blend_color(cfg.text_muted_color(), Color::TRANSPARENT, 0.5),
-            ),
-        };
-
-        button::Style {
-            background: Some(Background::Color(bg)),
-            text_color: text,
-            border: Border {
-                radius: Radius::from(3.0),
-                ..Border::default()
-            },
-            shadow: Shadow::default(),
-        }
+        ..Default::default()
     }
 }
 
@@ -216,34 +156,6 @@ pub fn table_row_container(
             background: Some(Background::Color(bg)),
             text_color: Some(cfg.text_color()),
             border: Border::default(),
-            shadow: Shadow::default(),
-        }
-    }
-}
-
-#[allow(dead_code)]
-pub fn primary_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
-    move |_theme, status| {
-        let (bg, text) = match status {
-            button::Status::Active => (cfg.primary_color(), cfg.surface_color()),
-            button::Status::Hovered => (
-                blend_color(cfg.primary_color(), Color::WHITE, 0.15),
-                cfg.surface_color(),
-            ),
-            button::Status::Pressed => (
-                blend_color(cfg.primary_color(), Color::BLACK, 0.15),
-                cfg.surface_color(),
-            ),
-            button::Status::Disabled => (cfg.surface_hover_color(), cfg.text_muted_color()),
-        };
-
-        button::Style {
-            background: Some(Background::Color(bg)),
-            text_color: text,
-            border: Border {
-                radius: Radius::from(6.0),
-                ..Border::default()
-            },
             shadow: Shadow::default(),
         }
     }
@@ -364,54 +276,29 @@ pub fn settings_nav_button(
     is_active: bool,
 ) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
-        let (bg, text, border_color) = match status {
+        let (bg, text) = match status {
             button::Status::Active => {
                 if is_active {
-                    (
-                        cfg.surface_hover_color(),
-                        cfg.primary_color(),
-                        cfg.primary_color(),
-                    )
+                    (cfg.surface_hover_color(), cfg.primary_color())
                 } else {
-                    (Color::TRANSPARENT, cfg.text_color(), Color::TRANSPARENT)
+                    (Color::TRANSPARENT, cfg.text_color())
                 }
             }
             button::Status::Hovered => {
                 if is_active {
-                    (
-                        cfg.surface_hover_color(),
-                        cfg.primary_color(),
-                        cfg.primary_color(),
-                    )
+                    (cfg.surface_hover_color(), cfg.primary_color())
                 } else {
-                    (
-                        cfg.surface_hover_color(),
-                        cfg.text_color(),
-                        cfg.border_color(),
-                    )
+                    (cfg.surface_hover_color(), cfg.text_color())
                 }
             }
-            button::Status::Pressed => (
-                cfg.surface_hover_color(),
-                cfg.primary_color(),
-                cfg.primary_color(),
-            ),
-            button::Status::Disabled => (
-                Color::TRANSPARENT,
-                cfg.text_muted_color(),
-                Color::TRANSPARENT,
-            ),
+            button::Status::Pressed => (cfg.surface_hover_color(), cfg.primary_color()),
+            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted_color()),
         };
 
         button::Style {
             background: Some(Background::Color(bg)),
             text_color: text,
-            border: Border {
-                radius: Radius::from(6.0),
-                color: border_color,
-                width: if is_active { 1.5 } else { 1.0 },
-            },
-            shadow: Shadow::default(),
+            ..button::Style::default()
         }
     }
 }
@@ -484,24 +371,23 @@ pub fn seek_slider_style(
 ) -> impl Fn(&Theme, slider::Status) -> slider::Style + '_ {
     move |_theme, status| {
         let is_hovered = matches!(status, slider::Status::Hovered | slider::Status::Dragged);
-        let handle_radius = if is_hovered { 6.0 } else { 0.0 };
-        let rail_bg = if is_hovered {
-            cfg.slider_rail_color()
-        } else {
-            cfg.border_color()
-        };
+
         slider::Style {
             rail: slider::Rail {
                 backgrounds: (
                     Background::Color(cfg.slider_active_color()),
-                    Background::Color(rail_bg),
+                    Background::Color(if is_hovered {
+                        cfg.slider_rail_color()
+                    } else {
+                        cfg.border_color()
+                    }),
                 ),
                 width: if is_hovered { 3.0 } else { 2.0 },
                 border: Border::default(),
             },
             handle: slider::Handle {
                 shape: slider::HandleShape::Circle {
-                    radius: handle_radius,
+                    radius: if is_hovered { 6.0 } else { 0.0 },
                 },
                 background: Background::Color(cfg.slider_active_color()),
                 border_width: if is_hovered { 1.5 } else { 0.0 },

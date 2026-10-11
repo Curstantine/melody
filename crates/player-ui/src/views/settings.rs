@@ -4,7 +4,7 @@ use iced::border::Radius;
 use iced::widget::{button, column, container, row, scrollable, text_input, Space};
 use iced::{Alignment, Border, Element, Length};
 
-use crate::components::{self, text};
+use crate::components::{self, border_hori, text};
 use crate::icons;
 use crate::message::{Message, SettingsTab, ViewMode};
 use crate::theme::{styles, ThemeConfig};
@@ -72,17 +72,12 @@ fn view_sidebar<'a>(theme_cfg: &'a ThemeConfig, active_tab: SettingsTab) -> Elem
             .color(theme_cfg.text_muted_color()),
     ]
     .spacing(2)
-    .padding([0, 4]);
+    .padding([8, 12]);
 
     let nav_item =
         |tab: SettingsTab, icon_svg: &'static str, title: &'static str, subtitle: &'static str| {
             let is_active = active_tab == tab;
-            let icon_color = if is_active {
-                theme_cfg.primary_color()
-            } else {
-                theme_cfg.text_color()
-            };
-            let title_color = if is_active {
+            let color = if is_active {
                 theme_cfg.primary_color()
             } else {
                 theme_cfg.text_color()
@@ -90,10 +85,10 @@ fn view_sidebar<'a>(theme_cfg: &'a ThemeConfig, active_tab: SettingsTab) -> Elem
 
             button(
                 row![
-                    icons::icon(icon_svg, 16.0, icon_color),
+                    icons::icon(icon_svg, 16.0, color),
                     Space::with_width(10),
                     column![
-                        text(theme_cfg, title).size(13).color(title_color),
+                        text(theme_cfg, title).size(13).color(color),
                         text(theme_cfg, subtitle)
                             .size(10)
                             .color(theme_cfg.text_muted_color()),
@@ -108,34 +103,36 @@ fn view_sidebar<'a>(theme_cfg: &'a ThemeConfig, active_tab: SettingsTab) -> Elem
             .on_press(Message::SelectSettingsTab(tab))
         };
 
-    let nav_list = column![
-        nav_item(
-            SettingsTab::Appearance,
-            icons::PALETTE_SVG,
-            "Appearance",
-            "Theme, Views, Fonts",
-        ),
-        nav_item(
-            SettingsTab::Library,
-            icons::DATABASE_SVG,
-            "Library",
-            "Folders, Indexes & Cache",
-        ),
-        nav_item(
-            SettingsTab::Debug,
-            icons::TERMINAL_SVG,
-            "Debug",
-            "Audio Engine & Pipeline",
-        ),
-    ]
-    .spacing(6);
-
-    container(column![sidebar_title, Space::with_height(14), nav_list,].spacing(0))
-        .width(Length::Fixed(220.0))
-        .height(Length::Fill)
-        .padding([20, 12])
-        .style(styles::sidebar_container(theme_cfg))
-        .into()
+    container(row![
+        column![
+            sidebar_title,
+            nav_item(
+                SettingsTab::Appearance,
+                icons::PALETTE_SVG,
+                "Appearance",
+                "Theme, Views, Fonts",
+            ),
+            nav_item(
+                SettingsTab::Library,
+                icons::DATABASE_SVG,
+                "Library",
+                "Folders, Indexes & Cache",
+            ),
+            nav_item(
+                SettingsTab::Debug,
+                icons::TERMINAL_SVG,
+                "Debug",
+                "Audio Engine & Pipeline",
+            ),
+        ]
+        .width(220.0)
+        .spacing(2),
+        border_hori(1.0, theme_cfg.border_color())
+    ])
+    .width(Length::Fixed(221.0))
+    .height(Length::Fill)
+    .style(styles::sidebar_container(theme_cfg))
+    .into()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

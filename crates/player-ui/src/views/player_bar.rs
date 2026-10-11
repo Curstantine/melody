@@ -202,7 +202,7 @@ pub fn view<'a>(
     let top_right_timing = row![Space::with_width(Length::Fill), time_info,]
         .padding(iced::Padding {
             top: 8.0,
-            right: 20.0, // 16 base + 4 to align text end to %
+            right: 16.0,
             bottom: 0.0,
             left: 0.0,
         })

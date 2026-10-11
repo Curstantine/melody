@@ -1,8 +1,8 @@
-use iced::widget::{container, row, Space};
+use iced::widget::{column, container, row, Space};
 use iced::{Alignment, Element, Length};
 use player_core::{format_duration, AlbumSummary, ArtistSummary, Track};
 
-use crate::components::text;
+use crate::components::{border_vert, text};
 use crate::icons;
 use crate::message::{Message, ViewTab};
 use crate::theme::{styles, ThemeConfig};
@@ -184,14 +184,16 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
 
     let status_row = row![left_items, Space::with_width(Length::Fill), right_items,]
         .spacing(8)
-        .align_y(Alignment::Center)
-        .height(Length::Fill);
-
-    container(status_row)
-        .style(styles::status_bar_container(theme_cfg))
-        .width(Length::Fill)
         .height(24)
-        .center_y(24)
-        .padding([0, 10])
-        .into()
+        .align_y(Alignment::Center)
+        .padding([0, 10]);
+
+    container(column![
+        border_vert(1.0, theme_cfg.border_color()),
+        status_row
+    ])
+    .style(styles::status_bar_container(theme_cfg))
+    .width(Length::Fill)
+    .height(25)
+    .into()
 }
