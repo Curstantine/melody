@@ -282,6 +282,45 @@ pub fn ghost_button(
     }
 }
 
+pub fn column_header_button(
+    cfg: &ThemeConfig,
+    is_active: bool,
+) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
+    move |_theme, status| {
+        let text_color = match status {
+            button::Status::Active => {
+                if is_active {
+                    cfg.primary_color()
+                } else {
+                    cfg.text_muted_color()
+                }
+            }
+            button::Status::Hovered => {
+                if is_active {
+                    blend_color(cfg.primary_color(), Color::WHITE, 0.25)
+                } else {
+                    cfg.text_color()
+                }
+            }
+            button::Status::Pressed => {
+                if is_active {
+                    cfg.primary_color()
+                } else {
+                    cfg.text_color()
+                }
+            }
+            button::Status::Disabled => cfg.text_muted_color(),
+        };
+
+        button::Style {
+            background: Some(Background::Color(Color::TRANSPARENT)),
+            text_color,
+            border: Border::default(),
+            shadow: Shadow::default(),
+        }
+    }
+}
+
 pub fn icon_control_button(
     cfg: &ThemeConfig,
 ) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {

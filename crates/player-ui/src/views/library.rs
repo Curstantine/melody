@@ -85,7 +85,7 @@ pub fn view<'a>(
     let toolbar = row![
         container(icons::icon(
             icons::SEARCH_SVG,
-            14.0,
+            18.0,
             theme_cfg.text_muted_color(),
         ))
         .width(36)
@@ -106,32 +106,30 @@ pub fn view<'a>(
     });
 
     // 2. Table Header (for List view)
-    let dir_arrow = match sort_dir {
-        SortDirection::Ascending => " ▲",
-        SortDirection::Descending => " ▼",
-    };
-
-    let header_btn = |label: &str, field: SortField, width: Length| {
+    let header_btn = |label: &'a str, field: SortField, width: Length| {
         let is_active = sort_field == field;
-        let title = if is_active {
-            format!("{}{}", label, dir_arrow)
+
+        let content: Element<'a, Message> = if is_active {
+            let sort_icon_svg = match sort_dir {
+                SortDirection::Ascending => icons::CHEVRON_UP_SVG,
+                SortDirection::Descending => icons::CHEVRON_DOWN_SVG,
+            };
+            row![
+                text(label).size(12),
+                Space::with_width(4),
+                icons::icon(sort_icon_svg, 12.0, theme_cfg.primary_color()),
+            ]
+            .align_y(Alignment::Center)
+            .into()
         } else {
-            label.to_string()
+            text(label).size(12).into()
         };
 
-        button(
-            text(title)
-                .size(12)
-                .color(if is_active {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                }),
-        )
-        .style(styles::ghost_button(theme_cfg, false))
-        .padding([2, 6])
-        .width(width)
-        .on_press(Message::SortChanged(field))
+        button(content)
+            .style(styles::column_header_button(theme_cfg, is_active))
+            .padding([2, 0])
+            .width(width)
+            .on_press(Message::SortChanged(field))
     };
 
     let table_header = row![
