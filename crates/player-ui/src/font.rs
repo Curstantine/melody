@@ -56,24 +56,23 @@ pub fn discover_cjk_font_paths() -> Vec<PathBuf> {
 }
 
 fn scan_dir_for_fonts(dir: &Path, paths: &mut Vec<PathBuf>) {
-    if let Ok(entries) = fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if p.is_file() {
-                if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
-                    let ext_lower = ext.to_lowercase();
-                    if matches!(ext_lower.as_str(), "ttf" | "otf" | "ttc" | "otc") {
-                        paths.push(p);
-                    }
-                }
-            }
+    for entry in walkdir::WalkDir::new(dir)
+        .max_depth(1)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let p = entry.path();
+        if p.is_file() && is_font_file(p) {
+            paths.push(p.to_path_buf());
         }
     }
 }
 
 #[cfg(target_os = "linux")]
 fn discover_linux_cjk_fonts(paths: &mut Vec<PathBuf>) {
-    // A. Query fontconfig using fc-match for CJK languages and families
+    let initial_count = paths.len();
+
+    // A. Primary: Query fontconfig using fc-match for CJK languages and families
     let fc_queries = [
         vec![":lang=zh", "-f", "%{file}\n"],
         vec![":lang=ja", "-f", "%{file}\n"],
@@ -108,35 +107,38 @@ fn discover_linux_cjk_fonts(paths: &mut Vec<PathBuf>) {
         }
     }
 
-    // B. Scan standard font directories for CJK patterns
-    let font_dirs = [
-        "/etc/profiles/per-user",
-        "/run/current-system/sw/share/fonts",
-        "/run/current-system/sw/share/X11/fonts",
-        "/usr/share/fonts",
-        "/usr/local/share/fonts",
-        "~/.local/share/fonts",
-        "~/.fonts",
-    ];
+    // B. Fallback: If fontconfig query returned nothing new, scan standard font directories
+    if paths.len() == initial_count {
+        info!("Fontconfig returned no CJK fonts; falling back to directory scanning");
+        let font_dirs = [
+            "/etc/profiles/per-user",
+            "/run/current-system/sw/share/fonts",
+            "/run/current-system/sw/share/X11/fonts",
+            "/usr/share/fonts",
+            "/usr/local/share/fonts",
+            "~/.local/share/fonts",
+            "~/.fonts",
+        ];
 
-    let cjk_keywords = [
-        "cjk", "noto-cjk", "ibmplexsanssc", "ibmplexsansjp", "ibmplexsanskr", "ibmplexsanstc",
-        "wqy", "zenhei", "microhei", "sourcehancjk", "droidfallback",
-    ];
+        let cjk_keywords = [
+            "cjk", "noto-cjk", "ibmplexsanssc", "ibmplexsansjp", "ibmplexsanskr", "ibmplexsanstc",
+            "wqy", "zenhei", "microhei", "sourcehancjk", "droidfallback",
+        ];
 
-    for dir_str in font_dirs {
-        let expanded = if dir_str.starts_with("~/") {
-            if let Ok(home) = std::env::var("HOME") {
-                PathBuf::from(dir_str.replacen("~", &home, 1))
+        for dir_str in font_dirs {
+            let expanded = if dir_str.starts_with("~/") {
+                if let Ok(home) = std::env::var("HOME") {
+                    PathBuf::from(dir_str.replacen("~", &home, 1))
+                } else {
+                    PathBuf::from(dir_str)
+                }
             } else {
                 PathBuf::from(dir_str)
-            }
-        } else {
-            PathBuf::from(dir_str)
-        };
+            };
 
-        if expanded.exists() {
-            scan_dir_recursive_matching(&expanded, &cjk_keywords, paths, 4);
+            if expanded.exists() {
+                scan_dir_recursive_matching(&expanded, &cjk_keywords, paths, 4);
+            }
         }
     }
 }
@@ -208,26 +210,22 @@ fn scan_dir_recursive_matching(
     paths: &mut Vec<PathBuf>,
     max_depth: usize,
 ) {
-    if max_depth == 0 {
-        return;
-    }
+    for entry in walkdir::WalkDir::new(dir)
+        .max_depth(max_depth)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let p = entry.path();
+        if entry.file_type().is_file() && is_font_file(p) {
+            let filename_lower = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_lowercase();
 
-    if let Ok(entries) = fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if p.is_dir() {
-                scan_dir_recursive_matching(&p, keywords, paths, max_depth - 1);
-            } else if p.is_file() && is_font_file(&p) {
-                let filename_lower = p
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("")
-                    .to_lowercase();
-
-                let matches_keyword = keywords.iter().any(|kw| filename_lower.contains(kw));
-                if matches_keyword {
-                    paths.push(p);
-                }
+            let matches_keyword = keywords.iter().any(|kw| filename_lower.contains(kw));
+            if matches_keyword {
+                paths.push(p.to_path_buf());
             }
         }
     }

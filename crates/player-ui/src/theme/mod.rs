@@ -268,19 +268,21 @@ impl ThemeManager {
             return;
         }
 
-        if let Ok(entries) = fs::read_dir(folder) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.extension().and_then(|e| e.to_str()) == Some("toml") {
-                    if let Ok(content) = fs::read_to_string(&path) {
-                        match toml::from_str::<ThemeConfig>(&content) {
-                            Ok(theme) => {
-                                info!("Loaded theme '{}' from {:?}", theme.name, path);
-                                self.themes.insert(theme.name.clone(), theme);
-                            }
-                            Err(e) => {
-                                warn!("Failed to parse theme file {:?}: {}", path, e);
-                            }
+        for entry in walkdir::WalkDir::new(folder)
+            .max_depth(1)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("toml") {
+                if let Ok(content) = fs::read_to_string(path) {
+                    match toml::from_str::<ThemeConfig>(&content) {
+                        Ok(theme) => {
+                            info!("Loaded theme '{}' from {:?}", theme.name, path);
+                            self.themes.insert(theme.name.clone(), theme);
+                        }
+                        Err(e) => {
+                            warn!("Failed to parse theme file {:?}: {}", path, e);
                         }
                     }
                 }
