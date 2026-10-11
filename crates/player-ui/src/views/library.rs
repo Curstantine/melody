@@ -95,7 +95,7 @@ pub fn view<'a>(
     .padding(iced::Padding {
         top: 2.0,
         right: 16.0,
-        bottom: 6.0,
+        bottom: 2.0,
         left: 0.0,
     });
 
