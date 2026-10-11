@@ -10,6 +10,7 @@ use player_core::{AlbumSummary, ArtistSummary, LibraryDatabase, SortDirection, S
 use player_plugins::{PluginManager, TrackMetadata};
 use tracing::{error, info};
 
+use crate::config::AppConfig;
 use crate::icons;
 use crate::message::{AlbumSortField, Message, SettingsTab, ViewMode, ViewTab};
 use crate::theme::{styles, ThemeManager};
@@ -92,12 +93,20 @@ impl App {
             LibraryDatabase::in_memory().expect("In-memory SQLite failed")
         });
 
+        let config = AppConfig::load();
+
         let audio_engine = AudioEngine::new();
         let audio_controller = audio_engine.controller();
+        audio_controller.set_volume(config.volume);
+
         let plugin_manager = PluginManager::new();
         let mut theme_manager = ThemeManager::new();
+        theme_manager.set_theme(&config.theme_name);
+        if let Some(ref font) = config.primary_font {
+            theme_manager.set_font(Some(font.clone()));
+        }
 
-        let page_size = DEFAULT_PAGE_SIZE;
+        let page_size = config.page_size;
         let total_tracks = db.get_total_track_count(None).unwrap_or(0);
         let visible_tracks = db
             .get_tracks_window(
@@ -108,22 +117,12 @@ impl App {
                 SortDirection::Ascending,
             )
             .unwrap_or_default();
-        let albums = db.get_albums().unwrap_or_default();
+        let mut albums = db.get_albums().unwrap_or_default();
+        Self::sort_albums(&mut albums, config.album_sort_field, SortDirection::Ascending);
         let artists = db.get_artists().unwrap_or_default();
         let library_folders = db.get_library_folders().unwrap_or_default();
         let font_paths = crate::font::discover_cjk_font_paths();
-        let primary_font = {
-            let bundle = crate::font::load_cjk_fonts();
-            bundle.primary_family.or_else(|| {
-                font_paths
-                    .first()
-                    .and_then(|p| crate::font::query_font_family(p))
-            })
-        };
-
-        if let Some(ref fam) = primary_font {
-            theme_manager.set_font(Some(fam.clone()));
-        }
+        let primary_font = config.primary_font;
 
         let app = Self {
             db,
@@ -133,12 +132,12 @@ impl App {
             plugin_manager,
             theme_manager,
 
-            active_tab: ViewTab::Tracks,
-            settings_tab: SettingsTab::Appearance,
+            active_tab: config.active_tab,
+            settings_tab: config.settings_tab,
 
-            library_view_mode: ViewMode::List,
-            albums_view_mode: ViewMode::Tile,
-            artists_view_mode: ViewMode::Tile,
+            library_view_mode: config.library_view_mode,
+            albums_view_mode: config.albums_view_mode,
+            artists_view_mode: config.artists_view_mode,
             selected_track_id: None,
             hovered_track_id: None,
             last_track_click: None,
@@ -154,7 +153,7 @@ impl App {
 
             albums,
             album_covers: HashMap::new(),
-            album_sort_field: AlbumSortField::Title,
+            album_sort_field: config.album_sort_field,
             album_sort_dir: SortDirection::Ascending,
             artists,
             library_folders,
@@ -165,12 +164,12 @@ impl App {
             is_playing: false,
             position_ms: 0,
             duration_ms: 0,
-            volume: 1.0,
+            volume: config.volume,
             is_seeking: false,
             seek_pos_ms: 0,
             current_lyrics: None,
-            is_shuffle: false,
-            is_repeat: false,
+            is_shuffle: config.is_shuffle,
+            is_repeat: config.is_repeat,
             loved_tracks: HashSet::new(),
 
             is_scanning: false,
@@ -758,6 +757,27 @@ impl App {
                 Task::none()
             }
         }
+    }
+
+    pub fn to_config(&self) -> AppConfig {
+        AppConfig {
+            active_tab: self.active_tab,
+            settings_tab: self.settings_tab,
+            theme_name: self.theme_manager.active_theme_name.clone(),
+            primary_font: self.primary_font.clone(),
+            library_view_mode: self.library_view_mode,
+            albums_view_mode: self.albums_view_mode,
+            artists_view_mode: self.artists_view_mode,
+            page_size: self.page_size,
+            album_sort_field: self.album_sort_field,
+            volume: self.volume,
+            is_shuffle: self.is_shuffle,
+            is_repeat: self.is_repeat,
+        }
+    }
+
+    pub fn save_config(&self) {
+        self.to_config().save();
     }
 
     fn load_cover_chunk_task(&self, mut pending: Vec<(String, PathBuf)>) -> Task<Message> {

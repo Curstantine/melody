@@ -1,4 +1,5 @@
 mod app;
+pub mod config;
 mod components;
 mod font;
 mod icons;

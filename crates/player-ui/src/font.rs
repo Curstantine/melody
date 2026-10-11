@@ -4,6 +4,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tracing::{info, warn};
 
+/// Maximum total memory size of font data buffers to load (default: 48 MB)
+/// to maintain Vibecore's target 30-50 MB idle memory footprint.
+pub const MAX_LOADED_FONT_BYTES: usize = 48 * 1024 * 1024;
+
 /// Discovers candidate CJK font files across Linux, Windows, macOS,
 /// as well as local application directories (`./fonts/` and `~/.config/vibecore/fonts/`).
 pub fn discover_cjk_font_paths() -> Vec<PathBuf> {
@@ -72,18 +76,17 @@ fn scan_dir_for_fonts(dir: &Path, paths: &mut Vec<PathBuf>) {
 fn discover_linux_cjk_fonts(paths: &mut Vec<PathBuf>) {
     let initial_count = paths.len();
 
-    // A. Primary: Query fontconfig using fc-match for IBM Plex Sans, IBM Plex CJK variants, and fallbacks
+    // Query fontconfig using fc-match for pan-CJK families and specific language fallbacks
     let fc_queries = [
-        vec!["IBM Plex Sans", "-f", "%{file}###%{family}###%{lang}\n"],
-        vec!["IBM Plex Sans JP", "-f", "%{file}###%{family}###%{lang}\n"],
-        vec!["IBM Plex Sans SC", "-f", "%{file}###%{family}###%{lang}\n"],
-        vec!["IBM Plex Sans TC", "-f", "%{file}###%{family}###%{lang}\n"],
-        vec!["IBM Plex Sans KR", "-f", "%{file}###%{family}###%{lang}\n"],
         vec!["Noto Sans CJK JP", "-f", "%{file}###%{family}###%{lang}\n"],
         vec!["Noto Sans CJK SC", "-f", "%{file}###%{family}###%{lang}\n"],
         vec!["Noto Sans CJK TC", "-f", "%{file}###%{family}###%{lang}\n"],
         vec!["Noto Sans CJK KR", "-f", "%{file}###%{family}###%{lang}\n"],
         vec!["Noto Sans CJK HK", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["IBM Plex Sans JP", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["IBM Plex Sans SC", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["IBM Plex Sans TC", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec!["IBM Plex Sans KR", "-f", "%{file}###%{family}###%{lang}\n"],
         vec!["WenQuanYi Zen Hei", "-f", "%{file}###%{family}###%{lang}\n"],
         vec![
             "WenQuanYi Micro Hei",
@@ -115,8 +118,8 @@ fn discover_linux_cjk_fonts(paths: &mut Vec<PathBuf>) {
                         continue;
                     }
 
-                    // Accept IBM Plex Sans directly, or verify that the font actually supports CJK languages
-                    let is_target_or_cjk = if parts.len() >= 2 && parts[1].starts_with("IBM Plex Sans") {
+                    // Verify that the font actually supports CJK languages or is an explicit CJK font
+                    let is_target_or_cjk = if parts.len() >= 2 && parts[1].contains("CJK") {
                         true
                     } else if parts.len() >= 3 {
                         let lang = parts[2];
@@ -140,7 +143,7 @@ fn discover_linux_cjk_fonts(paths: &mut Vec<PathBuf>) {
         }
     }
 
-    // B. Fallback: If fontconfig query returned nothing new, scan standard font directories
+    // Fallback: If fontconfig query returned nothing new, scan standard font directories
     if paths.len() == initial_count {
         info!("Fontconfig returned no CJK fonts; falling back to directory scanning");
         let font_dirs = [
@@ -154,10 +157,9 @@ fn discover_linux_cjk_fonts(paths: &mut Vec<PathBuf>) {
         ];
 
         let cjk_keywords = [
-            "ibmplexsans",
-            "ibm-plex-sans",
             "cjk",
             "noto-cjk",
+            "notosanscjk",
             "ibmplexsanssc",
             "ibmplexsansjp",
             "ibmplexsanskr",
@@ -193,18 +195,6 @@ fn discover_windows_cjk_fonts(paths: &mut Vec<PathBuf>) {
     let fonts_dir = PathBuf::from(windir).join("Fonts");
 
     let windows_fonts = [
-        // IBM Plex Sans and related CJK fonts
-        "IBMPlexSans-Regular.ttf",
-        "IBMPlexSans-Regular.otf",
-        "IBMPlexSansJP-Regular.ttf",
-        "IBMPlexSansJP-Regular.otf",
-        "IBMPlexSansSC-Regular.ttf",
-        "IBMPlexSansSC-Regular.otf",
-        "IBMPlexSansTC-Regular.ttf",
-        "IBMPlexSansTC-Regular.otf",
-        "IBMPlexSansKR-Regular.ttf",
-        "IBMPlexSansKR-Regular.otf",
-        // Windows system CJK fonts fallback
         "msyh.ttc",     // Microsoft YaHei (Simplified Chinese)
         "msyhl.ttc",    // Microsoft YaHei Light
         "msyhbd.ttc",   // Microsoft YaHei Bold
@@ -214,12 +204,20 @@ fn discover_windows_cjk_fonts(paths: &mut Vec<PathBuf>) {
         "msgothic.ttc", // MS Gothic (Japanese)
         "YuGothM.ttc",  // Yu Gothic (Japanese)
         "YuGothR.ttc",
-        "malgun.ttf", // Malgun Gothic (Korean)
+        "malgun.ttf",   // Malgun Gothic (Korean)
         "malgunbd.ttf",
-        "simsun.ttc",  // SimSun
-        "mingliu.ttc", // MingLiU
-        "gulim.ttc",   // Gulim (Korean)
-        "batang.ttc",  // Batang (Korean)
+        "simsun.ttc",   // SimSun
+        "mingliu.ttc",  // MingLiU
+        "gulim.ttc",    // Gulim (Korean)
+        "batang.ttc",   // Batang (Korean)
+        "IBMPlexSansJP-Regular.ttf",
+        "IBMPlexSansJP-Regular.otf",
+        "IBMPlexSansSC-Regular.ttf",
+        "IBMPlexSansSC-Regular.otf",
+        "IBMPlexSansTC-Regular.ttf",
+        "IBMPlexSansTC-Regular.otf",
+        "IBMPlexSansKR-Regular.ttf",
+        "IBMPlexSansKR-Regular.otf",
     ];
 
     for font_name in windows_fonts {
@@ -239,9 +237,12 @@ fn discover_macos_cjk_fonts(paths: &mut Vec<PathBuf>) {
     ];
 
     let macos_fonts = [
-        // IBM Plex Sans and related CJK fonts
-        "IBMPlexSans-Regular.otf",
-        "IBMPlexSans-Regular.ttf",
+        "PingFang.ttc",
+        "Hiragino Sans GB.ttc",
+        "AppleSDGothicNeo.ttc",
+        "Arial Unicode.ttf",
+        "STHeiti Medium.ttc",
+        "Songti.ttc",
         "IBMPlexSansJP-Regular.otf",
         "IBMPlexSansJP-Regular.ttf",
         "IBMPlexSansSC-Regular.otf",
@@ -250,13 +251,6 @@ fn discover_macos_cjk_fonts(paths: &mut Vec<PathBuf>) {
         "IBMPlexSansTC-Regular.ttf",
         "IBMPlexSansKR-Regular.otf",
         "IBMPlexSansKR-Regular.ttf",
-        // macOS system CJK fonts fallback
-        "PingFang.ttc",
-        "Hiragino Sans GB.ttc",
-        "AppleSDGothicNeo.ttc",
-        "Arial Unicode.ttf",
-        "STHeiti Medium.ttc",
-        "Songti.ttc",
     ];
 
     for dir_str in macos_dirs {
@@ -307,8 +301,57 @@ fn is_font_file(path: &Path) -> bool {
     }
 }
 
-/// Queries the primary font family name for a given font file path via fc-query or filename heuristic.
+/// Extracts all font family names contained in a font file using `ttf-parser`.
+/// Works accurately for both single font files (.ttf, .otf) and font collections (.ttc, .otc).
+pub fn extract_font_families(data: &[u8]) -> Vec<String> {
+    let mut families = Vec::new();
+
+    let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
+    for index in 0..count {
+        if let Ok(face) = ttf_parser::Face::parse(data, index) {
+            let mut matched_family = None;
+            for name in face.names() {
+                // Name ID 1 is Font Family Name, Name ID 16 is Typographic Family Name
+                if (name.name_id == 1 || name.name_id == 16) && name.is_unicode() {
+                    if let Some(text) = name.to_string() {
+                        let trimmed = text.trim();
+                        if !trimmed.is_empty() {
+                            matched_family = Some(trimmed.to_string());
+                            break;
+                        }
+                    }
+                }
+            }
+            if let Some(family) = matched_family {
+                if !families.contains(&family) {
+                    families.push(family);
+                }
+            }
+        }
+    }
+
+    families
+}
+
+/// Queries the primary font family name for a given font file path.
+/// First attempts parsing the font file headers directly via `ttf-parser`.
+/// Falls back to `fc-query` on Linux and well-known filename heuristics.
 pub fn query_font_family(path: &Path) -> Option<String> {
+    // 1. Try reading the first few kilobytes or full file to parse the header
+    if let Ok(file) = fs::File::open(path) {
+        use std::io::Read;
+        // Most TTF/OTF font name tables reside within the first 64KB
+        let mut handle = file;
+        let mut buffer = Vec::new();
+        if handle.read_to_end(&mut buffer).is_ok() {
+            let families = extract_font_families(&buffer);
+            if let Some(first) = families.into_iter().next() {
+                return Some(first);
+            }
+        }
+    }
+
+    // 2. Linux fc-query fallback
     #[cfg(target_os = "linux")]
     {
         if let Ok(output) = Command::new("fc-query")
@@ -328,7 +371,7 @@ pub fn query_font_family(path: &Path) -> Option<String> {
         }
     }
 
-    // Heuristic fallback based on well-known font file names
+    // 3. Heuristic fallback based on well-known font file names
     let file_name = path
         .file_name()
         .and_then(|n| n.to_str())
@@ -374,26 +417,55 @@ pub struct CjkFontBundle {
     pub primary_family: Option<String>,
 }
 
-/// Loads all discovered CJK font files as raw byte buffers and determines
-/// the primary font family name to use as default font (prioritizing IBM Plex Sans).
+/// Loads discovered CJK font files as raw byte buffers while strictly respecting
+/// memory constraints (capped at `MAX_LOADED_FONT_BYTES`).
+///
+/// Discovered fonts are registered as fallback glyph sources in iced/cosmic-text.
+/// Rather than forcing a specific Latin font, `primary_family` is set to `None` by default
+/// so standard UI rendering uses clean system typography while CJK characters seamlessly fall back.
 pub fn load_cjk_fonts() -> CjkFontBundle {
     let font_paths = discover_cjk_font_paths();
     let mut font_data = Vec::new();
+    let mut total_bytes = 0usize;
     let mut discovered_families = Vec::new();
 
     info!("Discovered {} candidate font paths", font_paths.len());
 
     for path in font_paths {
-        if let Some(family) = query_font_family(&path) {
-            discovered_families.push(family);
+        if total_bytes >= MAX_LOADED_FONT_BYTES {
+            info!(
+                "Reached font memory budget ({:.2} MB loaded), skipping remaining candidates",
+                total_bytes as f64 / 1_048_576.0
+            );
+            break;
         }
 
         match fs::read(&path) {
             Ok(bytes) => {
+                let size = bytes.len();
+                // Check if loading this file would drastically exceed budget
+                if total_bytes > 0 && total_bytes + size > MAX_LOADED_FONT_BYTES * 3 / 2 {
+                    info!(
+                        "Skipping large font {:?} ({:.2} MB) to protect memory budget",
+                        path.file_name().unwrap_or_default(),
+                        size as f64 / 1_048_576.0
+                    );
+                    continue;
+                }
+
+                let families = extract_font_families(&bytes);
+                for fam in families {
+                    if !discovered_families.contains(&fam) {
+                        discovered_families.push(fam);
+                    }
+                }
+
+                total_bytes += size;
                 info!(
-                    "Loaded font: {:?} ({:.2} MB)",
+                    "Loaded font: {:?} ({:.2} MB) [Total: {:.2} MB]",
                     path.file_name().unwrap_or_default(),
-                    bytes.len() as f64 / 1_048_576.0
+                    size as f64 / 1_048_576.0,
+                    total_bytes as f64 / 1_048_576.0
                 );
                 font_data.push(bytes);
             }
@@ -403,26 +475,17 @@ pub fn load_cjk_fonts() -> CjkFontBundle {
         }
     }
 
-    // Prioritize IBM Plex Sans as the default font family, followed by IBM Plex Sans CJK variants,
-    // and finally any first discovered CJK font.
-    let primary_family = if discovered_families.iter().any(|f| f == "IBM Plex Sans") {
-        Some("IBM Plex Sans".to_string())
-    } else if let Some(plex_cjk) = discovered_families
-        .iter()
-        .find(|f| f.starts_with("IBM Plex Sans"))
-    {
-        Some(plex_cjk.clone())
-    } else {
-        discovered_families.into_iter().next()
-    };
+    info!(
+        "Font loading complete: {} buffers, {:.2} MB total memory",
+        font_data.len(),
+        total_bytes as f64 / 1_048_576.0
+    );
 
-    if let Some(ref fam) = primary_family {
-        info!("Selected primary default font family: {}", fam);
-    }
-
+    // Keep primary_family as None by default to let iced use system default typography,
+    // while all loaded font buffers serve as cosmic-text glyph fallbacks.
     CjkFontBundle {
         font_data,
-        primary_family,
+        primary_family: None,
     }
 }
 

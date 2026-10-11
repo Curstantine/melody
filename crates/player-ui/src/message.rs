@@ -2,7 +2,9 @@ use std::path::PathBuf;
 
 use player_core::{AlbumSummary, ArtistSummary, ScanSummary, SortField, Track};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum ViewTab {
     #[default]
     Tracks,
@@ -12,14 +14,14 @@ pub enum ViewTab {
     Settings,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum ViewMode {
     #[default]
     List,
     Tile,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum AlbumSortField {
     #[default]
     Title,
@@ -29,7 +31,7 @@ pub enum AlbumSortField {
     Duration,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum SettingsTab {
     #[default]
     Appearance,

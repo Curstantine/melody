@@ -3819,6 +3819,7 @@ dependencies = [
  "toml 0.8.23",
  "tracing",
  "tracing-subscriber",
+ "ttf-parser 0.21.1",
  "walkdir",
 ]
 
