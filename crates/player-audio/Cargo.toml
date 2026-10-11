@@ -1,0 +1,15 @@
+[package]
+name = "player-audio"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+player-core = { path = "../player-core" }
+cpal = "0.15"
+symphonia = { version = "0.5.4", features = ["all"] }
+ringbuf = "0.4.7"
+crossbeam-channel = "0.5"
+thiserror = "2.0"
+tracing = "0.1"

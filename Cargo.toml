@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/player-core",
+    "crates/player-audio",
+    "crates/player-plugins",
+    "crates/player-ui",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["vibecore contributors"]
+license = "MIT OR Apache-2.0"
