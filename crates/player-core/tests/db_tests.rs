@@ -1,4 +1,39 @@
-use player_core::{format_duration, LibraryDatabase, NewTrack, SortDirection, SortField};
+use player_core::{
+    format_duration, AudioTechnicalInfo, LibraryDatabase, NewTrack, SortDirection, SortField,
+};
+
+#[test]
+fn test_audio_technical_info_formatting() {
+    let info = AudioTechnicalInfo {
+        format_name: "FLAC Lossless".to_string(),
+        codec_name: "FLAC".to_string(),
+        sample_rate_hz: 96000,
+        bit_depth: Some(24),
+        channels: 2,
+        channel_layout: "Stereo".to_string(),
+        bitrate_kbps: Some(1536),
+        file_size_bytes: 52_428_800, // 50.0 MB
+    };
+
+    assert_eq!(info.formatted_file_size(), "50.0 MB");
+    assert_eq!(info.formatted_sample_rate(), "96 kHz");
+    assert_eq!(info.formatted_quality(), "24-bit / 96 kHz");
+
+    let info_44k = AudioTechnicalInfo {
+        format_name: "MP3 Audio".to_string(),
+        codec_name: "MP3".to_string(),
+        sample_rate_hz: 44100,
+        bit_depth: None,
+        channels: 1,
+        channel_layout: "Mono".to_string(),
+        bitrate_kbps: Some(320),
+        file_size_bytes: 8_500_000,
+    };
+
+    assert_eq!(info_44k.formatted_sample_rate(), "44.1 kHz");
+    assert_eq!(info_44k.formatted_quality(), "44.1 kHz");
+    assert_eq!(info_44k.formatted_file_size(), "8.1 MB");
+}
 
 #[test]
 fn test_database_lifecycle_and_pagination() {

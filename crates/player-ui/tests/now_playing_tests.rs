@@ -11,13 +11,12 @@ mod theme;
 #[path = "../src/views/lyrics.rs"]
 mod lyrics;
 
-use player_core::{ExtractedColors, Track};
+use player_core::{AudioTechnicalInfo, Track};
 use theme::ThemeConfig;
 
 #[test]
 fn test_now_playing_empty_state_renders() {
     let theme_cfg = ThemeConfig::default();
-    let palette = ExtractedColors::default();
 
     let _element = lyrics::view(
         &theme_cfg,
@@ -25,23 +24,18 @@ fn test_now_playing_empty_state_renders() {
         None,
         None,
         None,
-        &palette,
-        0.0,
+        None,
+        None,
         false,
         false,
         false,
+        None,
     );
 }
 
 #[test]
 fn test_now_playing_with_track_and_next_track() {
     let theme_cfg = ThemeConfig::default();
-    let palette = ExtractedColors {
-        primary: [0.85, 0.20, 0.35, 1.0],
-        secondary: [0.20, 0.70, 0.85, 1.0],
-        accent: [0.95, 0.80, 0.10, 1.0],
-        background: [0.06, 0.05, 0.08, 1.0],
-    };
 
     let track = Track {
         id: 1,
@@ -83,18 +77,30 @@ fn test_now_playing_with_track_and_next_track() {
         added_timestamp: 1700000001,
     };
 
+    let tech_info = AudioTechnicalInfo {
+        format_name: "FLAC Lossless".to_string(),
+        codec_name: "FLAC".to_string(),
+        sample_rate_hz: 48000,
+        bit_depth: Some(24),
+        channels: 2,
+        channel_layout: "Stereo".to_string(),
+        bitrate_kbps: Some(960),
+        file_size_bytes: 25_800_000,
+    };
+
     let lyrics_text = "[00:00.00] Cruising down the neon street\n[00:15.00] Bass in the night";
 
     let _element = lyrics::view(
         &theme_cfg,
         Some(&track),
         None,
+        None,
         Some(lyrics_text),
         Some(next_track),
-        &palette,
-        12.5,
+        None,
         true,
         true,
         true,
+        Some(&tech_info),
     );
 }

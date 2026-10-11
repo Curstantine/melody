@@ -85,6 +85,7 @@ pub struct AlbumSummary {
     pub total_duration_ms: u64,
     pub year: Option<u32>,
     pub cover_track_path: Option<String>,
+    pub added_timestamp: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

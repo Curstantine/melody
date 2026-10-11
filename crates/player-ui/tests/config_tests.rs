@@ -8,7 +8,7 @@ mod config;
 mod message;
 
 use config::AppConfig;
-use message::{AlbumSortField, SettingsTab, ViewMode, ViewTab};
+use message::{AlbumSortField, ArtistSortField, SettingsTab, ViewMode, ViewTab};
 
 #[test]
 fn test_default_app_config() {
@@ -22,6 +22,7 @@ fn test_default_app_config() {
     assert_eq!(cfg.artists_view_mode, ViewMode::Tile);
     assert_eq!(cfg.page_size, 50);
     assert_eq!(cfg.album_sort_field, AlbumSortField::Title);
+    assert_eq!(cfg.artist_sort_field, ArtistSortField::Artist);
     assert_eq!(cfg.volume, 1.0);
     assert!(!cfg.is_shuffle);
     assert!(!cfg.is_repeat);
@@ -39,6 +40,7 @@ fn test_config_toml_roundtrip() {
         artists_view_mode: ViewMode::List,
         page_size: 100,
         album_sort_field: AlbumSortField::Artist,
+        artist_sort_field: ArtistSortField::TrackCount,
         volume: 0.65,
         is_shuffle: true,
         is_repeat: true,

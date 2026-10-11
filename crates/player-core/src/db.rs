@@ -467,7 +467,8 @@ impl LibraryDatabase {
                 COUNT(*) as track_count,
                 SUM(duration_ms) as total_duration,
                 MIN(year) as year,
-                MIN(file_path) as cover_track_path
+                MIN(file_path) as cover_track_path,
+                MAX(added_timestamp) as added_timestamp
             FROM tracks
             GROUP BY album, COALESCE(NULLIF(album_artist, ''), '')
             ORDER BY album ASC
@@ -481,6 +482,7 @@ impl LibraryDatabase {
             let duration: i64 = row.get(3)?;
             let year: Option<u32> = row.get(4)?;
             let cover_track_path: Option<String> = row.get(5)?;
+            let added_timestamp: i64 = row.get(6)?;
             Ok(AlbumSummary {
                 album,
                 artist,
@@ -488,6 +490,7 @@ impl LibraryDatabase {
                 total_duration_ms: duration as u64,
                 year,
                 cover_track_path,
+                added_timestamp,
             })
         })?;
 

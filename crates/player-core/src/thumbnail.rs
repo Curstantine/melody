@@ -117,6 +117,22 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
     }
 }
 
+/// Generates a heavily blurred low-resolution JPEG thumbnail (~2-5 KB)
+/// suitable for full-screen ambient backdrop rendering with bilinear texture smoothing.
+pub fn generate_blurred_cover(image_bytes: &[u8]) -> Option<Vec<u8>> {
+    let img = image::load_from_memory(image_bytes).ok()?;
+    let small = img.thumbnail_exact(64, 64);
+    let blurred = image::imageops::blur(&small, 8.0);
+    let rgb = image::DynamicImage::ImageRgba8(blurred);
+    let mut out_bytes = Vec::new();
+    rgb.write_to(
+        &mut Cursor::new(&mut out_bytes),
+        ImageOutputFormat::Jpeg(70),
+    )
+    .ok()?;
+    Some(out_bytes)
+}
+
 /// Disk cache summary statistics for cover thumbnails
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CacheStats {

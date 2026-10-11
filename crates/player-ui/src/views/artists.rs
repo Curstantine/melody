@@ -1,17 +1,19 @@
 use iced::border::Radius;
 use iced::widget::{button, column, container, row, scrollable, Space};
 use iced::{Alignment, Border, Element, Length, Padding};
-use player_core::ArtistSummary;
+use player_core::{ArtistSummary, SortDirection};
 
 use crate::components::{self, text};
 use crate::icons;
-use crate::message::{Message, ViewMode};
+use crate::message::{ArtistSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
 pub fn view<'a>(
     theme_cfg: &'a ThemeConfig,
     artists: &'a [ArtistSummary],
     view_mode: ViewMode,
+    active_sort_field: ArtistSortField,
+    sort_dir: SortDirection,
 ) -> Element<'a, Message> {
     if artists.is_empty() {
         return components::empty_state(
@@ -22,9 +24,21 @@ pub fn view<'a>(
     }
 
     let header_bar = row![
+        components::sort_chip_list(
+            theme_cfg,
+            &[
+                ("Artist", ArtistSortField::Artist),
+                ("Tracks", ArtistSortField::TrackCount),
+                ("Albums", ArtistSortField::AlbumCount),
+            ],
+            active_sort_field,
+            sort_dir,
+            Message::ArtistSortChanged,
+        ),
         Space::with_width(Length::Fill),
         components::view_mode_toggle(theme_cfg, view_mode, Message::SetArtistsViewMode),
     ]
+    .spacing(4)
     .align_y(Alignment::Center)
     .padding(iced::Padding {
         top: 0.0,

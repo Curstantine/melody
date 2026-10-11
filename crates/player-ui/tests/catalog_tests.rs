@@ -13,7 +13,7 @@ mod message;
 #[path = "../src/theme/mod.rs"]
 mod theme;
 
-use message::{AlbumSortField, Message, ViewMode};
+use message::{AlbumSortField, ArtistSortField, Message, ViewMode};
 use player_core::{AlbumSummary, ArtistSummary, SortDirection};
 use std::collections::HashMap;
 use theme::ThemeConfig;
@@ -40,6 +40,7 @@ fn test_album_and_artist_views_render_sliced() {
             total_duration_ms: 180_000,
             year: Some(2020),
             cover_track_path: None,
+            added_timestamp: 1700000000 + i as i64,
         })
         .collect();
 
@@ -74,8 +75,20 @@ fn test_album_and_artist_views_render_sliced() {
 
     // Sliced view for artists (first 60 items)
     let visible_artists = &artists_list[..60];
-    let _artist_tile = artists::view(&theme_cfg, visible_artists, ViewMode::Tile);
-    let _artist_list = artists::view(&theme_cfg, visible_artists, ViewMode::List);
+    let _artist_tile = artists::view(
+        &theme_cfg,
+        visible_artists,
+        ViewMode::Tile,
+        ArtistSortField::Artist,
+        SortDirection::Ascending,
+    );
+    let _artist_list = artists::view(
+        &theme_cfg,
+        visible_artists,
+        ViewMode::List,
+        ArtistSortField::Artist,
+        SortDirection::Ascending,
+    );
 }
 
 #[test]

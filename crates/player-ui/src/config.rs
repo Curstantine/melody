@@ -5,7 +5,7 @@ use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
-use crate::message::{AlbumSortField, SettingsTab, ViewMode, ViewTab};
+use crate::message::{AlbumSortField, ArtistSortField, SettingsTab, ViewMode, ViewTab};
 
 pub const DEFAULT_PAGE_SIZE: usize = 50;
 
@@ -31,6 +31,8 @@ pub struct AppConfig {
     pub page_size: usize,
     #[serde(default)]
     pub album_sort_field: AlbumSortField,
+    #[serde(default)]
+    pub artist_sort_field: ArtistSortField,
 
     #[serde(default = "default_volume")]
     pub volume: f32,
@@ -64,6 +66,7 @@ impl Default for AppConfig {
             artists_view_mode: ViewMode::Tile,
             page_size: default_page_size(),
             album_sort_field: AlbumSortField::Title,
+            artist_sort_field: ArtistSortField::Artist,
             volume: default_volume(),
             is_shuffle: false,
             is_repeat: false,

@@ -8,6 +8,145 @@ use thiserror::Error;
 
 use crate::model::NewTrack;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AudioTechnicalInfo {
+    pub format_name: String,
+    pub codec_name: String,
+    pub sample_rate_hz: u32,
+    pub bit_depth: Option<u32>,
+    pub channels: u32,
+    pub channel_layout: String,
+    pub bitrate_kbps: Option<u32>,
+    pub file_size_bytes: u64,
+}
+
+impl AudioTechnicalInfo {
+    pub fn formatted_file_size(&self) -> String {
+        let bytes = self.file_size_bytes;
+        if bytes >= 1024 * 1024 * 1024 {
+            format!("{:.2} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+        } else if bytes >= 1024 * 1024 {
+            format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
+        } else if bytes >= 1024 {
+            format!("{:.1} KB", bytes as f64 / 1024.0)
+        } else {
+            format!("{} B", bytes)
+        }
+    }
+
+    pub fn formatted_sample_rate(&self) -> String {
+        if self.sample_rate_hz % 1000 == 0 {
+            format!("{} kHz", self.sample_rate_hz / 1000)
+        } else {
+            format!("{:.1} kHz", self.sample_rate_hz as f64 / 1000.0)
+        }
+    }
+
+    pub fn formatted_quality(&self) -> String {
+        match self.bit_depth {
+            Some(bd) => format!("{}-bit / {}", bd, self.formatted_sample_rate()),
+            None => self.formatted_sample_rate(),
+        }
+    }
+}
+
+pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTechnicalInfo> {
+    let file = File::open(path).ok()?;
+    let file_size_bytes = file.metadata().map(|m| m.len()).unwrap_or(0);
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+
+    let mut hint = Hint::new();
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase());
+    if let Some(ref e) = ext {
+        hint.with_extension(e);
+    }
+
+    let probed = symphonia::default::get_probe()
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
+        .ok()?;
+
+    let format = probed.format;
+    let track = format
+        .tracks()
+        .iter()
+        .find(|t| t.codec_params.codec != symphonia::core::codecs::CODEC_TYPE_NULL)?;
+
+    let params = &track.codec_params;
+    let sample_rate_hz = params.sample_rate.unwrap_or(44100);
+    let channels = params.channels.map(|c| c.count() as u32).unwrap_or(2);
+    let bit_depth = params.bits_per_sample;
+
+    let channel_layout = match channels {
+        1 => "Mono".to_string(),
+        2 => "Stereo".to_string(),
+        3 => "2.1 Surround".to_string(),
+        4 => "Quadraphonic".to_string(),
+        6 => "5.1 Surround".to_string(),
+        8 => "7.1 Surround".to_string(),
+        ch => format!("{} ch", ch),
+    };
+
+    let codec_name = match params.codec {
+        symphonia::core::codecs::CODEC_TYPE_FLAC => "FLAC".to_string(),
+        symphonia::core::codecs::CODEC_TYPE_MP3 => "MP3 (MPEG Audio Layer III)".to_string(),
+        symphonia::core::codecs::CODEC_TYPE_AAC => "AAC (Advanced Audio Coding)".to_string(),
+        symphonia::core::codecs::CODEC_TYPE_VORBIS => "Vorbis".to_string(),
+        symphonia::core::codecs::CODEC_TYPE_OPUS => "Opus".to_string(),
+        symphonia::core::codecs::CODEC_TYPE_PCM_S16LE
+        | symphonia::core::codecs::CODEC_TYPE_PCM_S16BE
+        | symphonia::core::codecs::CODEC_TYPE_PCM_S24LE
+        | symphonia::core::codecs::CODEC_TYPE_PCM_S24BE
+        | symphonia::core::codecs::CODEC_TYPE_PCM_S32LE
+        | symphonia::core::codecs::CODEC_TYPE_PCM_S32BE
+        | symphonia::core::codecs::CODEC_TYPE_PCM_F32LE
+        | symphonia::core::codecs::CODEC_TYPE_PCM_F32BE => "PCM (Uncompressed)".to_string(),
+        symphonia::core::codecs::CODEC_TYPE_ALAC => "ALAC (Apple Lossless)".to_string(),
+        _ => ext
+            .as_deref()
+            .map(|e| e.to_uppercase())
+            .unwrap_or_else(|| "Unknown".to_string()),
+    };
+
+    let format_name = match ext.as_deref() {
+        Some("flac") => "FLAC Lossless",
+        Some("mp3") => "MP3 Audio",
+        Some("wav") => "WAV Audio",
+        Some("ogg") | Some("oga") => "Ogg Container",
+        Some("opus") => "Opus Audio",
+        Some("m4a") | Some("mp4") | Some("aac") => "AAC / MP4",
+        Some("aiff") | Some("aif") => "AIFF Audio",
+        _ => "Audio",
+    }
+    .to_string();
+
+    let bitrate_kbps = if duration_ms > 0 && file_size_bytes > 0 {
+        let dur_secs = duration_ms as f64 / 1000.0;
+        let kbps = (file_size_bytes as f64 * 8.0) / dur_secs / 1000.0;
+        Some(kbps.round() as u32)
+    } else {
+        None
+    };
+
+    Some(AudioTechnicalInfo {
+        format_name,
+        codec_name,
+        sample_rate_hz,
+        bit_depth,
+        channels,
+        channel_layout,
+        bitrate_kbps,
+        file_size_bytes,
+    })
+}
+
 #[derive(Error, Debug)]
 pub enum MetadataError {
     #[error("IO error: {0}")]

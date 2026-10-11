@@ -16,7 +16,7 @@ use tracing::{error, info};
 use crate::components::{border_vert, text};
 use crate::config::AppConfig;
 use crate::icons;
-use crate::message::{AlbumSortField, Message, SettingsTab, ViewMode, ViewTab};
+use crate::message::{AlbumSortField, ArtistSortField, Message, SettingsTab, ViewMode, ViewTab};
 use crate::theme::{styles, ThemeManager};
 use crate::views;
 
@@ -60,6 +60,8 @@ pub struct App {
     album_sort_dir: SortDirection,
     visible_albums_count: usize,
     artists: Vec<ArtistSummary>,
+    artist_sort_field: ArtistSortField,
+    artist_sort_dir: SortDirection,
     visible_artists_count: usize,
     library_folders: Vec<String>,
 
@@ -67,6 +69,9 @@ pub struct App {
     current_track: Option<Track>,
     current_track_id: Option<i64>,
     current_cover: Option<image::Handle>,
+    current_blurred_cover: Option<image::Handle>,
+    current_next_cover: Option<image::Handle>,
+    current_tech_info: Option<player_core::AudioTechnicalInfo>,
     is_playing: bool,
     position_ms: u64,
     duration_ms: u64,
@@ -77,8 +82,6 @@ pub struct App {
     is_shuffle: bool,
     is_repeat: bool,
     loved_tracks: HashSet<i64>,
-    current_palette: player_core::ExtractedColors,
-    start_time: std::time::Instant,
 
     // Library Scanning & Fonts
     is_scanning: bool,
@@ -187,12 +190,17 @@ impl App {
             album_sort_dir: SortDirection::Ascending,
             visible_albums_count: DEFAULT_CATALOG_CHUNK_SIZE,
             artists,
+            artist_sort_field: config.artist_sort_field,
+            artist_sort_dir: SortDirection::Ascending,
             visible_artists_count: DEFAULT_CATALOG_CHUNK_SIZE,
             library_folders,
 
             current_track: None,
             current_track_id: None,
             current_cover: None,
+            current_blurred_cover: None,
+            current_next_cover: None,
+            current_tech_info: None,
             is_playing: false,
             position_ms: 0,
             duration_ms: 0,
@@ -203,8 +211,6 @@ impl App {
             is_shuffle: config.is_shuffle,
             is_repeat: config.is_repeat,
             loved_tracks: HashSet::new(),
-            current_palette: player_core::ExtractedColors::default(),
-            start_time: std::time::Instant::now(),
 
             is_scanning: false,
             available_fonts,
@@ -235,13 +241,8 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        // Poll audio playback status and drive smooth background animations
-        let interval = if self.active_tab == ViewTab::Lyrics {
-            Duration::from_millis(33)
-        } else {
-            Duration::from_millis(50)
-        };
-        iced::time::every(interval).map(|_| Message::AudioTick)
+        // Poll audio playback status at 50ms intervals (~20 FPS smooth seekbar)
+        iced::time::every(Duration::from_millis(50)).map(|_| Message::AudioTick)
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -294,18 +295,30 @@ impl App {
                         .or_else(|| player_core::extract_cover_art(&path));
 
                     if let Some(ref bytes) = cover_bytes {
-                        self.current_palette = player_core::extract_palette(bytes);
+                        self.current_blurred_cover = player_core::generate_blurred_cover(bytes)
+                            .map(image::Handle::from_bytes);
                     } else {
-                        self.current_palette = player_core::ExtractedColors::default();
+                        self.current_blurred_cover = None;
                     }
 
                     self.current_cover = cover_bytes.map(image::Handle::from_bytes);
+                    self.current_tech_info =
+                        player_core::extract_technical_info(&path, track.duration_ms);
 
                     self.audio_controller.load(path, true);
                     self.current_track = Some(track.clone());
                     self.current_track_id = Some(track_id);
                     self.position_ms = 0;
                     self.duration_ms = track.duration_ms;
+
+                    // Pre-extract cover for next track for the Now Playing view
+                    let next_track_opt = self.get_next_track();
+                    self.current_next_cover = next_track_opt.and_then(|nt| {
+                        let nt_path = PathBuf::from(&nt.file_path);
+                        player_core::get_or_create_thumbnail(&nt_path, 200)
+                            .or_else(|| player_core::extract_cover_art(&nt_path))
+                            .map(image::Handle::from_bytes)
+                    });
 
                     let lyrics = self
                         .plugin_manager
@@ -857,7 +870,8 @@ impl App {
                     self.album_sort_dir = match field {
                         AlbumSortField::Year
                         | AlbumSortField::TrackCount
-                        | AlbumSortField::Duration => SortDirection::Descending,
+                        | AlbumSortField::Duration
+                        | AlbumSortField::DateAdded => SortDirection::Descending,
                         _ => SortDirection::Ascending,
                     };
                 }
@@ -866,6 +880,26 @@ impl App {
                 let save_task = self.save_config_task();
                 let covers_task = self.load_visible_album_covers_task();
                 Task::batch([save_task, covers_task])
+            }
+
+            Message::ArtistSortChanged(field) => {
+                if self.artist_sort_field == field {
+                    self.artist_sort_dir = match self.artist_sort_dir {
+                        SortDirection::Ascending => SortDirection::Descending,
+                        SortDirection::Descending => SortDirection::Ascending,
+                    };
+                } else {
+                    self.artist_sort_field = field;
+                    self.artist_sort_dir = match field {
+                        ArtistSortField::TrackCount | ArtistSortField::AlbumCount => {
+                            SortDirection::Descending
+                        }
+                        _ => SortDirection::Ascending,
+                    };
+                }
+                Self::sort_artists(&mut self.artists, self.artist_sort_field, self.artist_sort_dir);
+                self.visible_artists_count = DEFAULT_CATALOG_CHUNK_SIZE;
+                self.save_config_task()
             }
 
             Message::AlbumsLoaded(mut albums) => {
@@ -921,7 +955,8 @@ impl App {
                 }
             }
 
-            Message::ArtistsLoaded(artists) => {
+            Message::ArtistsLoaded(mut artists) => {
+                Self::sort_artists(&mut artists, self.artist_sort_field, self.artist_sort_dir);
                 self.artists = artists;
                 self.visible_artists_count = DEFAULT_CATALOG_CHUNK_SIZE;
                 Task::none()
@@ -977,6 +1012,7 @@ impl App {
             artists_view_mode: self.artists_view_mode,
             page_size: self.page_size,
             album_sort_field: self.album_sort_field,
+            artist_sort_field: self.artist_sort_field,
             volume: self.volume,
             is_shuffle: self.is_shuffle,
             is_repeat: self.is_repeat,
@@ -1069,6 +1105,30 @@ impl App {
                     .total_duration_ms
                     .cmp(&b.total_duration_ms)
                     .then_with(|| a.album.to_lowercase().cmp(&b.album.to_lowercase())),
+                AlbumSortField::DateAdded => a
+                    .added_timestamp
+                    .cmp(&b.added_timestamp)
+                    .then_with(|| a.album.to_lowercase().cmp(&b.album.to_lowercase())),
+            };
+            match dir {
+                SortDirection::Ascending => ord,
+                SortDirection::Descending => ord.reverse(),
+            }
+        });
+    }
+
+    fn sort_artists(artists: &mut [ArtistSummary], field: ArtistSortField, dir: SortDirection) {
+        artists.sort_by(|a, b| {
+            let ord = match field {
+                ArtistSortField::Artist => a.artist.to_lowercase().cmp(&b.artist.to_lowercase()),
+                ArtistSortField::TrackCount => a
+                    .track_count
+                    .cmp(&b.track_count)
+                    .then_with(|| a.artist.to_lowercase().cmp(&b.artist.to_lowercase())),
+                ArtistSortField::AlbumCount => a
+                    .album_count
+                    .cmp(&b.album_count)
+                    .then_with(|| a.artist.to_lowercase().cmp(&b.artist.to_lowercase())),
             };
             match dir {
                 SortDirection::Ascending => ord,
@@ -1238,11 +1298,16 @@ impl App {
             ViewTab::Artists => {
                 let visible_slice =
                     &self.artists[..self.visible_artists_count.min(self.artists.len())];
-                views::artists::view(theme_cfg, visible_slice, self.artists_view_mode)
+                views::artists::view(
+                    theme_cfg,
+                    visible_slice,
+                    self.artists_view_mode,
+                    self.artist_sort_field,
+                    self.artist_sort_dir,
+                )
             }
             ViewTab::Lyrics => {
                 let next_track = self.get_next_track();
-                let animation_time = self.start_time.elapsed().as_secs_f32();
                 let is_loved = self
                     .current_track_id
                     .map(|id| self.loved_tracks.contains(&id))
@@ -1252,13 +1317,14 @@ impl App {
                     theme_cfg,
                     self.current_track.as_ref(),
                     self.current_cover.as_ref(),
+                    self.current_blurred_cover.as_ref(),
                     self.current_lyrics.as_deref(),
                     next_track,
-                    &self.current_palette,
-                    animation_time,
+                    self.current_next_cover.as_ref(),
                     self.is_repeat,
                     self.is_shuffle,
                     is_loved,
+                    self.current_tech_info.as_ref(),
                 )
             }
             ViewTab::Settings => {

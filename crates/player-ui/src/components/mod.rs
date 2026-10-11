@@ -249,7 +249,7 @@ pub fn cover_art<'a>(
             image(handle.clone())
                 .width(Length::Fixed(size))
                 .height(Length::Fixed(size))
-                .content_fit(ContentFit::Contain),
+                .content_fit(ContentFit::Cover),
         )
         .width(size)
         .height(size)

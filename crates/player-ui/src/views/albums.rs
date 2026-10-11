@@ -35,6 +35,7 @@ pub fn view<'a>(
                 ("Year", AlbumSortField::Year),
                 ("Tracks", AlbumSortField::TrackCount),
                 ("Duration", AlbumSortField::Duration),
+                ("Date Added", AlbumSortField::DateAdded),
             ],
             active_sort_field,
             sort_dir,

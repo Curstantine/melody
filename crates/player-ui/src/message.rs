@@ -29,6 +29,15 @@ pub enum AlbumSortField {
     Year,
     TrackCount,
     Duration,
+    DateAdded,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ArtistSortField {
+    #[default]
+    Artist,
+    TrackCount,
+    AlbumCount,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -86,6 +95,7 @@ pub enum Message {
     SelectAlbum(String),
     SelectArtist(String),
     AlbumSortChanged(AlbumSortField),
+    ArtistSortChanged(ArtistSortField),
     AlbumsScrolled(iced::widget::scrollable::Viewport),
     ArtistsScrolled(iced::widget::scrollable::Viewport),
     AlbumCoversLoaded(Vec<(String, Vec<u8>)>),
