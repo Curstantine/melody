@@ -197,9 +197,9 @@ impl AudioConverter {
         }
 
         // ── De-interleave into planar buffers ────────────────────────────────
-        for plane in &mut self.input_planes {
-            plane.clear();
-        }
+        // Append into persistent channel buffers instead of wiping them out.
+        // This ensures unaligned/residual frames from variable-block codecs
+        // (like FLAC) are carried over cleanly without clicks or pops.
         for f in 0..input_frame_count {
             for c in 0..self.src_channels {
                 self.input_planes[c].push(input[f * self.src_channels + c]);
@@ -210,8 +210,9 @@ impl AudioConverter {
         let resampler = self.resampler.as_mut().unwrap();
         let chunk = resampler.input_frames_next();
         let mut offset = 0;
+        let total_buffered_frames = self.input_planes[0].len();
 
-        while offset + chunk <= input_frame_count {
+        while offset + chunk <= total_buffered_frames {
             // Slice exactly `chunk` frames from each plane
             let slices: Vec<&[f32]> = self
                 .input_planes
@@ -240,7 +241,56 @@ impl AudioConverter {
             offset += chunk;
         }
 
-        // Any remaining frames less than `chunk` are held until the next call.
-        // rubato requires full chunks; residuals are small and short-lived.
+        // Drain the consumed frames, retaining any residual frames (< chunk) for the next packet.
+        if offset > 0 {
+            for plane in &mut self.input_planes {
+                plane.drain(0..offset);
+            }
+        }
+    }
+
+    /// Flushes any leftover input frames on end-of-stream by zero-padding to a full chunk.
+    pub fn flush(&mut self, output: &mut Vec<f32>) {
+        if self.resampler.is_none() {
+            return;
+        }
+
+        let pending_frames = self.input_planes[0].len();
+        if pending_frames == 0 {
+            return;
+        }
+
+        let resampler = self.resampler.as_mut().unwrap();
+        let chunk = resampler.input_frames_next();
+
+        if pending_frames < chunk {
+            // Pad remaining frames with silence to fill one final chunk
+            for plane in &mut self.input_planes {
+                plane.resize(chunk, 0.0);
+            }
+        }
+
+        let slices: Vec<&[f32]> = self.input_planes.iter().map(|p| &p[0..chunk]).collect();
+
+        match resampler.process_into_buffer(&slices, &mut self.output_planes, None) {
+            Ok((_, out_frames)) => {
+                let mut dst_frame = vec![0.0f32; self.dst_channels];
+                for f in 0..out_frames {
+                    let mut src_frame = vec![0.0f32; self.src_channels];
+                    for c in 0..self.src_channels {
+                        src_frame[c] = self.output_planes[c][f];
+                    }
+                    downmix_frame(&src_frame, &mut dst_frame);
+                    output.extend_from_slice(&dst_frame);
+                }
+            }
+            Err(e) => {
+                warn!("Resampler flush error: {}", e);
+            }
+        }
+
+        for plane in &mut self.input_planes {
+            plane.clear();
+        }
     }
 }

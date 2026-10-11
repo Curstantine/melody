@@ -210,9 +210,9 @@ pub fn view<'a>(
                     .spacing(8)
                     .align_y(Alignment::Center)
                     .padding(iced::Padding {
-                        top: 5.0,
+                        top: 2.0,
                         right: 15.0,
-                        bottom: 5.0,
+                        bottom: 2.0,
                         left: 0.0,
                     });
 

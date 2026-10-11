@@ -41,18 +41,16 @@ pub fn view<'a>(
             components::cjk_text(format!("{} • {}", track.artist, track.album))
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
-        ]
-        .spacing(2)
-        .width(Length::Fill),
+        ],
         None => column![
             text("No track playing").size(13).color(bar_fg),
             text("Vibecore")
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
-        ]
-        .spacing(2)
-        .width(Length::Fill),
-    };
+        ],
+    }
+    .spacing(2)
+    .width(Length::Fill);
 
     let track_section = row![cover_art, Space::with_width(10), track_details]
         .spacing(2)
@@ -60,19 +58,17 @@ pub fn view<'a>(
         .width(260);
 
     // 2. Center: Controls and Seek Bar
-    let play_pause_icon_svg = if is_playing {
-        icons::PAUSE_SVG
-    } else {
-        icons::PLAY_SVG
-    };
-
     let prev_btn = button(icons::icon(icons::PREV_SVG, 15.0, bar_fg))
         .padding([6, 8])
         .style(styles::player_bar_button(theme_cfg, false))
         .on_press(Message::PreviousTrack);
 
     let play_pause_btn = button(icons::icon(
-        play_pause_icon_svg,
+        if is_playing {
+            icons::PAUSE_SVG
+        } else {
+            icons::PLAY_SVG
+        },
         17.0,
         theme_cfg.player_bar_bg_color(),
     ))

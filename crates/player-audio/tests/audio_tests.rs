@@ -68,3 +68,28 @@ fn test_audio_converter_resampling() {
     // 2x upsampling of 1024 stereo frames should produce ~2048 stereo frames (4096 samples)
     assert!(output.len() >= 2048);
 }
+
+#[test]
+fn test_audio_converter_unaligned_packet_residuals() {
+    // 48000 Hz to 44100 Hz stereo
+    let mut converter = AudioConverter::new(2, 48000, 2, 44100);
+
+    // Feed non-multiple of chunk size (e.g. 3000 frames)
+    // Packet 1: 3000 frames -> processes 2048 frames (2 chunks), leaves 952 frames buffered.
+    let packet1 = vec![0.1f32; 3000 * 2];
+    let mut output1 = Vec::new();
+    converter.convert(&packet1, &mut output1);
+    assert!(!output1.is_empty());
+
+    // Packet 2: 3000 frames -> total 3952 frames -> processes 3072 frames (3 chunks), leaves 880 frames buffered.
+    let packet2 = vec![0.1f32; 3000 * 2];
+    let mut output2 = Vec::new();
+    converter.convert(&packet2, &mut output2);
+    assert!(!output2.is_empty());
+
+    // Flush on EOF: flushes the remaining 880 frames
+    let mut output_flush = Vec::new();
+    converter.flush(&mut output_flush);
+    assert!(!output_flush.is_empty());
+}
+

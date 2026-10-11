@@ -49,6 +49,7 @@
             fontconfig
             freetype
             noto-fonts-cjk-sans
+            ibm-plex
             (pkgs.rust-bin.stable.latest.default.override {
               extensions = [
                 "rust-src"

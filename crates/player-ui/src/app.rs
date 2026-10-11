@@ -112,9 +112,14 @@ impl App {
         let artists = db.get_artists().unwrap_or_default();
         let library_folders = db.get_library_folders().unwrap_or_default();
         let font_paths = crate::font::discover_cjk_font_paths();
-        let primary_font = font_paths
-            .first()
-            .and_then(|p| crate::font::query_font_family(p));
+        let primary_font = {
+            let bundle = crate::font::load_cjk_fonts();
+            bundle.primary_family.or_else(|| {
+                font_paths
+                    .first()
+                    .and_then(|p| crate::font::query_font_family(p))
+            })
+        };
 
         if let Some(ref fam) = primary_font {
             theme_manager.set_font(Some(fam.clone()));

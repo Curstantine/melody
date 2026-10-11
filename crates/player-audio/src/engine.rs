@@ -199,7 +199,12 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
                             if packet.track_id() == track.track_id {
                                 match track.decoder.decode(&packet) {
                                     Ok(decoded) => {
-                                        if track.sample_buf.is_none() {
+                                        let needs_realloc = match &track.sample_buf {
+                                            Some(buf) => buf.capacity() < decoded.capacity(),
+                                            None => true,
+                                        };
+
+                                        if needs_realloc {
                                             track.sample_buf = Some(SampleBuffer::new(
                                                 decoded.capacity() as u64,
                                                 *decoded.spec(),
@@ -244,6 +249,19 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
                             if e.kind() == std::io::ErrorKind::UnexpectedEof =>
                         {
                             track.reached_eof = true;
+                            // Flush any residual resampler frames
+                            temp_converted.clear();
+                            track.converter.flush(&mut temp_converted);
+                            if let Some(ref mut prod) = ring_producer {
+                                let mut written = 0;
+                                while written < temp_converted.len() {
+                                    let n = prod.push_slice(&temp_converted[written..]);
+                                    written += n;
+                                    if written < temp_converted.len() {
+                                        thread::sleep(Duration::from_millis(1));
+                                    }
+                                }
+                            }
                         }
                         Err(SymphoniaError::ResetRequired) => {
                             track.decoder.reset();
@@ -251,6 +269,19 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
                         Err(e) => {
                             warn!("Format next_packet error: {}", e);
                             track.reached_eof = true;
+                            // Flush any residual resampler frames
+                            temp_converted.clear();
+                            track.converter.flush(&mut temp_converted);
+                            if let Some(ref mut prod) = ring_producer {
+                                let mut written = 0;
+                                while written < temp_converted.len() {
+                                    let n = prod.push_slice(&temp_converted[written..]);
+                                    written += n;
+                                    if written < temp_converted.len() {
+                                        thread::sleep(Duration::from_millis(1));
+                                    }
+                                }
+                            }
                         }
                     }
                 } else {
