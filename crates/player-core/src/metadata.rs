@@ -28,8 +28,12 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
         hint.with_extension(ext);
     }
 
-    let mut probed = symphonia::default::get_probe()
-        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())?;
+    let mut probed = symphonia::default::get_probe().format(
+        &hint,
+        mss,
+        &FormatOptions::default(),
+        &MetadataOptions::default(),
+    )?;
 
     let format = &mut probed.format;
 
@@ -60,7 +64,9 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
             match sk {
                 StandardTagKey::TrackTitle if title.is_none() => title = Some(val_str),
                 StandardTagKey::Artist if artist.is_none() => artist = Some(val_str),
-                StandardTagKey::AlbumArtist if album_artist.is_none() => album_artist = Some(val_str),
+                StandardTagKey::AlbumArtist if album_artist.is_none() => {
+                    album_artist = Some(val_str)
+                }
                 StandardTagKey::Album if album.is_none() => album = Some(val_str),
                 StandardTagKey::Genre if genre.is_none() => genre = Some(val_str),
                 StandardTagKey::TrackNumber if track_num.is_none() => {
@@ -69,7 +75,9 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
                 StandardTagKey::DiscNumber if disc_num.is_none() => {
                     disc_num = parse_index_slash(&val_str);
                 }
-                StandardTagKey::Date | StandardTagKey::ReleaseDate | StandardTagKey::OriginalDate
+                StandardTagKey::Date
+                | StandardTagKey::ReleaseDate
+                | StandardTagKey::OriginalDate
                     if year.is_none() =>
                 {
                     year = parse_year(&val_str);
@@ -148,7 +156,10 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
 
     // Determine duration
     let mut duration_ms = 0u64;
-    let track = format.tracks().iter().find(|t| t.codec_params.codec != symphonia::core::codecs::CODEC_TYPE_NULL);
+    let track = format
+        .tracks()
+        .iter()
+        .find(|t| t.codec_params.codec != symphonia::core::codecs::CODEC_TYPE_NULL);
 
     if let Some(t) = track {
         let params = &t.codec_params;
@@ -168,7 +179,11 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
             let mut bit_rate = None;
             if let Some(br) = params.bits_per_sample {
                 if let Some(sr) = params.sample_rate {
-                    bit_rate = Some((br as u64) * (sr as u64) * (params.channels.map(|c| c.count() as u64).unwrap_or(2)));
+                    bit_rate = Some(
+                        (br as u64)
+                            * (sr as u64)
+                            * (params.channels.map(|c| c.count() as u64).unwrap_or(2)),
+                    );
                 }
             }
             if let Some(br) = bit_rate {
@@ -228,7 +243,9 @@ fn parse_index_slash(val: &str) -> Option<u32> {
     if let Ok(n) = val.parse::<u32>() {
         Some(n)
     } else {
-        val.split('/').next().and_then(|s| s.trim().parse::<u32>().ok())
+        val.split('/')
+            .next()
+            .and_then(|s| s.trim().parse::<u32>().ok())
     }
 }
 

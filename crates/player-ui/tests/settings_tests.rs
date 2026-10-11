@@ -1,19 +1,19 @@
 #![allow(dead_code)]
 
+#[path = "../src/components/mod.rs"]
+mod components;
 #[path = "../src/icons.rs"]
 mod icons;
 #[path = "../src/message.rs"]
 mod message;
-#[path = "../src/theme/mod.rs"]
-mod theme;
-#[path = "../src/components/mod.rs"]
-mod components;
 #[path = "../src/views/settings.rs"]
 mod settings;
+#[path = "../src/theme/mod.rs"]
+mod theme;
 
-use std::path::{Path, PathBuf};
 use message::{SettingsTab, ViewMode};
-use settings::{SettingsViewData, view};
+use settings::{view, SettingsViewData};
+use std::path::{Path, PathBuf};
 use theme::ThemeConfig;
 
 #[test]
@@ -21,7 +21,11 @@ fn test_settings_tab_variants_and_defaults() {
     let default_tab = SettingsTab::default();
     assert_eq!(default_tab, SettingsTab::Appearance);
 
-    let tabs = [SettingsTab::Appearance, SettingsTab::Library, SettingsTab::Debug];
+    let tabs = [
+        SettingsTab::Appearance,
+        SettingsTab::Library,
+        SettingsTab::Debug,
+    ];
     assert_ne!(tabs[0], tabs[1]);
     assert_ne!(tabs[1], tabs[2]);
     assert_ne!(tabs[0], tabs[2]);
@@ -31,10 +35,16 @@ fn test_settings_tab_variants_and_defaults() {
 fn test_settings_views_render_without_panicking() {
     let theme_cfg = ThemeConfig::default();
     let folders = vec!["/music/ambient".to_string(), "/music/jazz".to_string()];
-    let font_paths = vec![PathBuf::from("/usr/share/fonts/noto/NotoSansCJK-Regular.ttc")];
+    let font_paths = vec![PathBuf::from(
+        "/usr/share/fonts/noto/NotoSansCJK-Regular.ttc",
+    )];
     let db_path = Path::new("/tmp/test_library.db");
 
-    for tab in [SettingsTab::Appearance, SettingsTab::Library, SettingsTab::Debug] {
+    for tab in [
+        SettingsTab::Appearance,
+        SettingsTab::Library,
+        SettingsTab::Debug,
+    ] {
         let data = SettingsViewData {
             active_tab: tab,
             theme_names: vec!["Default".to_string(), "Nord".to_string()],

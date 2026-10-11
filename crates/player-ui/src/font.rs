@@ -84,8 +84,16 @@ fn discover_linux_cjk_fonts(paths: &mut Vec<PathBuf>) {
         vec!["IBM Plex Sans TC", "-f", "%{file}###%{family}###%{lang}\n"],
         vec!["IBM Plex Sans KR", "-f", "%{file}###%{family}###%{lang}\n"],
         vec!["WenQuanYi Zen Hei", "-f", "%{file}###%{family}###%{lang}\n"],
-        vec!["WenQuanYi Micro Hei", "-f", "%{file}###%{family}###%{lang}\n"],
-        vec!["Droid Sans Fallback", "-f", "%{file}###%{family}###%{lang}\n"],
+        vec![
+            "WenQuanYi Micro Hei",
+            "-f",
+            "%{file}###%{family}###%{lang}\n",
+        ],
+        vec![
+            "Droid Sans Fallback",
+            "-f",
+            "%{file}###%{family}###%{lang}\n",
+        ],
         vec![":lang=ja", "-f", "%{file}###%{family}###%{lang}\n"],
         vec![":lang=zh-cn", "-f", "%{file}###%{family}###%{lang}\n"],
         vec![":lang=zh-tw", "-f", "%{file}###%{family}###%{lang}\n"],
@@ -143,8 +151,17 @@ fn discover_linux_cjk_fonts(paths: &mut Vec<PathBuf>) {
         ];
 
         let cjk_keywords = [
-            "cjk", "noto-cjk", "ibmplexsanssc", "ibmplexsansjp", "ibmplexsanskr", "ibmplexsanstc",
-            "wqy", "zenhei", "microhei", "sourcehancjk", "droidfallback",
+            "cjk",
+            "noto-cjk",
+            "ibmplexsanssc",
+            "ibmplexsansjp",
+            "ibmplexsanskr",
+            "ibmplexsanstc",
+            "wqy",
+            "zenhei",
+            "microhei",
+            "sourcehancjk",
+            "droidfallback",
         ];
 
         for dir_str in font_dirs {
@@ -180,12 +197,12 @@ fn discover_windows_cjk_fonts(paths: &mut Vec<PathBuf>) {
         "msgothic.ttc", // MS Gothic (Japanese)
         "YuGothM.ttc",  // Yu Gothic (Japanese)
         "YuGothR.ttc",
-        "malgun.ttf",   // Malgun Gothic (Korean)
+        "malgun.ttf", // Malgun Gothic (Korean)
         "malgunbd.ttf",
-        "simsun.ttc",   // SimSun
-        "mingliu.ttc",  // MingLiU
-        "gulim.ttc",    // Gulim (Korean)
-        "batang.ttc",   // Batang (Korean)
+        "simsun.ttc",  // SimSun
+        "mingliu.ttc", // MingLiU
+        "gulim.ttc",   // Gulim (Korean)
+        "batang.ttc",  // Batang (Korean)
     ];
 
     for font_name in windows_cjk {
@@ -370,4 +387,3 @@ pub fn load_cjk_fonts() -> CjkFontBundle {
 pub fn load_cjk_font_data() -> Vec<Vec<u8>> {
     load_cjk_fonts().font_data
 }
-

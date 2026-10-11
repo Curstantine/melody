@@ -125,9 +125,12 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
                         11.0,
                         muted,
                     ),
-                    components::cjk_text(format!("Now Playing: {} • {}", track.title, track.artist))
-                        .size(11)
-                        .color(muted),
+                    components::cjk_text(format!(
+                        "Now Playing: {} • {}",
+                        track.title, track.artist
+                    ))
+                    .size(11)
+                    .color(muted),
                     text("·").size(11).color(muted),
                     components::cjk_text(&track.album).size(11).color(muted),
                     text("·").size(11).color(muted),

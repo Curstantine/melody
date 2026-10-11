@@ -81,8 +81,5 @@ pub fn icon<'a>(svg_str: &'static str, size: f32, color: Color) -> Svg<'a, Theme
     iced::widget::svg(Handle::from_memory(svg_str.as_bytes()))
         .width(Length::Fixed(size))
         .height(Length::Fixed(size))
-        .style(move |_theme, _status| iced::widget::svg::Style {
-            color: Some(color),
-        })
+        .style(move |_theme, _status| iced::widget::svg::Style { color: Some(color) })
 }
-

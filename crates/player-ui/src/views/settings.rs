@@ -37,10 +37,7 @@ pub struct SettingsViewData<'a> {
     pub active_plugins_count: usize,
 }
 
-pub fn view<'a>(
-    theme_cfg: &'a ThemeConfig,
-    data: SettingsViewData<'a>,
-) -> Element<'a, Message> {
+pub fn view<'a>(theme_cfg: &'a ThemeConfig, data: SettingsViewData<'a>) -> Element<'a, Message> {
     // 1. Settings Navigation Sidebar
     let sidebar = view_sidebar(theme_cfg, data.active_tab);
 
@@ -62,10 +59,7 @@ pub fn view<'a>(
         .into()
 }
 
-fn view_sidebar<'a>(
-    theme_cfg: &'a ThemeConfig,
-    active_tab: SettingsTab,
-) -> Element<'a, Message> {
+fn view_sidebar<'a>(theme_cfg: &'a ThemeConfig, active_tab: SettingsTab) -> Element<'a, Message> {
     let sidebar_title = column![
         text("Preferences")
             .size(11)
@@ -77,36 +71,37 @@ fn view_sidebar<'a>(
     .spacing(2)
     .padding([0, 4]);
 
-    let nav_item = |tab: SettingsTab, icon_svg: &'static str, title: &'static str, subtitle: &'static str| {
-        let is_active = active_tab == tab;
-        let icon_color = if is_active {
-            theme_cfg.primary_color()
-        } else {
-            theme_cfg.text_color()
-        };
-        let title_color = if is_active {
-            theme_cfg.primary_color()
-        } else {
-            theme_cfg.text_color()
-        };
+    let nav_item =
+        |tab: SettingsTab, icon_svg: &'static str, title: &'static str, subtitle: &'static str| {
+            let is_active = active_tab == tab;
+            let icon_color = if is_active {
+                theme_cfg.primary_color()
+            } else {
+                theme_cfg.text_color()
+            };
+            let title_color = if is_active {
+                theme_cfg.primary_color()
+            } else {
+                theme_cfg.text_color()
+            };
 
-        button(
-            row![
-                icons::icon(icon_svg, 16.0, icon_color),
-                Space::with_width(10),
-                column![
-                    text(title).size(13).color(title_color),
-                    text(subtitle).size(10).color(theme_cfg.text_muted_color()),
+            button(
+                row![
+                    icons::icon(icon_svg, 16.0, icon_color),
+                    Space::with_width(10),
+                    column![
+                        text(title).size(13).color(title_color),
+                        text(subtitle).size(10).color(theme_cfg.text_muted_color()),
+                    ]
+                    .spacing(1),
                 ]
-                .spacing(1),
-            ]
-            .align_y(Alignment::Center),
-        )
-        .padding([8, 12])
-        .width(Length::Fill)
-        .style(styles::settings_nav_button(theme_cfg, is_active))
-        .on_press(Message::SelectSettingsTab(tab))
-    };
+                .align_y(Alignment::Center),
+            )
+            .padding([8, 12])
+            .width(Length::Fill)
+            .style(styles::settings_nav_button(theme_cfg, is_active))
+            .on_press(Message::SelectSettingsTab(tab))
+        };
 
     let nav_list = column![
         nav_item(
@@ -130,19 +125,12 @@ fn view_sidebar<'a>(
     ]
     .spacing(6);
 
-    container(
-        column![
-            sidebar_title,
-            Space::with_height(14),
-            nav_list,
-        ]
-        .spacing(0),
-    )
-    .width(Length::Fixed(220.0))
-    .height(Length::Fill)
-    .padding([20, 12])
-    .style(styles::sidebar_container(theme_cfg))
-    .into()
+    container(column![sidebar_title, Space::with_height(14), nav_list,].spacing(0))
+        .width(Length::Fixed(220.0))
+        .height(Length::Fill)
+        .padding([20, 12])
+        .style(styles::sidebar_container(theme_cfg))
+        .into()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -200,7 +188,9 @@ fn view_appearance<'a>(
         row![
             icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text_color()),
             Space::with_width(6),
-            text("Reload Themes from Disk").size(12).color(theme_cfg.text_color()),
+            text("Reload Themes from Disk")
+                .size(12)
+                .color(theme_cfg.text_color()),
         ]
         .align_y(Alignment::Center),
     )
@@ -228,16 +218,17 @@ fn view_appearance<'a>(
     );
 
     // Default View Modes Card
-    let view_mode_row = |label: &'static str, mode: ViewMode, on_change: fn(ViewMode) -> Message| {
-        row![
-            text(label)
-                .size(12)
-                .color(theme_cfg.text_color())
-                .width(Length::Fixed(160.0)),
-            components::view_mode_toggle(theme_cfg, mode, on_change),
-        ]
-        .align_y(Alignment::Center)
-    };
+    let view_mode_row =
+        |label: &'static str, mode: ViewMode, on_change: fn(ViewMode) -> Message| {
+            row![
+                text(label)
+                    .size(12)
+                    .color(theme_cfg.text_color())
+                    .width(Length::Fixed(160.0)),
+                components::view_mode_toggle(theme_cfg, mode, on_change),
+            ]
+            .align_y(Alignment::Center)
+        };
 
     let view_modes_card = components::settings_card(
         theme_cfg,
@@ -266,10 +257,7 @@ fn view_appearance<'a>(
     );
 
     // Typography & Font Configuration Card
-    let active_font_family = data
-        .primary_font
-        .unwrap_or("Default")
-        .to_string();
+    let active_font_family = data.primary_font.unwrap_or("Default").to_string();
 
     let font_metrics = row![
         components::metric_box(theme_cfg, "Active Font Family", active_font_family.clone()),
@@ -291,7 +279,9 @@ fn view_appearance<'a>(
         let mut row_wrap = row![].spacing(6);
         for font_name in &data.available_fonts {
             let is_active = match data.primary_font {
-                Some(active) => active == font_name || (font_name == "Default" && active.is_empty()),
+                Some(active) => {
+                    active == font_name || (font_name == "Default" && active.is_empty())
+                }
                 None => font_name == "Default",
             };
             let icon_svg = if is_active {
@@ -317,11 +307,15 @@ fn view_appearance<'a>(
 
     let apply_custom_font_btn = button(
         row![
-            icons::icon(icons::CHECK_SVG, 12.0, if has_custom_input {
-                theme_cfg.primary_color()
-            } else {
-                theme_cfg.text_muted_color()
-            }),
+            icons::icon(
+                icons::CHECK_SVG,
+                12.0,
+                if has_custom_input {
+                    theme_cfg.primary_color()
+                } else {
+                    theme_cfg.text_muted_color()
+                }
+            ),
             Space::with_width(4),
             text("Apply Font").size(11).color(if has_custom_input {
                 theme_cfg.primary_color()
@@ -348,7 +342,9 @@ fn view_appearance<'a>(
         .padding([5, 8])
         .style(styles::search_input_style(theme_cfg))
         .on_input(Message::CustomFontInputChanged)
-        .on_submit(Message::SelectFont(data.custom_font_input.trim().to_string()))
+        .on_submit(Message::SelectFont(
+            data.custom_font_input.trim().to_string()
+        ))
         .width(Length::Fill),
         Space::with_width(8),
         apply_custom_font_btn,
@@ -368,10 +364,12 @@ fn view_appearance<'a>(
                 .size(12)
                 .color(theme_cfg.text_color())
                 .font(active_iced_font),
-            components::cjk_text("日本語: あのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら")
-                .size(12)
-                .color(theme_cfg.text_color())
-                .font(active_iced_font),
+            components::cjk_text(
+                "日本語: あのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら"
+            )
+            .size(12)
+            .color(theme_cfg.text_color())
+            .font(active_iced_font),
             components::cjk_text("中文: 落霞与孤齐飞，秋水共长天一色")
                 .size(12)
                 .color(theme_cfg.text_color())
@@ -488,8 +486,16 @@ fn view_library<'a>(
     // Storage and Index Metrics
     let storage_stats_row1 = row![
         components::metric_box(theme_cfg, "Songs Indexed", format!("{}", data.total_tracks)),
-        components::metric_box(theme_cfg, "Albums Cataloged", format!("{}", data.total_albums)),
-        components::metric_box(theme_cfg, "Artists Cataloged", format!("{}", data.total_artists)),
+        components::metric_box(
+            theme_cfg,
+            "Albums Cataloged",
+            format!("{}", data.total_albums)
+        ),
+        components::metric_box(
+            theme_cfg,
+            "Artists Cataloged",
+            format!("{}", data.total_artists)
+        ),
     ]
     .spacing(12);
 
@@ -514,11 +520,7 @@ fn view_library<'a>(
     let stats_card = components::settings_card(
         theme_cfg,
         "Storage & Index Metrics",
-        column![
-            storage_stats_row1,
-            storage_stats_row2,
-        ]
-        .spacing(10),
+        column![storage_stats_row1, storage_stats_row2,].spacing(10),
     );
 
     // Scanned Folders List
@@ -684,7 +686,9 @@ fn view_library<'a>(
         row![
             icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.text_color()),
             Space::with_width(6),
-            text("Clear Thumbnail Cache").size(12).color(theme_cfg.text_color()),
+            text("Clear Thumbnail Cache")
+                .size(12)
+                .color(theme_cfg.text_color()),
         ]
         .align_y(Alignment::Center),
     )
@@ -694,7 +698,11 @@ fn view_library<'a>(
 
     let clear_db_btn = button(
         row![
-            icons::icon(icons::TRASH_SVG, 13.0, iced::Color::from_rgb(0.95, 0.35, 0.35)),
+            icons::icon(
+                icons::TRASH_SVG,
+                13.0,
+                iced::Color::from_rgb(0.95, 0.35, 0.35)
+            ),
             Space::with_width(6),
             text("Delete Library Database")
                 .size(12)
@@ -783,10 +791,7 @@ fn view_library<'a>(
 // 3. Debug & Pipeline Section
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn view_debug<'a>(
-    theme_cfg: &'a ThemeConfig,
-    data: &SettingsViewData<'a>,
-) -> Element<'a, Message> {
+fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> Element<'a, Message> {
     let header = column![
         text("Audio Pipeline & Debug")
             .size(20)
@@ -980,17 +985,18 @@ fn view_debug<'a>(
 
 fn swatch_card<'a>(label: &'static str, color: iced::Color) -> Element<'a, Message> {
     column![
-        container(Space::with_width(52).height(22))
-            .style(move |_theme| container::Style {
-                background: Some(iced::Background::Color(color)),
-                border: Border {
-                    radius: Radius::from(4.0),
-                    color: iced::Color::from_rgba(1.0, 1.0, 1.0, 0.1),
-                    width: 1.0,
-                },
-                ..Default::default()
-            }),
-        text(label).size(10).color(iced::Color::from_rgb(0.6, 0.6, 0.6)),
+        container(Space::with_width(52).height(22)).style(move |_theme| container::Style {
+            background: Some(iced::Background::Color(color)),
+            border: Border {
+                radius: Radius::from(4.0),
+                color: iced::Color::from_rgba(1.0, 1.0, 1.0, 0.1),
+                width: 1.0,
+            },
+            ..Default::default()
+        }),
+        text(label)
+            .size(10)
+            .color(iced::Color::from_rgb(0.6, 0.6, 0.6)),
     ]
     .spacing(4)
     .align_x(Alignment::Center)

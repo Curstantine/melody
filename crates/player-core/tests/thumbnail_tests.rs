@@ -24,7 +24,8 @@ fn test_thumbnail_generation_and_caching() {
     assert!(!thumb_bytes.is_empty());
 
     // Verify thumbnail is downscaled to 200x200
-    let decoded = image::load_from_memory(&thumb_bytes).expect("Failed to decode generated thumbnail");
+    let decoded =
+        image::load_from_memory(&thumb_bytes).expect("Failed to decode generated thumbnail");
     assert_eq!(decoded.width(), 200);
     assert_eq!(decoded.height(), 200);
 
@@ -39,10 +40,14 @@ fn test_thumbnail_generation_and_caching() {
     let non_square_cover = non_square_dir.join("cover.jpg");
     std::fs::write(&non_square_song, b"dummy audio").expect("Write song failed");
     let non_square_img = image::RgbImage::new(800, 500);
-    non_square_img.save(&non_square_cover).expect("Save non-square cover failed");
+    non_square_img
+        .save(&non_square_cover)
+        .expect("Save non-square cover failed");
 
-    let non_square_thumb = get_or_create_thumbnail(&non_square_song, 200).expect("Thumbnail failed");
-    let decoded_non_square = image::load_from_memory(&non_square_thumb).expect("Decode non-square failed");
+    let non_square_thumb =
+        get_or_create_thumbnail(&non_square_song, 200).expect("Thumbnail failed");
+    let decoded_non_square =
+        image::load_from_memory(&non_square_thumb).expect("Decode non-square failed");
     assert_eq!(decoded_non_square.width(), 200);
     assert_eq!(decoded_non_square.height(), 200);
 

@@ -139,18 +139,22 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
     let device = host.default_output_device();
 
     let (stream, device_sample_rate, device_channels) = match device {
-        Some(dev) => {
-            match setup_cpal_stream(&dev, status.clone()) {
-                Ok((st, sr, ch, flush_flag)) => {
-                    info!("Audio output stream initialized successfully ({} Hz, {} ch)", sr, ch);
-                    (Some((st, flush_flag)), sr, ch)
-                }
-                Err(e) => {
-                    warn!("Failed to setup CPAL stream: {}. Audio playback will be muted.", e);
-                    (None, 44100, 2)
-                }
+        Some(dev) => match setup_cpal_stream(&dev, status.clone()) {
+            Ok((st, sr, ch, flush_flag)) => {
+                info!(
+                    "Audio output stream initialized successfully ({} Hz, {} ch)",
+                    sr, ch
+                );
+                (Some((st, flush_flag)), sr, ch)
             }
-        }
+            Err(e) => {
+                warn!(
+                    "Failed to setup CPAL stream: {}. Audio playback will be muted.",
+                    e
+                );
+                (None, 44100, 2)
+            }
+        },
         None => {
             warn!("No default audio output device found. Audio playback will be muted.");
             (None, 44100, 2)
@@ -205,7 +209,9 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
                                         if let Some(ref mut sbuf) = track.sample_buf {
                                             sbuf.copy_interleaved_ref(decoded);
                                             temp_converted.clear();
-                                            track.converter.convert(sbuf.samples(), &mut temp_converted);
+                                            track
+                                                .converter
+                                                .convert(sbuf.samples(), &mut temp_converted);
 
                                             if let Some(ref mut prod) = ring_producer {
                                                 // Backpressure: keep retrying until all converted
@@ -214,7 +220,8 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
                                                 // clicks and pops.
                                                 let mut written = 0;
                                                 while written < temp_converted.len() {
-                                                    let n = prod.push_slice(&temp_converted[written..]);
+                                                    let n =
+                                                        prod.push_slice(&temp_converted[written..]);
                                                     written += n;
                                                     if written < temp_converted.len() {
                                                         // Buffer still full — yield briefly and retry.
@@ -312,7 +319,14 @@ fn setup_cpal_stream(
         cpal::SampleFormat::F32 => device.build_output_stream(
             &config.into(),
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                audio_callback_f32(data, &mut consumer, &flush_cb, &status_cb, sample_rate, channels);
+                audio_callback_f32(
+                    data,
+                    &mut consumer,
+                    &flush_cb,
+                    &status_cb,
+                    sample_rate,
+                    channels,
+                );
             },
             err_fn,
             None,
@@ -320,7 +334,14 @@ fn setup_cpal_stream(
         cpal::SampleFormat::I16 => device.build_output_stream(
             &config.into(),
             move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
-                audio_callback_i16(data, &mut consumer, &flush_cb, &status_cb, sample_rate, channels);
+                audio_callback_i16(
+                    data,
+                    &mut consumer,
+                    &flush_cb,
+                    &status_cb,
+                    sample_rate,
+                    channels,
+                );
             },
             err_fn,
             None,
@@ -328,7 +349,14 @@ fn setup_cpal_stream(
         cpal::SampleFormat::U16 => device.build_output_stream(
             &config.into(),
             move |data: &mut [u16], _: &cpal::OutputCallbackInfo| {
-                audio_callback_u16(data, &mut consumer, &flush_cb, &status_cb, sample_rate, channels);
+                audio_callback_u16(
+                    data,
+                    &mut consumer,
+                    &flush_cb,
+                    &status_cb,
+                    sample_rate,
+                    channels,
+                );
             },
             err_fn,
             None,
@@ -582,11 +610,7 @@ fn load_track(
 
     let track_id = track.id;
     let src_sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
-    let src_channels = track
-        .codec_params
-        .channels
-        .map(|c| c.count())
-        .unwrap_or(2);
+    let src_channels = track.codec_params.channels.map(|c| c.count()).unwrap_or(2);
 
     let mut duration_ms = 0u64;
     if let Some(n_frames) = track.codec_params.n_frames {
@@ -600,15 +624,11 @@ fn load_track(
         }
     }
 
-    let decoder = symphonia::default::get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())?;
+    let decoder =
+        symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
 
-    let converter = AudioConverter::new(
-        src_channels,
-        src_sample_rate,
-        dst_channels,
-        dst_sample_rate,
-    );
+    let converter =
+        AudioConverter::new(src_channels, src_sample_rate, dst_channels, dst_sample_rate);
 
     let loaded = LoadedTrack {
         format,

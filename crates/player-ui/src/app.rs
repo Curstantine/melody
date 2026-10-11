@@ -6,9 +6,7 @@ use directories::ProjectDirs;
 use iced::widget::{button, column, container, image, row, text, Space};
 use iced::{Element, Length, Subscription, Task, Theme};
 use player_audio::{AudioController, AudioEngine};
-use player_core::{
-    AlbumSummary, ArtistSummary, LibraryDatabase, SortDirection, SortField, Track,
-};
+use player_core::{AlbumSummary, ArtistSummary, LibraryDatabase, SortDirection, SortField, Track};
 use player_plugins::{PluginManager, TrackMetadata};
 use tracing::{error, info};
 
@@ -87,7 +85,10 @@ impl App {
         info!("Using SQLite database at: {:?}", db_path);
 
         let db = LibraryDatabase::new(&db_path).unwrap_or_else(|e| {
-            error!("Failed to open disk database, falling back to in-memory: {}", e);
+            error!(
+                "Failed to open disk database, falling back to in-memory: {}",
+                e
+            );
             LibraryDatabase::in_memory().expect("In-memory SQLite failed")
         });
 
@@ -99,13 +100,21 @@ impl App {
         let page_size = DEFAULT_PAGE_SIZE;
         let total_tracks = db.get_total_track_count(None).unwrap_or(0);
         let visible_tracks = db
-            .get_tracks_window(0, page_size, None, SortField::Title, SortDirection::Ascending)
+            .get_tracks_window(
+                0,
+                page_size,
+                None,
+                SortField::Title,
+                SortDirection::Ascending,
+            )
             .unwrap_or_default();
         let albums = db.get_albums().unwrap_or_default();
         let artists = db.get_artists().unwrap_or_default();
         let library_folders = db.get_library_folders().unwrap_or_default();
         let font_paths = crate::font::discover_cjk_font_paths();
-        let primary_font = font_paths.first().and_then(|p| crate::font::query_font_family(p));
+        let primary_font = font_paths
+            .first()
+            .and_then(|p| crate::font::query_font_family(p));
 
         if let Some(ref fam) = primary_font {
             theme_manager.set_font(Some(fam.clone()));
@@ -224,7 +233,9 @@ impl App {
                     self.position_ms = 0;
                     self.duration_ms = track.duration_ms;
 
-                    let lyrics = self.plugin_manager.fetch_lyrics(&track.artist, &track.title);
+                    let lyrics = self
+                        .plugin_manager
+                        .fetch_lyrics(&track.artist, &track.title);
                     self.current_lyrics = lyrics;
 
                     // Notify plugins
@@ -259,7 +270,8 @@ impl App {
                 }
 
                 if self.is_shuffle && !self.visible_tracks.is_empty() {
-                    let rand_idx = (self.position_ms as usize ^ 0x9e3779b9) % self.visible_tracks.len();
+                    let rand_idx =
+                        (self.position_ms as usize ^ 0x9e3779b9) % self.visible_tracks.len();
                     let next_id = self.visible_tracks[rand_idx].id;
                     return self.update(Message::PlayTrack(next_id));
                 }
@@ -332,7 +344,8 @@ impl App {
 
             Message::SeekFinished => {
                 self.is_seeking = false;
-                self.audio_controller.seek(Duration::from_millis(self.seek_pos_ms));
+                self.audio_controller
+                    .seek(Duration::from_millis(self.seek_pos_ms));
                 self.position_ms = self.seek_pos_ms;
                 Task::none()
             }
@@ -465,30 +478,28 @@ impl App {
                 )
             }
 
-            Message::FolderSelected(maybe_path) => {
-                match maybe_path {
-                    Some(path) => {
-                        info!("Scanning folder: {:?}", path);
-                        let path_str = path.to_string_lossy().to_string();
-                        let _ = self.db.add_library_folder(&path_str);
-                        self.library_folders = self.db.get_library_folders().unwrap_or_default();
-                        let db = self.db.clone();
-                        Task::perform(
-                            async move {
-                                let summary = db
-                                    .scan_directory(&path, None::<fn(usize, usize)>)
-                                    .unwrap_or_default();
-                                summary
-                            },
-                            Message::ScanFinished,
-                        )
-                    }
-                    None => {
-                        self.is_scanning = false;
-                        Task::none()
-                    }
+            Message::FolderSelected(maybe_path) => match maybe_path {
+                Some(path) => {
+                    info!("Scanning folder: {:?}", path);
+                    let path_str = path.to_string_lossy().to_string();
+                    let _ = self.db.add_library_folder(&path_str);
+                    self.library_folders = self.db.get_library_folders().unwrap_or_default();
+                    let db = self.db.clone();
+                    Task::perform(
+                        async move {
+                            let summary = db
+                                .scan_directory(&path, None::<fn(usize, usize)>)
+                                .unwrap_or_default();
+                            summary
+                        },
+                        Message::ScanFinished,
+                    )
                 }
-            }
+                None => {
+                    self.is_scanning = false;
+                    Task::none()
+                }
+            },
 
             Message::AddLibraryFolderClicked => {
                 self.is_scanning = true;
@@ -504,30 +515,28 @@ impl App {
                 )
             }
 
-            Message::LibraryFolderAdded(maybe_path) => {
-                match maybe_path {
-                    Some(path) => {
-                        let path_str = path.to_string_lossy().to_string();
-                        info!("Adding library folder: {}", path_str);
-                        let _ = self.db.add_library_folder(&path_str);
-                        self.library_folders = self.db.get_library_folders().unwrap_or_default();
-                        let db = self.db.clone();
-                        Task::perform(
-                            async move {
-                                let summary = db
-                                    .scan_directory(&path, None::<fn(usize, usize)>)
-                                    .unwrap_or_default();
-                                summary
-                            },
-                            Message::ScanFinished,
-                        )
-                    }
-                    None => {
-                        self.is_scanning = false;
-                        Task::none()
-                    }
+            Message::LibraryFolderAdded(maybe_path) => match maybe_path {
+                Some(path) => {
+                    let path_str = path.to_string_lossy().to_string();
+                    info!("Adding library folder: {}", path_str);
+                    let _ = self.db.add_library_folder(&path_str);
+                    self.library_folders = self.db.get_library_folders().unwrap_or_default();
+                    let db = self.db.clone();
+                    Task::perform(
+                        async move {
+                            let summary = db
+                                .scan_directory(&path, None::<fn(usize, usize)>)
+                                .unwrap_or_default();
+                            summary
+                        },
+                        Message::ScanFinished,
+                    )
                 }
-            }
+                None => {
+                    self.is_scanning = false;
+                    Task::none()
+                }
+            },
 
             Message::RemoveLibraryFolder(path_str) => {
                 info!("Removing library folder: {}", path_str);
@@ -561,7 +570,8 @@ impl App {
                         let mut total_summary = player_core::ScanSummary::default();
                         for folder_str in folders {
                             let path = PathBuf::from(folder_str);
-                            if let Ok(summary) = db.scan_directory(&path, None::<fn(usize, usize)>) {
+                            if let Ok(summary) = db.scan_directory(&path, None::<fn(usize, usize)>)
+                            {
                                 total_summary.scanned_files += summary.scanned_files;
                                 total_summary.inserted_tracks += summary.inserted_tracks;
                                 total_summary.updated_tracks += summary.updated_tracks;
@@ -598,10 +608,7 @@ impl App {
             }
 
             Message::ScanFinished(summary) => {
-                info!(
-                    "Scan completed: {} tracks indexed",
-                    summary.inserted_tracks
-                );
+                info!("Scan completed: {} tracks indexed", summary.inserted_tracks);
                 self.is_scanning = false;
                 self.library_folders = self.db.get_library_folders().unwrap_or_default();
                 self.reload_after_scan_task()
@@ -657,7 +664,10 @@ impl App {
 
             Message::LibraryScrolled(viewport) => {
                 let rel_offset = viewport.relative_offset();
-                if rel_offset.y >= 0.8 && !self.is_loading_more && self.visible_tracks.len() < self.total_tracks {
+                if rel_offset.y >= 0.8
+                    && !self.is_loading_more
+                    && self.visible_tracks.len() < self.total_tracks
+                {
                     self.is_loading_more = true;
                     return self.load_more_tracks_task();
                 }
@@ -703,7 +713,9 @@ impl App {
                         if self.album_covers.contains_key(&key) {
                             None
                         } else {
-                            alb.cover_track_path.as_ref().map(|p| (key, PathBuf::from(p)))
+                            alb.cover_track_path
+                                .as_ref()
+                                .map(|p| (key, PathBuf::from(p)))
                         }
                     })
                     .collect();
@@ -905,15 +917,11 @@ impl App {
         // Top Navigation & Tab Bar
         let tab_btn = |label: &'static str, tab: ViewTab| {
             let is_selected = self.active_tab == tab;
-            button(
-                text(label)
-                    .size(11)
-                    .color(if is_selected {
-                        theme_cfg.primary_color()
-                    } else {
-                        theme_cfg.text_muted_color()
-                    }),
-            )
+            button(text(label).size(11).color(if is_selected {
+                theme_cfg.primary_color()
+            } else {
+                theme_cfg.text_muted_color()
+            }))
             .padding([5, 12])
             .style(styles::header_tab_button(theme_cfg, is_selected))
             .on_press(Message::SelectTab(tab))
@@ -942,13 +950,9 @@ impl App {
         .on_press(Message::SelectTab(ViewTab::Settings));
 
         let top_bar = container(
-            row![
-                top_tabs,
-                Space::with_width(Length::Fill),
-                settings_btn,
-            ]
-            .align_y(iced::Alignment::Center)
-            .padding([4, 12]),
+            row![top_tabs, Space::with_width(Length::Fill), settings_btn,]
+                .align_y(iced::Alignment::Center)
+                .padding([4, 12]),
         )
         .style(styles::top_bar_container(theme_cfg))
         .width(Length::Fill)
@@ -977,7 +981,9 @@ impl App {
                 self.album_sort_field,
                 self.album_sort_dir,
             ),
-            ViewTab::Artists => views::artists::view(theme_cfg, &self.artists, self.artists_view_mode),
+            ViewTab::Artists => {
+                views::artists::view(theme_cfg, &self.artists, self.artists_view_mode)
+            }
             ViewTab::Lyrics => views::lyrics::view(
                 theme_cfg,
                 self.current_track.as_ref(),

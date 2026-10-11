@@ -1,6 +1,4 @@
-use player_core::{
-    format_duration, LibraryDatabase, NewTrack, SortDirection, SortField,
-};
+use player_core::{format_duration, LibraryDatabase, NewTrack, SortDirection, SortField};
 
 #[test]
 fn test_database_lifecycle_and_pagination() {
@@ -26,7 +24,8 @@ fn test_database_lifecycle_and_pagination() {
             track_num: Some(i as u32),
             ..Default::default()
         };
-        db.insert_or_update_track(&track).expect("Failed to insert track");
+        db.insert_or_update_track(&track)
+            .expect("Failed to insert track");
     }
 
     // Test total count
@@ -34,7 +33,9 @@ fn test_database_lifecycle_and_pagination() {
     assert_eq!(total, 105);
 
     // Test filtered count
-    let alpha_count = db.get_total_track_count(Some("Alpha")).expect("Filter count failed");
+    let alpha_count = db
+        .get_total_track_count(Some("Alpha"))
+        .expect("Filter count failed");
     assert_eq!(alpha_count, 53); // odd numbers from 1 to 105
 
     // Test window pagination (limit 20, offset 0)
@@ -184,7 +185,10 @@ fn test_album_grouping_and_compilations() {
     let albums = db.get_albums().expect("get_albums failed");
     assert_eq!(albums.len(), 2, "Should have exactly 2 aggregated albums");
 
-    let comp_album = albums.iter().find(|a| a.album == "Summer Vibes 2024").unwrap();
+    let comp_album = albums
+        .iter()
+        .find(|a| a.album == "Summer Vibes 2024")
+        .unwrap();
     assert_eq!(comp_album.track_count, 3);
     assert_eq!(comp_album.artist, "Various Artists");
     assert_eq!(comp_album.year, Some(2024));
@@ -218,11 +222,19 @@ fn test_extra_metadata_tags_persistence() {
         musicbrainz_album_id: Some("d8329ecb-3e58-450f-a4ec-4f123c52a925".to_string()),
     };
 
-    let id = db.insert_or_update_track(&track).expect("Insert track failed");
-    let fetched = db.get_track_by_id(id).expect("Query failed").expect("Track not found");
+    let id = db
+        .insert_or_update_track(&track)
+        .expect("Insert track failed");
+    let fetched = db
+        .get_track_by_id(id)
+        .expect("Query failed")
+        .expect("Track not found");
 
     assert_eq!(fetched.title, track.title);
-    assert_eq!(fetched.album_artist, Some("Ludwig van Beethoven".to_string()));
+    assert_eq!(
+        fetched.album_artist,
+        Some("Ludwig van Beethoven".to_string())
+    );
     assert_eq!(fetched.disc_num, Some(2));
     assert_eq!(fetched.year, Some(1975));
     assert_eq!(fetched.composer, Some("Ludwig van Beethoven".to_string()));
@@ -250,11 +262,16 @@ fn test_library_folders_and_clear_tracks() {
     assert!(folders.is_empty());
 
     // Add folders
-    let added = db.add_library_folder("/home/user/Music").expect("add folder failed");
+    let added = db
+        .add_library_folder("/home/user/Music")
+        .expect("add folder failed");
     assert!(added);
-    let added_dup = db.add_library_folder("/home/user/Music").expect("add dup failed");
+    let added_dup = db
+        .add_library_folder("/home/user/Music")
+        .expect("add dup failed");
     assert!(!added_dup); // Ignored due to UNIQUE constraint
-    db.add_library_folder("/mnt/external/Audio").expect("add 2nd folder failed");
+    db.add_library_folder("/mnt/external/Audio")
+        .expect("add 2nd folder failed");
 
     let folders = db.get_library_folders().expect("get folders failed");
     assert_eq!(folders.len(), 2);
@@ -262,7 +279,9 @@ fn test_library_folders_and_clear_tracks() {
     assert!(folders.contains(&"/mnt/external/Audio".to_string()));
 
     // Remove folder
-    let removed = db.remove_library_folder("/home/user/Music").expect("remove failed");
+    let removed = db
+        .remove_library_folder("/home/user/Music")
+        .expect("remove failed");
     assert!(removed);
     let folders = db.get_library_folders().expect("get folders failed");
     assert_eq!(folders.len(), 1);
@@ -278,11 +297,11 @@ fn test_library_folders_and_clear_tracks() {
         duration_ms: 60000,
         ..Default::default()
     };
-    db.insert_or_update_track(&track).expect("insert track failed");
+    db.insert_or_update_track(&track)
+        .expect("insert track failed");
     assert_eq!(db.get_total_track_count(None).unwrap(), 1);
 
     let cleared = db.clear_all_tracks().expect("clear failed");
     assert_eq!(cleared, 1);
     assert_eq!(db.get_total_track_count(None).unwrap(), 0);
 }
-

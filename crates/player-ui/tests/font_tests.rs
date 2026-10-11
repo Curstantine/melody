@@ -27,28 +27,40 @@ fn test_cjk_font_loading() {
     println!("Loaded {} CJK font buffers", fonts.len());
 
     for font_bytes in &fonts {
-        assert!(!font_bytes.is_empty(), "Loaded font buffer must not be empty");
+        assert!(
+            !font_bytes.is_empty(),
+            "Loaded font buffer must not be empty"
+        );
     }
 }
 
 #[test]
 fn test_cjk_font_bundle() {
-    use iced::advanced::graphics::text::cosmic_text::{Attrs, Buffer, FontSystem, Metrics, Shaping};
+    use iced::advanced::graphics::text::cosmic_text::{
+        Attrs, Buffer, FontSystem, Metrics, Shaping,
+    };
 
     let bundle = font::load_cjk_fonts();
     let mut db = iced::advanced::graphics::text::cosmic_text::fontdb::Database::new();
     for data in &bundle.font_data {
         db.load_font_source(
-            iced::advanced::graphics::text::cosmic_text::fontdb::Source::Binary(std::sync::Arc::new(data.clone())),
+            iced::advanced::graphics::text::cosmic_text::fontdb::Source::Binary(
+                std::sync::Arc::new(data.clone()),
+            ),
         );
     }
     let mut font_system = FontSystem::new_with_locale_and_db("en-US".to_string(), db);
 
-    let default_family = bundle.primary_family.as_deref().unwrap_or("Noto Sans CJK JP");
+    let default_family = bundle
+        .primary_family
+        .as_deref()
+        .unwrap_or("Noto Sans CJK JP");
 
     for shaping in [Shaping::Basic, Shaping::Advanced] {
         let mut buffer = Buffer::new(&mut font_system, Metrics::new(14.0, 18.0));
-        let attrs = Attrs::new().family(iced::advanced::graphics::text::cosmic_text::Family::Name(default_family));
+        let attrs = Attrs::new().family(iced::advanced::graphics::text::cosmic_text::Family::Name(
+            default_family,
+        ));
         // "周杰伦 - 晴天"
         buffer.set_text(&mut font_system, "周杰伦 - 晴天", attrs, shaping);
         buffer.shape_until_scroll(&mut font_system, false);
@@ -57,14 +69,20 @@ fn test_cjk_font_bundle() {
         let mut missing_glyphs = 0;
         for run in buffer.layout_runs() {
             for glyph in run.glyphs {
-                println!("  Glyph id: {} from font {:?}", glyph.glyph_id, glyph.font_id);
+                println!(
+                    "  Glyph id: {} from font {:?}",
+                    glyph.glyph_id, glyph.font_id
+                );
                 if glyph.glyph_id == 0 {
                     missing_glyphs += 1;
                 }
             }
         }
         if shaping == Shaping::Advanced {
-            assert_eq!(missing_glyphs, 0, "Shaping::Advanced must find valid glyphs for all CJK characters");
+            assert_eq!(
+                missing_glyphs, 0,
+                "Shaping::Advanced must find valid glyphs for all CJK characters"
+            );
         }
     }
 }

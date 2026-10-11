@@ -115,9 +115,18 @@ impl LibraryDatabase {
         let _ = conn.execute("ALTER TABLE tracks ADD COLUMN year INTEGER", []);
         let _ = conn.execute("ALTER TABLE tracks ADD COLUMN composer TEXT", []);
         let _ = conn.execute("ALTER TABLE tracks ADD COLUMN label TEXT", []);
-        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN musicbrainz_track_id TEXT", []);
-        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN musicbrainz_artist_id TEXT", []);
-        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN musicbrainz_album_id TEXT", []);
+        let _ = conn.execute(
+            "ALTER TABLE tracks ADD COLUMN musicbrainz_track_id TEXT",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE tracks ADD COLUMN musicbrainz_artist_id TEXT",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE tracks ADD COLUMN musicbrainz_album_id TEXT",
+            [],
+        );
 
         info!("Database schema initialized successfully");
         Ok(())
@@ -280,9 +289,7 @@ impl LibraryDatabase {
             "#,
         )?;
 
-        let track = stmt
-            .query_row(params![id], map_track_row)
-            .optional()?;
+        let track = stmt.query_row(params![id], map_track_row).optional()?;
 
         Ok(track)
     }
@@ -366,7 +373,8 @@ impl LibraryDatabase {
             );
 
             let mut stmt = conn.prepare(&query)?;
-            let rows = stmt.query_map(params![pattern, limit as i64, offset as i64], map_track_row)?;
+            let rows =
+                stmt.query_map(params![pattern, limit as i64, offset as i64], map_track_row)?;
 
             for row in rows {
                 tracks.push(row?);
@@ -524,7 +532,8 @@ impl LibraryDatabase {
     /// Removes a directory path from the library folders list
     pub fn remove_library_folder(&self, path: &str) -> Result<bool, DbError> {
         let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let affected = conn.execute("DELETE FROM library_folders WHERE path = ?1", params![path])?;
+        let affected =
+            conn.execute("DELETE FROM library_folders WHERE path = ?1", params![path])?;
         Ok(affected > 0)
     }
 

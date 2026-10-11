@@ -251,9 +251,7 @@ impl ThemeManager {
 
     pub fn load_all_themes(&mut self) {
         // First register default builtin theme
-        let defaults = vec![
-            ThemeConfig::default(),
-        ];
+        let defaults = vec![ThemeConfig::default()];
 
         for t in defaults {
             self.themes.insert(t.name.clone(), t);

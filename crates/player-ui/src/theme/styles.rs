@@ -349,16 +349,28 @@ pub fn settings_nav_button(
         let (bg, text, border_color) = match status {
             button::Status::Active => {
                 if is_active {
-                    (cfg.surface_hover_color(), cfg.primary_color(), cfg.primary_color())
+                    (
+                        cfg.surface_hover_color(),
+                        cfg.primary_color(),
+                        cfg.primary_color(),
+                    )
                 } else {
                     (Color::TRANSPARENT, cfg.text_color(), Color::TRANSPARENT)
                 }
             }
             button::Status::Hovered => {
                 if is_active {
-                    (cfg.surface_hover_color(), cfg.primary_color(), cfg.primary_color())
+                    (
+                        cfg.surface_hover_color(),
+                        cfg.primary_color(),
+                        cfg.primary_color(),
+                    )
                 } else {
-                    (cfg.surface_hover_color(), cfg.text_color(), cfg.border_color())
+                    (
+                        cfg.surface_hover_color(),
+                        cfg.text_color(),
+                        cfg.border_color(),
+                    )
                 }
             }
             button::Status::Pressed => (
@@ -386,9 +398,7 @@ pub fn settings_nav_button(
     }
 }
 
-pub fn danger_button(
-    cfg: &ThemeConfig,
-) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
+pub fn danger_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
         let (bg, text, border_color) = match status {
             button::Status::Active => (
@@ -425,7 +435,6 @@ pub fn danger_button(
         }
     }
 }
-
 
 pub fn search_input_style(
     cfg: &ThemeConfig,

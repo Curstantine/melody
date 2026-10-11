@@ -32,7 +32,8 @@ impl LyricsPlugin {
                 name: "Local Lyrics Provider".to_string(),
                 version: "1.0.0".to_string(),
                 author: "vibecore".to_string(),
-                description: "Loads matching lyrics (.lrc or .txt) from the music directory".to_string(),
+                description: "Loads matching lyrics (.lrc or .txt) from the music directory"
+                    .to_string(),
             },
         }
     }
@@ -99,7 +100,11 @@ impl PluginManager {
     }
 
     pub fn register_plugin(&self, plugin: Arc<dyn Plugin>) {
-        info!("Registering plugin: {} ({})", plugin.metadata().name, plugin.metadata().id);
+        info!(
+            "Registering plugin: {} ({})",
+            plugin.metadata().name,
+            plugin.metadata().id
+        );
         if let Ok(mut list) = self.plugins.write() {
             list.push(plugin);
         }
@@ -153,4 +158,3 @@ impl PluginManager {
         self.plugins.read().map(|l| l.len()).unwrap_or(0)
     }
 }
-

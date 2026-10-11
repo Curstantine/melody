@@ -38,9 +38,11 @@ pub fn view<'a>(
             let mut tiles = row![].spacing(14);
 
             for artist in artists {
-                let avatar = container(
-                    icons::icon(icons::USER_AVATAR_SVG, 42.0, theme_cfg.primary_color()),
-                )
+                let avatar = container(icons::icon(
+                    icons::USER_AVATAR_SVG,
+                    42.0,
+                    theme_cfg.primary_color(),
+                ))
                 .width(80)
                 .height(80)
                 .center_x(80)
@@ -102,9 +104,11 @@ pub fn view<'a>(
             let mut artist_list = column![].spacing(4);
 
             for artist in artists {
-                let avatar = container(
-                    icons::icon(icons::USER_AVATAR_SVG, 18.0, theme_cfg.primary_color()),
-                )
+                let avatar = container(icons::icon(
+                    icons::USER_AVATAR_SVG,
+                    18.0,
+                    theme_cfg.primary_color(),
+                ))
                 .width(36)
                 .height(36)
                 .center_x(36)
@@ -133,14 +137,10 @@ pub fn view<'a>(
                 .spacing(2)
                 .width(Length::Fill);
 
-                let artist_row = row![
-                    avatar,
-                    Space::with_width(12),
-                    title_block,
-                ]
-                .spacing(4)
-                .align_y(Alignment::Center)
-                .padding([6, 12]);
+                let artist_row = row![avatar, Space::with_width(12), title_block,]
+                    .spacing(4)
+                    .align_y(Alignment::Center)
+                    .padding([6, 12]);
 
                 let row_btn = button(artist_row)
                     .style(styles::ghost_button(theme_cfg, false))

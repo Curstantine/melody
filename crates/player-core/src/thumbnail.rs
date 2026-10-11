@@ -83,7 +83,10 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
 
             let mut out_bytes = Vec::new();
             if rgb
-                .write_to(&mut Cursor::new(&mut out_bytes), ImageOutputFormat::Jpeg(80))
+                .write_to(
+                    &mut Cursor::new(&mut out_bytes),
+                    ImageOutputFormat::Jpeg(80),
+                )
                 .is_ok()
             {
                 let _ = fs::create_dir_all(&cache_dir);

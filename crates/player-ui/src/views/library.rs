@@ -274,11 +274,13 @@ pub fn view<'a>(
 
                     let info_box = container(
                         column![
-                            components::cjk_text(&track.title).size(13).color(if is_active {
-                                theme_cfg.primary_color()
-                            } else {
-                                theme_cfg.text_color()
-                            }),
+                            components::cjk_text(&track.title)
+                                .size(13)
+                                .color(if is_active {
+                                    theme_cfg.primary_color()
+                                } else {
+                                    theme_cfg.text_color()
+                                }),
                             components::cjk_text(&track.artist)
                                 .size(11)
                                 .color(theme_cfg.text_muted_color()),
