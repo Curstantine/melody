@@ -1,5 +1,6 @@
 mod app;
 mod font;
+mod icons;
 mod message;
 mod theme;
 mod views;

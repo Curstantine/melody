@@ -4,6 +4,7 @@ use iced::widget::{
 use iced::{Alignment, Element, Length};
 use player_core::{SortDirection, SortField, Track};
 
+use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
 
@@ -99,18 +100,21 @@ pub fn view<'a>(
             let is_active = current_track_id == Some(track.id);
             let display_index = (page * page_size) + idx + 1;
 
-            let play_btn = button(
-                text(if is_active { "❚❚" } else { "▶" })
-                    .size(12)
-                    .color(if is_active {
-                        theme_cfg.primary_color()
-                    } else {
-                        theme_cfg.text_color()
-                    }),
-            )
-            .style(styles::icon_control_button(theme_cfg))
-            .padding([4, 8])
-            .on_press(Message::PlayTrack(track.id));
+            let play_svg = if is_active {
+                icons::PAUSE_SVG
+            } else {
+                icons::PLAY_SVG
+            };
+            let play_color = if is_active {
+                theme_cfg.primary_color()
+            } else {
+                theme_cfg.text_color()
+            };
+
+            let play_btn = button(icons::icon(play_svg, 12.0, play_color))
+                .style(styles::icon_control_button(theme_cfg))
+                .padding([4, 8])
+                .on_press(Message::PlayTrack(track.id));
 
             let track_row = row![
                 text(format!("{}", display_index))

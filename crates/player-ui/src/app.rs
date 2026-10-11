@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use directories::ProjectDirs;
-use iced::widget::{column, container, row};
+use iced::widget::{column, container, image, row};
 use iced::{Element, Length, Subscription, Task, Theme};
 use player_audio::{AudioController, AudioEngine};
 use player_core::{
@@ -42,6 +42,7 @@ pub struct App {
     // Playback State
     current_track: Option<Track>,
     current_track_id: Option<i64>,
+    current_cover: Option<image::Handle>,
     is_playing: bool,
     position_ms: u64,
     duration_ms: u64,
@@ -97,6 +98,7 @@ impl App {
 
             current_track: None,
             current_track_id: None,
+            current_cover: None,
             is_playing: false,
             position_ms: 0,
             duration_ms: 0,
@@ -155,6 +157,10 @@ impl App {
                 if let Ok(Some(track)) = self.db.get_track_by_id(track_id) {
                     info!("Playing track: {} (ID {})", track.title, track.id);
                     let path = PathBuf::from(&track.file_path);
+
+                    let cover_handle = player_core::extract_cover_art(&path)
+                        .map(image::Handle::from_bytes);
+                    self.current_cover = cover_handle;
 
                     self.audio_controller.load(path, true);
                     self.current_track = Some(track.clone());
@@ -446,6 +452,7 @@ impl App {
             ViewTab::Lyrics => views::lyrics::view(
                 theme_cfg,
                 self.current_track.as_ref(),
+                self.current_cover.as_ref(),
                 self.current_lyrics.as_deref(),
             ),
         };
@@ -457,6 +464,7 @@ impl App {
         let player_bar = views::player_bar::view(
             theme_cfg,
             self.current_track.as_ref(),
+            self.current_cover.as_ref(),
             self.is_playing,
             self.position_ms,
             self.duration_ms,

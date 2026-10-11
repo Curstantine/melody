@@ -151,3 +151,70 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
         track_num,
     })
 }
+
+/// Extracts album cover art image data from either embedded audio metadata
+/// (ID3, Vorbis Comments, FLAC picture block, MP4 covr) or directory image files
+/// (`cover.jpg`, `folder.png`, `front.jpg`, etc.).
+pub fn extract_cover_art(path: &Path) -> Option<Vec<u8>> {
+    // 1. Try reading embedded visual art via Symphonia
+    if let Ok(file) = File::open(path) {
+        let mss = MediaSourceStream::new(Box::new(file), Default::default());
+        let mut hint = Hint::new();
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            hint.with_extension(ext);
+        }
+
+        if let Ok(mut probed) = symphonia::default::get_probe().format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        ) {
+            // Check container metadata for visuals
+            if let Some(metadata) = probed.format.metadata().current() {
+                if let Some(visual) = metadata.visuals().first() {
+                    return Some(visual.data.to_vec());
+                }
+            }
+
+            // Check probe metadata for visuals
+            if let Some(metadata) = probed.metadata.get().as_ref().and_then(|m| m.current()) {
+                if let Some(visual) = metadata.visuals().first() {
+                    return Some(visual.data.to_vec());
+                }
+            }
+        }
+    }
+
+    // 2. Fallback: check track parent directory for standard cover art filenames
+    if let Some(parent) = path.parent() {
+        let candidates = [
+            "cover.jpg",
+            "cover.jpeg",
+            "cover.png",
+            "folder.jpg",
+            "folder.jpeg",
+            "folder.png",
+            "front.jpg",
+            "front.jpeg",
+            "front.png",
+            "album.jpg",
+            "album.jpeg",
+            "album.png",
+            "art.jpg",
+            "art.jpeg",
+            "art.png",
+        ];
+
+        for candidate in candidates {
+            let img_path = parent.join(candidate);
+            if img_path.is_file() {
+                if let Ok(bytes) = std::fs::read(&img_path) {
+                    return Some(bytes);
+                }
+            }
+        }
+    }
+
+    None
+}

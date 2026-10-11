@@ -77,3 +77,30 @@ fn test_duration_formatting() {
     assert_eq!(format_duration(65000), "1:05");
     assert_eq!(format_duration(3665000), "1:01:05");
 }
+
+#[test]
+fn test_cover_art_directory_fallback() {
+    let temp_dir = std::env::temp_dir().join("vibecore_test_cover_art");
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    let song_path = temp_dir.join("test_song.flac");
+    let cover_path = temp_dir.join("cover.jpg");
+    let fake_img_data = b"\xFF\xD8\xFF\xE0dummyjpegdata";
+
+    std::fs::write(&song_path, b"dummy audio content").expect("Write song failed");
+    std::fs::write(&cover_path, fake_img_data).expect("Write cover failed");
+
+    let extracted = player_core::extract_cover_art(&song_path);
+    assert_eq!(extracted, Some(fake_img_data.to_vec()));
+
+    // Test non-existent cover
+    let isolated_dir = temp_dir.join("no_cover_sub");
+    let _ = std::fs::create_dir_all(&isolated_dir);
+    let isolated_song = isolated_dir.join("song2.mp3");
+    std::fs::write(&isolated_song, b"dummy audio").expect("Write failed");
+
+    let no_cover = player_core::extract_cover_art(&isolated_song);
+    assert_eq!(no_cover, None);
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}

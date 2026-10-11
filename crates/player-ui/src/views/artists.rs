@@ -2,6 +2,7 @@ use iced::widget::{button, column, container, row, scrollable, text, Space};
 use iced::{Alignment, Element, Length};
 use player_core::ArtistSummary;
 
+use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
 
@@ -46,7 +47,7 @@ pub fn view<'a>(
         .width(Length::Fill);
 
         let artist_row = row![
-            text("👤").size(22),
+            icons::icon(icons::ARTIST_SVG, 22.0, theme_cfg.primary_color()),
             Space::with_width(8),
             title_block,
         ]

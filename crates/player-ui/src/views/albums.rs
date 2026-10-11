@@ -2,6 +2,7 @@ use iced::widget::{button, column, container, row, scrollable, text, Space};
 use iced::{Alignment, Element, Length};
 use player_core::{format_duration, AlbumSummary};
 
+use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
 
@@ -55,7 +56,7 @@ pub fn view<'a>(
         .width(100);
 
         let album_row = row![
-            text("💿").size(24),
+            icons::icon(icons::ALBUM_SVG, 24.0, theme_cfg.primary_color()),
             Space::with_width(8),
             title_block,
             details,
