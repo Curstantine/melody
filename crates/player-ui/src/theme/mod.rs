@@ -197,22 +197,42 @@ impl ThemeConfig {
     }
 
     pub fn font(&self) -> iced::Font {
-        if let Some(ref name) = self.font_family {
-            match name.as_str() {
-                "System Monospace" | "Monospace" => iced::Font::MONOSPACE,
-                "System Serif" | "Serif" => iced::Font {
-                    family: iced::font::Family::Serif,
-                    ..iced::Font::DEFAULT
-                },
-                "System Sans-Serif" | "Sans-Serif" | "Default" => iced::Font::DEFAULT,
-                _ => {
-                    let family_static: &'static str = Box::leak(name.clone().into_boxed_str());
-                    iced::Font::with_name(family_static)
-                }
+        font_from_family_name(self.font_family.as_deref())
+    }
+}
+
+fn intern_str(s: &str) -> &'static str {
+    use std::collections::HashSet;
+    use std::sync::Mutex;
+
+    static INTERNED: Mutex<Option<HashSet<&'static str>>> = Mutex::new(None);
+    let mut guard = INTERNED.lock().unwrap();
+    let set = guard.get_or_insert_with(HashSet::new);
+    if let Some(&existing) = set.get(s) {
+        existing
+    } else {
+        let leaked: &'static str = Box::leak(s.to_string().into_boxed_str());
+        set.insert(leaked);
+        leaked
+    }
+}
+
+pub fn font_from_family_name(name: Option<&str>) -> iced::Font {
+    if let Some(name) = name {
+        match name {
+            "System Monospace" | "Monospace" => iced::Font::MONOSPACE,
+            "System Serif" | "Serif" => iced::Font {
+                family: iced::font::Family::Serif,
+                ..iced::Font::DEFAULT
+            },
+            "System Sans-Serif" | "Sans-Serif" | "Default" => iced::Font::DEFAULT,
+            _ => {
+                let family_static = intern_str(name);
+                iced::Font::with_name(family_static)
             }
-        } else {
-            iced::Font::DEFAULT
         }
+    } else {
+        iced::Font::DEFAULT
     }
 }
 
@@ -262,8 +282,12 @@ impl ThemeManager {
         let cfg_dir = Self::theme_dir();
         self.load_from_folder(&cfg_dir);
 
+        let saved_font = self.current_config.font_family.clone();
         if let Some(active) = self.themes.get(&self.active_theme_name) {
             self.current_config = active.clone();
+            if saved_font.is_some() {
+                self.current_config.font_family = saved_font;
+            }
         }
     }
 
@@ -297,8 +321,12 @@ impl ThemeManager {
 
     pub fn set_theme(&mut self, name: &str) -> bool {
         if let Some(theme) = self.themes.get(name) {
+            let saved_font = self.current_config.font_family.clone();
             self.active_theme_name = name.to_string();
             self.current_config = theme.clone();
+            if saved_font.is_some() {
+                self.current_config.font_family = saved_font;
+            }
             info!("Switched theme to '{}'", name);
             true
         } else {

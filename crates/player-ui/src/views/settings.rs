@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use iced::border::Radius;
-use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
+use iced::widget::{button, column, container, row, scrollable, text_input, Space};
 use iced::{Alignment, Border, Element, Length};
 
-use crate::components;
+use crate::components::{self, text};
 use crate::icons;
 use crate::message::{Message, SettingsTab, ViewMode};
 use crate::theme::{styles, ThemeConfig};
@@ -62,10 +62,10 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, data: SettingsViewData<'a>) -> Eleme
 
 fn view_sidebar<'a>(theme_cfg: &'a ThemeConfig, active_tab: SettingsTab) -> Element<'a, Message> {
     let sidebar_title = column![
-        text("Preferences")
+        text(theme_cfg, "Preferences")
             .size(11)
             .color(theme_cfg.primary_color()),
-        text("System Configuration")
+        text(theme_cfg, "System Configuration")
             .size(11)
             .color(theme_cfg.text_muted_color()),
     ]
@@ -91,8 +91,10 @@ fn view_sidebar<'a>(theme_cfg: &'a ThemeConfig, active_tab: SettingsTab) -> Elem
                     icons::icon(icon_svg, 16.0, icon_color),
                     Space::with_width(10),
                     column![
-                        text(title).size(13).color(title_color),
-                        text(subtitle).size(10).color(theme_cfg.text_muted_color()),
+                        text(theme_cfg, title).size(13).color(title_color),
+                        text(theme_cfg, subtitle)
+                            .size(10)
+                            .color(theme_cfg.text_muted_color()),
                     ]
                     .spacing(1),
                 ]
@@ -143,10 +145,10 @@ fn view_appearance<'a>(
     data: &SettingsViewData<'a>,
 ) -> Element<'a, Message> {
     let header = column![
-        text("Appearance & Interface")
+        text(theme_cfg, "Appearance & Interface")
             .size(20)
             .color(theme_cfg.text_color()),
-        text("Customize color palette, typography font family, default display modes, and layout density")
+        text(theme_cfg, "Customize color palette, typography font family, default display modes, and layout density")
             .size(12)
             .color(theme_cfg.text_muted_color()),
     ]
@@ -175,13 +177,13 @@ fn view_appearance<'a>(
     };
 
     let palette_preview = row![
-        swatch_card("Primary", theme_cfg.primary_color()),
-        swatch_card("Accent", theme_cfg.accent_color()),
-        swatch_card("Player Bar", theme_cfg.player_bar_bg_color()),
-        swatch_card("Surface", theme_cfg.surface_color()),
-        swatch_card("Surface Hover", theme_cfg.surface_hover_color()),
-        swatch_card("Background", theme_cfg.bg_color()),
-        swatch_card("Border", theme_cfg.border_color()),
+        swatch_card(theme_cfg, "Primary", theme_cfg.primary_color()),
+        swatch_card(theme_cfg, "Accent", theme_cfg.accent_color()),
+        swatch_card(theme_cfg, "Player Bar", theme_cfg.player_bar_bg_color()),
+        swatch_card(theme_cfg, "Surface", theme_cfg.surface_color()),
+        swatch_card(theme_cfg, "Surface Hover", theme_cfg.surface_hover_color()),
+        swatch_card(theme_cfg, "Background", theme_cfg.bg_color()),
+        swatch_card(theme_cfg, "Border", theme_cfg.border_color()),
     ]
     .spacing(10);
 
@@ -189,7 +191,7 @@ fn view_appearance<'a>(
         row![
             icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text_color()),
             Space::with_width(6),
-            text("Reload Themes from Disk")
+            text(theme_cfg, "Reload Themes from Disk")
                 .size(12)
                 .color(theme_cfg.text_color()),
         ]
@@ -203,12 +205,12 @@ fn view_appearance<'a>(
         theme_cfg,
         "Theme & Color Palette",
         column![
-            text("Installed Theme Skins")
+            text(theme_cfg, "Installed Theme Skins")
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
             theme_buttons,
             Space::with_height(6),
-            text("Active Palette Color Swatches")
+            text(theme_cfg, "Active Palette Color Swatches")
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
             palette_preview,
@@ -222,7 +224,7 @@ fn view_appearance<'a>(
     let view_mode_row =
         |label: &'static str, mode: ViewMode, on_change: fn(ViewMode) -> Message| {
             row![
-                text(label)
+                text(theme_cfg, label)
                     .size(12)
                     .color(theme_cfg.text_color())
                     .width(Length::Fixed(160.0)),
@@ -235,9 +237,12 @@ fn view_appearance<'a>(
         theme_cfg,
         "Default View Modes",
         column![
-            text("Choose preferred layout presentation for library catalogs")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
+            text(
+                theme_cfg,
+                "Choose preferred layout presentation for library catalogs"
+            )
+            .size(12)
+            .color(theme_cfg.text_muted_color()),
             view_mode_row(
                 "Library Tracks View:",
                 data.library_view_mode,
@@ -318,11 +323,13 @@ fn view_appearance<'a>(
                 }
             ),
             Space::with_width(4),
-            text("Apply Font").size(11).color(if has_custom_input {
-                theme_cfg.primary_color()
-            } else {
-                theme_cfg.text_muted_color()
-            }),
+            text(theme_cfg, "Apply Font")
+                .size(11)
+                .color(if has_custom_input {
+                    theme_cfg.primary_color()
+                } else {
+                    theme_cfg.text_muted_color()
+                }),
         ]
         .align_y(Alignment::Center),
     )
@@ -356,29 +363,35 @@ fn view_appearance<'a>(
 
     let sample_text_box = container(
         column![
-            text("Multilingual Glyph Rendering Preview:")
+            text(theme_cfg, "Multilingual Glyph Rendering Preview:")
                 .size(11)
-                .color(theme_cfg.primary_color())
-                .font(active_iced_font),
+                .color(theme_cfg.primary_color()),
             Space::with_height(4),
-            components::cjk_text("English: The quick brown fox jumps over the lazy dog.")
-                .size(12)
-                .color(theme_cfg.text_color())
-                .font(active_iced_font),
-            components::cjk_text(
+            text(
+                theme_cfg,
+                "English: The quick brown fox jumps over the lazy dog."
+            )
+            .size(12)
+            .color(theme_cfg.text_color())
+            .font(active_iced_font),
+            text(
+                theme_cfg,
                 "日本語: あのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら"
             )
             .size(12)
             .color(theme_cfg.text_color())
             .font(active_iced_font),
-            components::cjk_text("中文: 落霞与孤齐飞，秋水共长天一色")
+            text(theme_cfg, "中文: 落霞与孤齐飞，秋水共长天一色")
                 .size(12)
                 .color(theme_cfg.text_color())
                 .font(active_iced_font),
-            components::cjk_text("한국어: 별 하나에 추억과 별 하나에 사랑과 쓸쓸함과 동경")
-                .size(12)
-                .color(theme_cfg.text_color())
-                .font(active_iced_font),
+            text(
+                theme_cfg,
+                "한국어: 별 하나에 추억과 별 하나에 사랑과 쓸쓸함과 동경"
+            )
+            .size(12)
+            .color(theme_cfg.text_color())
+            .font(active_iced_font),
         ]
         .spacing(4),
     )
@@ -398,17 +411,20 @@ fn view_appearance<'a>(
         theme_cfg,
         "Typography & Font Configuration",
         column![
-            text("Select from discovered system/CJK fonts or specify any installed font family")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
+            text(
+                theme_cfg,
+                "Select from discovered system/CJK fonts or specify any installed font family"
+            )
+            .size(12)
+            .color(theme_cfg.text_muted_color()),
             font_metrics,
             Space::with_height(4),
-            text("Choose Font:")
+            text(theme_cfg, "Choose Font:")
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
             font_chips,
             Space::with_height(4),
-            text("Or Specify Custom Font:")
+            text(theme_cfg, "Or Specify Custom Font:")
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
             custom_font_row,
@@ -423,7 +439,7 @@ fn view_appearance<'a>(
     let page_size_buttons = {
         let mut r = row![].spacing(6).align_y(Alignment::Center);
         r = r.push(
-            text("Page Limit:")
+            text(theme_cfg, "Page Limit:")
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
         );
@@ -444,7 +460,7 @@ fn view_appearance<'a>(
         theme_cfg,
         "Viewport Density & Performance",
         column![
-            text("Controls the SQLite LIMIT per windowed viewport. Queries only retrieve visible rows into memory.")
+            text(theme_cfg, "Controls the SQLite LIMIT per windowed viewport. Queries only retrieve visible rows into memory.")
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
             page_size_buttons,
@@ -475,10 +491,10 @@ fn view_library<'a>(
     data: &SettingsViewData<'a>,
 ) -> Element<'a, Message> {
     let header = column![
-        text("Library & Storage")
+        text(theme_cfg, "Library & Storage")
             .size(20)
             .color(theme_cfg.text_color()),
-        text("Manage indexed audio directories, rescan metadata, monitor disk caches, or reset storage")
+        text(theme_cfg, "Manage indexed audio directories, rescan metadata, monitor disk caches, or reset storage")
             .size(12)
             .color(theme_cfg.text_muted_color()),
     ]
@@ -529,11 +545,14 @@ fn view_library<'a>(
         row![
             icons::icon(icons::PLUS_SVG, 13.0, theme_cfg.primary_color()),
             Space::with_width(6),
-            text(if data.is_scanning {
-                "Scanning Library..."
-            } else {
-                "Add Music Folder"
-            })
+            text(
+                theme_cfg,
+                if data.is_scanning {
+                    "Scanning Library..."
+                } else {
+                    "Add Music Folder"
+                }
+            )
             .size(12)
             .color(theme_cfg.text_color()),
         ]
@@ -550,12 +569,15 @@ fn view_library<'a>(
     let folders_content: Element<'a, Message> = if data.library_folders.is_empty() {
         container(
             column![
-                text("No music directories configured yet.")
+                text(theme_cfg, "No music directories configured yet.")
                     .size(13)
                     .color(theme_cfg.text_muted_color()),
-                text("Click 'Add Music Folder' to choose a directory containing audio files.")
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
+                text(
+                    theme_cfg,
+                    "Click 'Add Music Folder' to choose a directory containing audio files."
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
             ]
             .spacing(4)
             .align_x(Alignment::Center),
@@ -583,7 +605,9 @@ fn view_library<'a>(
                 row![
                     icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.text_color()),
                     Space::with_width(4),
-                    text("Rescan").size(11).color(theme_cfg.text_color()),
+                    text(theme_cfg, "Rescan")
+                        .size(11)
+                        .color(theme_cfg.text_color()),
                 ]
                 .align_y(Alignment::Center),
             )
@@ -599,7 +623,9 @@ fn view_library<'a>(
                 row![
                     icons::icon(icons::TRASH_SVG, 12.0, theme_cfg.accent_color()),
                     Space::with_width(4),
-                    text("Remove").size(11).color(theme_cfg.accent_color()),
+                    text(theme_cfg, "Remove")
+                        .size(11)
+                        .color(theme_cfg.accent_color()),
                 ]
                 .align_y(Alignment::Center),
             )
@@ -615,7 +641,7 @@ fn view_library<'a>(
                 row![
                     icons::icon(icons::FOLDER_SVG, 15.0, theme_cfg.primary_color()),
                     Space::with_width(10),
-                    text(folder_path.as_str())
+                    text(theme_cfg, folder_path.as_str())
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fill),
@@ -647,10 +673,13 @@ fn view_library<'a>(
         "Scanned Music Directories",
         column![
             row![
-                text("Audio files inside these directories are indexed recursively.")
-                    .size(12)
-                    .color(theme_cfg.text_muted_color())
-                    .width(Length::Fill),
+                text(
+                    theme_cfg,
+                    "Audio files inside these directories are indexed recursively."
+                )
+                .size(12)
+                .color(theme_cfg.text_muted_color())
+                .width(Length::Fill),
                 add_folder_btn,
             ]
             .align_y(Alignment::Center),
@@ -665,11 +694,14 @@ fn view_library<'a>(
         row![
             icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.primary_color()),
             Space::with_width(6),
-            text(if data.is_scanning {
-                "Reindexing Library..."
-            } else {
-                "Reindex Entire Library"
-            })
+            text(
+                theme_cfg,
+                if data.is_scanning {
+                    "Reindexing Library..."
+                } else {
+                    "Reindex Entire Library"
+                }
+            )
             .size(12)
             .color(theme_cfg.primary_color()),
         ]
@@ -687,7 +719,7 @@ fn view_library<'a>(
         row![
             icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.text_color()),
             Space::with_width(6),
-            text("Clear Thumbnail Cache")
+            text(theme_cfg, "Clear Thumbnail Cache")
                 .size(12)
                 .color(theme_cfg.text_color()),
         ]
@@ -705,7 +737,7 @@ fn view_library<'a>(
                 iced::Color::from_rgb(0.95, 0.35, 0.35)
             ),
             Space::with_width(6),
-            text("Delete Library Database")
+            text(theme_cfg, "Delete Library Database")
                 .size(12)
                 .color(iced::Color::from_rgb(0.95, 0.35, 0.35)),
         ]
@@ -726,10 +758,10 @@ fn view_library<'a>(
             // Action 1: Reindex
             row![
                 column![
-                    text("Full Reindex")
+                    text(theme_cfg, "Full Reindex")
                         .size(13)
                         .color(theme_cfg.text_color()),
-                    text("Scans all configured music folders, updates metadata tags, and repopulates the library.")
+                    text(theme_cfg, "Scans all configured music folders, updates metadata tags, and repopulates the library.")
                         .size(11)
                         .color(theme_cfg.text_muted_color()),
                 ]
@@ -741,10 +773,10 @@ fn view_library<'a>(
             // Action 2: Clear Thumbnail Cache
             row![
                 column![
-                    text("Purge Thumbnail Cache")
+                    text(theme_cfg, "Purge Thumbnail Cache")
                         .size(13)
                         .color(theme_cfg.text_color()),
-                    text(format!(
+                    text(theme_cfg, format!(
                         "Deletes all {} cached thumbnail images ({}) from disk and clears GPU memory. Thumbnails will regenerate when viewed.",
                         data.cache_file_count,
                         format_file_size(data.cache_size_bytes),
@@ -760,10 +792,10 @@ fn view_library<'a>(
             // Action 3: Clear / Reset Database
             row![
                 column![
-                    text("Reset Library Database")
+                    text(theme_cfg, "Reset Library Database")
                         .size(13)
                         .color(iced::Color::from_rgb(0.95, 0.35, 0.35)),
-                    text("Clears all indexed tracks, albums, and artist metadata from SQLite. Your audio files on disk remain untouched.")
+                    text(theme_cfg, "Clears all indexed tracks, albums, and artist metadata from SQLite. Your audio files on disk remain untouched.")
                         .size(11)
                         .color(theme_cfg.text_muted_color()),
                 ]
@@ -794,12 +826,15 @@ fn view_library<'a>(
 
 fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> Element<'a, Message> {
     let header = column![
-        text("Audio Pipeline & Debug")
+        text(theme_cfg, "Audio Pipeline & Debug")
             .size(20)
             .color(theme_cfg.text_color()),
-        text("Architecture inspection, lock-free audio thread guarantees, and runtime telemetry")
-            .size(12)
-            .color(theme_cfg.text_muted_color()),
+        text(
+            theme_cfg,
+            "Architecture inspection, lock-free audio thread guarantees, and runtime telemetry"
+        )
+        .size(12)
+        .color(theme_cfg.text_muted_color()),
     ]
     .spacing(4);
 
@@ -808,7 +843,7 @@ fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> El
         theme_cfg,
         "Lock-Free Realtime Audio Pipeline",
         column![
-            text("Dedicated audio decoding thread completely decoupled from the UI event loop")
+            text(theme_cfg, "Dedicated audio decoding thread completely decoupled from the UI event loop")
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
             row![
@@ -821,19 +856,19 @@ fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> El
             Space::with_height(4),
             container(
                 column![
-                    text("Architectural Invariants & Telemetry:")
+                    text(theme_cfg, "Architectural Invariants & Telemetry:")
                         .size(11)
                         .color(theme_cfg.primary_color()),
-                    text("• Audio output callback never allocates on heap and never acquires UI locks.")
+                    text(theme_cfg, "• Audio output callback never allocates on heap and never acquires UI locks.")
                         .size(11)
                         .color(theme_cfg.text_muted_color()),
-                    text("• Telemetry is polled via relaxed atomic primitives (AudioStatus) every 50ms.")
+                    text(theme_cfg, "• Telemetry is polled via relaxed atomic primitives (AudioStatus) every 50ms.")
                         .size(11)
                         .color(theme_cfg.text_muted_color()),
-                    text("• Dynamic ITU-R BS.775 downmix for surround/multichannel audio formats to stereo.")
+                    text(theme_cfg, "• Dynamic ITU-R BS.775 downmix for surround/multichannel audio formats to stereo.")
                         .size(11)
                         .color(theme_cfg.text_muted_color()),
-                    text("• Ring buffer backpressure automatically pauses decoding when the playback queue is full.")
+                    text(theme_cfg, "• Ring buffer backpressure automatically pauses decoding when the playback queue is full.")
                         .size(11)
                         .color(theme_cfg.text_muted_color()),
                 ]
@@ -859,7 +894,7 @@ fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> El
         theme_cfg,
         "SQLite WAL Database Pipeline",
         column![
-            text("Windowed queries and B-Tree indexing preserve a 30-50 MB RAM baseline")
+            text(theme_cfg, "Windowed queries and B-Tree indexing preserve a 30-50 MB RAM baseline")
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
             row![
@@ -872,16 +907,16 @@ fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> El
             Space::with_height(4),
             container(
                 column![
-                    text("Database Pipeline Guarantees:")
+                    text(theme_cfg, "Database Pipeline Guarantees:")
                         .size(11)
                         .color(theme_cfg.primary_color()),
-                    text("• Full track records are never loaded all at once into RAM.")
+                    text(theme_cfg, "• Full track records are never loaded all at once into RAM.")
                         .size(11)
                         .color(theme_cfg.text_muted_color()),
-                    text("• Viewport scrolling lazily streams windowed pages (LIMIT ? OFFSET ?).")
+                    text(theme_cfg, "• Viewport scrolling lazily streams windowed pages (LIMIT ? OFFSET ?).")
                         .size(11)
                         .color(theme_cfg.text_muted_color()),
-                    text("• Indices on title, artist, album, and file_path enable sub-millisecond lookups.")
+                    text(theme_cfg, "• Indices on title, artist, album, and file_path enable sub-millisecond lookups.")
                         .size(11)
                         .color(theme_cfg.text_muted_color()),
                 ]
@@ -907,7 +942,7 @@ fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> El
         theme_cfg,
         "Extensibility & Plugins Pipeline",
         column![
-            text("Plugin manager event dispatch system")
+            text(theme_cfg, "Plugin manager event dispatch system")
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
             row![
@@ -933,7 +968,7 @@ fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> El
         theme_cfg,
         "System Environment & Paths",
         column![
-            text("Platform runtime and filesystem locations")
+            text(theme_cfg, "Platform runtime and filesystem locations")
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
             row![
@@ -951,19 +986,25 @@ fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> El
             .spacing(12),
             Space::with_height(4),
             column![
-                text(format!(
-                    "Configuration (TOML): {}",
-                    data.config_path.display()
-                ))
+                text(
+                    theme_cfg,
+                    format!("Configuration (TOML): {}", data.config_path.display())
+                )
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
-                text(format!("Database Path: {}", data.db_path.display()))
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
-                text(format!(
-                    "Thumbnail Cache Directory: {}",
-                    player_core::thumbnail_cache_dir().display()
-                ))
+                text(
+                    theme_cfg,
+                    format!("Database Path: {}", data.db_path.display())
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+                text(
+                    theme_cfg,
+                    format!(
+                        "Thumbnail Cache Directory: {}",
+                        player_core::thumbnail_cache_dir().display()
+                    )
+                )
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
             ]
@@ -990,7 +1031,11 @@ fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> El
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn swatch_card<'a>(label: &'static str, color: iced::Color) -> Element<'a, Message> {
+fn swatch_card<'a>(
+    theme_cfg: &ThemeConfig,
+    label: &'static str,
+    color: iced::Color,
+) -> Element<'a, Message> {
     column![
         container(Space::with_width(52).height(22)).style(move |_theme| container::Style {
             background: Some(iced::Background::Color(color)),
@@ -1001,7 +1046,7 @@ fn swatch_card<'a>(label: &'static str, color: iced::Color) -> Element<'a, Messa
             },
             ..Default::default()
         }),
-        text(label)
+        text(theme_cfg, label)
             .size(10)
             .color(iced::Color::from_rgb(0.6, 0.6, 0.6)),
     ]

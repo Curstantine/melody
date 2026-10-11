@@ -1,9 +1,9 @@
 use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, slider, stack, text, Space};
+use iced::widget::{button, column, container, image, row, slider, stack, Space};
 use iced::{Alignment, Element, Length};
 use player_core::{format_duration, Track};
 
-use crate::components;
+use crate::components::{self, text};
 use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
@@ -37,14 +37,14 @@ pub fn view<'a>(
 
     let track_details = match current_track {
         Some(track) => column![
-            components::cjk_text(&track.title).size(13).color(bar_fg),
-            components::cjk_text(format!("{} • {}", track.artist, track.album))
+            text(theme_cfg, &track.title).size(13).color(bar_fg),
+            text(theme_cfg, format!("{} • {}", track.artist, track.album))
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
         ],
         None => column![
-            text("No track playing").size(13).color(bar_fg),
-            text("Vibecore")
+            text(theme_cfg, "No track playing").size(13).color(bar_fg),
+            text(theme_cfg, "Vibecore")
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
         ],
@@ -94,7 +94,7 @@ pub fn view<'a>(
     let cur_time_str = format_duration(active_pos);
     let total_time_str = format_duration(duration_ms);
 
-    let time_info = text(format!("{cur_time_str} / {total_time_str}"))
+    let time_info = text(theme_cfg, format!("{cur_time_str} / {total_time_str}"))
         .size(10)
         .align_x(Alignment::End)
         .color(theme_cfg.text_muted_color());
@@ -156,7 +156,7 @@ pub fn view<'a>(
     let vol_control = row![
         icons::icon(vol_icon_svg, 15.0, bar_fg),
         vol_slider,
-        text(format!("{}%", vol_pct))
+        text(theme_cfg, format!("{}%", vol_pct))
             .size(11)
             .color(theme_cfg.text_muted_color())
             .width(32),

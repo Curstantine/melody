@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, scrollable, text, Space};
+use iced::widget::{button, column, container, image, row, scrollable, Space};
 use iced::{Alignment, Element, Length};
 use player_core::{format_duration, AlbumSummary, SortDirection};
 
-use crate::components;
+use crate::components::{self, text};
 use crate::icons;
 use crate::message::{AlbumSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
@@ -76,23 +76,25 @@ pub fn view<'a>(
                 let year_str = album.year.map(|y| format!("{}", y)).unwrap_or_default();
                 let meta = container(
                     column![
-                        components::cjk_text(&album.album)
+                        text(theme_cfg, &album.album)
                             .size(13)
                             .color(theme_cfg.text_color()),
                         row![
-                            components::cjk_text(&album.artist)
+                            text(theme_cfg, &album.artist)
                                 .size(11)
                                 .color(theme_cfg.text_muted_color())
                                 .width(Length::Fill),
-                            text(year_str).size(11).color(theme_cfg.text_muted_color()),
+                            text(theme_cfg, year_str)
+                                .size(11)
+                                .color(theme_cfg.text_muted_color()),
                         ]
                         .align_y(Alignment::Center),
                         row![
-                            text(format!("{} tracks", album.track_count))
+                            text(theme_cfg, format!("{} tracks", album.track_count))
                                 .size(10)
                                 .color(theme_cfg.text_muted_color()),
                             Space::with_width(Length::Fill),
-                            text(format_duration(album.total_duration_ms))
+                            text(theme_cfg, format_duration(album.total_duration_ms))
                                 .size(10)
                                 .color(theme_cfg.text_muted_color()),
                         ]
@@ -140,10 +142,10 @@ pub fn view<'a>(
                 };
 
                 let title_block = column![
-                    components::cjk_text(&album.album)
+                    text(theme_cfg, &album.album)
                         .size(13)
                         .color(theme_cfg.text_color()),
-                    components::cjk_text(subtitle)
+                    text(theme_cfg, subtitle)
                         .size(11)
                         .color(theme_cfg.text_muted_color()),
                 ]
@@ -151,10 +153,10 @@ pub fn view<'a>(
                 .width(Length::Fill);
 
                 let details = column![
-                    text(format!("{} tracks", album.track_count))
+                    text(theme_cfg, format!("{} tracks", album.track_count))
                         .size(12)
                         .color(theme_cfg.text_muted_color()),
-                    text(format_duration(album.total_duration_ms))
+                    text(theme_cfg, format_duration(album.total_duration_ms))
                         .size(11)
                         .color(theme_cfg.text_muted_color()),
                 ]

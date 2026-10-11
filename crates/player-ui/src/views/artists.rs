@@ -1,9 +1,9 @@
 use iced::border::Radius;
-use iced::widget::{button, column, container, row, scrollable, text, Space};
+use iced::widget::{button, column, container, row, scrollable, Space};
 use iced::{Alignment, Border, Element, Length};
 use player_core::ArtistSummary;
 
-use crate::components;
+use crate::components::{self, text};
 use crate::icons;
 use crate::message::{Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
@@ -61,13 +61,16 @@ pub fn view<'a>(
                     column![
                         avatar,
                         Space::with_height(6),
-                        components::cjk_text(&artist.artist)
+                        text(theme_cfg, &artist.artist)
                             .size(13)
                             .color(theme_cfg.text_color()),
-                        text(format!(
-                            "{} albums • {} tracks",
-                            artist.album_count, artist.track_count
-                        ))
+                        text(
+                            theme_cfg,
+                            format!(
+                                "{} albums • {} tracks",
+                                artist.album_count, artist.track_count
+                            )
+                        )
                         .size(10)
                         .color(theme_cfg.text_muted_color()),
                     ]
@@ -125,13 +128,16 @@ pub fn view<'a>(
                 });
 
                 let title_block = column![
-                    components::cjk_text(&artist.artist)
+                    text(theme_cfg, &artist.artist)
                         .size(13)
                         .color(theme_cfg.text_color()),
-                    text(format!(
-                        "{} albums • {} tracks",
-                        artist.album_count, artist.track_count
-                    ))
+                    text(
+                        theme_cfg,
+                        format!(
+                            "{} albums • {} tracks",
+                            artist.album_count, artist.track_count
+                        )
+                    )
                     .size(11)
                     .color(theme_cfg.text_muted_color()),
                 ]

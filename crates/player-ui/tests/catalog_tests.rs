@@ -18,12 +18,15 @@ use player_core::{AlbumSummary, ArtistSummary, SortDirection};
 use std::collections::HashMap;
 use theme::ThemeConfig;
 
+use crate::components::text;
+
 #[test]
 fn test_adaptive_cjk_text_creation() {
-    let _ascii = components::cjk_text("The Beatles - Abbey Road");
-    let _japanese = components::cjk_text("宇多田ヒカル - First Love");
-    let _chinese = components::cjk_text("周杰伦 - 范特西");
-    let _korean = components::cjk_text("아이유 - Palette");
+    let theme_cfg = ThemeConfig::default();
+    let _ascii = text(&theme_cfg, "The Beatles - Abbey Road");
+    let _japanese = text(&theme_cfg, "宇多田ヒカル - First Love");
+    let _chinese = text(&theme_cfg, "周杰伦 - 范特西");
+    let _korean = text(&theme_cfg, "아이유 - Palette");
 }
 
 #[test]

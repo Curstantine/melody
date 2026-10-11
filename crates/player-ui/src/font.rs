@@ -28,19 +28,13 @@ pub fn discover_cjk_font_paths() -> Vec<PathBuf> {
 
     // 2. Platform-specific discovery
     #[cfg(target_os = "linux")]
-    {
-        discover_linux_cjk_fonts(&mut candidate_paths);
-    }
+    discover_linux_cjk_fonts(&mut candidate_paths);
 
     #[cfg(target_os = "windows")]
-    {
-        discover_windows_cjk_fonts(&mut candidate_paths);
-    }
+    discover_windows_cjk_fonts(&mut candidate_paths);
 
     #[cfg(target_os = "macos")]
-    {
-        discover_macos_cjk_fonts(&mut candidate_paths);
-    }
+    discover_macos_cjk_fonts(&mut candidate_paths);
 
     // Deduplicate paths while preserving order
     let mut seen = HashSet::new();
@@ -331,84 +325,6 @@ pub fn extract_font_families(data: &[u8]) -> Vec<String> {
     }
 
     families
-}
-
-/// Queries the primary font family name for a given font file path.
-/// First attempts parsing the font file headers directly via `ttf-parser`.
-/// Falls back to `fc-query` on Linux and well-known filename heuristics.
-pub fn query_font_family(path: &Path) -> Option<String> {
-    // 1. Try reading the first few kilobytes or full file to parse the header
-    if let Ok(file) = fs::File::open(path) {
-        use std::io::Read;
-        // Most TTF/OTF font name tables reside within the first 64KB
-        let mut handle = file;
-        let mut buffer = Vec::new();
-        if handle.read_to_end(&mut buffer).is_ok() {
-            let families = extract_font_families(&buffer);
-            if let Some(first) = families.into_iter().next() {
-                return Some(first);
-            }
-        }
-    }
-
-    // 2. Linux fc-query fallback
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(output) = Command::new("fc-query")
-            .arg(path)
-            .args(["-f", "%{family}\n"])
-            .output()
-        {
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                if let Some(first_line) = stdout.lines().next() {
-                    let first_family = first_line.split(',').next().unwrap_or("").trim();
-                    if !first_family.is_empty() {
-                        return Some(first_family.to_string());
-                    }
-                }
-            }
-        }
-    }
-
-    // 3. Heuristic fallback based on well-known font file names
-    let file_name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-
-    if file_name.contains("ibmplexsansjp") {
-        Some("IBM Plex Sans JP".to_string())
-    } else if file_name.contains("ibmplexsanssc") {
-        Some("IBM Plex Sans SC".to_string())
-    } else if file_name.contains("ibmplexsanstc") {
-        Some("IBM Plex Sans TC".to_string())
-    } else if file_name.contains("ibmplexsanskr") {
-        Some("IBM Plex Sans KR".to_string())
-    } else if file_name.contains("ibmplexsans") || file_name.contains("ibm-plex-sans") {
-        Some("IBM Plex Sans".to_string())
-    } else if file_name.contains("notosanscjk") || file_name.contains("noto-cjk") {
-        Some("Noto Sans CJK JP".to_string())
-    } else if file_name.contains("msyh") {
-        Some("Microsoft YaHei".to_string())
-    } else if file_name.contains("msjh") {
-        Some("Microsoft JhengHei".to_string())
-    } else if file_name.contains("meiryo") {
-        Some("Meiryo".to_string())
-    } else if file_name.contains("msgothic") {
-        Some("MS Gothic".to_string())
-    } else if file_name.contains("yugoth") {
-        Some("Yu Gothic".to_string())
-    } else if file_name.contains("malgun") {
-        Some("Malgun Gothic".to_string())
-    } else if file_name.contains("pingfang") {
-        Some("PingFang SC".to_string())
-    } else if file_name.contains("hiragino") {
-        Some("Hiragino Sans GB".to_string())
-    } else {
-        None
-    }
 }
 
 /// Discovered CJK font bundle with raw byte data and optional primary family name.

@@ -33,10 +33,14 @@ fn main() -> iced::Result {
             ..Default::default()
         });
 
-    if let Some(family) = &font_bundle.primary_family {
+    let config = config::AppConfig::load();
+
+    if let Some(ref font_name) = config.primary_font {
+        tracing::info!("Setting default font from saved config to: {}", font_name);
+        builder = builder.default_font(theme::font_from_family_name(Some(font_name)));
+    } else if let Some(family) = &font_bundle.primary_family {
         tracing::info!("Setting default font to: {}", family);
-        let family_static: &'static str = Box::leak(family.clone().into_boxed_str());
-        builder = builder.default_font(iced::Font::with_name(family_static));
+        builder = builder.default_font(theme::font_from_family_name(Some(family)));
     }
 
     for font_bytes in font_bundle.font_data {

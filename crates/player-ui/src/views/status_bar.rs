@@ -1,8 +1,8 @@
-use iced::widget::{container, row, text, Space};
+use iced::widget::{container, row, Space};
 use iced::{Alignment, Element, Length};
 use player_core::{format_duration, AlbumSummary, ArtistSummary, Track};
 
-use crate::components;
+use crate::components::text;
 use crate::icons;
 use crate::message::{Message, ViewTab};
 use crate::theme::{styles, ThemeConfig};
@@ -47,17 +47,20 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
             };
 
             let filter_indicator: Element<'a, Message> = if !ctx.search_query.trim().is_empty() {
-                components::cjk_text(format!("·  Filter: \"{}\"", ctx.search_query.trim()))
-                    .size(11)
-                    .color(muted)
-                    .into()
+                text(
+                    theme_cfg,
+                    format!("·  Filter: \"{}\"", ctx.search_query.trim()),
+                )
+                .size(11)
+                .color(muted)
+                .into()
             } else {
                 Space::with_width(0).into()
             };
 
             row![
                 icons::icon(icons::MUSIC_NOTE_SVG, 11.0, muted),
-                text(count_text).size(11).color(muted),
+                text(theme_cfg, count_text).size(11).color(muted),
                 filter_indicator,
             ]
             .spacing(6)
@@ -72,15 +75,15 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
 
             row![
                 icons::icon(icons::ALBUM_SVG, 11.0, muted),
-                text(format!("{} albums viewing", total_albums))
+                text(theme_cfg, format!("{} albums viewing", total_albums))
                     .size(11)
                     .color(muted),
-                text("·").size(11).color(muted),
-                text(format!("{} tracks", total_tracks))
+                text(theme_cfg, "·").size(11).color(muted),
+                text(theme_cfg, format!("{} tracks", total_tracks))
                     .size(11)
                     .color(muted),
-                text("·").size(11).color(muted),
-                text(format_duration(total_duration_ms))
+                text(theme_cfg, "·").size(11).color(muted),
+                text(theme_cfg, format_duration(total_duration_ms))
                     .size(11)
                     .color(muted),
             ]
@@ -96,15 +99,15 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
 
             row![
                 icons::icon(icons::USER_AVATAR_SVG, 11.0, muted),
-                text(format!("{} artists viewing", total_artists))
+                text(theme_cfg, format!("{} artists viewing", total_artists))
                     .size(11)
                     .color(muted),
-                text("·").size(11).color(muted),
-                text(format!("{} albums", total_albums))
+                text(theme_cfg, "·").size(11).color(muted),
+                text(theme_cfg, format!("{} albums", total_albums))
                     .size(11)
                     .color(muted),
-                text("·").size(11).color(muted),
-                text(format!("{} tracks", total_tracks))
+                text(theme_cfg, "·").size(11).color(muted),
+                text(theme_cfg, format!("{} tracks", total_tracks))
                     .size(11)
                     .color(muted),
             ]
@@ -125,16 +128,18 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
                         11.0,
                         muted,
                     ),
-                    components::cjk_text(format!(
-                        "Now Playing: {} • {}",
-                        track.title, track.artist
-                    ))
+                    text(
+                        theme_cfg,
+                        format!("Now Playing: {} • {}", track.title, track.artist)
+                    )
                     .size(11)
                     .color(muted),
-                    text("·").size(11).color(muted),
-                    components::cjk_text(&track.album).size(11).color(muted),
-                    text("·").size(11).color(muted),
-                    text(track.formatted_duration()).size(11).color(muted),
+                    text(theme_cfg, "·").size(11).color(muted),
+                    text(theme_cfg, &track.album).size(11).color(muted),
+                    text(theme_cfg, "·").size(11).color(muted),
+                    text(theme_cfg, track.formatted_duration())
+                        .size(11)
+                        .color(muted),
                 ]
                 .spacing(6)
                 .align_y(Alignment::Center)
@@ -142,7 +147,7 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
             } else {
                 row![
                     icons::icon(icons::DISC_SVG, 11.0, muted),
-                    text("Playback Idle").size(11).color(muted),
+                    text(theme_cfg, "Playback Idle").size(11).color(muted),
                 ]
                 .spacing(6)
                 .align_y(Alignment::Center)
@@ -152,9 +157,9 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
 
         ViewTab::Settings => row![
             icons::icon(icons::SETTINGS_SVG, 11.0, muted),
-            text("Preferences").size(11).color(muted),
-            text("·").size(11).color(muted),
-            text(format!("{} tracks indexed", ctx.total_tracks))
+            text(theme_cfg, "Preferences").size(11).color(muted),
+            text(theme_cfg, "·").size(11).color(muted),
+            text(theme_cfg, format!("{} tracks indexed", ctx.total_tracks))
                 .size(11)
                 .color(muted),
         ]
@@ -168,7 +173,7 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
         row![
             icons::icon(icons::REFRESH_SVG, 11.0, muted),
             Space::with_width(3),
-            text("Scanning library...").size(11).color(muted),
+            text(theme_cfg, "Scanning library...").size(11).color(muted),
         ]
         .spacing(4)
         .align_y(Alignment::Center)

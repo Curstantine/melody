@@ -3,13 +3,14 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use directories::ProjectDirs;
-use iced::widget::{button, column, container, image, row, text, Space};
+use iced::widget::{button, column, container, image, row, Space};
 use iced::{Element, Length, Subscription, Task, Theme};
 use player_audio::{AudioController, AudioEngine};
 use player_core::{AlbumSummary, ArtistSummary, LibraryDatabase, SortDirection, SortField, Track};
 use player_plugins::{PluginManager, TrackMetadata};
 use tracing::{error, info};
 
+use crate::components::text;
 use crate::config::AppConfig;
 use crate::icons;
 use crate::message::{AlbumSortField, Message, SettingsTab, ViewMode, ViewTab};
@@ -679,8 +680,13 @@ impl App {
 
             Message::SelectFont(font_name) => {
                 info!("Selected font: {}", font_name);
-                self.primary_font = Some(font_name.clone());
-                self.theme_manager.set_font(Some(font_name));
+                let font_opt = if font_name == "Default" || font_name.trim().is_empty() {
+                    None
+                } else {
+                    Some(font_name.trim().to_string())
+                };
+                self.primary_font = font_opt.clone();
+                self.theme_manager.set_font(font_opt);
                 self.save_config_task()
             }
 
@@ -1018,7 +1024,7 @@ impl App {
         // Top Navigation & Tab Bar
         let tab_btn = |label: &'static str, tab: ViewTab| {
             let is_selected = self.active_tab == tab;
-            button(text(label).size(11).color(if is_selected {
+            button(text(theme_cfg, label).size(11).color(if is_selected {
                 theme_cfg.primary_color()
             } else {
                 theme_cfg.text_muted_color()

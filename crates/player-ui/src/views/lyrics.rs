@@ -1,9 +1,9 @@
 use iced::border::Radius;
-use iced::widget::{column, container, image, row, scrollable, text, Space};
+use iced::widget::{column, container, image, row, scrollable, Space};
 use iced::{Alignment, Element, Length};
 use player_core::Track;
 
-use crate::components;
+use crate::components::{self, text};
 use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
@@ -58,7 +58,7 @@ pub fn view<'a>(
             if let Some(ref alb_artist) = track.album_artist {
                 if !alb_artist.trim().is_empty() && alb_artist != &track.artist {
                     extra_tags = extra_tags.push(
-                        components::cjk_text(format!("Album Artist: {}", alb_artist))
+                        text(theme_cfg, format!("Album Artist: {}", alb_artist))
                             .size(11)
                             .color(theme_cfg.text_muted_color()),
                     );
@@ -67,7 +67,7 @@ pub fn view<'a>(
             if let Some(ref comp) = track.composer {
                 if !comp.trim().is_empty() {
                     extra_tags = extra_tags.push(
-                        components::cjk_text(format!("Composer: {}", comp))
+                        text(theme_cfg, format!("Composer: {}", comp))
                             .size(11)
                             .color(theme_cfg.text_muted_color()),
                     );
@@ -76,7 +76,7 @@ pub fn view<'a>(
             if let Some(ref lbl) = track.label {
                 if !lbl.trim().is_empty() {
                     extra_tags = extra_tags.push(
-                        components::cjk_text(format!("Label: {}", lbl))
+                        text(theme_cfg, format!("Label: {}", lbl))
                             .size(11)
                             .color(theme_cfg.text_muted_color()),
                     );
@@ -85,7 +85,7 @@ pub fn view<'a>(
             if let Some(ref mb_id) = track.musicbrainz_track_id {
                 if !mb_id.trim().is_empty() {
                     extra_tags = extra_tags.push(
-                        text(format!("MusicBrainz Track: {}", mb_id))
+                        text(theme_cfg, format!("MusicBrainz Track: {}", mb_id))
                             .size(10)
                             .color(theme_cfg.text_muted_color()),
                     );
@@ -93,14 +93,14 @@ pub fn view<'a>(
             }
 
             let metadata = column![
-                components::cjk_text(&track.title)
+                text(theme_cfg, &track.title)
                     .size(22)
                     .color(theme_cfg.text_color()),
-                components::cjk_text(format!("{} • {}", track.artist, track.album))
+                text(theme_cfg, format!("{} • {}", track.artist, track.album))
                     .size(15)
                     .color(theme_cfg.text_muted_color()),
                 stars,
-                components::cjk_text(details_items.join("  ·  "))
+                text(theme_cfg, details_items.join("  ·  "))
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 extra_tags,
@@ -109,11 +109,9 @@ pub fn view<'a>(
             .align_x(Alignment::Center);
 
             let lyrics_body = if let Some(lyr) = lyrics {
-                components::cjk_text(lyr)
-                    .size(15)
-                    .color(theme_cfg.text_color())
+                text(theme_cfg, lyr).size(15).color(theme_cfg.text_color())
             } else {
-                text("No lyrics found for this track.\nPlace a .lrc file in the same directory or configure a lyrics plugin.")
+                text(theme_cfg,"No lyrics found for this track.\nPlace a .lrc file in the same directory or configure a lyrics plugin.")
                     .size(14)
                     .color(theme_cfg.text_muted_color())
             };
@@ -133,12 +131,15 @@ pub fn view<'a>(
             .height(Length::Fill)
         }
         None => column![
-            text("No Track Playing")
+            text(theme_cfg, "No Track Playing")
                 .size(20)
                 .color(theme_cfg.text_muted_color()),
-            text("Select a song from the library to view track details and lyrics")
-                .size(14)
-                .color(theme_cfg.text_muted_color()),
+            text(
+                theme_cfg,
+                "Select a song from the library to view track details and lyrics"
+            )
+            .size(14)
+            .color(theme_cfg.text_muted_color()),
         ]
         .spacing(8)
         .align_x(Alignment::Center)

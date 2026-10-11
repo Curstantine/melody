@@ -1,11 +1,9 @@
 use iced::border::Radius;
-use iced::widget::{
-    button, column, container, mouse_area, row, scrollable, text, text_input, Space,
-};
+use iced::widget::{button, column, container, mouse_area, row, scrollable, text_input, Space};
 use iced::{Alignment, Border, Element, Length};
 use player_core::{SortDirection, SortField, Track};
 
-use crate::components;
+use crate::components::{self, text};
 use crate::icons;
 use crate::message::{Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
@@ -26,6 +24,7 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     // 1. Search Bar & View Mode Toolbar
     let search_input = text_input("Search tracks, artists, albums...", search_query)
+        .font(theme_cfg.font())
         .size(12)
         .on_input(Message::SearchInputChanged)
         .padding([4, 8])
@@ -64,14 +63,14 @@ pub fn view<'a>(
                 SortDirection::Descending => icons::CHEVRON_DOWN_SVG,
             };
             row![
-                text(label).size(12),
+                text(theme_cfg, label).size(12),
                 Space::with_width(4),
                 icons::icon(sort_icon_svg, 12.0, theme_cfg.primary_color()),
             ]
             .align_y(Alignment::Center)
             .into()
         } else {
-            text(label).size(12).into()
+            text(theme_cfg, label).size(12).into()
         };
 
         button(content)
@@ -82,9 +81,13 @@ pub fn view<'a>(
     };
 
     let table_header = row![
-        container(text("#").size(12).color(theme_cfg.text_muted_color()),)
-            .width(36)
-            .center_x(36),
+        container(
+            text(theme_cfg, "#")
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+        )
+        .width(36)
+        .center_x(36),
         header_btn("Title", SortField::Title, Length::FillPortion(4)),
         header_btn("Artist", SortField::Artist, Length::FillPortion(3)),
         header_btn("Album", SortField::Album, Length::FillPortion(3)),
@@ -173,7 +176,7 @@ pub fn view<'a>(
                         .into()
                     } else {
                         container(
-                            text(format!("{}", display_index))
+                            text(theme_cfg, format!("{}", display_index))
                                 .size(12)
                                 .color(theme_cfg.text_muted_color()),
                         )
@@ -186,7 +189,7 @@ pub fn view<'a>(
 
                     let track_row = row![
                         left_action,
-                        components::cjk_text(&track.title)
+                        text(theme_cfg, &track.title)
                             .size(13)
                             .color(if is_active {
                                 theme_cfg.primary_color()
@@ -194,15 +197,15 @@ pub fn view<'a>(
                                 theme_cfg.text_color()
                             })
                             .width(Length::FillPortion(4)),
-                        components::cjk_text(&track.artist)
+                        text(theme_cfg, &track.artist)
                             .size(12)
                             .color(theme_cfg.text_muted_color())
                             .width(Length::FillPortion(3)),
-                        components::cjk_text(&track.album)
+                        text(theme_cfg, &track.album)
                             .size(12)
                             .color(theme_cfg.text_muted_color())
                             .width(Length::FillPortion(3)),
-                        text(track.formatted_duration())
+                        text(theme_cfg, track.formatted_duration())
                             .size(12)
                             .color(theme_cfg.text_muted_color())
                             .width(80),
@@ -274,25 +277,27 @@ pub fn view<'a>(
 
                     let info_box = container(
                         column![
-                            components::cjk_text(&track.title)
-                                .size(13)
-                                .color(if is_active {
-                                    theme_cfg.primary_color()
-                                } else {
-                                    theme_cfg.text_color()
-                                }),
-                            components::cjk_text(&track.artist)
+                            text(theme_cfg, &track.title).size(13).color(if is_active {
+                                theme_cfg.primary_color()
+                            } else {
+                                theme_cfg.text_color()
+                            }),
+                            text(theme_cfg, &track.artist)
                                 .size(11)
                                 .color(theme_cfg.text_muted_color()),
                             row![
-                                text(track.formatted_duration())
+                                text(theme_cfg, track.formatted_duration())
                                     .size(10)
                                     .color(theme_cfg.text_muted_color()),
                                 Space::with_width(Length::Fill),
                                 if is_active {
-                                    text("Playing").size(10).color(theme_cfg.primary_color())
+                                    text(theme_cfg, "Playing")
+                                        .size(10)
+                                        .color(theme_cfg.primary_color())
                                 } else {
-                                    text("").size(10).color(theme_cfg.text_muted_color())
+                                    text(theme_cfg, "")
+                                        .size(10)
+                                        .color(theme_cfg.text_muted_color())
                                 },
                             ]
                             .align_y(Alignment::Center),

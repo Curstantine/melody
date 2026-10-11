@@ -1,5 +1,5 @@
 use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, text, Space};
+use iced::widget::{button, column, container, image, row, Space};
 use iced::{Alignment, Border, ContentFit, Element, Length};
 use player_core::SortDirection;
 
@@ -13,14 +13,20 @@ use std::borrow::Cow;
 /// - Uses `Shaping::Basic` for pure ASCII text for zero-cost immediate shaping and high frame rates.
 /// - Uses `Shaping::Advanced` for Chinese, Japanese, Korean, and multilingual Unicode characters
 ///   to ensure cross-script font fallback without tofu or missing glyphs.
-pub fn cjk_text<'a>(content: impl Into<Cow<'a, str>>) -> iced::widget::Text<'a> {
+pub fn text<'a>(
+    theme_cfg: &ThemeConfig,
+    content: impl Into<Cow<'a, str>>,
+) -> iced::widget::Text<'a> {
     let text_cow = content.into();
     let shaping = if text_cow.is_ascii() {
         iced::widget::text::Shaping::Basic
     } else {
         iced::widget::text::Shaping::Advanced
     };
-    text(text_cow).shaping(shaping)
+
+    iced::widget::text(text_cow)
+        .font(theme_cfg.font())
+        .shaping(shaping)
 }
 
 /// A reusable chip button with active state styling.
@@ -30,7 +36,7 @@ pub fn chip<'a>(
     is_active: bool,
     on_press: Message,
 ) -> Element<'a, Message> {
-    button(text(label.into()).size(11).color(if is_active {
+    button(text(theme_cfg, label.into()).size(11).color(if is_active {
         theme_cfg.primary_color()
     } else {
         theme_cfg.text_muted_color()
@@ -59,7 +65,7 @@ pub fn chip_with_icon<'a>(
         row![
             icons::icon(icon_svg, 13.0, color),
             Space::with_width(4),
-            text(label.into()).size(11).color(color),
+            text(theme_cfg, label.into()).size(11).color(color),
         ]
         .align_y(Alignment::Center),
     )
@@ -130,14 +136,14 @@ pub fn sort_chip<'a, T: Copy + PartialEq>(
             SortDirection::Descending => icons::CHEVRON_DOWN_SVG,
         };
         row![
-            text(label).size(11).color(text_color),
+            text(theme_cfg, label).size(11).color(text_color),
             Space::with_width(3),
             icons::icon(sort_icon_svg, 11.0, text_color),
         ]
         .align_y(Alignment::Center)
         .into()
     } else {
-        text(label).size(11).color(text_color).into()
+        text(theme_cfg, label).size(11).color(text_color).into()
     };
 
     button(content)
@@ -156,7 +162,9 @@ pub fn sort_chip_list<'a, T: Copy + PartialEq>(
     on_press: impl Fn(T) -> Message,
 ) -> Element<'a, Message> {
     let mut sort_row = row![
-        text("Sort:").size(11).color(theme_cfg.text_muted_color()),
+        text(theme_cfg, "Sort:")
+            .size(11)
+            .color(theme_cfg.text_muted_color()),
         Space::with_width(4),
     ]
     .spacing(4)
@@ -184,8 +192,12 @@ pub fn empty_state<'a>(
 ) -> Element<'a, Message> {
     container(
         column![
-            text(title).size(16).color(theme_cfg.text_color()),
-            text(subtitle).size(13).color(theme_cfg.text_muted_color()),
+            text(theme_cfg, title)
+                .size(16)
+                .color(theme_cfg.text_color()),
+            text(theme_cfg, subtitle)
+                .size(13)
+                .color(theme_cfg.text_muted_color()),
         ]
         .spacing(8)
         .align_x(Alignment::Center),
@@ -261,7 +273,9 @@ pub fn settings_card<'a>(
 ) -> Element<'a, Message> {
     container(
         column![
-            text(title).size(11).color(theme_cfg.primary_color()),
+            text(theme_cfg, title)
+                .size(11)
+                .color(theme_cfg.primary_color()),
             content.into(),
         ]
         .spacing(12)
@@ -288,8 +302,12 @@ pub fn metric_box<'a>(
 ) -> Element<'a, Message> {
     container(
         column![
-            text(value).size(16).color(theme_cfg.text_color()),
-            text(label).size(11).color(theme_cfg.text_muted_color()),
+            text(theme_cfg, value)
+                .size(16)
+                .color(theme_cfg.text_color()),
+            text(theme_cfg, label)
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
         ]
         .spacing(2)
         .padding([8, 12]),
