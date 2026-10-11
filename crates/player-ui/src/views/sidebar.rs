@@ -21,7 +21,7 @@ pub fn view<'a>(
             text("VIBECORE")
                 .size(15)
                 .color(theme_cfg.text_color()),
-            text("MusicBee Fluenx Edition")
+            text("Native Audio Player")
                 .size(10)
                 .color(theme_cfg.text_muted_color()),
         ]

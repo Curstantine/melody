@@ -140,6 +140,35 @@ pub fn view<'a>(
 
     let content_area: Element<'a, Message> = match view_mode {
         ViewMode::Tile => {
+            let cover_border_style = container::Style {
+                border: Border {
+                    radius: Radius {
+                        top_left: 6.0,
+                        top_right: 6.0,
+                        bottom_left: 0.0,
+                        bottom_right: 0.0,
+                    },
+                    color: theme_cfg.border_color(),
+                    width: 1.0,
+                },
+                ..Default::default()
+            };
+
+            let placeholder_tile_style = container::Style {
+                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+                border: Border {
+                    radius: Radius {
+                        top_left: 6.0,
+                        top_right: 6.0,
+                        bottom_left: 0.0,
+                        bottom_right: 0.0,
+                    },
+                    color: theme_cfg.border_color(),
+                    width: 1.0,
+                },
+                ..Default::default()
+            };
+
             let mut tiles = row![].spacing(14);
 
             for album in albums {
@@ -149,25 +178,14 @@ pub fn view<'a>(
                         image(handle.clone())
                             .width(170)
                             .height(170)
-                            .content_fit(ContentFit::Cover),
+                            .content_fit(ContentFit::Contain),
                     )
                     .width(170)
                     .height(170)
                     .center_x(170)
                     .center_y(170)
-                    .style(move |_theme| container::Style {
-                        border: Border {
-                            radius: Radius {
-                                top_left: 6.0,
-                                top_right: 6.0,
-                                bottom_left: 0.0,
-                                bottom_right: 0.0,
-                            },
-                            color: theme_cfg.border_color(),
-                            width: 1.0,
-                        },
-                        ..Default::default()
-                    })
+                    .clip(true)
+                    .style(move |_theme| cover_border_style)
                 } else {
                     container(
                         icons::icon(icons::DISC_SVG, 54.0, theme_cfg.primary_color()),
@@ -176,20 +194,7 @@ pub fn view<'a>(
                     .height(170)
                     .center_x(170)
                     .center_y(170)
-                    .style(move |_theme| container::Style {
-                        background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-                        border: Border {
-                            radius: Radius {
-                                top_left: 6.0,
-                                top_right: 6.0,
-                                bottom_left: 0.0,
-                                bottom_right: 0.0,
-                            },
-                            color: theme_cfg.border_color(),
-                            width: 1.0,
-                        },
-                        ..Default::default()
-                    })
+                    .style(move |_theme| placeholder_tile_style)
                 };
 
                 let year_str = album.year.map(|y| format!("{}", y)).unwrap_or_default();
@@ -238,6 +243,25 @@ pub fn view<'a>(
                 .into()
         }
         ViewMode::List => {
+            let list_cover_style = container::Style {
+                border: Border {
+                    color: theme_cfg.border_color(),
+                    width: 1.0,
+                    radius: Radius::from(4.0),
+                },
+                ..Default::default()
+            };
+
+            let list_placeholder_style = container::Style {
+                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+                border: Border {
+                    color: theme_cfg.border_color(),
+                    width: 1.0,
+                    radius: Radius::from(4.0),
+                },
+                ..Default::default()
+            };
+
             let mut album_list = column![].spacing(4);
 
             for album in albums {
@@ -247,20 +271,14 @@ pub fn view<'a>(
                         image(handle.clone())
                             .width(42)
                             .height(42)
-                            .content_fit(ContentFit::Cover),
+                            .content_fit(ContentFit::Contain),
                     )
                     .width(42)
                     .height(42)
                     .center_x(42)
                     .center_y(42)
-                    .style(move |_theme| container::Style {
-                        border: Border {
-                            color: theme_cfg.border_color(),
-                            width: 1.0,
-                            radius: Radius::from(4.0),
-                        },
-                        ..Default::default()
-                    })
+                    .clip(true)
+                    .style(move |_theme| list_cover_style)
                 } else {
                     container(
                         icons::icon(icons::DISC_SVG, 20.0, theme_cfg.primary_color()),
@@ -269,15 +287,7 @@ pub fn view<'a>(
                     .height(42)
                     .center_x(42)
                     .center_y(42)
-                    .style(move |_theme| container::Style {
-                        background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-                        border: Border {
-                            color: theme_cfg.border_color(),
-                            width: 1.0,
-                            radius: Radius::from(4.0),
-                        },
-                        ..Default::default()
-                    })
+                    .style(move |_theme| list_placeholder_style)
                 };
 
                 let subtitle = if let Some(year) = album.year {

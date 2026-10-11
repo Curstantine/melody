@@ -3769,6 +3769,8 @@ dependencies = [
 name = "player-core"
 version = "0.1.0"
 dependencies = [
+ "directories",
+ "image",
  "rusqlite",
  "serde",
  "serde_json",
@@ -3803,6 +3805,7 @@ dependencies = [
  "rfd",
  "serde",
  "serde_json",
+ "tokio",
  "toml 0.8.23",
  "tracing",
  "tracing-subscriber",

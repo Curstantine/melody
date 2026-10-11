@@ -30,16 +30,14 @@ fn test_theme_manager() {
     let mut manager = ThemeManager::new();
     let names = manager.theme_names();
 
-    assert!(names.contains(&"Catppuccin Mocha".to_string()));
-    assert!(names.contains(&"Tokyo Night".to_string()));
-    assert!(names.contains(&"Nord".to_string()));
-    assert!(names.contains(&"Dracula".to_string()));
-    assert!(names.contains(&"MusicBee Classic".to_string()));
+    assert!(names.contains(&"Default".to_string()));
+    assert_eq!(manager.active_theme_name, "Default");
+    assert_eq!(manager.current_config.name, "Default");
 
-    let switched = manager.set_theme("Tokyo Night");
+    let switched = manager.set_theme("Default");
     assert!(switched);
-    assert_eq!(manager.active_theme_name, "Tokyo Night");
-    assert_eq!(manager.current_config.name, "Tokyo Night");
+    assert_eq!(manager.active_theme_name, "Default");
+    assert_eq!(manager.current_config.name, "Default");
 
     let invalid = manager.set_theme("NonExistentTheme");
     assert!(!invalid);

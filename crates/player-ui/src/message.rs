@@ -74,6 +74,7 @@ pub enum Message {
     SelectArtist(String),
     AlbumSortChanged(AlbumSortField),
     AlbumCoversLoaded(Vec<(String, Vec<u8>)>),
+    AlbumCoverChunkLoaded(Vec<(String, Vec<u8>)>, Vec<(String, PathBuf)>),
 
     // Themes & Settings
     SelectTheme(String),

@@ -29,10 +29,11 @@ pub fn view<'a>(
             image(handle.clone())
                 .width(Length::Fixed(46.0))
                 .height(Length::Fixed(46.0))
-                .content_fit(ContentFit::Cover),
+                .content_fit(ContentFit::Contain),
         )
         .width(46)
         .height(46)
+        .clip(true)
         .style(|_theme| container::Style {
             border: Border {
                 radius: Radius::from(3.0),
@@ -71,10 +72,10 @@ pub fn view<'a>(
         .spacing(2)
         .width(Length::Fill),
         None => column![
-            text("MusicBee Fluenx Player")
-                .size(13)
-                .color(theme_cfg.text_muted_color()),
             text("No track playing")
+                .size(13)
+                .color(bar_fg),
+            text("Vibecore")
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
         ]

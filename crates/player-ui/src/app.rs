@@ -190,7 +190,8 @@ impl App {
                     info!("Playing track: {} (ID {})", track.title, track.id);
                     let path = PathBuf::from(&track.file_path);
 
-                    let cover_handle = player_core::extract_cover_art(&path)
+                    let cover_handle = player_core::get_or_create_thumbnail(&path, 500)
+                        .or_else(|| player_core::extract_cover_art(&path))
                         .map(image::Handle::from_bytes);
                     self.current_cover = cover_handle;
 
@@ -541,18 +542,7 @@ impl App {
                 if to_load.is_empty() {
                     Task::none()
                 } else {
-                    Task::perform(
-                        async move {
-                            let mut results = Vec::new();
-                            for (key, path) in to_load {
-                                if let Some(bytes) = player_core::extract_cover_art(&path) {
-                                    results.push((key, bytes));
-                                }
-                            }
-                            results
-                        },
-                        Message::AlbumCoversLoaded,
-                    )
+                    self.load_cover_chunk_task(to_load)
                 }
             }
 
@@ -564,11 +554,51 @@ impl App {
                 Task::none()
             }
 
+            Message::AlbumCoverChunkLoaded(chunk_results, remaining) => {
+                for (key, bytes) in chunk_results {
+                    let handle = image::Handle::from_bytes(bytes);
+                    self.album_covers.insert(key, handle);
+                }
+
+                if !remaining.is_empty() {
+                    self.load_cover_chunk_task(remaining)
+                } else {
+                    Task::none()
+                }
+            }
+
             Message::ArtistsLoaded(artists) => {
                 self.artists = artists;
                 Task::none()
             }
         }
+    }
+
+    fn load_cover_chunk_task(&self, mut pending: Vec<(String, PathBuf)>) -> Task<Message> {
+        const CHUNK_SIZE: usize = 16;
+        let (chunk, remaining) = if pending.len() <= CHUNK_SIZE {
+            (pending, Vec::new())
+        } else {
+            let rest = pending.split_off(CHUNK_SIZE);
+            (pending, rest)
+        };
+
+        Task::perform(
+            async move {
+                tokio::task::spawn_blocking(move || {
+                    let mut results = Vec::with_capacity(chunk.len());
+                    for (key, path) in chunk {
+                        if let Some(bytes) = player_core::get_or_create_thumbnail(&path, 200) {
+                            results.push((key, bytes));
+                        }
+                    }
+                    (results, remaining)
+                })
+                .await
+                .unwrap_or_else(|_| (Vec::new(), Vec::new()))
+            },
+            |(results, remaining)| Message::AlbumCoverChunkLoaded(results, remaining),
+        )
     }
 
     fn sort_albums(albums: &mut [AlbumSummary], field: AlbumSortField, dir: SortDirection) {
@@ -628,8 +658,8 @@ impl App {
     pub fn view(&self) -> Element<'_, Message> {
         let theme_cfg = &self.theme_manager.current_config;
 
-        // MusicBee Fluenx Top Caption & Tab Bar
-        let mb_tab_btn = |label: &'static str, tab: ViewTab| {
+        // Top Navigation & Tab Bar
+        let tab_btn = |label: &'static str, tab: ViewTab| {
             let is_selected = self.active_tab == tab;
             button(
                 text(label)
@@ -646,10 +676,10 @@ impl App {
         };
 
         let top_tabs = row![
-            mb_tab_btn("MUSIC", ViewTab::Tracks),
-            mb_tab_btn("NOW PLAYING", ViewTab::Lyrics),
-            mb_tab_btn("ALBUMS", ViewTab::Albums),
-            mb_tab_btn("ARTISTS", ViewTab::Artists),
+            tab_btn("MUSIC", ViewTab::Tracks),
+            tab_btn("NOW PLAYING", ViewTab::Lyrics),
+            tab_btn("ALBUMS", ViewTab::Albums),
+            tab_btn("ARTISTS", ViewTab::Artists),
         ]
         .spacing(4)
         .align_y(iced::Alignment::Center);
@@ -727,7 +757,8 @@ impl App {
 
         let body = container(main_view)
             .width(Length::Fill)
-            .height(Length::Fill);
+            .height(Length::Fill)
+            .clip(true);
 
         let is_loved = self
             .current_track_id

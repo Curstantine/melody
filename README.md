@@ -10,11 +10,7 @@ A lightweight (~30–50 MB memory footprint), high-fidelity, cross-platform musi
 player-workspace/
 ├── Cargo.toml
 ├── themes/               # External data-driven TOML theme definitions
-│   ├── catppuccin-mocha.toml
-│   ├── tokyo-night.toml
-│   ├── nord.toml
-│   ├── dracula.toml
-│   └── musicbee-classic.toml
+│   └── default.toml
 └── crates/
     ├── player-core/      # Domain models, SQLite schema & windowed queries, Symphonia metadata extractor
     ├── player-audio/     # Dedicated audio worker thread, CPAL audio pipeline, lock-free ring buffer
