@@ -16,11 +16,12 @@ use crate::message::{AlbumSortField, Message, SettingsTab, ViewMode, ViewTab};
 use crate::theme::{styles, ThemeManager};
 use crate::views;
 
-pub const DEFAULT_PAGE_SIZE: usize = 50;
+pub const DEFAULT_CATALOG_CHUNK_SIZE: usize = 60;
 
 pub struct App {
     db: LibraryDatabase,
     db_path: PathBuf,
+    config_path: PathBuf,
     _audio_engine: AudioEngine,
     audio_controller: AudioController,
     plugin_manager: PluginManager,
@@ -53,7 +54,9 @@ pub struct App {
     album_covers: HashMap<String, image::Handle>,
     album_sort_field: AlbumSortField,
     album_sort_dir: SortDirection,
+    visible_albums_count: usize,
     artists: Vec<ArtistSummary>,
+    visible_artists_count: usize,
     library_folders: Vec<String>,
 
     // Playback State
@@ -118,15 +121,21 @@ impl App {
             )
             .unwrap_or_default();
         let mut albums = db.get_albums().unwrap_or_default();
-        Self::sort_albums(&mut albums, config.album_sort_field, SortDirection::Ascending);
+        Self::sort_albums(
+            &mut albums,
+            config.album_sort_field,
+            SortDirection::Ascending,
+        );
         let artists = db.get_artists().unwrap_or_default();
         let library_folders = db.get_library_folders().unwrap_or_default();
         let font_paths = crate::font::discover_cjk_font_paths();
         let primary_font = config.primary_font;
+        let config_path = AppConfig::config_path();
 
         let app = Self {
             db,
             db_path,
+            config_path,
             _audio_engine: audio_engine,
             audio_controller,
             plugin_manager,
@@ -155,7 +164,9 @@ impl App {
             album_covers: HashMap::new(),
             album_sort_field: config.album_sort_field,
             album_sort_dir: SortDirection::Ascending,
+            visible_albums_count: DEFAULT_CATALOG_CHUNK_SIZE,
             artists,
+            visible_artists_count: DEFAULT_CATALOG_CHUNK_SIZE,
             library_folders,
 
             current_track: None,
@@ -178,7 +189,13 @@ impl App {
             custom_font_input: String::new(),
         };
 
-        (app, Task::none())
+        let initial_task = if app.active_tab == ViewTab::Albums {
+            app.load_visible_album_covers_task()
+        } else {
+            Task::none()
+        };
+
+        (app, initial_task)
     }
 
     pub fn title(&self) -> String {
@@ -299,13 +316,13 @@ impl App {
             Message::ToggleShuffle => {
                 self.is_shuffle = !self.is_shuffle;
                 info!("Shuffle toggled: {}", self.is_shuffle);
-                Task::none()
+                self.save_config_task()
             }
 
             Message::ToggleRepeat => {
                 self.is_repeat = !self.is_repeat;
                 info!("Repeat toggled: {}", self.is_repeat);
-                Task::none()
+                self.save_config_task()
             }
 
             Message::ToggleLoveCurrentTrack => {
@@ -357,27 +374,40 @@ impl App {
             Message::VolumeChanged(vol) => {
                 self.volume = vol;
                 self.audio_controller.set_volume(vol);
-                Task::none()
+                self.save_config_task()
             }
 
             Message::SelectTab(tab) => {
                 self.active_tab = tab;
+                let save_task = self.save_config_task();
                 match tab {
                     ViewTab::Albums => {
-                        let db = self.db.clone();
-                        Task::perform(
-                            async move { db.get_albums().unwrap_or_default() },
-                            Message::AlbumsLoaded,
-                        )
+                        self.visible_albums_count = DEFAULT_CATALOG_CHUNK_SIZE;
+                        let load_task = if self.albums.is_empty() {
+                            let db = self.db.clone();
+                            Task::perform(
+                                async move { db.get_albums().unwrap_or_default() },
+                                Message::AlbumsLoaded,
+                            )
+                        } else {
+                            self.load_visible_album_covers_task()
+                        };
+                        Task::batch([save_task, load_task])
                     }
                     ViewTab::Artists => {
-                        let db = self.db.clone();
-                        Task::perform(
-                            async move { db.get_artists().unwrap_or_default() },
-                            Message::ArtistsLoaded,
-                        )
+                        self.visible_artists_count = DEFAULT_CATALOG_CHUNK_SIZE;
+                        if self.artists.is_empty() {
+                            let db = self.db.clone();
+                            let load_task = Task::perform(
+                                async move { db.get_artists().unwrap_or_default() },
+                                Message::ArtistsLoaded,
+                            );
+                            Task::batch([save_task, load_task])
+                        } else {
+                            save_task
+                        }
                     }
-                    _ => Task::none(),
+                    _ => save_task,
                 }
             }
 
@@ -426,22 +456,22 @@ impl App {
             Message::SetPageSize(size) => {
                 self.page_size = size;
                 self.page = 0;
-                self.reload_tracks_task()
+                Task::batch([self.save_config_task(), self.reload_tracks_task()])
             }
 
             Message::SetLibraryViewMode(mode) => {
                 self.library_view_mode = mode;
-                Task::none()
+                self.save_config_task()
             }
 
             Message::SetAlbumsViewMode(mode) => {
                 self.albums_view_mode = mode;
-                Task::none()
+                self.save_config_task()
             }
 
             Message::SetArtistsViewMode(mode) => {
                 self.artists_view_mode = mode;
-                Task::none()
+                self.save_config_task()
             }
 
             Message::TrackHovered(maybe_id) => {
@@ -620,7 +650,7 @@ impl App {
 
             Message::SelectSettingsTab(tab) => {
                 self.settings_tab = tab;
-                Task::none()
+                self.save_config_task()
             }
 
             Message::SelectAlbum(album_name) => {
@@ -639,7 +669,7 @@ impl App {
 
             Message::SelectTheme(name) => {
                 self.theme_manager.set_theme(&name);
-                Task::none()
+                self.save_config_task()
             }
 
             Message::ReloadThemes => {
@@ -651,7 +681,7 @@ impl App {
                 info!("Selected font: {}", font_name);
                 self.primary_font = Some(font_name.clone());
                 self.theme_manager.set_font(Some(font_name));
-                Task::none()
+                self.save_config_task()
             }
 
             Message::CustomFontInputChanged(input) => {
@@ -702,33 +732,42 @@ impl App {
                     };
                 }
                 Self::sort_albums(&mut self.albums, self.album_sort_field, self.album_sort_dir);
-                Task::none()
+                self.visible_albums_count = DEFAULT_CATALOG_CHUNK_SIZE;
+                let save_task = self.save_config_task();
+                let covers_task = self.load_visible_album_covers_task();
+                Task::batch([save_task, covers_task])
             }
 
             Message::AlbumsLoaded(mut albums) => {
                 Self::sort_albums(&mut albums, self.album_sort_field, self.album_sort_dir);
                 self.albums = albums;
-
-                let to_load: Vec<(String, PathBuf)> = self
-                    .albums
-                    .iter()
-                    .filter_map(|alb| {
-                        let key = format!("{}:{}", alb.artist, alb.album);
-                        if self.album_covers.contains_key(&key) {
-                            None
-                        } else {
-                            alb.cover_track_path
-                                .as_ref()
-                                .map(|p| (key, PathBuf::from(p)))
-                        }
-                    })
-                    .collect();
-
-                if to_load.is_empty() {
-                    Task::none()
+                self.visible_albums_count = DEFAULT_CATALOG_CHUNK_SIZE;
+                if self.active_tab == ViewTab::Albums {
+                    self.load_visible_album_covers_task()
                 } else {
-                    self.load_cover_chunk_task(to_load)
+                    Task::none()
                 }
+            }
+
+            Message::AlbumsScrolled(viewport) => {
+                let rel_offset = viewport.relative_offset();
+                if rel_offset.y >= 0.75 && self.visible_albums_count < self.albums.len() {
+                    self.visible_albums_count = (self.visible_albums_count
+                        + DEFAULT_CATALOG_CHUNK_SIZE)
+                        .min(self.albums.len());
+                    return self.load_visible_album_covers_task();
+                }
+                Task::none()
+            }
+
+            Message::ArtistsScrolled(viewport) => {
+                let rel_offset = viewport.relative_offset();
+                if rel_offset.y >= 0.75 && self.visible_artists_count < self.artists.len() {
+                    self.visible_artists_count = (self.visible_artists_count
+                        + DEFAULT_CATALOG_CHUNK_SIZE)
+                        .min(self.artists.len());
+                }
+                Task::none()
             }
 
             Message::AlbumCoversLoaded(loaded) => {
@@ -754,8 +793,11 @@ impl App {
 
             Message::ArtistsLoaded(artists) => {
                 self.artists = artists;
+                self.visible_artists_count = DEFAULT_CATALOG_CHUNK_SIZE;
                 Task::none()
             }
+
+            Message::ConfigSaved => Task::none(),
         }
     }
 
@@ -776,8 +818,19 @@ impl App {
         }
     }
 
-    pub fn save_config(&self) {
-        self.to_config().save();
+    pub fn save_config_task(&self) -> Task<Message> {
+        let config = self.to_config();
+        let path = self.config_path.clone();
+        Task::perform(
+            async move {
+                tokio::task::spawn_blocking(move || {
+                    config.save_to_path(&path);
+                })
+                .await
+                .ok();
+            },
+            |_| Message::ConfigSaved,
+        )
     }
 
     fn load_cover_chunk_task(&self, mut pending: Vec<(String, PathBuf)>) -> Task<Message> {
@@ -805,6 +858,29 @@ impl App {
             },
             |(results, remaining)| Message::AlbumCoverChunkLoaded(results, remaining),
         )
+    }
+
+    fn load_visible_album_covers_task(&self) -> Task<Message> {
+        let visible_slice = &self.albums[..self.visible_albums_count.min(self.albums.len())];
+        let to_load: Vec<(String, PathBuf)> = visible_slice
+            .iter()
+            .filter_map(|alb| {
+                let key = format!("{}:{}", alb.artist, alb.album);
+                if self.album_covers.contains_key(&key) {
+                    None
+                } else {
+                    alb.cover_track_path
+                        .as_ref()
+                        .map(|p| (key, PathBuf::from(p)))
+                }
+            })
+            .collect();
+
+        if to_load.is_empty() {
+            Task::none()
+        } else {
+            self.load_cover_chunk_task(to_load)
+        }
     }
 
     fn sort_albums(albums: &mut [AlbumSummary], field: AlbumSortField, dir: SortDirection) {
@@ -998,16 +1074,22 @@ impl App {
                 self.page,
                 self.page_size,
             ),
-            ViewTab::Albums => views::albums::view(
-                theme_cfg,
-                &self.albums,
-                &self.album_covers,
-                self.albums_view_mode,
-                self.album_sort_field,
-                self.album_sort_dir,
-            ),
+            ViewTab::Albums => {
+                let visible_slice =
+                    &self.albums[..self.visible_albums_count.min(self.albums.len())];
+                views::albums::view(
+                    theme_cfg,
+                    visible_slice,
+                    &self.album_covers,
+                    self.albums_view_mode,
+                    self.album_sort_field,
+                    self.album_sort_dir,
+                )
+            }
             ViewTab::Artists => {
-                views::artists::view(theme_cfg, &self.artists, self.artists_view_mode)
+                let visible_slice =
+                    &self.artists[..self.visible_artists_count.min(self.artists.len())];
+                views::artists::view(theme_cfg, visible_slice, self.artists_view_mode)
             }
             ViewTab::Lyrics => views::lyrics::view(
                 theme_cfg,
@@ -1040,6 +1122,7 @@ impl App {
                         total_albums: self.albums.len(),
                         total_artists: self.artists.len(),
                         db_path: &self.db_path,
+                        config_path: &self.config_path,
                         db_size_bytes,
                         cache_file_count: cache_stats.file_count,
                         cache_size_bytes: cache_stats.total_bytes,

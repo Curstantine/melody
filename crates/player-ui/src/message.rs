@@ -85,6 +85,8 @@ pub enum Message {
     SelectAlbum(String),
     SelectArtist(String),
     AlbumSortChanged(AlbumSortField),
+    AlbumsScrolled(iced::widget::scrollable::Viewport),
+    ArtistsScrolled(iced::widget::scrollable::Viewport),
     AlbumCoversLoaded(Vec<(String, Vec<u8>)>),
     AlbumCoverChunkLoaded(Vec<(String, Vec<u8>)>, Vec<(String, PathBuf)>),
 
@@ -94,6 +96,7 @@ pub enum Message {
     ReloadThemes,
     SelectFont(String),
     CustomFontInputChanged(String),
+    ConfigSaved,
 
     // Library Maintenance
     AddLibraryFolderClicked,

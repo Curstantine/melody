@@ -204,12 +204,12 @@ fn discover_windows_cjk_fonts(paths: &mut Vec<PathBuf>) {
         "msgothic.ttc", // MS Gothic (Japanese)
         "YuGothM.ttc",  // Yu Gothic (Japanese)
         "YuGothR.ttc",
-        "malgun.ttf",   // Malgun Gothic (Korean)
+        "malgun.ttf", // Malgun Gothic (Korean)
         "malgunbd.ttf",
-        "simsun.ttc",   // SimSun
-        "mingliu.ttc",  // MingLiU
-        "gulim.ttc",    // Gulim (Korean)
-        "batang.ttc",   // Batang (Korean)
+        "simsun.ttc",  // SimSun
+        "mingliu.ttc", // MingLiU
+        "gulim.ttc",   // Gulim (Korean)
+        "batang.ttc",  // Batang (Korean)
         "IBMPlexSansJP-Regular.ttf",
         "IBMPlexSansJP-Regular.otf",
         "IBMPlexSansSC-Regular.ttf",

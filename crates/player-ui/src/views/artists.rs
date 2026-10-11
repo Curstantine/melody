@@ -96,6 +96,7 @@ pub fn view<'a>(
             }
 
             scrollable(container(tiles.wrap()).width(Length::Fill))
+                .on_scroll(Message::ArtistsScrolled)
                 .height(Length::Fill)
                 .style(styles::scrollable_style(theme_cfg))
                 .into()
@@ -151,6 +152,7 @@ pub fn view<'a>(
             }
 
             scrollable(artist_list)
+                .on_scroll(Message::ArtistsScrolled)
                 .height(Length::Fill)
                 .style(styles::scrollable_style(theme_cfg))
                 .into()

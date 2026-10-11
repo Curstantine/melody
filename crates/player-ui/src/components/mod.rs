@@ -7,10 +7,20 @@ use crate::icons;
 use crate::message::{Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
-/// A text widget configured with `Shaping::Advanced` to ensure cross-script font fallback
-/// for Chinese, Japanese, Korean, and multilingual Unicode characters without rendering tofu boxes.
-pub fn cjk_text<'a>(content: impl iced::widget::text::IntoFragment<'a>) -> iced::widget::Text<'a> {
-    text(content).shaping(iced::widget::text::Shaping::Advanced)
+use std::borrow::Cow;
+
+/// A text widget configured with adaptive text shaping:
+/// - Uses `Shaping::Basic` for pure ASCII text for zero-cost immediate shaping and high frame rates.
+/// - Uses `Shaping::Advanced` for Chinese, Japanese, Korean, and multilingual Unicode characters
+///   to ensure cross-script font fallback without tofu or missing glyphs.
+pub fn cjk_text<'a>(content: impl Into<Cow<'a, str>>) -> iced::widget::Text<'a> {
+    let text_cow = content.into();
+    let shaping = if text_cow.is_ascii() {
+        iced::widget::text::Shaping::Basic
+    } else {
+        iced::widget::text::Shaping::Advanced
+    };
+    text(text_cow).shaping(shaping)
 }
 
 /// A reusable chip button with active state styling.

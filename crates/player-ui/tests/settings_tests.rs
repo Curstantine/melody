@@ -62,6 +62,7 @@ fn test_settings_views_render_without_panicking() {
             total_albums: 15,
             total_artists: 8,
             db_path,
+            config_path: Path::new("/tmp/test_config.toml"),
             db_size_bytes: 2048576,
             cache_file_count: 42,
             cache_size_bytes: 524288,

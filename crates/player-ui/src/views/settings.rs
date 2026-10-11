@@ -951,9 +951,12 @@ fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> El
             .spacing(12),
             Space::with_height(4),
             column![
-                text(format!("Configuration (TOML): {}", data.config_path.display()))
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
+                text(format!(
+                    "Configuration (TOML): {}",
+                    data.config_path.display()
+                ))
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
                 text(format!("Database Path: {}", data.db_path.display()))
                     .size(11)
                     .color(theme_cfg.text_muted_color()),
