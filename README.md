@@ -1,64 +1,104 @@
-# Vibecore — Native Cross-Platform Rust Music Player
+# Vibecore
 
-A lightweight (~30–50 MB memory footprint), high-fidelity, cross-platform music player built in pure Rust using **Iced**, **CPAL**, **Symphonia**, and **SQLite**.
+A modern, native music player built in pure Rust. It renders crisp interfaces with **[Iced](https://github.com/iced-rs/iced)**, decodes audio cleanly using **[Symphonia](https://github.com/pdeljanov/Symphonia)**, and handles audio output with **[CPAL](https://github.com/RustAudio/cpal)**.
 
 ---
 
-## Architecture Overview
+## Workspace Layout
 
 ```
-player-workspace/
-├── Cargo.toml
-├── themes/               # External data-driven TOML theme definitions
-│   └── default.toml
+vibecore/
+├── flake.nix             # Nix dev shell with all native graphic/audio libraries
+├── themes/               # TOML color themes (hot-reloadable)
+│   ├── default.toml
+│   └── xcode_default_darker.toml
 └── crates/
-    ├── player-core/      # Domain models, SQLite schema & windowed queries, Symphonia metadata extractor
-    ├── player-audio/     # Dedicated audio worker thread, CPAL audio pipeline, lock-free ring buffer
-    ├── player-plugins/   # Extension engine, plugin API contracts, lyrics & rich presence hooks
-    └── player-ui/        # Iced Elm architecture GUI, live theme engine, virtualized track list
+    ├── player-core/      # SQLite schema, track metadata parsing, disk thumbnail cache
+    ├── player-audio/     # Audio worker thread, CPAL output stream, lock-free ring buffer
+    ├── player-plugins/   # Plugin contracts, lyrics fetcher, event dispatchers
+    └── player-ui/        # Iced GUI, views (Music, Albums, Artists, Lyrics, Settings)
 ```
-
-### 1. `player-core` (Data & Storage)
-- **Embedded SQLite** with WAL mode and indexing on `artist`, `album`, `title`, and `file_path`.
-- **Viewport Virtualization & Pagination**: Windowed querying using `LIMIT ? OFFSET ?`. Never pulls whole libraries into memory, maintaining a tiny ~30–50 MB RAM footprint even on 100,000+ track libraries.
-- **Lightweight Index Headers**: In-memory `TrackIdHeader { id: i64, duration_ms: u32 }` struct for fast global shuffles and counts.
-- **Metadata Extraction**: Pure-Rust decoding via `symphonia` for MP3, FLAC, AAC, Vorbis, Opus, WAV, ALAC, and MP4 tags (ID3v1, ID3v2, Vorbis Comments, MP4 atoms).
-
-### 2. `player-audio` (Audio Engine)
-- **Zero UI-Audio Blocking**: Audio processing never runs on the UI thread and never acquires UI locks.
-- **Lock-Free Communication**: Commands (`Play`, `Pause`, `Seek`, `Load`, `SetVolume`, `Stop`) sent over unbounded `crossbeam-channel`.
-- **Atomic Status Polling**: `AudioStatus` exposes `Arc<AtomicU64>` (position in ms), `Arc<AtomicBool>` (play/pause state), `Arc<AtomicU32>` (volume), and `Arc<AtomicBool>` (track finished) for zero-cost, lock-free UI polling.
-- **Lock-Free Ring Buffer**: Interleaved `f32` SPSC ring buffer (`ringbuf`) feeds the `cpal::Stream` audio callback.
-- **Universal Resampling & Channel Mapping**: Handles mono, stereo, and multi-channel streams across any source and destination sample rate with linear interpolation.
-
-### 3. `player-plugins` (Extensibility)
-- **Host Contracts**:
-  - `on_track_change(TrackMetadata)`
-  - `on_playback_end()`
-  - `fetch_lyrics(artist, title) -> Option<String>`
-  - `discord_presence_update(TrackMetadata)`
-- **Fault-Isolated Execution**: Plugin errors are caught and logged without crashing the host application.
-
-### 4. `player-ui` (GUI & Live Theming)
-- **Elm Architecture**: Clean Model-View-Update cycle implemented with `iced`.
-- **Full CJK Font Support**: Automatically discovers and registers Chinese, Japanese, and Korean fonts from system directories (Fontconfig / Windows `Fonts` / macOS `Fonts`), user config (`~/.config/player/fonts`), and `./fonts/` directory, preventing corrupt/tofu glyphs.
-- **Data-Driven Dynamic Theming**: TOML themes loaded at runtime from `~/.config/player/themes/` and `./themes/`. Switches themes instantaneously without recompiling.
-- **Interactive Controls**:
-  - Track seek bar with live scrubbing.
-  - Master volume slider.
-  - Instant search filtering.
-  - Column sorting (Title, Artist, Album, Duration).
-  - Folder scanner with native system dialogs (`rfd`).
-  - Catalog views for Tracks, Albums, Artists, and Lyrics.
 
 ---
 
-## Running the Player
+## Views & Features
+
+- **Tracks (Library)**: Fast paginated track browser with customizable page sizes, search filtering across titles, artists, and albums, and column sorting. Supports both compact table and card layouts.
+- **Albums & Artists**: Aggregated views with album art covers, sortable by album title, artist, year, or track count.
+- **Lyrics & Now Playing**: Full-screen player view showcasing cover artwork, track metadata, and scrollable lyrics.
+- **Player Bar**: Persistent bottom controls featuring live seek scrubbing, volume controls, shuffle, repeat, track favoriting, and now-playing details.
+- **Status Bar**: Live counts, active filter indicators, and scanning status.
+- **Settings**:
+    - **Appearance**: Select themes, configure primary display fonts, customize pagination sizes, and pick default catalog view modes.
+    - **Library**: Manage indexed folders, trigger folder scans, inspect database size, and view or clear the thumbnail cache.
+    - **Debug**: Audio telemetry, volume level, and active plugin counts.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+#### Linux (Nix / NixOS)
+
+If you use Nix or Direnv, everything (ALSA, Fontconfig, FreeType, Wayland, Vulkan) is packaged in `flake.nix`:
 
 ```bash
-# Run the application
-cargo run -p player-ui
+# Enter the nix dev environment
+nix develop
 
-# Run test suite across all workspace crates
+# Or with direnv
+direnv allow
+```
+
+#### Linux (Standard)
+
+Ensure you have the development libraries for ALSA, fontconfig, and pkg-config installed:
+
+```bash
+# Debian / Ubuntu
+sudo apt install libasound2-dev libfontconfig1-dev pkg-config
+```
+
+#### macOS / Windows
+
+Standard Rust toolchain (`cargo`, `rustc`).
+
+---
+
+### Building & Running
+
+Run the player:
+
+```bash
+cargo run -p player-ui
+```
+
+Run tests across all crates:
+
+```bash
 cargo test --workspace
 ```
+
+Build an optimized release binary:
+
+```bash
+cargo build --workspace --release
+```
+
+---
+
+## Configuration & Data Paths
+
+Vibecore stores settings and cached data according to standard OS conventions:
+
+- **Database**: `~/.local/share/vibecore/library.db` (Linux) / OS app data directory
+- **Config**: `~/.config/vibecore/config.toml` (Linux) / OS config directory
+- **Thumbnail Cache**: `~/.cache/vibecore/thumbnails/` (Linux) / OS cache directory
+- **Themes**: `./themes/` or `~/.config/vibecore/themes/`
+
+---
+
+## License
+
+Licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at your option.
