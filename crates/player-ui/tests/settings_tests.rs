@@ -11,9 +11,10 @@ mod settings;
 #[path = "../src/theme/mod.rs"]
 mod theme;
 
+use std::path::Path;
+
 use message::{SettingsTab, ViewMode};
 use settings::{view, SettingsViewData};
-use std::path::{Path, PathBuf};
 use theme::ThemeConfig;
 
 #[test]
@@ -35,9 +36,7 @@ fn test_settings_tab_variants_and_defaults() {
 fn test_settings_views_render_without_panicking() {
     let theme_cfg = ThemeConfig::default();
     let folders = vec!["/music/ambient".to_string(), "/music/jazz".to_string()];
-    let font_paths = vec![PathBuf::from(
-        "/usr/share/fonts/noto/NotoSansCJK-Regular.ttc",
-    )];
+    let available_fonts = vec!["Default".to_string(), "Noto Sans CJK JP".to_string()];
     let db_path = Path::new("/tmp/test_library.db");
 
     for tab in [
@@ -54,8 +53,7 @@ fn test_settings_views_render_without_panicking() {
             artists_view_mode: ViewMode::Tile,
             page_size: 50,
             primary_font: Some("Noto Sans CJK JP"),
-            font_paths: &font_paths,
-            available_fonts: vec!["Default".to_string(), "Noto Sans CJK JP".to_string()],
+            available_fonts: &available_fonts,
             custom_font_input: String::new(),
             library_folders: &folders,
             total_tracks: 120,

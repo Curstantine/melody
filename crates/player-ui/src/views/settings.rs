@@ -11,6 +11,7 @@ use crate::theme::{styles, ThemeConfig};
 
 pub struct SettingsViewData<'a> {
     pub active_tab: SettingsTab,
+
     // Appearance
     pub theme_names: Vec<String>,
     pub active_theme_name: &'a str,
@@ -19,9 +20,9 @@ pub struct SettingsViewData<'a> {
     pub artists_view_mode: ViewMode,
     pub page_size: usize,
     pub primary_font: Option<&'a str>,
-    pub font_paths: &'a [PathBuf],
-    pub available_fonts: Vec<String>,
+    pub available_fonts: &'a [String],
     pub custom_font_input: String,
+
     // Library
     pub library_folders: &'a [String],
     pub total_tracks: usize,
@@ -33,6 +34,7 @@ pub struct SettingsViewData<'a> {
     pub cache_file_count: usize,
     pub cache_size_bytes: u64,
     pub is_scanning: bool,
+
     // Debug
     pub volume: f32,
     pub active_plugins_count: usize,
@@ -270,12 +272,7 @@ fn view_appearance<'a>(
         components::metric_box(
             theme_cfg,
             "Discovered Font Files",
-            format!("{} files", data.font_paths.len()),
-        ),
-        components::metric_box(
-            theme_cfg,
-            "CJK Fallback Engine",
-            "Dynamic Fallback (Active)".to_string(),
+            format!("{} files", data.available_fonts.len()),
         ),
     ]
     .spacing(12);
@@ -283,7 +280,7 @@ fn view_appearance<'a>(
     // Font selection chips
     let font_chips = {
         let mut row_wrap = row![].spacing(6);
-        for font_name in &data.available_fonts {
+        for font_name in data.available_fonts {
             let is_active = match data.primary_font {
                 Some(active) => {
                     active == font_name || (font_name == "Default" && active.is_empty())

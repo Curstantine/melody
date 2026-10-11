@@ -77,7 +77,7 @@ pub struct App {
 
     // Library Scanning & Fonts
     is_scanning: bool,
-    font_paths: Vec<PathBuf>,
+    available_fonts: Vec<String>,
     primary_font: Option<String>,
     custom_font_input: String,
 }
@@ -129,7 +129,8 @@ impl App {
         );
         let artists = db.get_artists().unwrap_or_default();
         let library_folders = db.get_library_folders().unwrap_or_default();
-        let font_paths = crate::font::discover_cjk_font_paths();
+
+        let available_fonts = crate::font::list_font_families();
         let primary_font = config.primary_font;
         let config_path = AppConfig::config_path();
 
@@ -185,7 +186,7 @@ impl App {
             loved_tracks: HashSet::new(),
 
             is_scanning: false,
-            font_paths,
+            available_fonts,
             primary_font,
             custom_font_input: String::new(),
         };
@@ -1001,23 +1002,6 @@ impl App {
         )
     }
 
-    fn get_available_fonts(&self) -> Vec<String> {
-        let mut fonts = Vec::new();
-        fonts.push("Default".to_string());
-        fonts.push("System Sans-Serif".to_string());
-        fonts.push("System Monospace".to_string());
-        fonts.push("System Serif".to_string());
-
-        for path in &self.font_paths {
-            if let Some(fam) = crate::font::query_font_family(path) {
-                if !fonts.contains(&fam) {
-                    fonts.push(fam);
-                }
-            }
-        }
-        fonts
-    }
-
     pub fn view(&self) -> Element<'_, Message> {
         let theme_cfg = &self.theme_manager.current_config;
 
@@ -1120,8 +1104,7 @@ impl App {
                         artists_view_mode: self.artists_view_mode,
                         page_size: self.page_size,
                         primary_font: self.primary_font.as_deref(),
-                        font_paths: &self.font_paths,
-                        available_fonts: self.get_available_fonts(),
+                        available_fonts: self.available_fonts.as_slice(),
                         custom_font_input: self.custom_font_input.clone(),
                         library_folders: &self.library_folders,
                         total_tracks: self.total_tracks,
