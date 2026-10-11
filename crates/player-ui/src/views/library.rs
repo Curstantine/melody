@@ -5,6 +5,7 @@ use iced::widget::{
 use iced::{Alignment, Border, Element, Length};
 use player_core::{SortDirection, SortField, Track};
 
+use crate::components;
 use crate::icons;
 use crate::message::{Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
@@ -25,82 +26,31 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     // 1. Search Bar & View Mode Toolbar
     let search_input = text_input("Search tracks, artists, albums...", search_query)
+        .size(12)
         .on_input(Message::SearchInputChanged)
         .padding([4, 8])
         .style(styles::search_input_style(theme_cfg))
         .width(Length::Fill);
 
-    let list_mode_btn = button(
-        row![
-            icons::icon(
-                icons::LIST_VIEW_SVG,
-                13.0,
-                if view_mode == ViewMode::List {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                },
-            ),
-            Space::with_width(4),
-            text("List")
-                .size(11)
-                .color(if view_mode == ViewMode::List {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                }),
-        ]
-        .align_y(Alignment::Center),
-    )
-    .padding([2, 6])
-    .style(styles::ghost_button(theme_cfg, view_mode == ViewMode::List))
-    .on_press(Message::SetLibraryViewMode(ViewMode::List));
-
-    let tile_mode_btn = button(
-        row![
-            icons::icon(
-                icons::GRID_VIEW_SVG,
-                13.0,
-                if view_mode == ViewMode::Tile {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                },
-            ),
-            Space::with_width(4),
-            text("Tiles")
-                .size(11)
-                .color(if view_mode == ViewMode::Tile {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                }),
-        ]
-        .align_y(Alignment::Center),
-    )
-    .padding([2, 6])
-    .style(styles::ghost_button(theme_cfg, view_mode == ViewMode::Tile))
-    .on_press(Message::SetLibraryViewMode(ViewMode::Tile));
-
     let toolbar = row![
+        Space::with_width(4),
         container(icons::icon(
             icons::SEARCH_SVG,
-            18.0,
+            16.0,
             theme_cfg.text_muted_color(),
         ))
-        .width(36)
-        .center_x(36),
+        .width(28)
+        .center_x(28),
         search_input,
         Space::with_width(12),
-        list_mode_btn,
-        tile_mode_btn,
+        components::view_mode_toggle(theme_cfg, view_mode, Message::SetLibraryViewMode),
     ]
     .spacing(8)
     .align_y(Alignment::Center)
     .width(Length::Fill)
     .padding(iced::Padding {
         top: 0.0,
-        right: 15.0,
+        right: 16.0,
         bottom: 0.0,
         left: 0.0,
     });
@@ -149,29 +99,18 @@ pub fn view<'a>(
     .align_y(Alignment::Center)
     .padding(iced::Padding {
         top: 2.0,
-        right: 15.0,
+        right: 16.0,
         bottom: 6.0,
         left: 0.0,
     });
 
     // 3. Track Content (List vs Tile)
     let content: Element<'a, Message> = if tracks.is_empty() {
-        container(
-            column![
-                text("No tracks found")
-                    .size(16)
-                    .color(theme_cfg.text_color()),
-                text("Scan a folder in Preferences to index your music library")
-                    .size(13)
-                    .color(theme_cfg.text_muted_color()),
-            ]
-            .spacing(8)
-            .align_x(Alignment::Center),
+        components::empty_state(
+            theme_cfg,
+            "No tracks found",
+            "Scan a folder in Preferences to index your music library",
         )
-        .padding(40)
-        .width(Length::Fill)
-        .align_x(Alignment::Center)
-        .into()
     } else {
         match view_mode {
             ViewMode::List => {

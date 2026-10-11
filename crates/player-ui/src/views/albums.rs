@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, scrollable, text, Space};
-use iced::{Alignment, Border, ContentFit, Element, Length};
+use iced::{Alignment, Element, Length};
 use player_core::{format_duration, AlbumSummary, SortDirection};
 
+use crate::components;
 use crate::icons;
 use crate::message::{AlbumSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
@@ -18,113 +19,29 @@ pub fn view<'a>(
     sort_dir: SortDirection,
 ) -> Element<'a, Message> {
     if albums.is_empty() {
-        return container(
-            column![
-                text("No albums indexed")
-                    .size(16)
-                    .color(theme_cfg.text_color()),
-                text("Scan a folder to populate the album catalog")
-                    .size(13)
-                    .color(theme_cfg.text_muted_color()),
-            ]
-            .spacing(8)
-            .align_x(Alignment::Center),
-        )
-        .padding(40)
-        .width(Length::Fill)
-        .align_x(Alignment::Center)
-        .into();
+        return components::empty_state(
+            theme_cfg,
+            "No albums indexed",
+            "Scan a folder to populate the album catalog",
+        );
     }
 
-    let sort_chip = |label: &str, field: AlbumSortField| {
-        let is_active = active_sort_field == field;
-        let arrow = if is_active {
-            match sort_dir {
-                SortDirection::Ascending => " ▲",
-                SortDirection::Descending => " ▼",
-            }
-        } else {
-            ""
-        };
-        button(
-            text(format!("{}{}", label, arrow))
-                .size(11)
-                .color(if is_active {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                }),
-        )
-        .padding([2, 6])
-        .style(styles::ghost_button(theme_cfg, is_active))
-        .on_press(Message::AlbumSortChanged(field))
-    };
-
-    let tile_btn = button(
-        row![
-            icons::icon(
-                icons::GRID_VIEW_SVG,
-                13.0,
-                if view_mode == ViewMode::Tile {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                },
-            ),
-            Space::with_width(4),
-            text("Tiles")
-                .size(11)
-                .color(if view_mode == ViewMode::Tile {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                }),
-        ]
-        .align_y(Alignment::Center),
-    )
-    .padding([2, 6])
-    .style(styles::ghost_button(theme_cfg, view_mode == ViewMode::Tile))
-    .on_press(Message::SetAlbumsViewMode(ViewMode::Tile));
-
-    let list_btn = button(
-        row![
-            icons::icon(
-                icons::LIST_VIEW_SVG,
-                13.0,
-                if view_mode == ViewMode::List {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                },
-            ),
-            Space::with_width(4),
-            text("List").size(11).color(if view_mode == ViewMode::List {
-                theme_cfg.primary_color()
-            } else {
-                theme_cfg.text_muted_color()
-            }),
-        ]
-        .align_y(Alignment::Center),
-    )
-    .padding([2, 6])
-    .style(styles::ghost_button(theme_cfg, view_mode == ViewMode::List))
-    .on_press(Message::SetAlbumsViewMode(ViewMode::List));
-
     let header_bar = row![
-        row![
-            text("Sort:").size(11).color(theme_cfg.text_muted_color()),
-            Space::with_width(4),
-            sort_chip("Title", AlbumSortField::Title),
-            sort_chip("Artist", AlbumSortField::Artist),
-            sort_chip("Year", AlbumSortField::Year),
-            sort_chip("Tracks", AlbumSortField::TrackCount),
-            sort_chip("Duration", AlbumSortField::Duration),
-        ]
-        .spacing(4)
-        .align_y(Alignment::Center),
+        components::sort_chip_list(
+            theme_cfg,
+            &[
+                ("Title", AlbumSortField::Title),
+                ("Artist", AlbumSortField::Artist),
+                ("Year", AlbumSortField::Year),
+                ("Tracks", AlbumSortField::TrackCount),
+                ("Duration", AlbumSortField::Duration),
+            ],
+            active_sort_field,
+            sort_dir,
+            Message::AlbumSortChanged,
+        ),
         Space::with_width(Length::Fill),
-        tile_btn,
-        list_btn,
+        components::view_mode_toggle(theme_cfg, view_mode, Message::SetAlbumsViewMode),
     ]
     .spacing(4)
     .align_y(Alignment::Center)
@@ -137,64 +54,24 @@ pub fn view<'a>(
 
     let content_area: Element<'a, Message> = match view_mode {
         ViewMode::Tile => {
-            let cover_border_style = container::Style {
-                border: Border {
-                    radius: Radius {
-                        top_left: 6.0,
-                        top_right: 6.0,
-                        bottom_left: 0.0,
-                        bottom_right: 0.0,
-                    },
-                    color: theme_cfg.border_color(),
-                    width: 1.0,
-                },
-                ..Default::default()
-            };
-
-            let placeholder_tile_style = container::Style {
-                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-                border: Border {
-                    radius: Radius {
-                        top_left: 6.0,
-                        top_right: 6.0,
-                        bottom_left: 0.0,
-                        bottom_right: 0.0,
-                    },
-                    color: theme_cfg.border_color(),
-                    width: 1.0,
-                },
-                ..Default::default()
-            };
-
             let mut tiles = row![].spacing(14);
 
             for album in albums {
                 let key = format!("{}:{}", album.artist, album.album);
-                let cover_art = if let Some(handle) = album_covers.get(&key) {
-                    container(
-                        image(handle.clone())
-                            .width(170)
-                            .height(170)
-                            .content_fit(ContentFit::Contain),
-                    )
-                    .width(170)
-                    .height(170)
-                    .center_x(170)
-                    .center_y(170)
-                    .clip(true)
-                    .style(move |_theme| cover_border_style)
-                } else {
-                    container(icons::icon(
-                        icons::DISC_SVG,
-                        54.0,
-                        theme_cfg.primary_color(),
-                    ))
-                    .width(170)
-                    .height(170)
-                    .center_x(170)
-                    .center_y(170)
-                    .style(move |_theme| placeholder_tile_style)
-                };
+                let cover_art = components::cover_art(
+                    theme_cfg,
+                    album_covers.get(&key),
+                    170.0,
+                    Radius {
+                        top_left: 6.0,
+                        top_right: 6.0,
+                        bottom_left: 0.0,
+                        bottom_right: 0.0,
+                    },
+                    icons::DISC_SVG,
+                    54.0,
+                    theme_cfg.primary_color(),
+                );
 
                 let year_str = album.year.map(|y| format!("{}", y)).unwrap_or_default();
                 let meta = container(
@@ -239,54 +116,19 @@ pub fn view<'a>(
                 .into()
         }
         ViewMode::List => {
-            let list_cover_style = container::Style {
-                border: Border {
-                    color: theme_cfg.border_color(),
-                    width: 1.0,
-                    radius: Radius::from(4.0),
-                },
-                ..Default::default()
-            };
-
-            let list_placeholder_style = container::Style {
-                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-                border: Border {
-                    color: theme_cfg.border_color(),
-                    width: 1.0,
-                    radius: Radius::from(4.0),
-                },
-                ..Default::default()
-            };
-
             let mut album_list = column![].spacing(4);
 
             for album in albums {
                 let key = format!("{}:{}", album.artist, album.album);
-                let disc_thumbnail = if let Some(handle) = album_covers.get(&key) {
-                    container(
-                        image(handle.clone())
-                            .width(42)
-                            .height(42)
-                            .content_fit(ContentFit::Contain),
-                    )
-                    .width(42)
-                    .height(42)
-                    .center_x(42)
-                    .center_y(42)
-                    .clip(true)
-                    .style(move |_theme| list_cover_style)
-                } else {
-                    container(icons::icon(
-                        icons::DISC_SVG,
-                        20.0,
-                        theme_cfg.primary_color(),
-                    ))
-                    .width(42)
-                    .height(42)
-                    .center_x(42)
-                    .center_y(42)
-                    .style(move |_theme| list_placeholder_style)
-                };
+                let disc_thumbnail = components::cover_art(
+                    theme_cfg,
+                    album_covers.get(&key),
+                    42.0,
+                    Radius::from(4.0),
+                    icons::DISC_SVG,
+                    20.0,
+                    theme_cfg.primary_color(),
+                );
 
                 let subtitle = if let Some(year) = album.year {
                     format!("{} • {}", album.artist, year)

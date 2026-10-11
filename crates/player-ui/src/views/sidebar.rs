@@ -60,7 +60,7 @@ pub fn view<'a>(
     let nav_items = column![
         library_header,
         Space::with_height(4),
-        nav_btn("Tracks", ViewTab::Tracks, icons::MUSIC_NOTE_SVG),
+        nav_btn("Library", ViewTab::Tracks, icons::MUSIC_NOTE_SVG),
         nav_btn("Albums", ViewTab::Albums, icons::ALBUM_SVG),
         nav_btn("Artists", ViewTab::Artists, icons::ARTIST_SVG),
         nav_btn("Now Playing", ViewTab::Lyrics, icons::SPECTRUM_SVG),

@@ -1,8 +1,9 @@
 use iced::border::Radius;
 use iced::widget::{column, container, image, row, scrollable, text, Space};
-use iced::{Alignment, Border, ContentFit, Element, Length};
+use iced::{Alignment, Element, Length};
 use player_core::Track;
 
+use crate::components;
 use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
@@ -15,42 +16,15 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let content = match current_track {
         Some(track) => {
-            let cover_art: Element<'a, Message> = match current_cover {
-                Some(handle) => container(
-                    image(handle.clone())
-                        .width(Length::Fixed(220.0))
-                        .height(Length::Fixed(220.0))
-                        .content_fit(ContentFit::Contain),
-                )
-                .width(220)
-                .height(220)
-                .style(|_theme| container::Style {
-                    border: Border {
-                        radius: Radius::from(8.0),
-                        color: theme_cfg.border_color(),
-                        width: 1.0,
-                    },
-                    ..Default::default()
-                })
-                .into(),
-                None => container(
-                    icons::icon(icons::ALBUM_SVG, 80.0, theme_cfg.primary_color()),
-                )
-                .width(220)
-                .height(220)
-                .center_x(220)
-                .center_y(220)
-                .style(|_theme| container::Style {
-                    background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-                    border: Border {
-                        radius: Radius::from(8.0),
-                        color: theme_cfg.border_color(),
-                        width: 1.0,
-                    },
-                    ..Default::default()
-                })
-                .into(),
-            };
+            let cover_art = components::cover_art(
+                theme_cfg,
+                current_cover,
+                220.0,
+                Radius::from(8.0),
+                icons::ALBUM_SVG,
+                80.0,
+                theme_cfg.primary_color(),
+            );
 
             let stars = row![
                 icons::icon(icons::STAR_FILLED_SVG, 14.0, theme_cfg.primary_color()),

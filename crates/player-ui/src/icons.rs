@@ -33,6 +33,7 @@ pub const SHUFFLE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox
 
 pub const REPEAT_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" fill="currentColor"/></svg>"#;
 
+#[allow(dead_code)]
 pub const SPECTRUM_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="2" y="10" width="3" height="10" rx="1" fill="currentColor"/><rect x="8" y="4" width="3" height="16" rx="1" fill="currentColor"/><rect x="14" y="8" width="3" height="12" rx="1" fill="currentColor"/><rect x="20" y="2" width="3" height="18" rx="1" fill="currentColor"/></svg>"#;
 
 pub const SEARCH_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>"#;

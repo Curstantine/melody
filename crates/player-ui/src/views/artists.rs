@@ -3,6 +3,7 @@ use iced::widget::{button, column, container, row, scrollable, text, Space};
 use iced::{Alignment, Border, Element, Length};
 use player_core::ArtistSummary;
 
+use crate::components;
 use crate::icons;
 use crate::message::{Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
@@ -13,82 +14,17 @@ pub fn view<'a>(
     view_mode: ViewMode,
 ) -> Element<'a, Message> {
     if artists.is_empty() {
-        return container(
-            column![
-                text("No artists indexed")
-                    .size(16)
-                    .color(theme_cfg.text_color()),
-                text("Scan a folder in Preferences to populate the artist catalog")
-                    .size(13)
-                    .color(theme_cfg.text_muted_color()),
-            ]
-            .spacing(8)
-            .align_x(Alignment::Center),
-        )
-        .padding(40)
-        .width(Length::Fill)
-        .align_x(Alignment::Center)
-        .into();
+        return components::empty_state(
+            theme_cfg,
+            "No artists indexed",
+            "Scan a folder in Preferences to populate the artist catalog",
+        );
     }
-
-    let tile_btn = button(
-        row![
-            icons::icon(
-                icons::GRID_VIEW_SVG,
-                13.0,
-                if view_mode == ViewMode::Tile {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                },
-            ),
-            Space::with_width(4),
-            text("Tiles")
-                .size(11)
-                .color(if view_mode == ViewMode::Tile {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                }),
-        ]
-        .align_y(Alignment::Center),
-    )
-    .padding([2, 6])
-    .style(styles::ghost_button(theme_cfg, view_mode == ViewMode::Tile))
-    .on_press(Message::SetArtistsViewMode(ViewMode::Tile));
-
-    let list_btn = button(
-        row![
-            icons::icon(
-                icons::LIST_VIEW_SVG,
-                13.0,
-                if view_mode == ViewMode::List {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                },
-            ),
-            Space::with_width(4),
-            text("List")
-                .size(11)
-                .color(if view_mode == ViewMode::List {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                }),
-        ]
-        .align_y(Alignment::Center),
-    )
-    .padding([2, 6])
-    .style(styles::ghost_button(theme_cfg, view_mode == ViewMode::List))
-    .on_press(Message::SetArtistsViewMode(ViewMode::List));
 
     let header_bar = row![
         Space::with_width(Length::Fill),
-        tile_btn,
-        list_btn,
+        components::view_mode_toggle(theme_cfg, view_mode, Message::SetArtistsViewMode),
     ]
-    .spacing(8)
     .align_y(Alignment::Center)
     .padding(iced::Padding {
         top: 0.0,

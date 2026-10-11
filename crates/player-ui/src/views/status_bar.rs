@@ -28,15 +28,21 @@ pub struct StatusBarContext<'a> {
 pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Element<'a, Message> {
     let muted = theme_cfg.text_muted_color();
 
-    // 1. Contextual Left Section (muted subtle colors)
     let left_items: Element<'a, Message> = match ctx.active_tab {
         ViewTab::Tracks => {
-            let start_idx = if ctx.total_tracks == 0 {
-                0
+            let count_text = if !ctx.search_query.trim().is_empty() {
+                format!("Showing {} of {} tracks", ctx.visible_count, ctx.total_tracks)
+            } else if ctx.visible_count >= ctx.total_tracks {
+                format!("{} tracks in library", ctx.total_tracks)
             } else {
-                ctx.page * ctx.page_size + 1
+                let start_idx = if ctx.total_tracks == 0 {
+                    0
+                } else {
+                    ctx.page * ctx.page_size + 1
+                };
+                let end_idx = (start_idx + ctx.visible_count).saturating_sub(1);
+                format!("Showing {}-{} of {} tracks", start_idx, end_idx, ctx.total_tracks)
             };
-            let end_idx = (start_idx + ctx.visible_count).saturating_sub(1);
 
             let filter_indicator: Element<'a, Message> = if !ctx.search_query.trim().is_empty() {
                 text(format!("·  Filter: \"{}\"", ctx.search_query.trim()))
@@ -49,12 +55,9 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
 
             row![
                 icons::icon(icons::MUSIC_NOTE_SVG, 11.0, muted),
-                text(format!(
-                    "Showing {}-{} of {} tracks",
-                    start_idx, end_idx, ctx.total_tracks
-                ))
-                .size(11)
-                .color(muted),
+                text(count_text)
+                    .size(11)
+                    .color(muted),
                 filter_indicator,
             ]
             .spacing(6)

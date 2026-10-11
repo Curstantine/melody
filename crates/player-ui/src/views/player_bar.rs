@@ -1,8 +1,9 @@
 use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, slider, text, Space};
-use iced::{Alignment, Border, ContentFit, Element, Length};
+use iced::{Alignment, Element, Length};
 use player_core::{format_duration, Track};
 
+use crate::components;
 use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
@@ -24,47 +25,19 @@ pub fn view<'a>(
     let bar_fg = theme_cfg.player_bar_text_color();
 
     // 1. Left: Track Info & Cover Thumbnail
-    let cover_art: Element<'a, Message> = match current_cover {
-        Some(handle) => container(
-            image(handle.clone())
-                .width(Length::Fixed(46.0))
-                .height(Length::Fixed(46.0))
-                .content_fit(ContentFit::Contain),
-        )
-        .width(46)
-        .height(46)
-        .clip(true)
-        .style(|_theme| container::Style {
-            border: Border {
-                radius: Radius::from(3.0),
-                color: theme_cfg.border_color(),
-                width: 1.0,
-            },
-            ..Default::default()
-        })
-        .into(),
-        None => container(icons::icon(icons::DISC_SVG, 22.0, bar_fg))
-            .width(46)
-            .height(46)
-            .center_x(46)
-            .center_y(46)
-            .style(|_theme| container::Style {
-                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-                border: Border {
-                    radius: Radius::from(3.0),
-                    color: theme_cfg.border_color(),
-                    width: 1.0,
-                },
-                ..Default::default()
-            })
-            .into(),
-    };
+    let cover_art = components::cover_art(
+        theme_cfg,
+        current_cover,
+        46.0,
+        Radius::from(3.0),
+        icons::DISC_SVG,
+        22.0,
+        bar_fg,
+    );
 
     let track_details = match current_track {
         Some(track) => column![
-            text(&track.title)
-                .size(13)
-                .color(bar_fg),
+            text(&track.title).size(13).color(bar_fg),
             text(format!("{} • {}", track.artist, track.album))
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
@@ -72,9 +45,7 @@ pub fn view<'a>(
         .spacing(2)
         .width(Length::Fill),
         None => column![
-            text("No track playing")
-                .size(13)
-                .color(bar_fg),
+            text("No track playing").size(13).color(bar_fg),
             text("Vibecore")
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
@@ -100,10 +71,14 @@ pub fn view<'a>(
         .style(styles::player_bar_button(theme_cfg, false))
         .on_press(Message::PreviousTrack);
 
-    let play_pause_btn = button(icons::icon(play_pause_icon_svg, 17.0, theme_cfg.player_bar_bg_color()))
-        .padding([8, 12])
-        .style(styles::player_bar_play_button(theme_cfg))
-        .on_press(Message::TogglePlayPause);
+    let play_pause_btn = button(icons::icon(
+        play_pause_icon_svg,
+        17.0,
+        theme_cfg.player_bar_bg_color(),
+    ))
+    .padding([8, 12])
+    .style(styles::player_bar_play_button(theme_cfg))
+    .on_press(Message::TogglePlayPause);
 
     let stop_btn = button(icons::icon(icons::STOP_SVG, 13.0, bar_fg))
         .padding([6, 8])
@@ -115,26 +90,9 @@ pub fn view<'a>(
         .style(styles::player_bar_button(theme_cfg, false))
         .on_press(Message::NextTrack);
 
-    let spectrum_indicator = container(icons::icon(
-        icons::SPECTRUM_SVG,
-        14.0,
-        if is_playing {
-            theme_cfg.primary_color()
-        } else {
-            theme_cfg.text_muted_color()
-        },
-    ))
-    .padding([0, 4]);
-
-    let buttons = row![
-        prev_btn,
-        play_pause_btn,
-        stop_btn,
-        next_btn,
-        spectrum_indicator,
-    ]
-    .spacing(6)
-    .align_y(Alignment::Center);
+    let buttons = row![prev_btn, play_pause_btn, stop_btn, next_btn,]
+        .spacing(6)
+        .align_y(Alignment::Center);
 
     let active_pos = if is_seeking { seek_pos_ms } else { position_ms };
     let cur_time_str = format_duration(active_pos);
@@ -146,25 +104,15 @@ pub fn view<'a>(
         100.0
     };
 
-    let seek_slider = slider(
-        0.0..=seek_range_max,
-        active_pos as f32,
-        Message::Seek,
-    )
-    .on_release(Message::SeekFinished)
-    .style(styles::seek_slider_style(theme_cfg))
-    .width(Length::Fill);
+    let seek_slider = slider(0.0..=seek_range_max, active_pos as f32, Message::Seek)
+        .on_release(Message::SeekFinished)
+        .style(styles::seek_slider_style(theme_cfg))
+        .width(Length::Fill);
 
     let progress_bar = row![
-        text(cur_time_str)
-            .size(11)
-            .color(bar_fg)
-            .width(42),
+        text(cur_time_str).size(11).color(bar_fg).width(42),
         seek_slider,
-        text(total_time_str)
-            .size(11)
-            .color(bar_fg)
-            .width(42),
+        text(total_time_str).size(11).color(bar_fg).width(42),
     ]
     .spacing(8)
     .align_y(Alignment::Center)

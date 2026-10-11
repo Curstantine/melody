@@ -92,7 +92,7 @@ impl App {
         let page_size = DEFAULT_PAGE_SIZE;
         let total_tracks = db.get_total_track_count(None).unwrap_or(0);
         let visible_tracks = db
-            .get_tracks_window(0, page_size, None, SortField::Title, SortDirection::Ascending)
+            .get_tracks_window(0, total_tracks.max(1), None, SortField::Title, SortDirection::Ascending)
             .unwrap_or_default();
 
         let app = Self {
@@ -632,8 +632,6 @@ impl App {
 
     fn reload_tracks_task(&self) -> Task<Message> {
         let db = self.db.clone();
-        let page = self.page;
-        let page_size = self.page_size;
         let query = if self.search_query.trim().is_empty() {
             None
         } else {
@@ -644,10 +642,9 @@ impl App {
 
         Task::perform(
             async move {
-                let offset = page * page_size;
                 let total = db.get_total_track_count(query.as_deref()).unwrap_or(0);
                 let tracks = db
-                    .get_tracks_window(offset, page_size, query.as_deref(), sort_field, sort_dir)
+                    .get_tracks_window(0, total.max(1), query.as_deref(), sort_field, sort_dir)
                     .unwrap_or_default();
                 (tracks, total)
             },
@@ -676,7 +673,7 @@ impl App {
         };
 
         let top_tabs = row![
-            tab_btn("MUSIC", ViewTab::Tracks),
+            tab_btn("LIBRARY", ViewTab::Tracks),
             tab_btn("NOW PLAYING", ViewTab::Lyrics),
             tab_btn("ALBUMS", ViewTab::Albums),
             tab_btn("ARTISTS", ViewTab::Artists),
