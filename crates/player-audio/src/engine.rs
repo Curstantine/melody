@@ -24,7 +24,9 @@ use crate::commands::AudioCommand;
 use crate::resampler::AudioConverter;
 use crate::status::AudioStatus;
 
-const RING_BUFFER_CAPACITY: usize = 65536; // ~1.5 seconds of stereo audio at 44.1kHz
+/// 3 seconds of stereo f32 at 48 kHz: 48_000 * 2 * 3 = 288_000 samples.
+/// Rounded up to the next power of two for ringbuf efficiency.
+const RING_BUFFER_CAPACITY: usize = 524_288;
 
 #[derive(Error, Debug)]
 pub enum AudioEngineError {
@@ -188,69 +190,64 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
         if status.is_playing() {
             if let Some(track) = loaded_track.as_mut() {
                 if !track.reached_eof {
-                    let mut can_decode = true;
+                    match track.format.next_packet() {
+                        Ok(packet) => {
+                            if packet.track_id() == track.track_id {
+                                match track.decoder.decode(&packet) {
+                                    Ok(decoded) => {
+                                        if track.sample_buf.is_none() {
+                                            track.sample_buf = Some(SampleBuffer::new(
+                                                decoded.capacity() as u64,
+                                                *decoded.spec(),
+                                            ));
+                                        }
 
-                    // If we have a ring buffer producer, verify it has free capacity
-                    if let Some(ref prod) = ring_producer {
-                        if prod.vacant_len() < 4096 {
-                            can_decode = false;
-                        }
-                    }
+                                        if let Some(ref mut sbuf) = track.sample_buf {
+                                            sbuf.copy_interleaved_ref(decoded);
+                                            temp_converted.clear();
+                                            track.converter.convert(sbuf.samples(), &mut temp_converted);
 
-                    if can_decode {
-                        match track.format.next_packet() {
-                            Ok(packet) => {
-                                if packet.track_id() == track.track_id {
-                                    match track.decoder.decode(&packet) {
-                                        Ok(decoded) => {
-                                            if track.sample_buf.is_none() {
-                                                track.sample_buf = Some(SampleBuffer::new(
-                                                    decoded.capacity() as u64,
-                                                    *decoded.spec(),
-                                                ));
-                                            }
-
-                                            if let Some(ref mut sbuf) = track.sample_buf {
-                                                sbuf.copy_interleaved_ref(decoded);
-                                                temp_converted.clear();
-                                                track.converter.convert(sbuf.samples(), &mut temp_converted);
-
-                                                if let Some(ref mut prod) = ring_producer {
-                                                    let pushed = prod.push_slice(&temp_converted);
-                                                    if pushed < temp_converted.len() {
-                                                        // buffer full, remainder will be dropped or queued
+                                            if let Some(ref mut prod) = ring_producer {
+                                                // Backpressure: keep retrying until all converted
+                                                // samples are written into the ring buffer.
+                                                // This prevents the sample-dropping that caused
+                                                // clicks and pops.
+                                                let mut written = 0;
+                                                while written < temp_converted.len() {
+                                                    let n = prod.push_slice(&temp_converted[written..]);
+                                                    written += n;
+                                                    if written < temp_converted.len() {
+                                                        // Buffer still full — yield briefly and retry.
+                                                        thread::sleep(Duration::from_millis(1));
                                                     }
                                                 }
                                             }
                                         }
-                                        Err(SymphoniaError::DecodeError(err)) => {
-                                            warn!("Audio decode error: {}", err);
-                                        }
-                                        Err(e) => {
-                                            warn!("Unexpected audio error: {}", e);
-                                        }
+                                    }
+                                    Err(SymphoniaError::DecodeError(err)) => {
+                                        warn!("Audio decode error: {}", err);
+                                    }
+                                    Err(e) => {
+                                        warn!("Unexpected audio error: {}", e);
                                     }
                                 }
                             }
-                            Err(SymphoniaError::IoError(ref e))
-                                if e.kind() == std::io::ErrorKind::UnexpectedEof =>
-                            {
-                                track.reached_eof = true;
-                            }
-                            Err(SymphoniaError::ResetRequired) => {
-                                track.decoder.reset();
-                            }
-                            Err(e) => {
-                                warn!("Format next_packet error: {}", e);
-                                track.reached_eof = true;
-                            }
                         }
-                    } else {
-                        // Buffer is sufficiently filled, sleep briefly to yield CPU
-                        thread::sleep(Duration::from_millis(5));
+                        Err(SymphoniaError::IoError(ref e))
+                            if e.kind() == std::io::ErrorKind::UnexpectedEof =>
+                        {
+                            track.reached_eof = true;
+                        }
+                        Err(SymphoniaError::ResetRequired) => {
+                            track.decoder.reset();
+                        }
+                        Err(e) => {
+                            warn!("Format next_packet error: {}", e);
+                            track.reached_eof = true;
+                        }
                     }
                 } else {
-                    // Reached EOF: wait until ring buffer is completely drained
+                    // Reached EOF: wait until ring buffer is completely drained.
                     let is_empty = ring_producer
                         .as_ref()
                         .map(|p| p.occupied_len() == 0)
@@ -397,16 +394,18 @@ fn audio_callback_i16(
         return;
     }
 
+    // Bulk-read f32 samples into a scratch buffer, then convert in one pass —
+    // much cheaper than calling try_pop() per sample in the realtime callback.
+    let mut scratch = vec![0.0f32; data.len()];
+    let read_count = consumer.pop_slice(&mut scratch);
+    if read_count < data.len() {
+        scratch[read_count..].fill(0.0);
+    }
+
     let vol = status.volume();
-    let mut read_count = 0;
-    for sample in data.iter_mut() {
-        if let Some(f) = consumer.try_pop() {
-            let clamped = (f * vol).clamp(-1.0, 1.0);
-            *sample = (clamped * i16::MAX as f32) as i16;
-            read_count += 1;
-        } else {
-            *sample = 0;
-        }
+    for (i, sample) in data.iter_mut().enumerate() {
+        let clamped = (scratch[i] * vol).clamp(-1.0, 1.0);
+        *sample = (clamped * i16::MAX as f32) as i16;
     }
 
     if read_count > 0 && channels > 0 && sample_rate > 0 {
@@ -433,16 +432,17 @@ fn audio_callback_u16(
         return;
     }
 
+    // Bulk-read f32 samples into a scratch buffer, then convert in one pass.
+    let mut scratch = vec![0.0f32; data.len()];
+    let read_count = consumer.pop_slice(&mut scratch);
+    if read_count < data.len() {
+        scratch[read_count..].fill(0.0);
+    }
+
     let vol = status.volume();
-    let mut read_count = 0;
-    for sample in data.iter_mut() {
-        if let Some(f) = consumer.try_pop() {
-            let clamped = (f * vol).clamp(-1.0, 1.0);
-            *sample = (((clamped + 1.0) * 0.5) * u16::MAX as f32) as u16;
-            read_count += 1;
-        } else {
-            *sample = u16::MAX / 2;
-        }
+    for (i, sample) in data.iter_mut().enumerate() {
+        let clamped = (scratch[i] * vol).clamp(-1.0, 1.0);
+        *sample = (((clamped + 1.0) * 0.5) * u16::MAX as f32) as u16;
     }
 
     if read_count > 0 && channels > 0 && sample_rate > 0 {
@@ -457,7 +457,7 @@ fn handle_command(
     status: &AudioStatus,
     loaded_track: &mut Option<LoadedTrack>,
     flush_flag: &Option<Arc<AtomicBool>>,
-    ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
+    _ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
     device_sample_rate: u32,
     device_channels: usize,
 ) {
@@ -472,11 +472,11 @@ fn handle_command(
                     status.set_loaded(true);
                     status.set_ended(false);
 
+                    // Signal the CPAL callback to clear its consumer-side buffer.
+                    // This is atomic — the callback will drain stale samples from the
+                    // previous track before the decode loop feeds in new ones.
                     if let Some(ref f) = flush_flag {
                         f.store(true, Ordering::SeqCst);
-                    }
-                    if let Some(ref mut _prod) = ring_producer {
-                        // Flush producer buffer
                     }
 
                     status.set_playing(autoplay);
