@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use crossbeam_channel::{unbounded, Receiver, Sender};
@@ -24,6 +24,10 @@ use crate::status::AudioStatus;
 /// ~1.5 seconds of stereo f32 at 48 kHz: 48_000 * 2 * 1.5 = 144_000 samples.
 /// Rounded up to the next power of two for ringbuf efficiency (2^18).
 const RING_BUFFER_CAPACITY: usize = 262_144;
+
+/// Extra time to wait after the ring buffer empties at end-of-track when the
+/// device has not reported its output latency yet.
+const FALLBACK_OUTPUT_LATENCY: Duration = Duration::from_millis(50);
 
 #[derive(Error, Debug)]
 pub enum AudioEngineError {
@@ -159,12 +163,12 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
 
     let (stream, device_sample_rate, device_channels) = match device {
         Some(dev) => match setup_cpal_stream(&dev, status.clone()) {
-            Ok((st, sr, ch, flush_flag)) => {
+            Ok((st, sr, ch, flush_flag, latency_us)) => {
                 info!(
                     "Audio output stream initialized successfully ({} Hz, {} ch)",
                     sr, ch
                 );
-                (Some((st, flush_flag)), sr, ch)
+                (Some((st, flush_flag, latency_us)), sr, ch)
             }
             Err(e) => {
                 warn!(
@@ -180,10 +184,16 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
         }
     };
 
-    let flush_flag = stream.as_ref().map(|(_, f)| f.clone());
-    let _active_stream = stream.map(|(s, _)| s);
+    let flush_flag = stream.as_ref().map(|(_, f, _)| f.clone());
+    let output_latency_us = stream.as_ref().map(|(_, _, l)| l.clone());
+    let _active_stream = stream.map(|(s, _, _)| s);
 
     let mut loaded_track: Option<LoadedTrack> = None;
+
+    // When the decoder has hit EOF and the ring buffer has emptied, the last
+    // callback buffer and the device's output latency are still in flight.
+    // This holds the instant at which playback has genuinely finished.
+    let mut eof_deadline: Option<Instant> = None;
 
     // SPSC ring buffer for decoding worker -> cpal callback
     // Note: The producer is held by the worker
@@ -207,6 +217,8 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
         if status.is_playing() {
             if let Some(track) = loaded_track.as_mut() {
                 if !track.reached_eof {
+                    eof_deadline = None;
+
                     // Try to read next packet from input
                     match track.input.packets().next() {
                         Some((stream, packet)) => {
@@ -238,10 +250,33 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
                         .unwrap_or(true);
 
                     if is_empty {
-                        status.set_playing(false);
-                        status.set_ended(true);
-                        info!("Track finished playing");
+                        // The ring buffer is empty, but the last chunk the callback
+                        // popped is still being played out by the device. Wait for
+                        // the reported output latency before declaring the track done.
+                        let now = Instant::now();
+                        let deadline = *eof_deadline.get_or_insert_with(|| {
+                            let reported = output_latency_us
+                                .as_ref()
+                                .map(|l| Duration::from_micros(l.load(Ordering::Relaxed)))
+                                .unwrap_or(Duration::ZERO);
+                            let latency = if reported.is_zero() {
+                                FALLBACK_OUTPUT_LATENCY
+                            } else {
+                                reported
+                            };
+                            now + latency
+                        });
+
+                        if now >= deadline {
+                            eof_deadline = None;
+                            status.set_playing(false);
+                            status.set_ended(true);
+                            info!("Track finished playing");
+                        } else {
+                            thread::sleep(Duration::from_millis(5));
+                        }
                     } else {
+                        eof_deadline = None;
                         thread::sleep(Duration::from_millis(10));
                     }
                 }
@@ -250,6 +285,8 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
                 thread::sleep(Duration::from_millis(20));
             }
         } else {
+            eof_deadline = None;
+
             // Not playing: block or wait briefly for next command
             if let Ok(cmd) = cmd_rx.recv_timeout(Duration::from_millis(50)) {
                 handle_command(
@@ -352,10 +389,44 @@ fn push_to_ring_buffer(prod: &mut ringbuf::HeapProd<f32>, samples: &[f32]) {
 static WORKER_PRODUCER: std::sync::Mutex<Option<ringbuf::HeapProd<f32>>> =
     std::sync::Mutex::new(None);
 
+/// Records how far in the future the buffer handed to the callback will actually
+/// be heard (playback timestamp minus callback timestamp).
+fn record_output_latency(info: &cpal::OutputCallbackInfo, latency_us: &AtomicU64) {
+    let ts = info.timestamp();
+    if let Some(latency) = ts.playback.duration_since(&ts.callback) {
+        latency_us.store(latency.as_micros() as u64, Ordering::Relaxed);
+    }
+}
+
+/// Advances the playback position by the number of frames just consumed.
+///
+/// Integer division per callback would truncate away a fraction of a
+/// millisecond every time (≈0.67 ms per ~10.67 ms callback at 48 kHz), so the
+/// remainder, expressed in "frame-milliseconds" (ms * sample_rate), is carried
+/// forward in `rem` and the position never drifts.
+fn advance_position(
+    status: &AudioStatus,
+    read_count: usize,
+    channels: usize,
+    sample_rate: u32,
+    rem: &mut u64,
+) {
+    if read_count > 0 && channels > 0 && sample_rate > 0 {
+        let frames_played = (read_count / channels) as u64;
+        let rate = sample_rate as u64;
+        let total = *rem + frames_played * 1000;
+        let elapsed_ms = total / rate;
+        *rem = total % rate;
+        if elapsed_ms > 0 {
+            status.set_position_ms(status.position_ms() + elapsed_ms);
+        }
+    }
+}
+
 fn setup_cpal_stream(
     device: &cpal::Device,
     status: AudioStatus,
-) -> Result<(cpal::Stream, u32, usize, Arc<AtomicBool>), AudioEngineError> {
+) -> Result<(cpal::Stream, u32, usize, Arc<AtomicBool>, Arc<AtomicU64>), AudioEngineError> {
     let config = device.default_output_config()?;
     let sample_rate = config.sample_rate().0;
     let channels = config.channels() as usize;
@@ -369,12 +440,19 @@ fn setup_cpal_stream(
     let flush_cb = flush_flag.clone();
     let status_cb = status.clone();
 
+    let latency_us = Arc::new(AtomicU64::new(0));
+    let latency_cb = latency_us.clone();
+
+    // Sub-millisecond remainder carried between callbacks (see advance_position).
+    let mut pos_rem: u64 = 0;
+
     let err_fn = |err| error!("CPAL output stream error: {}", err);
 
     let stream = match config.sample_format() {
         cpal::SampleFormat::F32 => device.build_output_stream(
             &config.into(),
-            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+            move |data: &mut [f32], info: &cpal::OutputCallbackInfo| {
+                record_output_latency(info, &latency_cb);
                 audio_callback_f32(
                     data,
                     &mut consumer,
@@ -382,6 +460,7 @@ fn setup_cpal_stream(
                     &status_cb,
                     sample_rate,
                     channels,
+                    &mut pos_rem,
                 );
             },
             err_fn,
@@ -391,7 +470,8 @@ fn setup_cpal_stream(
             let mut scratch = Vec::<f32>::new();
             device.build_output_stream(
                 &config.into(),
-                move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
+                move |data: &mut [i16], info: &cpal::OutputCallbackInfo| {
+                    record_output_latency(info, &latency_cb);
                     audio_callback_i16(
                         data,
                         &mut consumer,
@@ -400,6 +480,7 @@ fn setup_cpal_stream(
                         &status_cb,
                         sample_rate,
                         channels,
+                        &mut pos_rem,
                     );
                 },
                 err_fn,
@@ -410,7 +491,8 @@ fn setup_cpal_stream(
             let mut scratch = Vec::<f32>::new();
             device.build_output_stream(
                 &config.into(),
-                move |data: &mut [u16], _: &cpal::OutputCallbackInfo| {
+                move |data: &mut [u16], info: &cpal::OutputCallbackInfo| {
+                    record_output_latency(info, &latency_cb);
                     audio_callback_u16(
                         data,
                         &mut consumer,
@@ -419,6 +501,7 @@ fn setup_cpal_stream(
                         &status_cb,
                         sample_rate,
                         channels,
+                        &mut pos_rem,
                     );
                 },
                 err_fn,
@@ -430,7 +513,7 @@ fn setup_cpal_stream(
 
     stream.play()?;
 
-    Ok((stream, sample_rate, channels, flush_flag))
+    Ok((stream, sample_rate, channels, flush_flag, latency_us))
 }
 
 fn audio_callback_f32(
@@ -440,6 +523,7 @@ fn audio_callback_f32(
     status: &AudioStatus,
     sample_rate: u32,
     channels: usize,
+    pos_rem: &mut u64,
 ) {
     if flush_flag.swap(false, Ordering::SeqCst) {
         consumer.clear();
@@ -462,11 +546,7 @@ fn audio_callback_f32(
         }
     }
 
-    if read_count > 0 && channels > 0 && sample_rate > 0 {
-        let frames_played = read_count / channels;
-        let elapsed_ms = (frames_played as u64 * 1000) / (sample_rate as u64);
-        status.set_position_ms(status.position_ms() + elapsed_ms);
-    }
+    advance_position(status, read_count, channels, sample_rate, pos_rem);
 }
 
 fn audio_callback_i16(
@@ -477,6 +557,7 @@ fn audio_callback_i16(
     status: &AudioStatus,
     sample_rate: u32,
     channels: usize,
+    pos_rem: &mut u64,
 ) {
     if flush_flag.swap(false, Ordering::SeqCst) {
         consumer.clear();
@@ -502,11 +583,7 @@ fn audio_callback_i16(
         *sample = (clamped * i16::MAX as f32) as i16;
     }
 
-    if read_count > 0 && channels > 0 && sample_rate > 0 {
-        let frames_played = read_count / channels;
-        let elapsed_ms = (frames_played as u64 * 1000) / (sample_rate as u64);
-        status.set_position_ms(status.position_ms() + elapsed_ms);
-    }
+    advance_position(status, read_count, channels, sample_rate, pos_rem);
 }
 
 fn audio_callback_u16(
@@ -517,6 +594,7 @@ fn audio_callback_u16(
     status: &AudioStatus,
     sample_rate: u32,
     channels: usize,
+    pos_rem: &mut u64,
 ) {
     if flush_flag.swap(false, Ordering::SeqCst) {
         consumer.clear();
@@ -542,11 +620,7 @@ fn audio_callback_u16(
         *sample = (((clamped + 1.0) * 0.5) * u16::MAX as f32) as u16;
     }
 
-    if read_count > 0 && channels > 0 && sample_rate > 0 {
-        let frames_played = read_count / channels;
-        let elapsed_ms = (frames_played as u64 * 1000) / (sample_rate as u64);
-        status.set_position_ms(status.position_ms() + elapsed_ms);
-    }
+    advance_position(status, read_count, channels, sample_rate, pos_rem);
 }
 
 fn flush_audio_buffer(flush_flag: &Option<Arc<AtomicBool>>) {
