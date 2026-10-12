@@ -47,12 +47,7 @@
           buildInputs = with pkgs; [
             nixd
             nixfmt
-            alsa-lib
-            fontconfig
-            freetype
             noto-fonts-cjk-sans
-            ibm-plex
-            ffmpeg
             (pkgs.rust-bin.stable.latest.default.override {
               extensions = [
                 "rust-src"

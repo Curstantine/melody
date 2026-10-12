@@ -2,8 +2,6 @@
 
 A modern, native music player built in pure Rust. It renders crisp interfaces with **[Iced](https://github.com/iced-rs/iced)**, decodes audio cleanly using **[Symphonia](https://github.com/pdeljanov/Symphonia)**, and handles audio output with **[CPAL](https://github.com/RustAudio/cpal)**.
 
----
-
 ## Workspace Layout
 
 ```
@@ -19,8 +17,6 @@ melody/
     └── ui/           # Iced GUI, views (Music, Albums, Artists, Now Playing, Settings)
 ```
 
----
-
 ## Views & Features
 
 - **Tracks (Library)**: Fast paginated track browser with customizable page sizes, search filtering across titles, artists, and albums, and column sorting. Supports both compact table and card layouts.
@@ -32,8 +28,6 @@ melody/
     - **Appearance**: Select themes, configure primary display fonts, customize pagination sizes, and pick default catalog view modes.
     - **Library**: Manage indexed folders, trigger folder scans, inspect database size, and view or clear the thumbnail cache.
     - **Debug**: Audio telemetry, volume level, and active plugin counts.
-
----
 
 ## Getting Started
 
@@ -64,8 +58,6 @@ sudo apt install libasound2-dev libfontconfig1-dev pkg-config
 
 Standard Rust toolchain (`cargo`, `rustc`).
 
----
-
 ### Building & Running
 
 Run the player:
@@ -87,8 +79,6 @@ Build an optimized release binary:
 cargo build --workspace --release
 ```
 
----
-
 ## Configuration & Data Paths
 
 Melody stores settings and cached data according to standard OS conventions:
@@ -97,8 +87,6 @@ Melody stores settings and cached data according to standard OS conventions:
 - **Config**: `~/.config/melody/config.toml` (Linux) / OS config directory
 - **Thumbnail Cache**: `~/.cache/melody/thumbnails/` (Linux) / OS cache directory
 - **Themes**: `./themes/` or `~/.config/melody/themes/`
-
----
 
 ## License
 
