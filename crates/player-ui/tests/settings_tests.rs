@@ -14,7 +14,6 @@ mod theme;
 use std::path::Path;
 
 use message::{SettingsTab, ViewMode};
-use settings::{view, SettingsViewData};
 use theme::ThemeConfig;
 
 #[test]
@@ -44,8 +43,15 @@ fn test_settings_views_render_without_panicking() {
         SettingsTab::Library,
         SettingsTab::Scrobbling,
     ] {
-        let data = SettingsViewData {
+        let settings_view = settings::SettingsView {
             active_tab: tab,
+            available_fonts: available_fonts.clone(),
+            custom_font_input: String::new(),
+            library_folders: folders.clone(),
+            scrobble_test_status: None,
+        };
+
+        let ctx = settings::SettingsContext {
             theme_names: vec!["Default".to_string(), "Nord".to_string()],
             active_theme_name: "Default",
             library_view_mode: ViewMode::List,
@@ -53,9 +59,6 @@ fn test_settings_views_render_without_panicking() {
             artists_view_mode: ViewMode::Tile,
             page_size: 50,
             primary_font: Some("Noto Sans CJK JP"),
-            available_fonts: &available_fonts,
-            custom_font_input: String::new(),
-            library_folders: &folders,
             total_tracks: 120,
             total_albums: 15,
             total_artists: 8,
@@ -82,10 +85,9 @@ fn test_settings_views_render_without_panicking() {
 
             submit_now_playing: true,
             scrobble_percent: 50,
-            scrobble_test_status: None,
         };
 
         // Render each view and verify it builds valid Iced elements without panic
-        let _element = view(&theme_cfg, data);
+        let _element = settings_view.view(&theme_cfg, ctx);
     }
 }

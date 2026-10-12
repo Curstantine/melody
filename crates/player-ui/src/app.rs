@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,7 +7,7 @@ use crossbeam_channel::Receiver;
 use iced::widget::{button, column, container, image, row, Space};
 use iced::{Element, Length, Subscription, Task, Theme};
 use player_audio::{AudioController, AudioEngine};
-use player_core::{AlbumSummary, ArtistSummary, LibraryDatabase, SortDirection, SortField, Track};
+use player_core::{LibraryDatabase, Track};
 use player_plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 #[cfg(target_os = "linux")]
 use player_plugins::MprisPlugin;
@@ -17,11 +17,12 @@ use tracing::{error, info};
 use crate::components::{border_vert, text};
 use crate::config::{AppConfig, ScrobbleConfig};
 use crate::icons;
-use crate::message::{AlbumSortField, ArtistSortField, Message, SettingsTab, ViewMode, ViewTab};
+use crate::message::{Message, ViewTab};
 use crate::theme::{styles, ThemeManager};
-use crate::views;
-
-pub const DEFAULT_CATALOG_CHUNK_SIZE: usize = 60;
+use crate::views::{
+    self, AlbumsView, ArtistsView, LibraryView, NowPlayingView, PlayerBar, SettingsView, StatusBar,
+    StatusBarContext,
+};
 
 pub struct App {
     db: LibraryDatabase,
@@ -34,37 +35,14 @@ pub struct App {
 
     // Navigation & Tabs
     active_tab: ViewTab,
-    settings_tab: SettingsTab,
 
-    // View Modes & Selection
-    library_view_mode: ViewMode,
-    albums_view_mode: ViewMode,
-    artists_view_mode: ViewMode,
-    selected_track_id: Option<i64>,
-    hovered_track_id: Option<i64>,
-    last_track_click: Option<(i64, std::time::Instant)>,
-
-    // Virtualized Library View State
-    visible_tracks: Vec<Track>,
-    total_tracks: usize,
-    page: usize,
-    page_size: usize,
-    is_loading_more: bool,
-    search_query: String,
-    sort_field: SortField,
-    sort_dir: SortDirection,
-
-    // Catalogs & Folders
-    albums: Vec<AlbumSummary>,
-    album_covers: HashMap<String, image::Handle>,
-    album_sort_field: AlbumSortField,
-    album_sort_dir: SortDirection,
-    visible_albums_count: usize,
-    artists: Vec<ArtistSummary>,
-    artist_sort_field: ArtistSortField,
-    artist_sort_dir: SortDirection,
-    visible_artists_count: usize,
-    library_folders: Vec<String>,
+    // Screen-specific state components
+    library: LibraryView,
+    albums: AlbumsView,
+    artists: ArtistsView,
+    now_playing: NowPlayingView,
+    settings: SettingsView,
+    player_bar: PlayerBar,
 
     // Playback State
     current_track: Option<Track>,
@@ -77,24 +55,17 @@ pub struct App {
     position_ms: u64,
     duration_ms: u64,
     volume: f32,
-    is_seeking: bool,
-    seek_pos_ms: u64,
-    current_lyrics: Option<String>,
     is_shuffle: bool,
     is_repeat: bool,
     loved_tracks: HashSet<i64>,
 
-    // Library Scanning & Fonts
+    // Global Scanning Telemetry
     is_scanning: bool,
-    available_fonts: Vec<String>,
-    primary_font: Option<String>,
-    custom_font_input: String,
 
     // Scrobbling Plugins
     listenbrainz_plugin: Arc<ListenBrainzPlugin>,
     lastfm_plugin: Arc<LastFmPlugin>,
     scrobble_config: ScrobbleConfig,
-    scrobble_test_status: Option<(ScrobbleService, Result<String, String>)>,
 
     mpris_rx: Option<Receiver<PlayerAction>>,
 }
@@ -150,10 +121,15 @@ impl App {
             theme_manager.set_font(Some(font.clone()));
         }
 
-        let page_size = config.page_size;
         let available_fonts = crate::font::list_font_families();
-        let primary_font = config.primary_font;
         let config_path = AppConfig::config_path();
+
+        let library = LibraryView::new(config.library_view_mode, config.page_size);
+        let albums = AlbumsView::new(config.albums_view_mode, config.album_sort_field);
+        let artists = ArtistsView::new(config.artists_view_mode, config.artist_sort_field);
+        let now_playing = NowPlayingView::new();
+        let settings = SettingsView::new(config.settings_tab, available_fonts);
+        let player_bar = PlayerBar::new();
 
         let app = Self {
             db,
@@ -165,34 +141,13 @@ impl App {
             theme_manager,
 
             active_tab: config.active_tab,
-            settings_tab: config.settings_tab,
 
-            library_view_mode: config.library_view_mode,
-            albums_view_mode: config.albums_view_mode,
-            artists_view_mode: config.artists_view_mode,
-            selected_track_id: None,
-            hovered_track_id: None,
-            last_track_click: None,
-
-            visible_tracks: Vec::new(),
-            total_tracks: 0,
-            page: 0,
-            page_size,
-            is_loading_more: false,
-            search_query: String::new(),
-            sort_field: SortField::Title,
-            sort_dir: SortDirection::Ascending,
-
-            albums: Vec::new(),
-            album_covers: HashMap::new(),
-            album_sort_field: config.album_sort_field,
-            album_sort_dir: SortDirection::Ascending,
-            visible_albums_count: DEFAULT_CATALOG_CHUNK_SIZE,
-            artists: Vec::new(),
-            artist_sort_field: config.artist_sort_field,
-            artist_sort_dir: SortDirection::Ascending,
-            visible_artists_count: DEFAULT_CATALOG_CHUNK_SIZE,
-            library_folders: Vec::new(),
+            library,
+            albums,
+            artists,
+            now_playing,
+            settings,
+            player_bar,
 
             current_track: None,
             current_track_id: None,
@@ -204,22 +159,15 @@ impl App {
             position_ms: 0,
             duration_ms: 0,
             volume: config.volume,
-            is_seeking: false,
-            seek_pos_ms: 0,
-            current_lyrics: None,
             is_shuffle: config.is_shuffle,
             is_repeat: config.is_repeat,
             loved_tracks: HashSet::new(),
 
             is_scanning: false,
-            available_fonts,
-            primary_font,
-            custom_font_input: String::new(),
 
             listenbrainz_plugin,
             lastfm_plugin,
             scrobble_config: config.scrobble,
-            scrobble_test_status: None,
 
             mpris_rx,
         };
@@ -280,7 +228,7 @@ impl App {
                         .on_playback_status_change(self.is_playing);
                 }
 
-                if !self.is_seeking {
+                if !self.player_bar.is_seeking {
                     self.position_ms = status.position_ms();
                     self.plugin_manager.on_position_change(self.position_ms);
                 }
@@ -312,12 +260,7 @@ impl App {
 
             Message::PlayTrack(track_id) => {
                 // If the track is already in the currently visible window, play immediately without querying DB
-                if let Some(track) = self
-                    .visible_tracks
-                    .iter()
-                    .find(|t| t.id == track_id)
-                    .cloned()
-                {
+                if let Some(track) = self.library.find_track(track_id).cloned() {
                     return self.update(Message::TrackResolvedForPlayback(Some(track)));
                 }
 
@@ -370,7 +313,7 @@ impl App {
                     let lyrics = self
                         .plugin_manager
                         .fetch_lyrics(&track.artist, &track.title);
-                    self.current_lyrics = lyrics;
+                    self.now_playing.set_lyrics(lyrics);
 
                     // Notify plugins
                     self.plugin_manager.on_track_change(&TrackMetadata {
@@ -403,25 +346,8 @@ impl App {
                     return Task::none();
                 }
 
-                if self.is_shuffle && !self.visible_tracks.is_empty() {
-                    let rand_idx =
-                        (self.position_ms as usize ^ 0x9e3779b9) % self.visible_tracks.len();
-                    let next_id = self.visible_tracks[rand_idx].id;
-                    return self.update(Message::PlayTrack(next_id));
-                }
-
-                if let Some(cur_id) = self.current_track_id {
-                    // Try to play next track from currently loaded window
-                    if let Some(pos) = self.visible_tracks.iter().position(|t| t.id == cur_id) {
-                        if pos + 1 < self.visible_tracks.len() {
-                            let next_id = self.visible_tracks[pos + 1].id;
-                            return self.update(Message::PlayTrack(next_id));
-                        }
-                    }
-                }
-                // Fallback: play first track if available
-                if let Some(first) = self.visible_tracks.first() {
-                    return self.update(Message::PlayTrack(first.id));
+                if let Some(next) = self.get_next_track() {
+                    return self.update(Message::PlayTrack(next.id));
                 }
                 Task::none()
             }
@@ -462,27 +388,23 @@ impl App {
                 }
 
                 if let Some(cur_id) = self.current_track_id {
-                    if let Some(pos) = self.visible_tracks.iter().position(|t| t.id == cur_id) {
-                        if pos > 0 {
-                            let prev_id = self.visible_tracks[pos - 1].id;
-                            return self.update(Message::PlayTrack(prev_id));
-                        }
+                    if let Some(prev) = self.library.get_previous_track(cur_id) {
+                        return self.update(Message::PlayTrack(prev.id));
                     }
                 }
                 Task::none()
             }
 
             Message::Seek(ms) => {
-                self.is_seeking = true;
-                self.seek_pos_ms = ms as u64;
+                self.player_bar.on_seek(ms);
                 Task::none()
             }
 
             Message::SeekFinished => {
-                self.is_seeking = false;
+                let seek_pos = self.player_bar.on_seek_finished();
                 self.audio_controller
-                    .seek(Duration::from_millis(self.seek_pos_ms));
-                self.position_ms = self.seek_pos_ms;
+                    .seek(Duration::from_millis(seek_pos));
+                self.position_ms = seek_pos;
                 self.plugin_manager.on_seeked(self.position_ms);
                 Task::none()
             }
@@ -568,7 +490,6 @@ impl App {
                 let save_task = self.save_config_task();
                 match tab {
                     ViewTab::Albums => {
-                        self.visible_albums_count = DEFAULT_CATALOG_CHUNK_SIZE;
                         let load_task = if self.albums.is_empty() {
                             let db = self.db.clone();
                             Task::perform(
@@ -581,7 +502,6 @@ impl App {
                         Task::batch([save_task, load_task])
                     }
                     ViewTab::Artists => {
-                        self.visible_artists_count = DEFAULT_CATALOG_CHUNK_SIZE;
                         if self.artists.is_empty() {
                             let db = self.db.clone();
                             let load_task = Task::perform(
@@ -598,88 +518,63 @@ impl App {
             }
 
             Message::SearchInputChanged(query) => {
-                self.search_query = query;
-                self.page = 0;
+                self.library.set_search_query(query);
                 self.reload_tracks_task()
             }
 
             Message::SortChanged(field) => {
-                if self.sort_field == field {
-                    self.sort_dir = match self.sort_dir {
-                        SortDirection::Ascending => SortDirection::Descending,
-                        SortDirection::Descending => SortDirection::Ascending,
-                    };
-                } else {
-                    self.sort_field = field;
-                    self.sort_dir = SortDirection::Ascending;
-                }
-                self.page = 0;
+                self.library.toggle_sort(field);
                 self.reload_tracks_task()
             }
 
             Message::NextPage => {
-                let max_pages = (self.total_tracks + self.page_size - 1) / self.page_size;
-                if self.page + 1 < max_pages {
-                    self.page += 1;
+                if self.library.next_page() {
                     return self.reload_tracks_task();
                 }
                 Task::none()
             }
 
             Message::PrevPage => {
-                if self.page > 0 {
-                    self.page -= 1;
+                if self.library.prev_page() {
                     return self.reload_tracks_task();
                 }
                 Task::none()
             }
 
             Message::GoToPage(p) => {
-                self.page = p;
+                self.library.go_to_page(p);
                 self.reload_tracks_task()
             }
 
             Message::SetPageSize(size) => {
-                self.page_size = size;
-                self.page = 0;
+                self.library.set_page_size(size);
                 Task::batch([self.save_config_task(), self.reload_tracks_task()])
             }
 
             Message::SetLibraryViewMode(mode) => {
-                self.library_view_mode = mode;
+                self.library.set_view_mode(mode);
                 self.save_config_task()
             }
 
             Message::SetAlbumsViewMode(mode) => {
-                self.albums_view_mode = mode;
+                self.albums.set_view_mode(mode);
                 self.save_config_task()
             }
 
             Message::SetArtistsViewMode(mode) => {
-                self.artists_view_mode = mode;
+                self.artists.set_view_mode(mode);
                 self.save_config_task()
             }
 
             Message::TrackHovered(maybe_id) => {
-                self.hovered_track_id = maybe_id;
+                self.library.hover_track(maybe_id);
                 Task::none()
             }
 
             Message::TrackClicked(id) => {
-                let now = std::time::Instant::now();
-                let is_double_click = if let Some((last_id, last_time)) = self.last_track_click {
-                    last_id == id && now.duration_since(last_time).as_millis() <= 400
-                } else {
-                    false
-                };
-
-                if is_double_click {
-                    self.last_track_click = None;
-                    self.selected_track_id = Some(id);
+                if self.library.on_track_click(id) {
                     self.update(Message::PlayTrack(id))
                 } else {
-                    self.last_track_click = Some((id, now));
-                    self.selected_track_id = Some(id);
                     Task::none()
                 }
             }
@@ -775,7 +670,7 @@ impl App {
             }
 
             Message::LibraryFoldersLoaded(folders) => {
-                self.library_folders = folders;
+                self.settings.set_library_folders(folders);
                 Task::none()
             }
 
@@ -797,9 +692,9 @@ impl App {
 
             Message::ReindexLibrary => {
                 self.is_scanning = true;
-                info!("Reindexing all library folders: {:?}", self.library_folders);
+                info!("Reindexing all library folders: {:?}", self.settings.library_folders);
                 let db = self.db.clone();
-                let folders = self.library_folders.clone();
+                let folders = self.settings.library_folders.clone();
                 Task::perform(
                     async move {
                         let mut total_summary = player_core::ScanSummary::default();
@@ -823,11 +718,10 @@ impl App {
             Message::ClearLibrary => {
                 info!("Clearing all tracks from library database");
                 let db = self.db.clone();
-                self.visible_tracks.clear();
-                self.total_tracks = 0;
+                self.library.clear();
                 self.albums.clear();
-                self.album_covers.clear();
                 self.artists.clear();
+                self.now_playing.clear();
                 self.current_track = None;
                 self.current_track_id = None;
                 self.current_cover = None;
@@ -844,7 +738,7 @@ impl App {
             Message::ClearThumbnailCache => {
                 info!("Purging thumbnail disk and GPU cache");
                 let _ = player_core::clear_thumbnail_cache();
-                self.album_covers.clear();
+                self.albums.clear_covers();
                 Task::none()
             }
 
@@ -861,21 +755,19 @@ impl App {
             }
 
             Message::SelectSettingsTab(tab) => {
-                self.settings_tab = tab;
+                self.settings.select_tab(tab);
                 self.save_config_task()
             }
 
             Message::SelectAlbum(album_name) => {
                 self.active_tab = ViewTab::Tracks;
-                self.search_query = album_name;
-                self.page = 0;
+                self.library.set_search_query(album_name);
                 self.reload_tracks_task()
             }
 
             Message::SelectArtist(artist_name) => {
                 self.active_tab = ViewTab::Tracks;
-                self.search_query = artist_name;
-                self.page = 0;
+                self.library.set_search_query(artist_name);
                 self.reload_tracks_task()
             }
 
@@ -896,13 +788,12 @@ impl App {
                 } else {
                     Some(font_name.trim().to_string())
                 };
-                self.primary_font = font_opt.clone();
                 self.theme_manager.set_font(font_opt);
                 self.save_config_task()
             }
 
             Message::CustomFontInputChanged(input) => {
-                self.custom_font_input = input;
+                self.settings.set_custom_font_input(input);
                 Task::none()
             }
 
@@ -985,88 +876,41 @@ impl App {
             }
 
             Message::ScrobbleTestFinished(service, res) => {
-                self.scrobble_test_status = Some((service, res));
+                self.settings.set_scrobble_test_status(Some((service, res)));
                 Task::none()
             }
 
             Message::TracksLoaded(tracks, total) => {
-                self.visible_tracks = tracks;
-                self.total_tracks = total;
-                self.is_loading_more = false;
+                self.library.set_tracks(tracks, total);
                 Task::none()
             }
 
             Message::LibraryScrolled(viewport) => {
-                let rel_offset = viewport.relative_offset();
-                if rel_offset.y >= 0.8
-                    && !self.is_loading_more
-                    && self.visible_tracks.len() < self.total_tracks
-                {
-                    self.is_loading_more = true;
+                if self.library.on_scroll(&viewport) {
                     return self.load_more_tracks_task();
                 }
                 Task::none()
             }
 
             Message::MoreTracksLoaded(tracks) => {
-                self.is_loading_more = false;
-                if !tracks.is_empty() {
-                    self.visible_tracks.extend(tracks);
-                }
+                self.library.append_tracks(tracks);
                 Task::none()
             }
 
             Message::AlbumSortChanged(field) => {
-                if self.album_sort_field == field {
-                    self.album_sort_dir = match self.album_sort_dir {
-                        SortDirection::Ascending => SortDirection::Descending,
-                        SortDirection::Descending => SortDirection::Ascending,
-                    };
-                } else {
-                    self.album_sort_field = field;
-                    self.album_sort_dir = match field {
-                        AlbumSortField::Year
-                        | AlbumSortField::TrackCount
-                        | AlbumSortField::Duration
-                        | AlbumSortField::DateAdded => SortDirection::Descending,
-                        _ => SortDirection::Ascending,
-                    };
-                }
-                Self::sort_albums(&mut self.albums, self.album_sort_field, self.album_sort_dir);
-                self.visible_albums_count = DEFAULT_CATALOG_CHUNK_SIZE;
+                self.albums.toggle_sort(field);
                 let save_task = self.save_config_task();
                 let covers_task = self.load_visible_album_covers_task();
                 Task::batch([save_task, covers_task])
             }
 
             Message::ArtistSortChanged(field) => {
-                if self.artist_sort_field == field {
-                    self.artist_sort_dir = match self.artist_sort_dir {
-                        SortDirection::Ascending => SortDirection::Descending,
-                        SortDirection::Descending => SortDirection::Ascending,
-                    };
-                } else {
-                    self.artist_sort_field = field;
-                    self.artist_sort_dir = match field {
-                        ArtistSortField::TrackCount | ArtistSortField::AlbumCount => {
-                            SortDirection::Descending
-                        }
-                        _ => SortDirection::Ascending,
-                    };
-                }
-                Self::sort_artists(
-                    &mut self.artists,
-                    self.artist_sort_field,
-                    self.artist_sort_dir,
-                );
-                self.visible_artists_count = DEFAULT_CATALOG_CHUNK_SIZE;
+                self.artists.toggle_sort(field);
                 self.save_config_task()
             }
 
-            Message::AlbumsLoaded(mut albums) => {
-                Self::sort_albums(&mut albums, self.album_sort_field, self.album_sort_dir);
-                self.albums = albums;
-                self.visible_albums_count = DEFAULT_CATALOG_CHUNK_SIZE;
+            Message::AlbumsLoaded(albums) => {
+                self.albums.set_albums(albums);
                 if self.active_tab == ViewTab::Albums {
                     self.load_visible_album_covers_task()
                 } else {
@@ -1075,39 +919,24 @@ impl App {
             }
 
             Message::AlbumsScrolled(viewport) => {
-                let rel_offset = viewport.relative_offset();
-                if rel_offset.y >= 0.75 && self.visible_albums_count < self.albums.len() {
-                    self.visible_albums_count = (self.visible_albums_count
-                        + DEFAULT_CATALOG_CHUNK_SIZE)
-                        .min(self.albums.len());
+                if self.albums.on_scroll(&viewport) {
                     return self.load_visible_album_covers_task();
                 }
                 Task::none()
             }
 
             Message::ArtistsScrolled(viewport) => {
-                let rel_offset = viewport.relative_offset();
-                if rel_offset.y >= 0.75 && self.visible_artists_count < self.artists.len() {
-                    self.visible_artists_count = (self.visible_artists_count
-                        + DEFAULT_CATALOG_CHUNK_SIZE)
-                        .min(self.artists.len());
-                }
+                self.artists.on_scroll(&viewport);
                 Task::none()
             }
 
             Message::AlbumCoversLoaded(loaded) => {
-                for (key, bytes) in loaded {
-                    let handle = image::Handle::from_bytes(bytes);
-                    self.album_covers.insert(key, handle);
-                }
+                self.albums.insert_covers(loaded);
                 Task::none()
             }
 
             Message::AlbumCoverChunkLoaded(chunk_results, remaining) => {
-                for (key, bytes) in chunk_results {
-                    let handle = image::Handle::from_bytes(bytes);
-                    self.album_covers.insert(key, handle);
-                }
+                self.albums.insert_covers(chunk_results);
 
                 if !remaining.is_empty() {
                     self.load_cover_chunk_task(remaining)
@@ -1116,10 +945,8 @@ impl App {
                 }
             }
 
-            Message::ArtistsLoaded(mut artists) => {
-                Self::sort_artists(&mut artists, self.artist_sort_field, self.artist_sort_dir);
-                self.artists = artists;
-                self.visible_artists_count = DEFAULT_CATALOG_CHUNK_SIZE;
+            Message::ArtistsLoaded(artists) => {
+                self.artists.set_artists(artists);
                 Task::none()
             }
 
@@ -1128,45 +955,27 @@ impl App {
     }
 
     pub fn get_next_track(&self) -> Option<Track> {
-        if self.is_repeat {
-            return self.current_track.clone();
-        }
-
-        if self.is_shuffle && !self.visible_tracks.is_empty() {
-            let rand_idx = (self.position_ms as usize ^ 0x9e3779b9) % self.visible_tracks.len();
-            return Some(self.visible_tracks[rand_idx].clone());
-        }
-
-        if let Some(cur_id) = self.current_track_id {
-            // Try to find next track from currently loaded window
-            if let Some(pos) = self.visible_tracks.iter().position(|t| t.id == cur_id) {
-                if pos + 1 < self.visible_tracks.len() {
-                    return Some(self.visible_tracks[pos + 1].clone());
-                }
-            }
-        }
-
-        // Fallback: first track if available
-        if let Some(first) = self.visible_tracks.first() {
-            if Some(first.id) != self.current_track_id {
-                return Some(first.clone());
-            }
-        }
-        None
+        self.library.get_next_track(
+            self.current_track_id,
+            self.is_repeat,
+            self.is_shuffle,
+            self.position_ms,
+            self.current_track.as_ref(),
+        )
     }
 
     pub fn to_config(&self) -> AppConfig {
         AppConfig {
             active_tab: self.active_tab,
-            settings_tab: self.settings_tab,
+            settings_tab: self.settings.active_tab,
             theme_name: self.theme_manager.active_theme_name.clone(),
-            primary_font: self.primary_font.clone(),
-            library_view_mode: self.library_view_mode,
-            albums_view_mode: self.albums_view_mode,
-            artists_view_mode: self.artists_view_mode,
-            page_size: self.page_size,
-            album_sort_field: self.album_sort_field,
-            artist_sort_field: self.artist_sort_field,
+            primary_font: self.theme_manager.current_config.font_family.clone(),
+            library_view_mode: self.library.view_mode,
+            albums_view_mode: self.albums.view_mode,
+            artists_view_mode: self.artists.view_mode,
+            page_size: self.library.page_size,
+            album_sort_field: self.albums.sort_field,
+            artist_sort_field: self.artists.sort_field,
             volume: self.volume,
             is_shuffle: self.is_shuffle,
             is_repeat: self.is_repeat,
@@ -1220,21 +1029,7 @@ impl App {
     }
 
     fn load_visible_album_covers_task(&self) -> Task<Message> {
-        let visible_slice = &self.albums[..self.visible_albums_count.min(self.albums.len())];
-        let to_load: Vec<(String, PathBuf)> = visible_slice
-            .iter()
-            .filter_map(|alb| {
-                let key = format!("{}:{}", alb.artist, alb.album);
-                if self.album_covers.contains_key(&key) {
-                    None
-                } else {
-                    alb.cover_track_path
-                        .as_ref()
-                        .map(|p| (key, PathBuf::from(p)))
-                }
-            })
-            .collect();
-
+        let to_load = self.albums.get_missing_covers_to_load();
         if to_load.is_empty() {
             Task::none()
         } else {
@@ -1242,69 +1037,16 @@ impl App {
         }
     }
 
-    fn sort_albums(albums: &mut [AlbumSummary], field: AlbumSortField, dir: SortDirection) {
-        albums.sort_by(|a, b| {
-            let ord = match field {
-                AlbumSortField::Title => a.album.to_lowercase().cmp(&b.album.to_lowercase()),
-                AlbumSortField::Artist => a
-                    .artist
-                    .to_lowercase()
-                    .cmp(&b.artist.to_lowercase())
-                    .then_with(|| a.album.to_lowercase().cmp(&b.album.to_lowercase())),
-                AlbumSortField::Year => a
-                    .year
-                    .cmp(&b.year)
-                    .then_with(|| a.album.to_lowercase().cmp(&b.album.to_lowercase())),
-                AlbumSortField::TrackCount => a
-                    .track_count
-                    .cmp(&b.track_count)
-                    .then_with(|| a.album.to_lowercase().cmp(&b.album.to_lowercase())),
-                AlbumSortField::Duration => a
-                    .total_duration_ms
-                    .cmp(&b.total_duration_ms)
-                    .then_with(|| a.album.to_lowercase().cmp(&b.album.to_lowercase())),
-                AlbumSortField::DateAdded => a
-                    .added_timestamp
-                    .cmp(&b.added_timestamp)
-                    .then_with(|| a.album.to_lowercase().cmp(&b.album.to_lowercase())),
-            };
-            match dir {
-                SortDirection::Ascending => ord,
-                SortDirection::Descending => ord.reverse(),
-            }
-        });
-    }
-
-    fn sort_artists(artists: &mut [ArtistSummary], field: ArtistSortField, dir: SortDirection) {
-        artists.sort_by(|a, b| {
-            let ord = match field {
-                ArtistSortField::Artist => a.artist.to_lowercase().cmp(&b.artist.to_lowercase()),
-                ArtistSortField::TrackCount => a
-                    .track_count
-                    .cmp(&b.track_count)
-                    .then_with(|| a.artist.to_lowercase().cmp(&b.artist.to_lowercase())),
-                ArtistSortField::AlbumCount => a
-                    .album_count
-                    .cmp(&b.album_count)
-                    .then_with(|| a.artist.to_lowercase().cmp(&b.artist.to_lowercase())),
-            };
-            match dir {
-                SortDirection::Ascending => ord,
-                SortDirection::Descending => ord.reverse(),
-            }
-        });
-    }
-
     fn reload_tracks_task(&self) -> Task<Message> {
         let db = self.db.clone();
-        let page_size = self.page_size;
-        let query = if self.search_query.trim().is_empty() {
+        let page_size = self.library.page_size;
+        let query = if self.library.search_query.trim().is_empty() {
             None
         } else {
-            Some(self.search_query.clone())
+            Some(self.library.search_query.clone())
         };
-        let sort_field = self.sort_field;
-        let sort_dir = self.sort_dir;
+        let sort_field = self.library.sort_field;
+        let sort_dir = self.library.sort_dir;
 
         Task::perform(
             async move {
@@ -1324,14 +1066,14 @@ impl App {
 
     fn reload_after_scan_task(&self) -> Task<Message> {
         let db = self.db.clone();
-        let page_size = self.page_size;
-        let query = if self.search_query.trim().is_empty() {
+        let page_size = self.library.page_size;
+        let query = if self.library.search_query.trim().is_empty() {
             None
         } else {
-            Some(self.search_query.clone())
+            Some(self.library.search_query.clone())
         };
-        let sort_field = self.sort_field;
-        let sort_dir = self.sort_dir;
+        let sort_field = self.library.sort_field;
+        let sort_dir = self.library.sort_dir;
 
         Task::batch([
             Task::perform(
@@ -1367,15 +1109,15 @@ impl App {
 
     fn load_more_tracks_task(&self) -> Task<Message> {
         let db = self.db.clone();
-        let offset = self.visible_tracks.len();
-        let limit = self.page_size;
-        let query = if self.search_query.trim().is_empty() {
+        let offset = self.library.visible_tracks.len();
+        let limit = self.library.page_size;
+        let query = if self.library.search_query.trim().is_empty() {
             None
         } else {
-            Some(self.search_query.clone())
+            Some(self.library.search_query.clone())
         };
-        let sort_field = self.sort_field;
-        let sort_dir = self.sort_dir;
+        let sort_field = self.library.sort_field;
+        let sort_dir = self.library.sort_dir;
 
         Task::perform(
             async move {
@@ -1436,43 +1178,13 @@ impl App {
         .height(33);
 
         let main_view: Element<'_, Message> = match self.active_tab {
-            ViewTab::Tracks => views::library::view(
+            ViewTab::Tracks => self.library.view(
                 theme_cfg,
-                &self.visible_tracks,
                 self.current_track_id,
-                self.selected_track_id,
-                self.hovered_track_id,
                 self.is_playing,
-                self.library_view_mode,
-                &self.search_query,
-                self.sort_field,
-                self.sort_dir,
-                self.page,
-                self.page_size,
             ),
-            ViewTab::Albums => {
-                let visible_slice =
-                    &self.albums[..self.visible_albums_count.min(self.albums.len())];
-                views::albums::view(
-                    theme_cfg,
-                    visible_slice,
-                    &self.album_covers,
-                    self.albums_view_mode,
-                    self.album_sort_field,
-                    self.album_sort_dir,
-                )
-            }
-            ViewTab::Artists => {
-                let visible_slice =
-                    &self.artists[..self.visible_artists_count.min(self.artists.len())];
-                views::artists::view(
-                    theme_cfg,
-                    visible_slice,
-                    self.artists_view_mode,
-                    self.artist_sort_field,
-                    self.artist_sort_dir,
-                )
-            }
+            ViewTab::Albums => self.albums.view(theme_cfg),
+            ViewTab::Artists => self.artists.view(theme_cfg),
             ViewTab::Lyrics => {
                 let next_track = self.get_next_track();
                 let is_loved = self
@@ -1480,12 +1192,11 @@ impl App {
                     .map(|id| self.loved_tracks.contains(&id))
                     .unwrap_or(false);
 
-                views::lyrics::view(
+                self.now_playing.view(
                     theme_cfg,
                     self.current_track.as_ref(),
                     self.current_cover.as_ref(),
                     self.current_blurred_cover.as_ref(),
-                    self.current_lyrics.as_deref(),
                     next_track,
                     self.current_next_cover.as_ref(),
                     self.is_repeat,
@@ -1500,21 +1211,17 @@ impl App {
                     .map(|m| m.len())
                     .unwrap_or(0);
 
-                views::settings::view(
+                self.settings.view(
                     theme_cfg,
-                    views::settings::SettingsViewData {
-                        active_tab: self.settings_tab,
+                    views::settings::SettingsContext {
                         theme_names: self.theme_manager.theme_names(),
                         active_theme_name: &self.theme_manager.active_theme_name,
-                        library_view_mode: self.library_view_mode,
-                        albums_view_mode: self.albums_view_mode,
-                        artists_view_mode: self.artists_view_mode,
-                        page_size: self.page_size,
-                        primary_font: self.primary_font.as_deref(),
-                        available_fonts: self.available_fonts.as_slice(),
-                        custom_font_input: self.custom_font_input.clone(),
-                        library_folders: &self.library_folders,
-                        total_tracks: self.total_tracks,
+                        library_view_mode: self.library.view_mode,
+                        albums_view_mode: self.albums.view_mode,
+                        artists_view_mode: self.artists.view_mode,
+                        page_size: self.library.page_size,
+                        primary_font: self.theme_manager.current_config.font_family.as_deref(),
+                        total_tracks: self.library.total_tracks,
                         total_albums: self.albums.len(),
                         total_artists: self.artists.len(),
                         db_path: &self.db_path,
@@ -1540,7 +1247,6 @@ impl App {
 
                         submit_now_playing: self.scrobble_config.submit_now_playing,
                         scrobble_percent: self.scrobble_config.scrobble_percent,
-                        scrobble_test_status: self.scrobble_test_status.as_ref(),
                     },
                 )
             }
@@ -1556,7 +1262,7 @@ impl App {
             .map(|id| self.loved_tracks.contains(&id))
             .unwrap_or(false);
 
-        let player_bar = views::player_bar::view(
+        let player_bar = self.player_bar.view(
             theme_cfg,
             self.current_track.as_ref(),
             self.current_cover.as_ref(),
@@ -1564,28 +1270,26 @@ impl App {
             self.position_ms,
             self.duration_ms,
             self.volume,
-            self.is_seeking,
-            self.seek_pos_ms,
             self.is_shuffle,
             self.is_repeat,
             is_loved,
         );
 
-        let status_bar_ctx = views::status_bar::StatusBarContext {
+        let status_bar_ctx = StatusBarContext {
             active_tab: self.active_tab,
-            page: self.page,
-            page_size: self.page_size,
-            total_tracks: self.total_tracks,
-            visible_count: self.visible_tracks.len(),
-            search_query: &self.search_query,
-            albums: &self.albums,
-            artists: &self.artists,
+            page: self.library.page,
+            page_size: self.library.page_size,
+            total_tracks: self.library.total_tracks,
+            visible_count: self.library.visible_tracks.len(),
+            search_query: &self.library.search_query,
+            albums: &self.albums.albums,
+            artists: &self.artists.artists,
             current_track: self.current_track.as_ref(),
             is_playing: self.is_playing,
             is_scanning: self.is_scanning,
         };
 
-        let status_bar = views::status_bar::view(theme_cfg, status_bar_ctx);
+        let status_bar = StatusBar::view(theme_cfg, status_bar_ctx);
 
         let full_layout = column![top_bar, body, player_bar, status_bar]
             .width(Length::Fill)

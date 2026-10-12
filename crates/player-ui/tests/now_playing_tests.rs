@@ -17,10 +17,10 @@ use theme::ThemeConfig;
 #[test]
 fn test_now_playing_empty_state_renders() {
     let theme_cfg = ThemeConfig::default();
+    let now_playing = lyrics::NowPlayingView::new();
 
-    let _element = lyrics::view(
+    let _element = now_playing.view(
         &theme_cfg,
-        None,
         None,
         None,
         None,
@@ -89,13 +89,14 @@ fn test_now_playing_with_track_and_next_track() {
     };
 
     let lyrics_text = "[00:00.00] Cruising down the neon street\n[00:15.00] Bass in the night";
+    let mut now_playing = lyrics::NowPlayingView::new();
+    now_playing.set_lyrics(Some(lyrics_text.to_string()));
 
-    let _element = lyrics::view(
+    let _element = now_playing.view(
         &theme_cfg,
         Some(&track),
         None,
         None,
-        Some(lyrics_text),
         Some(next_track),
         None,
         true,

@@ -9,10 +9,8 @@ use crate::icons;
 use crate::message::{Message, SettingsTab, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
-pub struct SettingsViewData<'a> {
-    pub active_tab: SettingsTab,
-
-    // Appearance
+#[allow(dead_code)]
+pub struct SettingsContext<'a> {
     pub theme_names: Vec<String>,
     pub active_theme_name: &'a str,
     pub library_view_mode: ViewMode,
@@ -20,11 +18,6 @@ pub struct SettingsViewData<'a> {
     pub artists_view_mode: ViewMode,
     pub page_size: usize,
     pub primary_font: Option<&'a str>,
-    pub available_fonts: &'a [String],
-    pub custom_font_input: String,
-
-    // Library
-    pub library_folders: &'a [String],
     pub total_tracks: usize,
     pub total_albums: usize,
     pub total_artists: usize,
@@ -35,7 +28,6 @@ pub struct SettingsViewData<'a> {
     pub cache_size_bytes: u64,
     pub is_scanning: bool,
 
-    // Scrobbling
     pub listenbrainz_enabled: bool,
     pub listenbrainz_token: &'a str,
     pub listenbrainz_api_url: &'a str,
@@ -52,146 +44,190 @@ pub struct SettingsViewData<'a> {
 
     pub submit_now_playing: bool,
     pub scrobble_percent: u32,
-    pub scrobble_test_status: Option<&'a (
+}
+
+/// Self-contained state and view component for the Settings preferences screen.
+pub struct SettingsView {
+    pub active_tab: SettingsTab,
+    pub available_fonts: Vec<String>,
+    pub custom_font_input: String,
+    pub library_folders: Vec<String>,
+    pub scrobble_test_status: Option<(
         player_plugins::scrobbler::ScrobbleService,
         Result<String, String>,
     )>,
 }
 
-pub fn view<'a>(theme_cfg: &'a ThemeConfig, data: SettingsViewData<'a>) -> Element<'a, Message> {
-    // 1. Settings Navigation Sidebar
-    let sidebar = view_sidebar(theme_cfg, data.active_tab);
+impl SettingsView {
+    pub fn new(active_tab: SettingsTab, available_fonts: Vec<String>) -> Self {
+        Self {
+            active_tab,
+            available_fonts,
+            custom_font_input: String::new(),
+            library_folders: Vec::new(),
+            scrobble_test_status: None,
+        }
+    }
 
-    // 2. Settings Content Area
-    let content = match data.active_tab {
-        SettingsTab::Appearance => view_appearance(theme_cfg, &data),
-        SettingsTab::Library => view_library(theme_cfg, &data),
-        SettingsTab::Scrobbling => view_scrobbling(theme_cfg, &data),
-    };
+    pub fn select_tab(&mut self, tab: SettingsTab) {
+        self.active_tab = tab;
+    }
 
-    let main_panel = scrollable(content)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .style(styles::scrollable_style(theme_cfg));
+    pub fn set_custom_font_input(&mut self, input: String) {
+        self.custom_font_input = input;
+    }
 
-    row![sidebar, main_panel]
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
-}
+    pub fn set_library_folders(&mut self, folders: Vec<String>) {
+        self.library_folders = folders;
+    }
 
-fn view_sidebar<'a>(theme_cfg: &'a ThemeConfig, active_tab: SettingsTab) -> Element<'a, Message> {
-    let sidebar_title = column![
-        text(theme_cfg, "Preferences")
-            .size(11)
-            .color(theme_cfg.primary_color()),
-        text(theme_cfg, "System Configuration")
-            .size(11)
-            .color(theme_cfg.text_muted_color()),
-    ]
-    .spacing(2)
-    .padding([8, 12]);
+    pub fn set_scrobble_test_status(
+        &mut self,
+        status: Option<(
+            player_plugins::scrobbler::ScrobbleService,
+            Result<String, String>,
+        )>,
+    ) {
+        self.scrobble_test_status = status;
+    }
 
-    let nav_item =
-        |tab: SettingsTab, icon_svg: &'static str, title: &'static str, subtitle: &'static str| {
-            let is_active = active_tab == tab;
-            let color = if is_active {
-                theme_cfg.primary_color()
-            } else {
-                theme_cfg.text_color()
-            };
+    pub fn view<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        ctx: SettingsContext<'a>,
+    ) -> Element<'a, Message> {
+        let sidebar = self.view_sidebar(theme_cfg);
 
-            button(
-                row![
-                    icons::icon(icon_svg, 16.0, color),
-                    Space::with_width(10),
-                    column![
-                        text(theme_cfg, title).size(13).color(color),
-                        text(theme_cfg, subtitle)
-                            .size(10)
-                            .color(theme_cfg.text_muted_color()),
-                    ]
-                    .spacing(1),
-                ]
-                .align_y(Alignment::Center),
-            )
-            .padding([8, 12])
-            .width(Length::Fill)
-            .style(styles::settings_nav_button(theme_cfg, is_active))
-            .on_press(Message::SelectSettingsTab(tab))
+        let content = match self.active_tab {
+            SettingsTab::Appearance => self.view_appearance(theme_cfg, &ctx),
+            SettingsTab::Library => self.view_library(theme_cfg, &ctx),
+            SettingsTab::Scrobbling => self.view_scrobbling(theme_cfg, &ctx),
         };
 
-    container(row![
-        column![
-            sidebar_title,
-            nav_item(
-                SettingsTab::Appearance,
-                icons::PALETTE_SVG,
-                "Appearance",
-                "Theme, Views, Fonts",
-            ),
-            nav_item(
-                SettingsTab::Library,
-                icons::DATABASE_SVG,
-                "Library",
-                "Folders, Indexes & Cache",
-            ),
-            nav_item(
-                SettingsTab::Scrobbling,
-                icons::RADIO_SVG,
-                "Scrobbling",
-                "ListenBrainz & Last.fm",
-            )
+        let main_panel = scrollable(content)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(styles::scrollable_style(theme_cfg));
+
+        row![sidebar, main_panel]
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+    }
+
+    fn view_sidebar<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+        let sidebar_title = column![
+            text(theme_cfg, "Preferences")
+                .size(11)
+                .color(theme_cfg.primary_color()),
+            text(theme_cfg, "System Configuration")
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
         ]
-        .width(220.0)
-        .spacing(2),
-        border_hori(1.0, theme_cfg.border_color())
-    ])
-    .width(Length::Fixed(221.0))
-    .height(Length::Fill)
-    .style(styles::sidebar_container(theme_cfg))
-    .into()
-}
+        .spacing(2)
+        .padding([8, 12]);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 1. Appearance Section
-// ─────────────────────────────────────────────────────────────────────────────
+        let nav_item =
+            |tab: SettingsTab, icon_svg: &'static str, title: &'static str, subtitle: &'static str| {
+                let is_active = self.active_tab == tab;
+                let color = if is_active {
+                    theme_cfg.primary_color()
+                } else {
+                    theme_cfg.text_color()
+                };
 
-fn view_appearance<'a>(
-    theme_cfg: &'a ThemeConfig,
-    data: &SettingsViewData<'a>,
-) -> Element<'a, Message> {
-    let header = column![
-        text(theme_cfg, "Appearance & Interface")
-            .size(20)
-            .color(theme_cfg.text_color()),
-        text(theme_cfg, "Customize color palette, typography font family, default display modes, and layout density")
-            .size(12)
-            .color(theme_cfg.text_muted_color()),
-    ]
-    .spacing(4);
-
-    // Theme chips
-    let theme_buttons = {
-        let mut row_wrap = row![].spacing(6);
-        for name in &data.theme_names {
-            let is_active = name == data.active_theme_name;
-            let icon_svg = if is_active {
-                icons::CHECK_SVG
-            } else {
-                icons::DISC_SVG
+                button(
+                    row![
+                        icons::icon(icon_svg, 16.0, color),
+                        Space::with_width(10),
+                        column![
+                            text(theme_cfg, title).size(13).color(color),
+                            text(theme_cfg, subtitle)
+                                .size(10)
+                                .color(theme_cfg.text_muted_color()),
+                        ]
+                        .spacing(1),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .padding([8, 12])
+                .width(Length::Fill)
+                .style(styles::settings_nav_button(theme_cfg, is_active))
+                .on_press(Message::SelectSettingsTab(tab))
             };
-            let btn = components::chip_with_icon(
-                theme_cfg,
-                icon_svg,
-                name.clone(),
-                is_active,
-                Message::SelectTheme(name.clone()),
-            );
-            row_wrap = row_wrap.push(btn);
-        }
-        row_wrap.wrap()
-    };
+
+        container(row![
+            column![
+                sidebar_title,
+                nav_item(
+                    SettingsTab::Appearance,
+                    icons::PALETTE_SVG,
+                    "Appearance",
+                    "Theme, Views, Fonts",
+                ),
+                nav_item(
+                    SettingsTab::Library,
+                    icons::DATABASE_SVG,
+                    "Library",
+                    "Folders, Indexes & Cache",
+                ),
+                nav_item(
+                    SettingsTab::Scrobbling,
+                    icons::RADIO_SVG,
+                    "Scrobbling",
+                    "ListenBrainz & Last.fm",
+                )
+            ]
+            .width(220.0)
+            .spacing(2),
+            border_hori(1.0, theme_cfg.border_color())
+        ])
+        .width(Length::Fixed(221.0))
+        .height(Length::Fill)
+        .style(styles::sidebar_container(theme_cfg))
+        .into()
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 1. Appearance Section
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    fn view_appearance<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        ctx: &SettingsContext<'a>,
+    ) -> Element<'a, Message> {
+        let header = column![
+            text(theme_cfg, "Appearance & Interface")
+                .size(20)
+                .color(theme_cfg.text_color()),
+            text(theme_cfg, "Customize color palette, typography font family, default display modes, and layout density")
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+        ]
+        .spacing(4);
+
+        // Theme chips
+        let theme_buttons = {
+            let mut row_wrap = row![].spacing(6);
+            for name in &ctx.theme_names {
+                let is_active = name == ctx.active_theme_name;
+                let icon_svg = if is_active {
+                    icons::CHECK_SVG
+                } else {
+                    icons::DISC_SVG
+                };
+                let btn = components::chip_with_icon(
+                    theme_cfg,
+                    icon_svg,
+                    name.clone(),
+                    is_active,
+                    Message::SelectTheme(name.clone()),
+                );
+                row_wrap = row_wrap.push(btn);
+            }
+            row_wrap.wrap()
+        };
 
     let palette_preview = row![
         swatch_card(theme_cfg, "Primary", theme_cfg.primary_color()),
@@ -262,17 +298,17 @@ fn view_appearance<'a>(
             .color(theme_cfg.text_muted_color()),
             view_mode_row(
                 "Library Tracks View:",
-                data.library_view_mode,
+                ctx.library_view_mode,
                 Message::SetLibraryViewMode,
             ),
             view_mode_row(
                 "Albums Catalog View:",
-                data.albums_view_mode,
+                ctx.albums_view_mode,
                 Message::SetAlbumsViewMode,
             ),
             view_mode_row(
                 "Artists Catalog View:",
-                data.artists_view_mode,
+                ctx.artists_view_mode,
                 Message::SetArtistsViewMode,
             ),
         ]
@@ -280,14 +316,14 @@ fn view_appearance<'a>(
     );
 
     // Typography & Font Configuration Card
-    let active_font_family = data.primary_font.unwrap_or("Default").to_string();
+    let active_font_family = ctx.primary_font.unwrap_or("Default").to_string();
 
     let font_metrics = row![
         components::metric_box(theme_cfg, "Active Font Family", active_font_family.clone()),
         components::metric_box(
             theme_cfg,
             "Discovered Font Files",
-            format!("{} files", data.available_fonts.len()),
+            format!("{} files", self.available_fonts.len()),
         ),
     ]
     .spacing(12);
@@ -295,8 +331,8 @@ fn view_appearance<'a>(
     // Font selection chips
     let font_chips = {
         let mut row_wrap = row![].spacing(6);
-        for font_name in data.available_fonts {
-            let is_active = match data.primary_font {
+        for font_name in &self.available_fonts {
+            let is_active = match ctx.primary_font {
                 Some(active) => {
                     active == font_name || (font_name == "Default" && active.is_empty())
                 }
@@ -320,7 +356,7 @@ fn view_appearance<'a>(
     };
 
     // Custom font input row
-    let custom_font_trimmed = data.custom_font_input.trim().to_string();
+    let custom_font_trimmed = self.custom_font_input.trim().to_string();
     let has_custom_input = !custom_font_trimmed.is_empty();
 
     let apply_custom_font_btn = button(
@@ -356,14 +392,14 @@ fn view_appearance<'a>(
     let custom_font_row = row![
         text_input(
             "Enter custom system font family (e.g. Inter, Roboto, Arial)...",
-            &data.custom_font_input,
+            &self.custom_font_input,
         )
         .size(12)
         .padding([5, 8])
         .style(styles::search_input_style(theme_cfg))
         .on_input(Message::CustomFontInputChanged)
         .on_submit(Message::SelectFont(
-            data.custom_font_input.trim().to_string()
+            self.custom_font_input.trim().to_string()
         ))
         .width(Length::Fill),
         Space::with_width(8),
@@ -456,7 +492,7 @@ fn view_appearance<'a>(
                 .color(theme_cfg.text_muted_color()),
         );
         for &size in &page_sizes {
-            let is_sel = data.page_size == size;
+            let is_sel = ctx.page_size == size;
             let btn = components::chip(
                 theme_cfg,
                 format!("{} tracks", size),
@@ -492,16 +528,17 @@ fn view_appearance<'a>(
     .padding(24)
     .width(Length::Fill)
     .into()
-}
+    }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. Library Section
-// ─────────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 2. Library Section
+    // ─────────────────────────────────────────────────────────────────────────────
 
-fn view_library<'a>(
-    theme_cfg: &'a ThemeConfig,
-    data: &SettingsViewData<'a>,
-) -> Element<'a, Message> {
+    fn view_library<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        ctx: &SettingsContext<'a>,
+    ) -> Element<'a, Message> {
     let header = column![
         text(theme_cfg, "Library & Storage")
             .size(20)
@@ -512,159 +549,91 @@ fn view_library<'a>(
     ]
     .spacing(4);
 
-    // Storage and Index Metrics
-    let storage_stats_row1 = row![
-        components::metric_box(theme_cfg, "Songs Indexed", format!("{}", data.total_tracks)),
-        components::metric_box(
-            theme_cfg,
-            "Albums Cataloged",
-            format!("{}", data.total_albums)
-        ),
-        components::metric_box(
-            theme_cfg,
-            "Artists Cataloged",
-            format!("{}", data.total_artists)
-        ),
-    ]
-    .spacing(12);
-
-    let storage_stats_row2 = row![
-        components::metric_box(
-            theme_cfg,
-            "Database File Size",
-            format_file_size(data.db_size_bytes),
-        ),
-        components::metric_box(
-            theme_cfg,
-            "Disk Thumbnail Cache",
-            format!(
-                "{} files ({})",
-                data.cache_file_count,
-                format_file_size(data.cache_size_bytes)
-            ),
-        ),
-    ]
-    .spacing(12);
-
-    let stats_card = components::settings_card(
-        theme_cfg,
-        "Storage & Index Metrics",
-        column![storage_stats_row1, storage_stats_row2,].spacing(10),
-    );
-
-    // Scanned Folders List
-    let add_folder_btn = button(
-        row![
-            icons::icon(icons::PLUS_SVG, 13.0, theme_cfg.primary_color()),
-            Space::with_width(6),
-            text(
+        // Storage and Index Metrics
+        let storage_stats_row1 = row![
+            components::metric_box(theme_cfg, "Songs Indexed", format!("{}", ctx.total_tracks)),
+            components::metric_box(
                 theme_cfg,
-                if data.is_scanning {
-                    "Scanning Library..."
-                } else {
-                    "Add Music Folder"
-                }
-            )
-            .size(12)
-            .color(theme_cfg.text_color()),
+                "Albums Cataloged",
+                format!("{}", ctx.total_albums)
+            ),
+            components::metric_box(
+                theme_cfg,
+                "Artists Cataloged",
+                format!("{}", ctx.total_artists)
+            ),
         ]
-        .align_y(Alignment::Center),
-    )
-    .padding([6, 14])
-    .style(styles::ghost_button(theme_cfg, false))
-    .on_press_maybe(if data.is_scanning {
-        None
-    } else {
-        Some(Message::AddLibraryFolderClicked)
-    });
+        .spacing(12);
 
-    let folders_content: Element<'a, Message> = if data.library_folders.is_empty() {
-        container(
-            column![
-                text(theme_cfg, "No music directories configured yet.")
-                    .size(13)
-                    .color(theme_cfg.text_muted_color()),
+        let storage_stats_row2 = row![
+            components::metric_box(
+                theme_cfg,
+                "Database File Size",
+                format_file_size(ctx.db_size_bytes),
+            ),
+            components::metric_box(
+                theme_cfg,
+                "Disk Thumbnail Cache",
+                format!(
+                    "{} files ({})",
+                    ctx.cache_file_count,
+                    format_file_size(ctx.cache_size_bytes)
+                ),
+            ),
+        ]
+        .spacing(12);
+
+        let stats_card = components::settings_card(
+            theme_cfg,
+            "Storage & Index Metrics",
+            column![storage_stats_row1, storage_stats_row2,].spacing(10),
+        );
+
+        // Scanned Folders List
+        let add_folder_btn = button(
+            row![
+                icons::icon(icons::PLUS_SVG, 13.0, theme_cfg.primary_color()),
+                Space::with_width(6),
                 text(
                     theme_cfg,
-                    "Click 'Add Music Folder' to choose a directory containing audio files."
+                    if ctx.is_scanning {
+                        "Scanning Library..."
+                    } else {
+                        "Add Music Folder"
+                    }
                 )
-                .size(11)
-                .color(theme_cfg.text_muted_color()),
+                .size(12)
+                .color(theme_cfg.text_color()),
             ]
-            .spacing(4)
-            .align_x(Alignment::Center),
+            .align_y(Alignment::Center),
         )
-        .padding(20)
-        .width(Length::Fill)
-        .align_x(Alignment::Center)
-        .style(move |_theme| container::Style {
-            background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-            border: Border {
-                radius: Radius::from(4.0),
-                color: theme_cfg.border_color(),
-                width: 1.0,
-            },
-            ..Default::default()
-        })
-        .into()
-    } else {
-        let mut col = column![].spacing(6);
-        for folder_path in data.library_folders {
-            let path_clone = folder_path.clone();
-            let path_buf = PathBuf::from(folder_path);
+        .padding([6, 14])
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press_maybe(if ctx.is_scanning {
+            None
+        } else {
+            Some(Message::AddLibraryFolderClicked)
+        });
 
-            let rescan_btn = button(
-                row![
-                    icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.text_color()),
-                    Space::with_width(4),
-                    text(theme_cfg, "Rescan")
-                        .size(11)
-                        .color(theme_cfg.text_color()),
+        let folders_content: Element<'a, Message> = if self.library_folders.is_empty() {
+            container(
+                column![
+                    text(theme_cfg, "No music directories configured yet.")
+                        .size(13)
+                        .color(theme_cfg.text_muted_color()),
+                    text(
+                        theme_cfg,
+                        "Click 'Add Music Folder' to choose a directory containing audio files."
+                    )
+                    .size(11)
+                    .color(theme_cfg.text_muted_color()),
                 ]
-                .align_y(Alignment::Center),
+                .spacing(4)
+                .align_x(Alignment::Center),
             )
-            .padding([4, 8])
-            .style(styles::ghost_button(theme_cfg, false))
-            .on_press_maybe(if data.is_scanning {
-                None
-            } else {
-                Some(Message::RescanLibraryFolder(path_buf))
-            });
-
-            let remove_btn = button(
-                row![
-                    icons::icon(icons::TRASH_SVG, 12.0, theme_cfg.accent_color()),
-                    Space::with_width(4),
-                    text(theme_cfg, "Remove")
-                        .size(11)
-                        .color(theme_cfg.accent_color()),
-                ]
-                .align_y(Alignment::Center),
-            )
-            .padding([4, 8])
-            .style(styles::ghost_button(theme_cfg, false))
-            .on_press_maybe(if data.is_scanning {
-                None
-            } else {
-                Some(Message::RemoveLibraryFolder(path_clone))
-            });
-
-            let item_row = container(
-                row![
-                    icons::icon(icons::FOLDER_SVG, 15.0, theme_cfg.primary_color()),
-                    Space::with_width(10),
-                    text(theme_cfg, folder_path.as_str())
-                        .size(12)
-                        .color(theme_cfg.text_color())
-                        .width(Length::Fill),
-                    rescan_btn,
-                    Space::with_width(6),
-                    remove_btn,
-                ]
-                .align_y(Alignment::Center),
-            )
-            .padding([8, 12])
+            .padding(20)
             .width(Length::Fill)
+            .align_x(Alignment::Center)
             .style(move |_theme| container::Style {
                 background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
                 border: Border {
@@ -673,174 +642,243 @@ fn view_library<'a>(
                     width: 1.0,
                 },
                 ..Default::default()
-            });
+            })
+            .into()
+        } else {
+            let mut col = column![].spacing(6);
+            for folder_path in &self.library_folders {
+                let path_clone = folder_path.clone();
+                let path_buf = PathBuf::from(folder_path);
 
-            col = col.push(item_row);
-        }
-        col.into()
-    };
+                let rescan_btn = button(
+                    row![
+                        icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.text_color()),
+                        Space::with_width(4),
+                        text(theme_cfg, "Rescan")
+                            .size(11)
+                            .color(theme_cfg.text_color()),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .padding([4, 8])
+                .style(styles::ghost_button(theme_cfg, false))
+                .on_press_maybe(if ctx.is_scanning {
+                    None
+                } else {
+                    Some(Message::RescanLibraryFolder(path_buf))
+                });
 
-    let folders_card = components::settings_card(
-        theme_cfg,
-        "Scanned Music Directories",
-        column![
+                let remove_btn = button(
+                    row![
+                        icons::icon(icons::TRASH_SVG, 12.0, theme_cfg.accent_color()),
+                        Space::with_width(4),
+                        text(theme_cfg, "Remove")
+                            .size(11)
+                            .color(theme_cfg.accent_color()),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .padding([4, 8])
+                .style(styles::ghost_button(theme_cfg, false))
+                .on_press_maybe(if ctx.is_scanning {
+                    None
+                } else {
+                    Some(Message::RemoveLibraryFolder(path_clone))
+                });
+
+                let item_row = container(
+                    row![
+                        icons::icon(icons::FOLDER_SVG, 15.0, theme_cfg.primary_color()),
+                        Space::with_width(10),
+                        text(theme_cfg, folder_path.as_str())
+                            .size(12)
+                            .color(theme_cfg.text_color())
+                            .width(Length::Fill),
+                        rescan_btn,
+                        Space::with_width(6),
+                        remove_btn,
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .padding([8, 12])
+                .width(Length::Fill)
+                .style(move |_theme| container::Style {
+                    background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+                    border: Border {
+                        radius: Radius::from(4.0),
+                        color: theme_cfg.border_color(),
+                        width: 1.0,
+                    },
+                    ..Default::default()
+                });
+
+                col = col.push(item_row);
+            }
+            col.into()
+        };
+
+        let folders_card = components::settings_card(
+            theme_cfg,
+            "Scanned Music Directories",
+            column![
+                row![
+                    text(
+                        theme_cfg,
+                        "Audio files inside these directories are indexed recursively."
+                    )
+                    .size(12)
+                    .color(theme_cfg.text_muted_color())
+                    .width(Length::Fill),
+                    add_folder_btn,
+                ]
+                .align_y(Alignment::Center),
+                Space::with_height(4),
+                folders_content,
+            ]
+            .spacing(8),
+        );
+
+        // Maintenance & Actions Card
+        let reindex_all_btn = button(
             row![
+                icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.primary_color()),
+                Space::with_width(6),
                 text(
                     theme_cfg,
-                    "Audio files inside these directories are indexed recursively."
+                    if ctx.is_scanning {
+                        "Reindexing Library..."
+                    } else {
+                        "Reindex Entire Library"
+                    }
                 )
                 .size(12)
-                .color(theme_cfg.text_muted_color())
-                .width(Length::Fill),
-                add_folder_btn,
+                .color(theme_cfg.primary_color()),
             ]
             .align_y(Alignment::Center),
-            Space::with_height(4),
-            folders_content,
-        ]
-        .spacing(8),
-    );
+        )
+        .padding([8, 16])
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press_maybe(if ctx.is_scanning {
+            None
+        } else {
+            Some(Message::ReindexLibrary)
+        });
 
-    // Maintenance & Actions Card
-    let reindex_all_btn = button(
-        row![
-            icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.primary_color()),
-            Space::with_width(6),
-            text(
-                theme_cfg,
-                if data.is_scanning {
-                    "Reindexing Library..."
-                } else {
-                    "Reindex Entire Library"
-                }
-            )
-            .size(12)
-            .color(theme_cfg.primary_color()),
-        ]
-        .align_y(Alignment::Center),
-    )
-    .padding([8, 16])
-    .style(styles::ghost_button(theme_cfg, false))
-    .on_press_maybe(if data.is_scanning {
-        None
-    } else {
-        Some(Message::ReindexLibrary)
-    });
+        let clear_cache_btn = button(
+            row![
+                icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.text_color()),
+                Space::with_width(6),
+                text(theme_cfg, "Clear Thumbnail Cache")
+                    .size(12)
+                    .color(theme_cfg.text_color()),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .padding([8, 16])
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press(Message::ClearThumbnailCache);
 
-    let clear_cache_btn = button(
-        row![
-            icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.text_color()),
-            Space::with_width(6),
-            text(theme_cfg, "Clear Thumbnail Cache")
-                .size(12)
-                .color(theme_cfg.text_color()),
-        ]
-        .align_y(Alignment::Center),
-    )
-    .padding([8, 16])
-    .style(styles::ghost_button(theme_cfg, false))
-    .on_press(Message::ClearThumbnailCache);
+        let clear_db_btn = button(
+            row![
+                icons::icon(
+                    icons::TRASH_SVG,
+                    13.0,
+                    iced::Color::from_rgb(0.95, 0.35, 0.35)
+                ),
+                Space::with_width(6),
+                text(theme_cfg, "Delete Library Database")
+                    .size(12)
+                    .color(iced::Color::from_rgb(0.95, 0.35, 0.35)),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .padding([8, 16])
+        .style(styles::danger_button(theme_cfg))
+        .on_press_maybe(if ctx.is_scanning {
+            None
+        } else {
+            Some(Message::ClearLibrary)
+        });
 
-    let clear_db_btn = button(
-        row![
-            icons::icon(
-                icons::TRASH_SVG,
-                13.0,
-                iced::Color::from_rgb(0.95, 0.35, 0.35)
-            ),
-            Space::with_width(6),
-            text(theme_cfg, "Delete Library Database")
-                .size(12)
-                .color(iced::Color::from_rgb(0.95, 0.35, 0.35)),
-        ]
-        .align_y(Alignment::Center),
-    )
-    .padding([8, 16])
-    .style(styles::danger_button(theme_cfg))
-    .on_press_maybe(if data.is_scanning {
-        None
-    } else {
-        Some(Message::ClearLibrary)
-    });
+        let actions_card = components::settings_card(
+            theme_cfg,
+            "Library Actions & Maintenance",
+            column![
+                // Action 1: Reindex
+                row![
+                    column![
+                        text(theme_cfg, "Full Reindex")
+                            .size(13)
+                            .color(theme_cfg.text_color()),
+                        text(theme_cfg, "Scans all configured music folders, updates metadata tags, and repopulates the library.")
+                            .size(11)
+                            .color(theme_cfg.text_muted_color()),
+                    ]
+                    .width(Length::Fill),
+                    reindex_all_btn,
+                ]
+                .align_y(Alignment::Center),
+                Space::with_height(6),
+                // Action 2: Clear Thumbnail Cache
+                row![
+                    column![
+                        text(theme_cfg, "Purge Thumbnail Cache")
+                            .size(13)
+                            .color(theme_cfg.text_color()),
+                        text(theme_cfg, format!(
+                            "Deletes all {} cached thumbnail images ({}) from disk and clears GPU memory. Thumbnails will regenerate when viewed.",
+                            ctx.cache_file_count,
+                            format_file_size(ctx.cache_size_bytes),
+                        ))
+                        .size(11)
+                        .color(theme_cfg.text_muted_color()),
+                    ]
+                    .width(Length::Fill),
+                    clear_cache_btn,
+                ]
+                .align_y(Alignment::Center),
+                Space::with_height(6),
+                // Action 3: Clear / Reset Database
+                row![
+                    column![
+                        text(theme_cfg, "Reset Library Database")
+                            .size(13)
+                            .color(iced::Color::from_rgb(0.95, 0.35, 0.35)),
+                        text(theme_cfg, "Clears all indexed tracks, albums, and artist metadata from SQLite. Your audio files on disk remain untouched.")
+                            .size(11)
+                            .color(theme_cfg.text_muted_color()),
+                    ]
+                    .width(Length::Fill),
+                    clear_db_btn,
+                ]
+                .align_y(Alignment::Center),
+            ]
+            .spacing(10),
+        );
 
-    let actions_card = components::settings_card(
-        theme_cfg,
-        "Library Actions & Maintenance",
         column![
-            // Action 1: Reindex
-            row![
-                column![
-                    text(theme_cfg, "Full Reindex")
-                        .size(13)
-                        .color(theme_cfg.text_color()),
-                    text(theme_cfg, "Scans all configured music folders, updates metadata tags, and repopulates the library.")
-                        .size(11)
-                        .color(theme_cfg.text_muted_color()),
-                ]
-                .width(Length::Fill),
-                reindex_all_btn,
-            ]
-            .align_y(Alignment::Center),
-            Space::with_height(6),
-            // Action 2: Clear Thumbnail Cache
-            row![
-                column![
-                    text(theme_cfg, "Purge Thumbnail Cache")
-                        .size(13)
-                        .color(theme_cfg.text_color()),
-                    text(theme_cfg, format!(
-                        "Deletes all {} cached thumbnail images ({}) from disk and clears GPU memory. Thumbnails will regenerate when viewed.",
-                        data.cache_file_count,
-                        format_file_size(data.cache_size_bytes),
-                    ))
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
-                ]
-                .width(Length::Fill),
-                clear_cache_btn,
-            ]
-            .align_y(Alignment::Center),
-            Space::with_height(6),
-            // Action 3: Clear / Reset Database
-            row![
-                column![
-                    text(theme_cfg, "Reset Library Database")
-                        .size(13)
-                        .color(iced::Color::from_rgb(0.95, 0.35, 0.35)),
-                    text(theme_cfg, "Clears all indexed tracks, albums, and artist metadata from SQLite. Your audio files on disk remain untouched.")
-                        .size(11)
-                        .color(theme_cfg.text_muted_color()),
-                ]
-                .width(Length::Fill),
-                clear_db_btn,
-            ]
-            .align_y(Alignment::Center),
+            header,
+            stats_card,
+            folders_card,
+            actions_card,
+            Space::with_height(20),
         ]
-        .spacing(10),
-    );
+        .spacing(18)
+        .padding(24)
+        .width(Length::Fill)
+        .into()
+    }
 
-    column![
-        header,
-        stats_card,
-        folders_card,
-        actions_card,
-        Space::with_height(20),
-    ]
-    .spacing(18)
-    .padding(24)
-    .width(Length::Fill)
-    .into()
-}
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 3. Scrobbling Section
+    // ─────────────────────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. Scrobbling Section
-// ─────────────────────────────────────────────────────────────────────────────
-
-fn view_scrobbling<'a>(
-    theme_cfg: &'a ThemeConfig,
-    data: &SettingsViewData<'a>,
-) -> Element<'a, Message> {
-    let header = column![
+    fn view_scrobbling<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        ctx: &SettingsContext<'a>,
+    ) -> Element<'a, Message> {
+        let header = column![
         text(theme_cfg, "Scrobbling & Social Audio")
             .size(20)
             .color(theme_cfg.text_color()),
@@ -876,18 +914,18 @@ fn view_scrobbling<'a>(
                 .width(Length::Fill),
                 components::chip_with_icon(
                     theme_cfg,
-                    if data.submit_now_playing {
+                    if ctx.submit_now_playing {
                         icons::CHECK_SVG
                     } else {
                         icons::RADIO_SVG
                     },
-                    if data.submit_now_playing {
+                    if ctx.submit_now_playing {
                         "Enabled"
                     } else {
                         "Disabled"
                     },
-                    data.submit_now_playing,
-                    Message::ToggleSubmitNowPlaying(!data.submit_now_playing),
+                    ctx.submit_now_playing,
+                    Message::ToggleSubmitNowPlaying(!ctx.submit_now_playing),
                 ),
             ]
             .align_y(Alignment::Center),
@@ -906,19 +944,19 @@ fn view_scrobbling<'a>(
                     components::chip(
                         theme_cfg,
                         "50% (Standard)",
-                        data.scrobble_percent == 50,
+                        ctx.scrobble_percent == 50,
                         Message::SetScrobblePercent(50),
                     ),
                     components::chip(
                         theme_cfg,
                         "75%",
-                        data.scrobble_percent == 75,
+                        ctx.scrobble_percent == 75,
                         Message::SetScrobblePercent(75),
                     ),
                     components::chip(
                         theme_cfg,
                         "100% (Complete)",
-                        data.scrobble_percent == 100,
+                        ctx.scrobble_percent == 100,
                         Message::SetScrobblePercent(100),
                     ),
                 ]
@@ -932,7 +970,7 @@ fn view_scrobbling<'a>(
     // 2. ListenBrainz Card
     let lb_test_banner =
         if let Some((player_plugins::scrobbler::ScrobbleService::ListenBrainz, res)) =
-            data.scrobble_test_status
+            self.scrobble_test_status.as_ref()
         {
             let (color, msg) = match res {
                 Ok(ref m) => (Color::from_rgb(0.2, 0.8, 0.4), m.as_str()),
@@ -989,27 +1027,27 @@ fn view_scrobbling<'a>(
             .width(Length::Fill),
             components::chip_with_icon(
                 theme_cfg,
-                if data.listenbrainz_enabled {
+                if ctx.listenbrainz_enabled {
                     icons::CHECK_SVG
                 } else {
                     icons::RADIO_SVG
                 },
-                if data.listenbrainz_enabled {
+                if ctx.listenbrainz_enabled {
                     "Plugin Active"
                 } else {
                     "Plugin Inactive"
                 },
-                data.listenbrainz_enabled,
-                Message::ToggleListenBrainz(!data.listenbrainz_enabled),
+                ctx.listenbrainz_enabled,
+                Message::ToggleListenBrainz(!ctx.listenbrainz_enabled),
             ),
         ]
         .align_y(Alignment::Center),
         row![
-            components::metric_box(theme_cfg, "Status", data.listenbrainz_status.to_string()),
+            components::metric_box(theme_cfg, "Status", ctx.listenbrainz_status.to_string()),
             components::metric_box(
                 theme_cfg,
                 "Session Scrobbles",
-                data.listenbrainz_scrobbles.to_string(),
+                ctx.listenbrainz_scrobbles.to_string(),
             ),
         ]
         .spacing(12),
@@ -1017,7 +1055,7 @@ fn view_scrobbling<'a>(
             text(theme_cfg, "User Token")
                 .size(12)
                 .color(theme_cfg.text_color()),
-            text_input("Enter ListenBrainz user token...", data.listenbrainz_token)
+            text_input("Enter ListenBrainz user token...", ctx.listenbrainz_token)
                 .on_input(Message::ListenBrainzTokenChanged)
                 .style(styles::search_input_style(theme_cfg))
                 .padding([7, 10]),
@@ -1035,7 +1073,7 @@ fn view_scrobbling<'a>(
                 .color(theme_cfg.text_color()),
             text_input(
                 "https://api.listenbrainz.org/1/submit-listens",
-                data.listenbrainz_api_url
+                ctx.listenbrainz_api_url
             )
             .on_input(Message::ListenBrainzUrlChanged)
             .style(styles::search_input_style(theme_cfg))
@@ -1055,7 +1093,7 @@ fn view_scrobbling<'a>(
     // 3. Last.fm Card
     let lastfm_test_banner =
         if let Some((player_plugins::scrobbler::ScrobbleService::LastFm, res)) =
-            data.scrobble_test_status
+            self.scrobble_test_status.as_ref()
         {
             let (color, msg) = match res {
                 Ok(ref m) => (Color::from_rgb(0.2, 0.8, 0.4), m.as_str()),
@@ -1112,27 +1150,27 @@ fn view_scrobbling<'a>(
             .width(Length::Fill),
             components::chip_with_icon(
                 theme_cfg,
-                if data.lastfm_enabled {
+                if ctx.lastfm_enabled {
                     icons::CHECK_SVG
                 } else {
                     icons::RADIO_SVG
                 },
-                if data.lastfm_enabled {
+                if ctx.lastfm_enabled {
                     "Plugin Active"
                 } else {
                     "Plugin Inactive"
                 },
-                data.lastfm_enabled,
-                Message::ToggleLastFm(!data.lastfm_enabled),
+                ctx.lastfm_enabled,
+                Message::ToggleLastFm(!ctx.lastfm_enabled),
             ),
         ]
         .align_y(Alignment::Center),
         row![
-            components::metric_box(theme_cfg, "Status", data.lastfm_status.to_string()),
+            components::metric_box(theme_cfg, "Status", ctx.lastfm_status.to_string()),
             components::metric_box(
                 theme_cfg,
                 "Session Scrobbles",
-                data.lastfm_scrobbles.to_string(),
+                ctx.lastfm_scrobbles.to_string(),
             ),
         ]
         .spacing(12),
@@ -1140,7 +1178,7 @@ fn view_scrobbling<'a>(
             text(theme_cfg, "API Key")
                 .size(12)
                 .color(theme_cfg.text_color()),
-            text_input("Enter Last.fm API Key...", data.lastfm_api_key)
+            text_input("Enter Last.fm API Key...", ctx.lastfm_api_key)
                 .on_input(Message::LastFmApiKeyChanged)
                 .style(styles::search_input_style(theme_cfg))
                 .padding([7, 10]),
@@ -1150,7 +1188,7 @@ fn view_scrobbling<'a>(
             text(theme_cfg, "Shared Secret")
                 .size(12)
                 .color(theme_cfg.text_color()),
-            text_input("Enter Last.fm Shared Secret...", data.lastfm_api_secret)
+            text_input("Enter Last.fm Shared Secret...", ctx.lastfm_api_secret)
                 .on_input(Message::LastFmApiSecretChanged)
                 .style(styles::search_input_style(theme_cfg))
                 .padding([7, 10]),
@@ -1160,7 +1198,7 @@ fn view_scrobbling<'a>(
             text(theme_cfg, "Session Key (sk)")
                 .size(12)
                 .color(theme_cfg.text_color()),
-            text_input("Enter Last.fm Session Key (sk)...", data.lastfm_session_key)
+            text_input("Enter Last.fm Session Key (sk)...", ctx.lastfm_session_key)
                 .on_input(Message::LastFmSessionKeyChanged)
                 .style(styles::search_input_style(theme_cfg))
                 .padding([7, 10]),
@@ -1176,7 +1214,7 @@ fn view_scrobbling<'a>(
             text(theme_cfg, "API Endpoint URL")
                 .size(12)
                 .color(theme_cfg.text_color()),
-            text_input("https://ws.audioscrobbler.com/2.0/", data.lastfm_api_url)
+            text_input("https://ws.audioscrobbler.com/2.0/", ctx.lastfm_api_url)
                 .on_input(Message::LastFmUrlChanged)
                 .style(styles::search_input_style(theme_cfg))
                 .padding([7, 10]),
@@ -1203,6 +1241,7 @@ fn view_scrobbling<'a>(
     .padding(24)
     .width(Length::Fill)
     .into()
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
