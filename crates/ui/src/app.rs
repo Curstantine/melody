@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use audio::{AudioController, AudioEngine};
+use core_engine::{LibraryDatabase, Track};
 use crossbeam_channel::Receiver;
 use iced::widget::{button, column, container, image, row, Space};
 use iced::{Element, Length, Subscription, Task, Theme};
-use audio::{AudioController, AudioEngine};
-use core_engine::{LibraryDatabase, Track};
 use plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 #[cfg(target_os = "linux")]
 use plugins::MprisPlugin;
@@ -79,7 +79,7 @@ impl App {
 
         let db = tokio::runtime::Handle::current().block_on(async {
             LibraryDatabase::new(&db_path).await.unwrap_or_else(|e| {
-                error!("Failed to open disk database, falling back to in-memory: {e}" );
+                error!("Failed to open disk database, falling back to in-memory: {e}");
                 tokio::runtime::Handle::current()
                     .block_on(async { LibraryDatabase::in_memory().await })
                     .expect("In-memory database failed")
@@ -169,30 +169,29 @@ impl App {
             mpris_rx,
         };
 
-        let initial_task = Task::batch([
-            app.reload_tracks_task(),
-            {
-                let db = app.db.clone();
-                Task::perform(
-                    async move { db.get_albums().await.unwrap_or_default() },
-                    Message::AlbumsLoaded,
-                )
-            },
-            {
-                let db = app.db.clone();
-                Task::perform(
-                    async move { db.get_artists().await.unwrap_or_default() },
-                    Message::ArtistsLoaded,
-                )
-            },
-            {
-                let db = app.db.clone();
-                Task::perform(
-                    async move { db.get_library_folders().await.unwrap_or_default() },
-                    Message::LibraryFoldersLoaded,
-                )
-            },
-        ]);
+        let mut initial_tasks = vec![app.reload_tracks_task(), {
+            let db = app.db.clone();
+            Task::perform(
+                async move { db.get_library_folders().await.unwrap_or_default() },
+                Message::LibraryFoldersLoaded,
+            )
+        }];
+
+        if app.active_tab == ViewTab::Albums {
+            let db = app.db.clone();
+            initial_tasks.push(Task::perform(
+                async move { db.get_albums().await.unwrap_or_default() },
+                Message::AlbumsLoaded,
+            ));
+        } else if app.active_tab == ViewTab::Artists {
+            let db = app.db.clone();
+            initial_tasks.push(Task::perform(
+                async move { db.get_artists().await.unwrap_or_default() },
+                Message::ArtistsLoaded,
+            ));
+        }
+
+        let initial_task = Task::batch(initial_tasks);
 
         (app, initial_task)
     }
@@ -399,8 +398,7 @@ impl App {
 
             Message::SeekFinished => {
                 let seek_pos = self.player_bar.on_seek_finished();
-                self.audio_controller
-                    .seek(Duration::from_millis(seek_pos));
+                self.audio_controller.seek(Duration::from_millis(seek_pos));
                 self.position_ms = seek_pos;
                 self.plugin_manager.on_seeked(self.position_ms);
                 Task::none()
@@ -499,6 +497,7 @@ impl App {
                         Task::batch([save_task, load_task])
                     }
                     ViewTab::Artists => {
+                        self.albums.clear_covers();
                         if self.artists.is_empty() {
                             let db = self.db.clone();
                             let load_task = Task::perform(
@@ -510,7 +509,10 @@ impl App {
                             save_task
                         }
                     }
-                    _ => save_task,
+                    _ => {
+                        self.albums.clear_covers();
+                        save_task
+                    }
                 }
             }
 
@@ -521,25 +523,6 @@ impl App {
 
             Message::SortChanged(field) => {
                 self.library.toggle_sort(field);
-                self.reload_tracks_task()
-            }
-
-            Message::NextPage => {
-                if self.library.next_page() {
-                    return self.reload_tracks_task();
-                }
-                Task::none()
-            }
-
-            Message::PrevPage => {
-                if self.library.prev_page() {
-                    return self.reload_tracks_task();
-                }
-                Task::none()
-            }
-
-            Message::GoToPage(p) => {
-                self.library.go_to_page(p);
                 self.reload_tracks_task()
             }
 
@@ -689,7 +672,10 @@ impl App {
 
             Message::ReindexLibrary => {
                 self.is_scanning = true;
-                info!("Reindexing all library folders: {:?}", self.settings.library_folders);
+                info!(
+                    "Reindexing all library folders: {:?}",
+                    self.settings.library_folders
+                );
                 let db = self.db.clone();
                 let folders = self.settings.library_folders.clone();
                 Task::perform(
@@ -757,9 +743,10 @@ impl App {
             }
 
             Message::SelectAlbum(album_name) => {
+                self.albums.clear_covers();
                 self.active_tab = ViewTab::Tracks;
                 self.library.set_search_query(album_name);
-                self.reload_tracks_task()
+                Task::batch([self.reload_tracks_task(), self.save_config_task()])
             }
 
             Message::SelectArtist(artist_name) => {
@@ -927,18 +914,16 @@ impl App {
                 Task::none()
             }
 
-            Message::AlbumCoversLoaded(loaded) => {
-                self.albums.insert_covers(loaded);
-                Task::none()
-            }
-
             Message::AlbumCoverChunkLoaded(chunk_results, remaining) => {
                 self.albums.insert_covers(chunk_results);
-
-                if !remaining.is_empty() {
-                    self.load_cover_chunk_task(remaining)
-                } else {
+                let remaining: Vec<_> = remaining
+                    .into_iter()
+                    .filter(|(k, _)| self.albums.is_in_flight(k))
+                    .collect();
+                if remaining.is_empty() {
                     Task::none()
+                } else {
+                    self.load_cover_chunk_task(remaining)
                 }
             }
 
@@ -1009,13 +994,14 @@ impl App {
                 tokio::task::spawn_blocking(move || {
                     let mut results = Vec::with_capacity(chunk.len());
                     for (key, path) in chunk {
-                        if let Some(bytes) = core_engine::get_or_create_thumbnail(
+                        let bytes = core_engine::get_or_create_thumbnail(
                             &path,
                             core_engine::THUMB_DIM_DEFAULT,
-                        ) {
-                            results.push((key, bytes));
-                        }
+                        )
+                        .unwrap_or_default();
+                        results.push((key, bytes));
                     }
+
                     (results, remaining)
                 })
                 .await
@@ -1025,13 +1011,14 @@ impl App {
         )
     }
 
-    fn load_visible_album_covers_task(&self) -> Task<Message> {
+    fn load_visible_album_covers_task(&mut self) -> Task<Message> {
         let to_load = self.albums.get_missing_covers_to_load();
         if to_load.is_empty() {
-            Task::none()
-        } else {
-            self.load_cover_chunk_task(to_load)
+            return Task::none();
         }
+        self.albums
+            .mark_loading(to_load.iter().map(|(k, _)| k.clone()));
+        self.load_cover_chunk_task(to_load)
     }
 
     fn reload_tracks_task(&self) -> Task<Message> {
@@ -1061,7 +1048,7 @@ impl App {
         )
     }
 
-    fn reload_after_scan_task(&self) -> Task<Message> {
+    fn reload_after_scan_task(&mut self) -> Task<Message> {
         let db = self.db.clone();
         let page_size = self.library.page_size;
         let query = if self.library.search_query.trim().is_empty() {
@@ -1072,36 +1059,42 @@ impl App {
         let sort_field = self.library.sort_field;
         let sort_dir = self.library.sort_dir;
 
-        Task::batch([
-            Task::perform(
-                async move {
-                    let total = db
-                        .get_total_track_count(query.as_deref())
-                        .await
-                        .unwrap_or(0);
-                    let tracks = db
-                        .get_tracks_window(0, page_size, query.as_deref(), sort_field, sort_dir)
-                        .await
-                        .unwrap_or_default();
-                    (tracks, total)
-                },
-                |(tracks, total)| Message::TracksLoaded(tracks, total),
-            ),
-            {
-                let db = self.db.clone();
-                Task::perform(
-                    async move { db.get_albums().await.unwrap_or_default() },
-                    Message::AlbumsLoaded,
-                )
+        let mut tasks = vec![Task::perform(
+            async move {
+                let total = db
+                    .get_total_track_count(query.as_deref())
+                    .await
+                    .unwrap_or(0);
+                let tracks = db
+                    .get_tracks_window(0, page_size, query.as_deref(), sort_field, sort_dir)
+                    .await
+                    .unwrap_or_default();
+                (tracks, total)
             },
-            {
-                let db = self.db.clone();
-                Task::perform(
-                    async move { db.get_artists().await.unwrap_or_default() },
-                    Message::ArtistsLoaded,
-                )
-            },
-        ])
+            |(tracks, total)| Message::TracksLoaded(tracks, total),
+        )];
+
+        if self.active_tab == ViewTab::Albums {
+            let db = self.db.clone();
+            tasks.push(Task::perform(
+                async move { db.get_albums().await.unwrap_or_default() },
+                Message::AlbumsLoaded,
+            ));
+        } else {
+            self.albums.clear();
+        }
+
+        if self.active_tab == ViewTab::Artists {
+            let db = self.db.clone();
+            tasks.push(Task::perform(
+                async move { db.get_artists().await.unwrap_or_default() },
+                Message::ArtistsLoaded,
+            ));
+        } else {
+            self.artists.clear();
+        }
+
+        Task::batch(tasks)
     }
 
     fn load_more_tracks_task(&self) -> Task<Message> {
@@ -1175,11 +1168,9 @@ impl App {
         .height(33);
 
         let main_view: Element<'_, Message> = match self.active_tab {
-            ViewTab::Tracks => self.library.view(
-                theme_cfg,
-                self.current_track_id,
-                self.is_playing,
-            ),
+            ViewTab::Tracks => self
+                .library
+                .view(theme_cfg, self.current_track_id, self.is_playing),
             ViewTab::Albums => self.albums.view(theme_cfg),
             ViewTab::Artists => self.artists.view(theme_cfg),
             ViewTab::Lyrics => {

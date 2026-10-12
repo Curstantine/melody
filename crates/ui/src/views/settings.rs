@@ -826,7 +826,7 @@ impl SettingsView {
                             .size(13)
                             .color(theme_cfg.text_color()),
                         text(theme_cfg, format!(
-                            "Deletes all {} cached thumbnail images ({}) from disk and clears GPU memory. Thumbnails will regenerate when viewed.",
+                            "Deletes all {} cached thumbnail images ({}) from disk and evicts active decoded cover textures from memory. Thumbnails will regenerate when viewed.",
                             ctx.cache_file_count,
                             format_file_size(ctx.cache_size_bytes),
                         ))

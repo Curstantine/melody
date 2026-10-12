@@ -1,14 +1,12 @@
+use core_engine::{SortDirection, SortField, Track};
 use iced::border::Radius;
 use iced::widget::{button, column, container, mouse_area, row, scrollable, text_input, Space};
 use iced::{Alignment, Border, Element, Length};
-use core_engine::{SortDirection, SortField, Track};
 
 use crate::components::{self, text};
 use crate::icons;
 use crate::message::{Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
-
-
 
 /// Self-contained state and view component for the music tracks library screen.
 pub struct LibraryView {
@@ -73,29 +71,6 @@ impl LibraryView {
             self.sort_dir = SortDirection::Ascending;
         }
         self.page = 0;
-    }
-
-    pub fn next_page(&mut self) -> bool {
-        let max_pages = (self.total_tracks + self.page_size - 1) / self.page_size;
-        if self.page + 1 < max_pages {
-            self.page += 1;
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn prev_page(&mut self) -> bool {
-        if self.page > 0 {
-            self.page -= 1;
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn go_to_page(&mut self, p: usize) {
-        self.page = p;
     }
 
     pub fn set_page_size(&mut self, size: usize) {
@@ -444,7 +419,9 @@ impl LibraryView {
                         .center_x(160)
                         .center_y(110)
                         .style(move |_theme| container::Style {
-                            background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+                            background: Some(iced::Background::Color(
+                                theme_cfg.surface_hover_color(),
+                            )),
                             border: Border {
                                 radius: Radius {
                                     top_left: 6.0,
@@ -553,4 +530,3 @@ impl LibraryView {
             .into()
     }
 }
-

@@ -81,9 +81,6 @@ pub enum Message {
     SortChanged(SortField),
     LibraryScrolled(iced::widget::scrollable::Viewport),
     MoreTracksLoaded(Vec<Track>),
-    NextPage,
-    PrevPage,
-    GoToPage(usize),
     SetPageSize(usize),
 
     // Scanning & File Picking
@@ -98,7 +95,6 @@ pub enum Message {
     ArtistSortChanged(ArtistSortField),
     AlbumsScrolled(iced::widget::scrollable::Viewport),
     ArtistsScrolled(iced::widget::scrollable::Viewport),
-    AlbumCoversLoaded(Vec<(String, Vec<u8>)>),
     AlbumCoverChunkLoaded(Vec<(String, Vec<u8>)>, Vec<(String, PathBuf)>),
 
     // Themes & Settings
@@ -121,10 +117,7 @@ pub enum Message {
     ToggleSubmitNowPlaying(bool),
     SetScrobblePercent(u32),
     TestScrobble(plugins::scrobbler::ScrobbleService),
-    ScrobbleTestFinished(
-        plugins::scrobbler::ScrobbleService,
-        Result<String, String>,
-    ),
+    ScrobbleTestFinished(plugins::scrobbler::ScrobbleService, Result<String, String>),
 
     // Library Maintenance
     AddLibraryFolderClicked,

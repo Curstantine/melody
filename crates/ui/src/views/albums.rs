@@ -1,28 +1,39 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
+use core_engine::{format_duration, AlbumSummary, SortDirection};
 use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, scrollable, Space};
 use iced::{Alignment, Element, Length, Padding};
-use core_engine::{format_duration, AlbumSummary, SortDirection};
 
 use crate::components::{self, text};
 use crate::icons;
 use crate::message::{AlbumSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
-
-
 pub const DEFAULT_CATALOG_CHUNK_SIZE: usize = 60;
+/// Minimum number of decoded album cover textures retained in RAM/VRAM.
+/// The effective cap is `max(MAX_ALBUM_COVERS, visible_count)` so that covers
+/// currently on screen are never evicted (which would cause reload thrashing).
+pub const MAX_ALBUM_COVERS: usize = 120;
+
+/// Cache key used for album covers.
+fn cover_key(album: &AlbumSummary) -> String {
+    format!("{}:{}", album.artist, album.album)
+}
 
 /// Self-contained state and view component for the Albums catalog screen.
 pub struct AlbumsView {
     pub view_mode: ViewMode,
     pub albums: Vec<AlbumSummary>,
     pub album_covers: HashMap<String, image::Handle>,
+    /// Recency order of cached covers: front = least recently used, back = most recently used.
+    pub cover_order: Vec<String>,
     pub sort_field: AlbumSortField,
     pub sort_dir: SortDirection,
     pub visible_count: usize,
+    pub in_flight: HashSet<String>,
+    pub failed: HashSet<String>,
 }
 
 impl AlbumsView {
@@ -31,9 +42,12 @@ impl AlbumsView {
             view_mode,
             albums: Vec::new(),
             album_covers: HashMap::new(),
+            cover_order: Vec::new(),
             sort_field,
             sort_dir: SortDirection::Ascending,
             visible_count: DEFAULT_CATALOG_CHUNK_SIZE,
+            in_flight: HashSet::new(),
+            failed: HashSet::new(),
         }
     }
 
@@ -77,6 +91,7 @@ impl AlbumsView {
     pub fn set_albums(&mut self, mut albums: Vec<AlbumSummary>) {
         Self::sort_albums(&mut albums, self.sort_field, self.sort_dir);
         self.albums = albums;
+        self.failed.clear();
         self.visible_count = DEFAULT_CATALOG_CHUNK_SIZE;
     }
 
@@ -112,37 +127,96 @@ impl AlbumsView {
     }
 
     pub fn get_missing_covers_to_load(&self) -> Vec<(String, PathBuf)> {
-        let visible_slice = self.visible_albums();
-        visible_slice
+        self.visible_albums()
             .iter()
             .filter_map(|alb| {
-                let key = format!("{}:{}", alb.artist, alb.album);
-                if self.album_covers.contains_key(&key) {
-                    None
-                } else {
-                    alb.cover_track_path
-                        .as_ref()
-                        .map(|p| (key, PathBuf::from(p)))
+                let key = cover_key(alb);
+                if self.album_covers.contains_key(&key)
+                    || self.in_flight.contains(&key)
+                    || self.failed.contains(&key)
+                {
+                    return None;
                 }
+                alb.cover_track_path
+                    .as_ref()
+                    .map(|p| (key, PathBuf::from(p)))
             })
             .collect()
     }
 
+    pub fn mark_loading(&mut self, keys: impl IntoIterator<Item = String>) {
+        self.in_flight.extend(keys);
+    }
+
+    pub fn is_in_flight(&self, key: &str) -> bool {
+        self.in_flight.contains(key)
+    }
+
+    /// Marks every currently visible, cached cover as most recently used.
+    ///
+    /// Rendering only has `&self`, so recency can't be bumped during `view`.
+    /// Call this whenever the visible set changes (e.g. scroll, sort change, view-mode change).
+    pub fn touch_visible(&mut self) {
+        let visible: Vec<String> = self
+            .visible_albums()
+            .iter()
+            .map(cover_key)
+            .filter(|k| self.album_covers.contains_key(k))
+            .collect();
+
+        if visible.is_empty() {
+            return;
+        }
+
+        let visible_set: HashSet<&str> = visible.iter().map(String::as_str).collect();
+        self.cover_order
+            .retain(|k| !visible_set.contains(k.as_str()));
+
+        self.cover_order.extend(visible);
+    }
+
     pub fn insert_covers(&mut self, loaded: Vec<(String, Vec<u8>)>) {
         for (key, bytes) in loaded {
+            if !self.in_flight.remove(&key) {
+                continue;
+            }
+
+            if bytes.is_empty() {
+                self.failed.insert(key);
+                continue;
+            }
+
             let handle = image::Handle::from_bytes(bytes);
+            if let Some(pos) = self.cover_order.iter().position(|k| k == &key) {
+                self.cover_order.remove(pos);
+            }
+
+            self.cover_order.push(key.clone());
             self.album_covers.insert(key, handle);
+        }
+
+        self.touch_visible();
+
+        let cap = MAX_ALBUM_COVERS.max(self.visible_count);
+        if self.cover_order.len() > cap {
+            let excess = self.cover_order.len() - cap;
+            for key in self.cover_order.drain(0..excess) {
+                self.album_covers.remove(&key);
+            }
         }
     }
 
     pub fn clear(&mut self) {
         self.albums.clear();
-        self.album_covers.clear();
-        self.visible_count = DEFAULT_CATALOG_CHUNK_SIZE;
+        self.failed.clear();
+        self.clear_covers();
     }
 
     pub fn clear_covers(&mut self) {
         self.album_covers.clear();
+        self.cover_order.clear();
+        self.in_flight.clear();
+        self.visible_count = DEFAULT_CATALOG_CHUNK_SIZE;
     }
 
     pub fn set_view_mode(&mut self, mode: ViewMode) {
@@ -203,7 +277,7 @@ impl AlbumsView {
                 let mut tiles = row![].spacing(14);
 
                 for album in albums {
-                    let key = format!("{}:{}", album.artist, album.album);
+                    let key = cover_key(album);
                     let cover_art = components::cover_art(
                         theme_cfg,
                         self.album_covers.get(&key),
@@ -222,9 +296,9 @@ impl AlbumsView {
                                 .color(theme_cfg.text_color()),
                             row![
                                 text(theme_cfg, &album.artist)
-                                .size(11)
-                                .color(theme_cfg.text_muted_color())
-                                .width(Length::Fill),
+                                    .size(11)
+                                    .color(theme_cfg.text_muted_color())
+                                    .width(Length::Fill),
                                 text(theme_cfg, year_str)
                                     .size(11)
                                     .color(theme_cfg.text_muted_color()),
@@ -273,7 +347,7 @@ impl AlbumsView {
                 let mut album_list = column![].spacing(4);
 
                 for album in albums {
-                    let key = format!("{}:{}", album.artist, album.album);
+                    let key = cover_key(album);
                     let disc_thumbnail = components::cover_art(
                         theme_cfg,
                         self.album_covers.get(&key),
@@ -313,10 +387,11 @@ impl AlbumsView {
                     .align_x(Alignment::End)
                     .width(100);
 
-                    let album_row = row![disc_thumbnail, Space::with_width(12), title_block, details,]
-                        .spacing(4)
-                        .align_y(Alignment::Center)
-                        .padding([0, 8]);
+                    let album_row =
+                        row![disc_thumbnail, Space::with_width(12), title_block, details,]
+                            .spacing(4)
+                            .align_y(Alignment::Center)
+                            .padding([0, 8]);
 
                     let row_btn = button(album_row)
                         .style(styles::tile(theme_cfg))
@@ -347,4 +422,3 @@ impl AlbumsView {
             .into()
     }
 }
-
