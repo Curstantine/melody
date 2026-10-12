@@ -226,7 +226,8 @@ impl AudioConverter {
                     let mut dst_frame = vec![0.0f32; self.dst_channels];
                     for f in 0..out_frames {
                         let mut src_frame = vec![0.0f32; self.src_channels];
-                        for (c, sample) in src_frame.iter_mut().enumerate().take(self.src_channels) {
+                        for (c, sample) in src_frame.iter_mut().enumerate().take(self.src_channels)
+                        {
                             *sample = self.output_planes[c][f];
                         }
                         downmix_frame(&src_frame, &mut dst_frame);

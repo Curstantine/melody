@@ -172,10 +172,9 @@ pub fn clear_thumbnail_cache() -> std::io::Result<usize> {
     if dir.is_dir() {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
-            if entry.file_type()?.is_file()
-                && fs::remove_file(entry.path()).is_ok() {
-                    removed += 1;
-                }
+            if entry.file_type()?.is_file() && fs::remove_file(entry.path()).is_ok() {
+                removed += 1;
+            }
         }
     }
 
