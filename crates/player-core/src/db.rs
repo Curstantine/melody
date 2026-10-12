@@ -2,7 +2,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use libsql::{params, Connection, Database};
+use turso::{params, Connection, Database, Error as TursoError, Row};
 use thiserror::Error;
 use tracing::{info, warn};
 use walkdir::WalkDir;
@@ -14,8 +14,8 @@ use crate::model::{
 
 #[derive(Error, Debug)]
 pub enum DbError {
-    #[error("libSQL error: {0}")]
-    LibSql(#[from] libsql::Error),
+    #[error("Turso error: {0}")]
+    Turso(#[from] TursoError),
     #[error("Lock error: {0}")]
     Lock(String),
 }
@@ -36,7 +36,8 @@ pub struct ScanSummary {
 
 impl LibraryDatabase {
     pub async fn new<P: AsRef<Path>>(db_path: P) -> Result<Self, DbError> {
-        let db = libsql::Builder::new_local(db_path.as_ref()).build().await?;
+        let path_str = db_path.as_ref().to_string_lossy();
+        let db = turso::Builder::new_local(&path_str).build().await?;
         let conn = db.connect()?;
         let library_db = Self {
             _db: Arc::new(db),
@@ -47,7 +48,7 @@ impl LibraryDatabase {
     }
 
     pub async fn in_memory() -> Result<Self, DbError> {
-        let db = libsql::Builder::new_local(":memory:").build().await?;
+        let db = turso::Builder::new_local(":memory:").build().await?;
         let conn = db.connect()?;
         let library_db = Self {
             _db: Arc::new(db),
@@ -217,7 +218,7 @@ impl LibraryDatabase {
             return Ok(0);
         }
 
-        let tx = self.conn.transaction().await?;
+        let tx = self.conn.unchecked_transaction().await?;
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
@@ -669,7 +670,7 @@ impl LibraryDatabase {
     }
 }
 
-fn map_track_row(row: &libsql::Row) -> Result<Track, DbError> {
+fn map_track_row(row: &Row) -> Result<Track, DbError> {
     Ok(Track {
         id: row.get(0)?,
         file_path: row.get(1)?,

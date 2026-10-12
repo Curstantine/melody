@@ -14,7 +14,7 @@ tracing = "0.1"
 walkdir = "2.5"
 image = { version = "0.24", default-features = false, features = ["jpeg", "png"] }
 directories = "5.0"
-libsql = { version = "0.10.0-pre.4", default-features = false, features = ["core"] }
+turso = "0.8.3-pre.1"
 
 [dev-dependencies]
 tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread"] }

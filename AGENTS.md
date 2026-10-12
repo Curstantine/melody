@@ -13,7 +13,7 @@ Welcome to **Vibecore**. This guide is written for autonomous coding agents and 
 - **Low Memory Footprint**: Idles around ~30–50 MB RAM, even with 100,000+ tracks indexed (similar to classic MusicBee / foobar2000).
 - **Lock-Free Audio Pipeline**: Audio decoding and output run on a dedicated worker thread, completely decoupled from the UI thread. The audio thread never blocks, allocates in realtime callbacks, or waits on UI locks.
 - **Pure Rust GUI Runtime**: Uses [`iced`](https://github.com/iced-rs/iced) (v0.13) following The Elm Architecture (Model-View-Update). Zero C-bindings for UI rendering.
-- **Embedded Storage**: Turso local SQLite engine via [`libsql`](https://github.com/tursodatabase/libsql) in WAL mode, utilizing windowed queries (`LIMIT ? OFFSET ?`) with async Iced tasks for viewport virtualization.
+- **Embedded Storage**: Turso local SQLite engine via [`turso`](https://github.com/tursodatabase/turso) in WAL mode, utilizing windowed queries (`LIMIT ? OFFSET ?`) with async Iced tasks for viewport virtualization.
 - **On-Disk Thumbnail Caching**: Album artwork is extracted, resized, and cached to disk as compact JPEG textures, preventing memory bloat and stutter during catalog scrolling.
 - **System Font Integration & Fallbacks**: Discovers system fonts via memory-mapped `fontdb` with font selection persisted in user configuration.
 - **Reliable Vector UI Icons**: Pure SVG icons with runtime palette coloring—no Unicode emojis or font-dependent glyphs.
@@ -28,7 +28,7 @@ vibecore/
 ├── flake.nix
 ├── themes/                      # Runtime data-driven TOML theme definitions
 └── crates/
-    ├── player-core/             # Centralized paths, Turso/libSQL database, FFmpeg metadata extraction, thumbnail caching
+    ├── player-core/             # Centralized paths, Turso database, FFmpeg metadata extraction, thumbnail caching
     ├── player-audio/            # Dedicated audio worker thread, CPAL playback, FFmpeg decoder & resampler, lock-free ring buffer
     ├── player-plugins/          # Extensibility framework, host contracts, lyrics, discord presence hooks
     └── player-ui/               # Iced GUI entry point, Elm state machine, views, persistent config, theming
@@ -38,7 +38,7 @@ vibecore/
 
 | Crate | Path | Responsibilities | Key Dependencies |
 | :--- | :--- | :--- | :--- |
-| **`player-core`** | [`crates/player-core`](file:///home/curstantine/Code/Experimental/vibecore/crates/player-core/src/lib.rs) | Centralized storage paths, async Turso local database schema & queries, viewport windowing, FFmpeg metadata parsing, cover art extraction & disk thumbnail caching. | `libsql`, `ffmpeg-next`, `image`, `directories`, `serde`, `thiserror`, `walkdir` |
+| **`player-core`** | [`crates/player-core`](file:///home/curstantine/Code/Experimental/vibecore/crates/player-core/src/lib.rs) | Centralized storage paths, async Turso local database schema & queries, viewport windowing, FFmpeg metadata parsing, cover art extraction & disk thumbnail caching. | `turso`, `ffmpeg-next`, `image`, `directories`, `serde`, `thiserror`, `walkdir` |
 | **`player-audio`** | [`crates/player-audio`](file:///home/curstantine/Code/Experimental/vibecore/crates/player-audio/src/lib.rs) | Lock-free audio worker thread, CPAL output stream, SPSC ring buffer, FFmpeg packet demuxing/decoding/resampling, atomic status reporting. | `cpal`, `ffmpeg-next`, `ringbuf`, `crossbeam-channel`, `thiserror` |
 | **`player-plugins`** | [`crates/player-plugins`](file:///home/curstantine/Code/Experimental/vibecore/crates/player-plugins/src/lib.rs) | Plugin contracts, event dispatch (`on_track_change`, `on_playback_end`), lyrics fetcher, RPC stubs. | `serde`, `serde_json`, `tracing` |
 | **`player-ui`** | [`crates/player-ui`](file:///home/curstantine/Code/Experimental/vibecore/crates/player-ui/src/main.rs) | Application state, Model-View-Update cycle, system font picker, SVG icons, runtime theme manager, views, and persistent configuration. | `iced`, `rfd`, `directories`, `toml`, `player-core`, `player-audio`, `player-plugins` |
