@@ -100,6 +100,9 @@ fn test_albums_view_component_state() {
 
     albums_view.toggle_sort(AlbumSortField::Title);
     albums_view.set_view_mode(ViewMode::List);
+    assert_eq!(albums_view.tile_width, 140);
+    albums_view.set_tile_width(220);
+    assert_eq!(albums_view.tile_width, 220);
 
     // Verify bounded LRU cover insertion and eviction
     let dummy_bytes = vec![0u8; 10];
@@ -141,6 +144,9 @@ fn test_artists_view_component_state() {
     let mut artists_view = artists::ArtistsView::new(ViewMode::List, ArtistSortField::Artist);
     assert!(artists_view.is_empty());
     assert_eq!(artists_view.len(), 0);
+    assert_eq!(artists_view.tile_width, 140);
+    artists_view.set_tile_width(200);
+    assert_eq!(artists_view.tile_width, 200);
 
     let artists_list: Vec<ArtistSummary> = (0..30)
         .map(|i| ArtistSummary {

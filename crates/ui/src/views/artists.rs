@@ -9,10 +9,13 @@ use crate::message::{ArtistSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
 pub const DEFAULT_CATALOG_CHUNK_SIZE: usize = 60;
+#[allow(dead_code)]
+pub const DEFAULT_ARTIST_TILE_WIDTH: u32 = 140;
 
 /// Self-contained state and view component for the Artists catalog screen.
 pub struct ArtistsView {
     pub view_mode: ViewMode,
+    pub tile_width: u32,
     pub artists: Vec<ArtistSummary>,
     pub sort_field: ArtistSortField,
     pub sort_dir: SortDirection,
@@ -20,14 +23,28 @@ pub struct ArtistsView {
 }
 
 impl ArtistsView {
+    #[allow(dead_code)]
     pub fn new(view_mode: ViewMode, sort_field: ArtistSortField) -> Self {
+        Self::with_tile_width(view_mode, sort_field, DEFAULT_ARTIST_TILE_WIDTH)
+    }
+
+    pub fn with_tile_width(
+        view_mode: ViewMode,
+        sort_field: ArtistSortField,
+        tile_width: u32,
+    ) -> Self {
         Self {
             view_mode,
+            tile_width,
             artists: Vec::new(),
             sort_field,
             sort_dir: SortDirection::Ascending,
             visible_count: DEFAULT_CATALOG_CHUNK_SIZE,
         }
+    }
+
+    pub fn set_tile_width(&mut self, width: u32) {
+        self.tile_width = width;
     }
 
     pub fn sort_artists(artists: &mut [ArtistSummary], field: ArtistSortField, dir: SortDirection) {
@@ -145,21 +162,24 @@ impl ArtistsView {
         let content_area: Element<'a, Message> = match self.view_mode {
             ViewMode::Tile => {
                 let mut tiles = row![].spacing(14);
+                let tile_w = self.tile_width as f32;
+                let avatar_size = (tile_w * 0.5).clamp(50.0, 100.0);
+                let icon_size = (avatar_size * 0.52).clamp(24.0, 52.0);
 
                 for artist in artists {
                     let avatar = container(icons::icon(
                         icons::USER_AVATAR_SVG,
-                        42.0,
+                        icon_size,
                         theme_cfg.primary_color(),
                     ))
-                    .width(80)
-                    .height(80)
-                    .center_x(80)
-                    .center_y(80)
+                    .width(avatar_size)
+                    .height(avatar_size)
+                    .center_x(avatar_size)
+                    .center_y(avatar_size)
                     .style(move |_theme| container::Style {
                         background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
                         border: Border {
-                            radius: Radius::from(40.0),
+                            radius: Radius::from(avatar_size / 2.0),
                             color: theme_cfg.border_color(),
                             width: 1.0,
                         },
@@ -187,7 +207,7 @@ impl ArtistsView {
                         .align_x(Alignment::Center)
                         .padding(12),
                     )
-                    .width(160)
+                    .width(tile_w)
                     .align_x(Alignment::Center)
                     .style(move |_theme| container::Style {
                         background: Some(iced::Background::Color(theme_cfg.surface_color())),

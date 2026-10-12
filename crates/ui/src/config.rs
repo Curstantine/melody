@@ -6,6 +6,10 @@ use tracing::{error, info};
 use crate::message::{AlbumSortField, ArtistSortField, SettingsTab, ViewMode, ViewTab};
 
 pub const DEFAULT_PAGE_SIZE: usize = 50;
+pub const DEFAULT_TILE_WIDTH: u32 = 140;
+pub const DEFAULT_ALBUM_TILE_WIDTH: u32 = 140;
+pub const DEFAULT_ARTIST_TILE_WIDTH: u32 = 140;
+pub const DEFAULT_NOW_PLAYING_COVER_SIZE: u32 = 260;
 
 pub fn default_tab_order() -> Vec<ViewTab> {
     vec![
@@ -54,6 +58,14 @@ pub struct AppConfig {
     pub artists_view_mode: ViewMode,
     #[serde(default = "default_page_size")]
     pub page_size: usize,
+    #[serde(default = "default_tile_width")]
+    pub tile_width: u32,
+    #[serde(default = "default_album_tile_width")]
+    pub album_tile_width: u32,
+    #[serde(default = "default_artist_tile_width")]
+    pub artist_tile_width: u32,
+    #[serde(default = "default_now_playing_cover_size")]
+    pub now_playing_cover_size: u32,
     #[serde(default)]
     pub album_sort_field: AlbumSortField,
     #[serde(default)]
@@ -161,6 +173,22 @@ fn default_page_size() -> usize {
     DEFAULT_PAGE_SIZE
 }
 
+fn default_tile_width() -> u32 {
+    DEFAULT_TILE_WIDTH
+}
+
+fn default_album_tile_width() -> u32 {
+    DEFAULT_ALBUM_TILE_WIDTH
+}
+
+fn default_artist_tile_width() -> u32 {
+    DEFAULT_ARTIST_TILE_WIDTH
+}
+
+fn default_now_playing_cover_size() -> u32 {
+    DEFAULT_NOW_PLAYING_COVER_SIZE
+}
+
 fn default_volume() -> f32 {
     1.0
 }
@@ -177,6 +205,10 @@ impl Default for AppConfig {
             albums_view_mode: ViewMode::Tile,
             artists_view_mode: ViewMode::Tile,
             page_size: default_page_size(),
+            tile_width: default_tile_width(),
+            album_tile_width: default_album_tile_width(),
+            artist_tile_width: default_artist_tile_width(),
+            now_playing_cover_size: default_now_playing_cover_size(),
             album_sort_field: AlbumSortField::Title,
             artist_sort_field: ArtistSortField::Artist,
             volume: default_volume(),

@@ -17,7 +17,10 @@ use theme::ThemeConfig;
 #[test]
 fn test_now_playing_empty_state_renders() {
     let theme_cfg = ThemeConfig::default();
-    let now_playing_view = now_playing::NowPlayingView::new();
+    let mut now_playing_view = now_playing::NowPlayingView::new();
+    assert_eq!(now_playing_view.cover_size, 260);
+    now_playing_view.set_cover_size(300);
+    assert_eq!(now_playing_view.cover_size, 300);
 
     let _element = now_playing_view.view(
         &theme_cfg, None, None, None, None, None, false, false, false, None,

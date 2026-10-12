@@ -174,6 +174,7 @@ impl PlayerBar {
         .on_press(Message::ToggleRepeat);
 
         let vol_slider = slider(0.0..=1.0, volume, Message::VolumeChanged)
+            .on_release(Message::SaveConfig)
             .style(styles::volume_slider_style(theme_cfg))
             .width(90);
 

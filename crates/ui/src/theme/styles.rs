@@ -528,6 +528,38 @@ pub fn volume_slider_style(
     }
 }
 
+pub fn settings_slider_style(
+    cfg: &ThemeConfig,
+) -> impl Fn(&Theme, slider::Status) -> slider::Style + '_ {
+    move |_theme, status| {
+        let handle_radius = match status {
+            slider::Status::Hovered | slider::Status::Dragged => 6.0,
+            _ => 5.0,
+        };
+        slider::Style {
+            rail: slider::Rail {
+                backgrounds: (
+                    Background::Color(cfg.primary_color()),
+                    Background::Color(cfg.surface_hover_color()),
+                ),
+                width: 4.0,
+                border: Border {
+                    radius: Radius::from(2.0),
+                    ..Border::default()
+                },
+            },
+            handle: slider::Handle {
+                shape: slider::HandleShape::Circle {
+                    radius: handle_radius,
+                },
+                background: Background::Color(cfg.primary_color()),
+                border_width: 1.0,
+                border_color: cfg.border_color(),
+            },
+        }
+    }
+}
+
 fn blend_color(c1: Color, c2: Color, factor: f32) -> Color {
     let factor = factor.clamp(0.0, 1.0);
     Color {

@@ -17,7 +17,7 @@ use tracing::{error, info};
 use crate::components::{border_vert, text};
 use crate::config::{AppConfig, ScrobbleConfig};
 use crate::icons;
-use crate::message::{Message, ViewTab};
+use crate::message::{Message, ViewMode, ViewTab};
 use crate::theme::{styles, ThemeManager};
 use crate::views::{
     self, AlbumsView, ArtistsView, LibraryView, NowPlayingView, PlayerBar, SettingsView, StatusBar,
@@ -70,6 +70,8 @@ pub struct App {
     listenbrainz_plugin: Arc<ListenBrainzPlugin>,
     lastfm_plugin: Arc<LastFmPlugin>,
     scrobble_config: ScrobbleConfig,
+
+    config_save_seq: u64,
 
     mpris_rx: Option<Receiver<PlayerAction>>,
 }
@@ -125,10 +127,18 @@ impl App {
         let available_fonts = crate::font::list_font_families();
         let config_path = AppConfig::config_path();
 
-        let library = LibraryView::new(config.library_view_mode, config.page_size);
-        let albums = AlbumsView::new(config.albums_view_mode, config.album_sort_field);
-        let artists = ArtistsView::new(config.artists_view_mode, config.artist_sort_field);
-        let now_playing = NowPlayingView::new();
+        let library = LibraryView::new(config.page_size);
+        let albums = AlbumsView::with_tile_width(
+            config.albums_view_mode,
+            config.album_sort_field,
+            config.album_tile_width,
+        );
+        let artists = ArtistsView::with_tile_width(
+            config.artists_view_mode,
+            config.artist_sort_field,
+            config.artist_tile_width,
+        );
+        let now_playing = NowPlayingView::with_cover_size(config.now_playing_cover_size);
         let settings = SettingsView::new(config.settings_tab, available_fonts);
         let player_bar = PlayerBar::new();
 
@@ -173,6 +183,7 @@ impl App {
             listenbrainz_plugin,
             lastfm_plugin,
             scrobble_config: config.scrobble,
+            config_save_seq: 0,
 
             mpris_rx,
         };
@@ -422,7 +433,7 @@ impl App {
                 self.volume = vol;
                 self.audio_controller.set_volume(vol);
                 self.plugin_manager.on_volume_change(vol);
-                self.save_config_task()
+                self.save_config_debounced()
             }
 
             Message::MprisAction(action) => match action {
@@ -613,11 +624,6 @@ impl App {
                 Task::batch([self.save_config_task(), self.reload_tracks_task()])
             }
 
-            Message::SetLibraryViewMode(mode) => {
-                self.library.set_view_mode(mode);
-                self.save_config_task()
-            }
-
             Message::SetAlbumsViewMode(mode) => {
                 self.albums.set_view_mode(mode);
                 self.save_config_task()
@@ -626,6 +632,27 @@ impl App {
             Message::SetArtistsViewMode(mode) => {
                 self.artists.set_view_mode(mode);
                 self.save_config_task()
+            }
+
+            Message::SetTileWidth(width) => {
+                self.albums.set_tile_width(width);
+                self.artists.set_tile_width(width);
+                self.save_config_debounced()
+            }
+
+            Message::SetAlbumTileWidth(width) => {
+                self.albums.set_tile_width(width);
+                self.save_config_debounced()
+            }
+
+            Message::SetArtistTileWidth(width) => {
+                self.artists.set_tile_width(width);
+                self.save_config_debounced()
+            }
+
+            Message::SetNowPlayingCoverSize(size) => {
+                self.now_playing.set_cover_size(size);
+                self.save_config_debounced()
             }
 
             Message::TrackClicked(id) => {
@@ -1009,6 +1036,19 @@ impl App {
                 Task::none()
             }
 
+            Message::SaveConfig => {
+                self.config_save_seq = self.config_save_seq.wrapping_add(1);
+                self.save_config_task()
+            }
+
+            Message::DebouncedConfigSave(seq) => {
+                if seq == self.config_save_seq {
+                    self.save_config_task()
+                } else {
+                    Task::none()
+                }
+            }
+
             Message::ConfigSaved => Task::none(),
         }
     }
@@ -1030,10 +1070,14 @@ impl App {
             settings_tab: self.settings.active_tab,
             theme_name: self.theme_manager.active_theme_name.clone(),
             primary_font: self.theme_manager.current_config.font_family.clone(),
-            library_view_mode: self.library.view_mode,
+            library_view_mode: ViewMode::List,
             albums_view_mode: self.albums.view_mode,
             artists_view_mode: self.artists.view_mode,
             page_size: self.library.page_size,
+            tile_width: self.albums.tile_width,
+            album_tile_width: self.albums.tile_width,
+            artist_tile_width: self.artists.tile_width,
+            now_playing_cover_size: self.now_playing.cover_size,
             album_sort_field: self.albums.sort_field,
             artist_sort_field: self.artists.sort_field,
             volume: self.volume,
@@ -1055,6 +1099,18 @@ impl App {
                 .ok();
             },
             |_| Message::ConfigSaved,
+        )
+    }
+
+    pub fn save_config_debounced(&mut self) -> Task<Message> {
+        self.config_save_seq = self.config_save_seq.wrapping_add(1);
+        let seq = self.config_save_seq;
+        Task::perform(
+            async move {
+                tokio::time::sleep(Duration::from_millis(400)).await;
+                seq
+            },
+            Message::DebouncedConfigSave,
         )
     }
 
@@ -1320,10 +1376,14 @@ impl App {
                         tab_order: &self.tab_order,
                         theme_names: self.theme_manager.theme_names(),
                         active_theme_name: &self.theme_manager.active_theme_name,
-                        library_view_mode: self.library.view_mode,
+                        library_view_mode: ViewMode::List,
                         albums_view_mode: self.albums.view_mode,
                         artists_view_mode: self.artists.view_mode,
                         page_size: self.library.page_size,
+                        tile_width: self.albums.tile_width,
+                        album_tile_width: self.albums.tile_width,
+                        artist_tile_width: self.artists.tile_width,
+                        now_playing_cover_size: self.now_playing.cover_size,
                         primary_font: self.theme_manager.current_config.font_family.as_deref(),
                         total_tracks: self.library.total_tracks,
                         total_albums: self.albums.len(),

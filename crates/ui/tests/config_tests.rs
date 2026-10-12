@@ -32,6 +32,10 @@ fn test_default_app_config() {
     assert_eq!(cfg.albums_view_mode, ViewMode::Tile);
     assert_eq!(cfg.artists_view_mode, ViewMode::Tile);
     assert_eq!(cfg.page_size, 50);
+    assert_eq!(cfg.tile_width, 140);
+    assert_eq!(cfg.album_tile_width, 140);
+    assert_eq!(cfg.artist_tile_width, 140);
+    assert_eq!(cfg.now_playing_cover_size, 260);
     assert_eq!(cfg.album_sort_field, AlbumSortField::Title);
     assert_eq!(cfg.artist_sort_field, ArtistSortField::Artist);
     assert_eq!(cfg.volume, 1.0);
@@ -59,6 +63,10 @@ fn test_config_toml_roundtrip() {
         albums_view_mode: ViewMode::List,
         artists_view_mode: ViewMode::List,
         page_size: 100,
+        tile_width: 190,
+        album_tile_width: 190,
+        artist_tile_width: 180,
+        now_playing_cover_size: 260,
         album_sort_field: AlbumSortField::Artist,
         artist_sort_field: ArtistSortField::TrackCount,
         volume: 0.65,

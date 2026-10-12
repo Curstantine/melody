@@ -8,15 +8,40 @@ use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
 
+#[allow(dead_code)]
+pub const DEFAULT_NOW_PLAYING_COVER_SIZE: u32 = 260;
+
 /// Self-contained state and view component for the Now Playing / Lyrics screen.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct NowPlayingView {
     pub current_lyrics: Option<String>,
+    pub cover_size: u32,
+}
+
+impl Default for NowPlayingView {
+    fn default() -> Self {
+        Self {
+            current_lyrics: None,
+            cover_size: DEFAULT_NOW_PLAYING_COVER_SIZE,
+        }
+    }
 }
 
 impl NowPlayingView {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_cover_size(cover_size: u32) -> Self {
+        Self {
+            current_lyrics: None,
+            cover_size,
+        }
+    }
+
+    pub fn set_cover_size(&mut self, size: u32) {
+        self.cover_size = size;
     }
 
     pub fn set_lyrics(&mut self, lyrics: Option<String>) {
@@ -43,13 +68,15 @@ impl NowPlayingView {
         let content: Element<'a, Message> = match current_track {
             Some(track) => {
                 // 1. Left side: Cover art & clean floating lyrics (no background box)
+                let cover_size = self.cover_size as f32;
+                let cover_icon_size = (cover_size * 0.36).clamp(48.0, 100.0);
                 let cover_art = components::cover_art(
                     theme_cfg,
                     current_cover,
-                    220.0,
+                    cover_size,
                     Radius::from(6.0),
                     icons::ALBUM_SVG,
-                    80.0,
+                    cover_icon_size,
                     theme_cfg.primary_color(),
                 );
 

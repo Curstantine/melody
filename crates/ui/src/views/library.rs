@@ -1,16 +1,14 @@
 use core_engine::{SortDirection, SortField, Track};
-use iced::border::Radius;
 use iced::widget::{button, column, container, mouse_area, row, scrollable, text_input, Space};
-use iced::{Alignment, Border, Element, Length};
+use iced::{Alignment, Element, Length};
 
 use crate::components::{self, text};
 use crate::icons;
-use crate::message::{Message, ViewMode};
+use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
 
 /// Self-contained state and view component for the music tracks library screen.
 pub struct LibraryView {
-    pub view_mode: ViewMode,
     pub visible_tracks: Vec<Track>,
     pub total_tracks: usize,
     pub page: usize,
@@ -24,9 +22,8 @@ pub struct LibraryView {
 }
 
 impl LibraryView {
-    pub fn new(view_mode: ViewMode, page_size: usize) -> Self {
+    pub fn new(page_size: usize) -> Self {
         Self {
-            view_mode,
             visible_tracks: Vec::new(),
             total_tracks: 0,
             page: 0,
@@ -74,10 +71,6 @@ impl LibraryView {
     pub fn set_page_size(&mut self, size: usize) {
         self.page_size = size;
         self.page = 0;
-    }
-
-    pub fn set_view_mode(&mut self, mode: ViewMode) {
-        self.view_mode = mode;
     }
 
     /// Handles a track click event. Returns `true` if it's a double-click (meaning playback should start).
@@ -191,8 +184,6 @@ impl LibraryView {
             .width(24)
             .center_x(24),
             search_input,
-            Space::with_width(12),
-            components::view_mode_toggle(theme_cfg, self.view_mode, Message::SetLibraryViewMode),
         ]
         .spacing(8)
         .align_y(Alignment::Center)
@@ -253,7 +244,7 @@ impl LibraryView {
             left: 0.0,
         });
 
-        // 3. Track Content (List vs Tile)
+        // 3. Track Content (List view)
         let content: Element<'a, Message> = if self.visible_tracks.is_empty() {
             components::empty_state(
                 theme_cfg,
@@ -261,217 +252,103 @@ impl LibraryView {
                 "Scan a folder in Preferences to index your music library",
             )
         } else {
-            match self.view_mode {
-                ViewMode::List => {
-                    let mut track_items = column![].spacing(2);
+            let mut track_items = column![].spacing(2);
 
-                    for (idx, track) in self.visible_tracks.iter().enumerate() {
-                        let is_active = current_track_id == Some(track.id);
-                        let is_selected = self.selected_track_id == Some(track.id);
-                        let display_index = (self.page * self.page_size) + idx + 1;
+            for (idx, track) in self.visible_tracks.iter().enumerate() {
+                let is_active = current_track_id == Some(track.id);
+                let is_selected = self.selected_track_id == Some(track.id);
+                let display_index = (self.page * self.page_size) + idx + 1;
 
-                        // Left-most action: # index, or playing speaker indicator if active
-                        let left_action: Element<'a, Message> = if is_active {
-                            button(
-                                container(icons::icon(
-                                    if is_playing {
-                                        icons::PAUSE_SVG
-                                    } else {
-                                        icons::PLAY_SVG
-                                    },
-                                    12.0,
-                                    theme_cfg.primary_color(),
-                                ))
-                                .width(36)
-                                .height(24)
-                                .center_x(36)
-                                .center_y(24),
-                            )
-                            .style(styles::icon_control_button(theme_cfg))
-                            .padding(0)
-                            .width(36)
-                            .height(24)
-                            .on_press(Message::TogglePlayPause)
-                            .into()
-                        } else {
-                            container(
-                                text(theme_cfg, format!("{}", display_index))
-                                    .size(12)
-                                    .color(theme_cfg.text_muted_color()),
-                            )
-                            .width(36)
-                            .height(24)
-                            .center_x(36)
-                            .center_y(24)
-                            .into()
-                        };
-
-                        let track_row = row![
-                            left_action,
-                            text(theme_cfg, &track.title)
-                                .size(13)
-                                .color(if is_active {
-                                    theme_cfg.primary_color()
-                                } else {
-                                    theme_cfg.text_color()
-                                })
-                                .width(Length::FillPortion(4)),
-                            text(theme_cfg, &track.artist)
-                                .size(12)
-                                .color(theme_cfg.text_muted_color())
-                                .width(Length::FillPortion(3)),
-                            text(theme_cfg, &track.album)
-                                .size(12)
-                                .color(theme_cfg.text_muted_color())
-                                .width(Length::FillPortion(3)),
-                            text(theme_cfg, track.formatted_duration())
-                                .size(12)
-                                .color(theme_cfg.text_muted_color())
-                                .width(80),
-                        ]
-                        .spacing(8)
-                        .align_y(Alignment::Center)
-                        .padding(iced::Padding {
-                            top: 2.0,
-                            right: 15.0,
-                            bottom: 2.0,
-                            left: 0.0,
-                        });
-
-                        let row_container = container(track_row)
-                            .style(styles::table_row_container(
-                                theme_cfg,
-                                is_active || is_selected,
-                            ))
-                            .width(Length::Fill);
-
-                        let interactive_row =
-                            mouse_area(row_container).on_press(Message::TrackClicked(track.id));
-
-                        track_items = track_items.push(interactive_row);
-                    }
-
-                    scrollable(track_items)
-                        .on_scroll(Message::LibraryScrolled)
-                        .height(Length::Fill)
-                        .width(Length::Fill)
-                        .style(styles::scrollable_style(theme_cfg))
-                        .into()
-                }
-                ViewMode::Tile => {
-                    let mut tiles_wrap = row![].spacing(12);
-
-                    for track in self.visible_tracks.iter() {
-                        let is_active = current_track_id == Some(track.id);
-                        let is_selected = self.selected_track_id == Some(track.id);
-
-                        let disc_box = container(if is_active {
-                            icons::icon(icons::SPEAKER_PLAYING_SVG, 32.0, theme_cfg.primary_color())
-                        } else {
-                            icons::icon(icons::DISC_SVG, 36.0, theme_cfg.text_muted_color())
-                        })
-                        .width(160)
-                        .height(110)
-                        .center_x(160)
-                        .center_y(110)
-                        .style(move |_theme| container::Style {
-                            background: Some(iced::Background::Color(
-                                theme_cfg.surface_hover_color(),
-                            )),
-                            border: Border {
-                                radius: Radius {
-                                    top_left: 6.0,
-                                    top_right: 6.0,
-                                    bottom_left: 0.0,
-                                    bottom_right: 0.0,
-                                },
-                                color: theme_cfg.border_color(),
-                                width: 1.0,
+                // Left-most action: # index, or playing speaker indicator if active
+                let left_action: Element<'a, Message> = if is_active {
+                    button(
+                        container(icons::icon(
+                            if is_playing {
+                                icons::PAUSE_SVG
+                            } else {
+                                icons::PLAY_SVG
                             },
-                            ..Default::default()
-                        });
-
-                        let info_box = container(
-                            column![
-                                text(theme_cfg, &track.title).size(13).color(if is_active {
-                                    theme_cfg.primary_color()
-                                } else {
-                                    theme_cfg.text_color()
-                                }),
-                                text(theme_cfg, &track.artist)
-                                    .size(11)
-                                    .color(theme_cfg.text_muted_color()),
-                                row![
-                                    text(theme_cfg, track.formatted_duration())
-                                        .size(10)
-                                        .color(theme_cfg.text_muted_color()),
-                                    Space::with_width(Length::Fill),
-                                    if is_active {
-                                        text(theme_cfg, "Playing")
-                                            .size(10)
-                                            .color(theme_cfg.primary_color())
-                                    } else {
-                                        text(theme_cfg, "")
-                                            .size(10)
-                                            .color(theme_cfg.text_muted_color())
-                                    },
-                                ]
-                                .align_y(Alignment::Center),
-                            ]
-                            .spacing(3)
-                            .padding(8),
-                        )
-                        .width(160);
-
-                        let card = container(column![disc_box, info_box])
-                            .style(move |_theme| container::Style {
-                                background: Some(iced::Background::Color(
-                                    if is_active || is_selected {
-                                        theme_cfg.surface_hover_color()
-                                    } else {
-                                        theme_cfg.surface_color()
-                                    },
-                                )),
-                                border: Border {
-                                    radius: Radius::from(6.0),
-                                    color: if is_active || is_selected {
-                                        theme_cfg.primary_color()
-                                    } else {
-                                        theme_cfg.border_color()
-                                    },
-                                    width: 1.0,
-                                },
-                                ..Default::default()
-                            })
-                            .width(160);
-
-                        let interactive_card =
-                            mouse_area(card).on_press(Message::TrackClicked(track.id));
-
-                        tiles_wrap = tiles_wrap.push(interactive_card);
-                    }
-
-                    scrollable(
-                        container(tiles_wrap.wrap())
-                            .padding([8, 4])
-                            .width(Length::Fill),
+                            12.0,
+                            theme_cfg.primary_color(),
+                        ))
+                        .width(36)
+                        .height(24)
+                        .center_x(36)
+                        .center_y(24),
                     )
-                    .on_scroll(Message::LibraryScrolled)
-                    .height(Length::Fill)
-                    .width(Length::Fill)
-                    .style(styles::scrollable_style(theme_cfg))
+                    .style(styles::icon_control_button(theme_cfg))
+                    .padding(0)
+                    .width(36)
+                    .height(24)
+                    .on_press(Message::TogglePlayPause)
                     .into()
-                }
+                } else {
+                    container(
+                        text(theme_cfg, format!("{}", display_index))
+                            .size(12)
+                            .color(theme_cfg.text_muted_color()),
+                    )
+                    .width(36)
+                    .height(24)
+                    .center_x(36)
+                    .center_y(24)
+                    .into()
+                };
+
+                let track_row = row![
+                    left_action,
+                    text(theme_cfg, &track.title)
+                        .size(13)
+                        .color(if is_active {
+                            theme_cfg.primary_color()
+                        } else {
+                            theme_cfg.text_color()
+                        })
+                        .width(Length::FillPortion(4)),
+                    text(theme_cfg, &track.artist)
+                        .size(12)
+                        .color(theme_cfg.text_muted_color())
+                        .width(Length::FillPortion(3)),
+                    text(theme_cfg, &track.album)
+                        .size(12)
+                        .color(theme_cfg.text_muted_color())
+                        .width(Length::FillPortion(3)),
+                    text(theme_cfg, track.formatted_duration())
+                        .size(12)
+                        .color(theme_cfg.text_muted_color())
+                        .width(80),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center)
+                .padding(iced::Padding {
+                    top: 2.0,
+                    right: 15.0,
+                    bottom: 2.0,
+                    left: 0.0,
+                });
+
+                let row_container = container(track_row)
+                    .style(styles::table_row_container(
+                        theme_cfg,
+                        is_active || is_selected,
+                    ))
+                    .width(Length::Fill);
+
+                let interactive_row =
+                    mouse_area(row_container).on_press(Message::TrackClicked(track.id));
+
+                track_items = track_items.push(interactive_row);
             }
+
+            scrollable(track_items)
+                .on_scroll(Message::LibraryScrolled)
+                .height(Length::Fill)
+                .width(Length::Fill)
+                .style(styles::scrollable_style(theme_cfg))
+                .into()
         };
 
-        let mut main_col = column![toolbar];
-        if self.view_mode == ViewMode::List {
-            main_col = main_col.push(table_header);
-        }
-        main_col = main_col.push(content);
-
-        main_col
+        column![toolbar, table_header, content]
             .spacing(4)
             .padding(iced::Padding {
                 top: 8.0,

@@ -101,9 +101,12 @@ pub enum Message {
     TabHovered(Option<ViewTab>),
     MoveTab(ViewTab, bool),
     ResetTabOrder,
-    SetLibraryViewMode(ViewMode),
     SetAlbumsViewMode(ViewMode),
     SetArtistsViewMode(ViewMode),
+    SetTileWidth(u32),
+    SetAlbumTileWidth(u32),
+    SetArtistTileWidth(u32),
+    SetNowPlayingCoverSize(u32),
 
     // Track interactions
     TrackClicked(i64),
@@ -135,6 +138,8 @@ pub enum Message {
     SelectTheme(String),
     ReloadThemes,
     SelectFont(String),
+    SaveConfig,
+    DebouncedConfigSave(u64),
     ConfigSaved,
 
     // Scrobbling

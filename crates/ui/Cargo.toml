@@ -24,5 +24,5 @@ ttf-parser = "0.21"
 rfd = "0.15"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tokio = { version = "1", features = ["rt"] }
+tokio = { version = "1", features = ["rt", "time"] }
 url = "2.5"

@@ -12,6 +12,8 @@ use crate::message::{AlbumSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
 pub const DEFAULT_CATALOG_CHUNK_SIZE: usize = 60;
+#[allow(dead_code)]
+pub const DEFAULT_ALBUM_TILE_WIDTH: u32 = 140;
 /// Minimum number of decoded album cover textures retained in RAM/VRAM.
 /// The effective cap is `max(MAX_ALBUM_COVERS, visible_count)` so that covers
 /// currently on screen are never evicted (which would cause reload thrashing).
@@ -25,6 +27,7 @@ fn cover_key(album: &AlbumSummary) -> String {
 /// Self-contained state and view component for the Albums catalog screen.
 pub struct AlbumsView {
     pub view_mode: ViewMode,
+    pub tile_width: u32,
     pub albums: Vec<AlbumSummary>,
     pub album_covers: HashMap<String, image::Handle>,
     /// Recency order of cached covers: front = least recently used, back = most recently used.
@@ -37,9 +40,19 @@ pub struct AlbumsView {
 }
 
 impl AlbumsView {
+    #[allow(dead_code)]
     pub fn new(view_mode: ViewMode, sort_field: AlbumSortField) -> Self {
+        Self::with_tile_width(view_mode, sort_field, DEFAULT_ALBUM_TILE_WIDTH)
+    }
+
+    pub fn with_tile_width(
+        view_mode: ViewMode,
+        sort_field: AlbumSortField,
+        tile_width: u32,
+    ) -> Self {
         Self {
             view_mode,
+            tile_width,
             albums: Vec::new(),
             album_covers: HashMap::new(),
             cover_order: Vec::new(),
@@ -49,6 +62,10 @@ impl AlbumsView {
             in_flight: HashSet::new(),
             failed: HashSet::new(),
         }
+    }
+
+    pub fn set_tile_width(&mut self, width: u32) {
+        self.tile_width = width;
     }
 
     pub fn sort_albums(albums: &mut [AlbumSummary], field: AlbumSortField, dir: SortDirection) {
@@ -275,16 +292,18 @@ impl AlbumsView {
         let content_area: Element<'a, Message> = match self.view_mode {
             ViewMode::Tile => {
                 let mut tiles = row![].spacing(14);
+                let tile_w = self.tile_width as f32;
+                let disc_icon_size = (tile_w * 0.32).clamp(32.0, 72.0);
 
                 for album in albums {
                     let key = cover_key(album);
                     let cover_art = components::cover_art(
                         theme_cfg,
                         self.album_covers.get(&key),
-                        170.0,
+                        tile_w,
                         Radius::default(),
                         icons::DISC_SVG,
-                        54.0,
+                        disc_icon_size,
                         theme_cfg.primary_color(),
                     );
 
@@ -318,7 +337,7 @@ impl AlbumsView {
                         .spacing(3)
                         .padding(8),
                     )
-                    .width(170);
+                    .width(tile_w);
 
                     let card_content = column![cover_art, meta];
                     let card_btn = button(card_content)

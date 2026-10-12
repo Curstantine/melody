@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use iced::border::Radius;
-use iced::widget::{button, column, container, pick_list, row, scrollable, text_input, Space};
+use iced::widget::{button, column, container, pick_list, row, scrollable, slider, text_input, Space};
 use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::components::{self, border_hori, text};
@@ -18,6 +18,10 @@ pub struct SettingsContext<'a> {
     pub albums_view_mode: ViewMode,
     pub artists_view_mode: ViewMode,
     pub page_size: usize,
+    pub tile_width: u32,
+    pub album_tile_width: u32,
+    pub artist_tile_width: u32,
+    pub now_playing_cover_size: u32,
     pub primary_font: Option<&'a str>,
     pub total_tracks: usize,
     pub total_albums: usize,
@@ -286,47 +290,7 @@ impl SettingsView {
             .spacing(8),
         );
 
-        // Default View Modes Card
-        let view_mode_row =
-            |label: &'static str, mode: ViewMode, on_change: fn(ViewMode) -> Message| {
-                row![
-                    text(theme_cfg, label)
-                        .size(12)
-                        .color(theme_cfg.text_color())
-                        .width(Length::Fixed(160.0)),
-                    components::view_mode_toggle(theme_cfg, mode, on_change),
-                ]
-                .align_y(Alignment::Center)
-            };
 
-        let view_modes_card = components::settings_card(
-            theme_cfg,
-            "Default View Modes",
-            column![
-                text(
-                    theme_cfg,
-                    "Choose preferred layout presentation for library catalogs"
-                )
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-                view_mode_row(
-                    "Library Tracks View:",
-                    ctx.library_view_mode,
-                    Message::SetLibraryViewMode,
-                ),
-                view_mode_row(
-                    "Albums Catalog View:",
-                    ctx.albums_view_mode,
-                    Message::SetAlbumsViewMode,
-                ),
-                view_mode_row(
-                    "Artists Catalog View:",
-                    ctx.artists_view_mode,
-                    Message::SetArtistsViewMode,
-                ),
-            ]
-            .spacing(10),
-        );
 
         // Typography & Font Configuration Card
         let active_font_family = ctx.primary_font.unwrap_or("Default").to_string();
@@ -491,15 +455,10 @@ impl SettingsView {
             .spacing(8),
         );
 
-        // Viewport Virtualization Card
+        // 1. Library Tab Section
         let page_sizes = [25, 50, 100, 200];
         let page_size_buttons = {
             let mut r = row![].spacing(6).align_y(Alignment::Center);
-            r = r.push(
-                text(theme_cfg, "Page Limit:")
-                    .size(12)
-                    .color(theme_cfg.text_muted_color()),
-            );
             for &size in &page_sizes {
                 let is_sel = ctx.page_size == size;
                 let btn = components::chip(
@@ -513,27 +472,247 @@ impl SettingsView {
             r
         };
 
-        let density_card = components::settings_card(
+        let library_tab_card = components::settings_card(
             theme_cfg,
-            "Viewport Density & Performance",
+            "Library Tab",
             column![
                 text(
                     theme_cfg,
-                    "Controls the the amount of items loaded into memory per viewport."
+                    "Preferences and viewport pagination density for the music library"
                 )
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
-                page_size_buttons,
+                row![
+                    text(theme_cfg, "Page Limit:")
+                        .size(12)
+                        .color(theme_cfg.text_color())
+                        .width(Length::Fixed(160.0)),
+                    page_size_buttons,
+                ]
+                .align_y(Alignment::Center),
             ]
-            .spacing(8),
+            .spacing(10),
+        );
+
+        // 2. Albums Tab Section
+        let album_tile_presets = [140, 170, 210, 260];
+        let album_preset_buttons = {
+            let mut r = row![].spacing(6).align_y(Alignment::Center);
+            for &width in &album_tile_presets {
+                let is_sel = ctx.album_tile_width == width;
+                let btn = components::chip(
+                    theme_cfg,
+                    format!("{} px", width),
+                    is_sel,
+                    Message::SetAlbumTileWidth(width),
+                );
+                r = r.push(btn);
+            }
+            r
+        };
+
+        let albums_tab_card = components::settings_card(
+            theme_cfg,
+            "Albums Tab",
+            column![
+                text(
+                    theme_cfg,
+                    "Layout presentation and tile dimensions for album catalog"
+                )
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+                row![
+                    text(theme_cfg, "Catalog View Mode:")
+                        .size(12)
+                        .color(theme_cfg.text_color())
+                        .width(Length::Fixed(160.0)),
+                    components::view_mode_toggle(
+                        theme_cfg,
+                        ctx.albums_view_mode,
+                        Message::SetAlbumsViewMode,
+                    ),
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    text(theme_cfg, "Tile Width:")
+                        .size(12)
+                        .color(theme_cfg.text_color())
+                        .width(Length::Fixed(160.0)),
+                    row![
+                        slider(
+                            120.0..=300.0,
+                            ctx.album_tile_width as f32,
+                            |val| Message::SetAlbumTileWidth(val.round() as u32),
+                        )
+                        .on_release(Message::SaveConfig)
+                        .style(styles::settings_slider_style(theme_cfg))
+                        .width(Length::Fixed(160.0)),
+                        Space::with_width(10),
+                        text(theme_cfg, format!("{} px", ctx.album_tile_width))
+                            .size(12)
+                            .color(theme_cfg.primary_color())
+                            .width(Length::Fixed(55.0)),
+                        album_preset_buttons,
+                    ]
+                    .align_y(Alignment::Center),
+                ]
+                .align_y(Alignment::Center),
+            ]
+            .spacing(10),
+        );
+
+        // 3. Artists Tab Section
+        let artist_tile_presets = [140, 160, 200, 240];
+        let artist_preset_buttons = {
+            let mut r = row![].spacing(6).align_y(Alignment::Center);
+            for &width in &artist_tile_presets {
+                let is_sel = ctx.artist_tile_width == width;
+                let btn = components::chip(
+                    theme_cfg,
+                    format!("{} px", width),
+                    is_sel,
+                    Message::SetArtistTileWidth(width),
+                );
+                r = r.push(btn);
+            }
+            r
+        };
+
+        let artists_tab_card = components::settings_card(
+            theme_cfg,
+            "Artists Tab",
+            column![
+                text(
+                    theme_cfg,
+                    "Layout presentation and tile dimensions for artist catalog"
+                )
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+                row![
+                    text(theme_cfg, "Catalog View Mode:")
+                        .size(12)
+                        .color(theme_cfg.text_color())
+                        .width(Length::Fixed(160.0)),
+                    components::view_mode_toggle(
+                        theme_cfg,
+                        ctx.artists_view_mode,
+                        Message::SetArtistsViewMode,
+                    ),
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    text(theme_cfg, "Tile Width:")
+                        .size(12)
+                        .color(theme_cfg.text_color())
+                        .width(Length::Fixed(160.0)),
+                    row![
+                        slider(
+                            120.0..=280.0,
+                            ctx.artist_tile_width as f32,
+                            |val| Message::SetArtistTileWidth(val.round() as u32),
+                        )
+                        .on_release(Message::SaveConfig)
+                        .style(styles::settings_slider_style(theme_cfg))
+                        .width(Length::Fixed(160.0)),
+                        Space::with_width(10),
+                        text(theme_cfg, format!("{} px", ctx.artist_tile_width))
+                            .size(12)
+                            .color(theme_cfg.primary_color())
+                            .width(Length::Fixed(55.0)),
+                        artist_preset_buttons,
+                    ]
+                    .align_y(Alignment::Center),
+                ]
+                .align_y(Alignment::Center),
+            ]
+            .spacing(10),
+        );
+
+        // 4. Now Playing Section
+        let now_playing_presets = [180, 220, 260, 300];
+        let now_playing_preset_buttons = {
+            let mut r = row![].spacing(6).align_y(Alignment::Center);
+            for &size in &now_playing_presets {
+                let is_sel = ctx.now_playing_cover_size == size;
+                let btn = components::chip(
+                    theme_cfg,
+                    format!("{} px", size),
+                    is_sel,
+                    Message::SetNowPlayingCoverSize(size),
+                );
+                r = r.push(btn);
+            }
+            r
+        };
+
+        let now_playing_card = components::settings_card(
+            theme_cfg,
+            "Now Playing",
+            column![
+                text(
+                    theme_cfg,
+                    "Artwork dimensions and playback display options"
+                )
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+                row![
+                    text(theme_cfg, "Cover Art Dimension:")
+                        .size(12)
+                        .color(theme_cfg.text_color())
+                        .width(Length::Fixed(160.0)),
+                    row![
+                        slider(
+                            160.0..=320.0,
+                            ctx.now_playing_cover_size as f32,
+                            |val| Message::SetNowPlayingCoverSize(val.round() as u32),
+                        )
+                        .on_release(Message::SaveConfig)
+                        .style(styles::settings_slider_style(theme_cfg))
+                        .width(Length::Fixed(160.0)),
+                        Space::with_width(10),
+                        text(theme_cfg, format!("{} px", ctx.now_playing_cover_size))
+                            .size(12)
+                            .color(theme_cfg.primary_color())
+                            .width(Length::Fixed(55.0)),
+                        now_playing_preset_buttons,
+                    ]
+                    .align_y(Alignment::Center),
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    text(theme_cfg, "Now Playing Notifications:")
+                        .size(12)
+                        .color(theme_cfg.text_color())
+                        .width(Length::Fixed(160.0)),
+                    components::chip_with_icon(
+                        theme_cfg,
+                        if ctx.submit_now_playing {
+                            icons::CHECK_SVG
+                        } else {
+                            icons::RADIO_SVG
+                        },
+                        if ctx.submit_now_playing {
+                            "Enabled"
+                        } else {
+                            "Disabled"
+                        },
+                        ctx.submit_now_playing,
+                        Message::ToggleSubmitNowPlaying(!ctx.submit_now_playing),
+                    ),
+                ]
+                .align_y(Alignment::Center),
+            ]
+            .spacing(10),
         );
 
         column![
             header,
             themes_card,
             font_card,
-            view_modes_card,
-            density_card,
+            library_tab_card,
+            albums_tab_card,
+            artists_tab_card,
+            now_playing_card,
             Space::with_height(20),
         ]
         .spacing(18)
