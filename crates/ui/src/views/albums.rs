@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 
 use core_engine::{format_duration, AlbumSummary, SortDirection};
@@ -31,7 +31,7 @@ pub struct AlbumsView {
     pub albums: Vec<AlbumSummary>,
     pub album_covers: HashMap<String, image::Handle>,
     /// Recency order of cached covers: front = least recently used, back = most recently used.
-    pub cover_order: Vec<String>,
+    pub cover_order: VecDeque<String>,
     pub sort_field: AlbumSortField,
     pub sort_dir: SortDirection,
     pub visible_count: usize,
@@ -55,7 +55,7 @@ impl AlbumsView {
             tile_width,
             albums: Vec::new(),
             album_covers: HashMap::new(),
-            cover_order: Vec::new(),
+            cover_order: VecDeque::new(),
             sort_field,
             sort_dir: SortDirection::Ascending,
             visible_count: DEFAULT_CATALOG_CHUNK_SIZE,
@@ -208,7 +208,7 @@ impl AlbumsView {
                 self.cover_order.remove(pos);
             }
 
-            self.cover_order.push(key.clone());
+            self.cover_order.push_back(key.clone());
             self.album_covers.insert(key, handle);
         }
 
@@ -234,7 +234,7 @@ impl AlbumsView {
     pub fn clear_covers(&mut self) {
         // Same reasoning: replace rather than clear so capacity is freed.
         self.album_covers = HashMap::new();
-        self.cover_order = Vec::new();
+        self.cover_order = VecDeque::new();
         self.in_flight = HashSet::new();
         self.visible_count = DEFAULT_CATALOG_CHUNK_SIZE;
     }
