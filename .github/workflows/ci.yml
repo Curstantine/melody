@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Enable Rust caching
+        uses: Swatinem/rust-cache@v2
+
+      # --- Linux Dependencies ---
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libasound2-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libgl1-mesa-dev \
+            libvulkan-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libx11-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxrandr-dev \
+            libavcodec-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libswresample-dev \
+            libswscale-dev \
+            ffmpeg
+
+      # --- Windows Dependencies ---
+      - name: Set up FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        uses: FedericoCarboni/setup-ffmpeg@v3
+        id: setup-ffmpeg
+        with:
+          ffmpeg-version: release
+          linking-type: shared
+          architecture: x64
+
+      - name: Configure FFmpeg Environment (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $binDir = "${{ steps.setup-ffmpeg.outputs.ffmpeg-path }}"
+          # The shared build contains bin, include, lib under the parent of bin
+          $rootDir = (Get-Item "$binDir").Parent.FullName
+          Write-Host "Discovered FFmpeg Root: $rootDir"
+          Write-Host "Discovered FFmpeg Bin: $binDir"
+          
+          # ffmpeg-sys-next looks for FFMPEG_DIR containing include/ and lib/
+          "FFMPEG_DIR=$rootDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          
+          # Add bin folder containing DLLs to system PATH so tests can execute
+          "$binDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      # --- Workspace Verification ---
+      - name: Check code formatting
+        run: cargo fmt --all --check
+
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Build workspace
+        run: cargo build --workspace --verbose
+
+      - name: Run test suite
+        run: cargo test --workspace --verbose
