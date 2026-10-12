@@ -55,7 +55,7 @@ pub fn view<'a>(
     let track_section = row![cover_art, Space::with_width(10), track_details]
         .spacing(2)
         .align_y(Alignment::Center)
-        .width(260);
+        .width(380);
 
     // 2. Center: Controls and Seek Bar
     let prev_btn = button(icons::icon(icons::PREV_SVG, 15.0, bar_fg))
@@ -104,15 +104,14 @@ pub fn view<'a>(
         .width(Length::FillPortion(2));
 
     // 3. Right: Secondary Controls (Love, Shuffle, Repeat) & Volume Control
-    let love_icon = if is_loved {
+    let love_btn = button(if is_loved {
         icons::icon(icons::HEART_FILLED_SVG, 16.0, theme_cfg.danger_color())
     } else {
         icons::icon(icons::HEART_SVG, 16.0, bar_fg)
-    };
-    let love_btn = button(love_icon)
-        .padding([6, 8])
-        .style(styles::player_bar_button(theme_cfg, is_loved))
-        .on_press(Message::ToggleLoveCurrentTrack);
+    })
+    .padding([6, 8])
+    .style(styles::player_bar_button(theme_cfg, is_loved))
+    .on_press(Message::ToggleLoveCurrentTrack);
 
     let shuffle_btn = button(icons::icon(
         icons::SHUFFLE_SVG,
