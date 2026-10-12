@@ -73,23 +73,31 @@ jobs:
       # --- Windows Dependencies ---
       - name: Set up FFmpeg (Windows)
         if: runner.os == 'Windows'
-        uses: FedericoCarboni/setup-ffmpeg@v3
-        id: setup-ffmpeg
-        with:
-          ffmpeg-version: release
-          linking-type: shared
-          architecture: x64
-
-      - name: Configure FFmpeg Environment (Windows)
-        if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $binDir = "${{ steps.setup-ffmpeg.outputs.ffmpeg-path }}"
-          $rootDir = (Get-Item "$binDir").Parent.FullName
-          Write-Host "Discovered FFmpeg Root: $rootDir"
-          Write-Host "Discovered FFmpeg Bin: $binDir"
+          $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z"
+          $archive = "$env:TEMP\ffmpeg-release-full-shared.7z"
+          $dest = "C:\ffmpeg"
 
-          "FFMPEG_DIR=$rootDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Downloading FFmpeg full-shared archive from $url..."
+          Invoke-WebRequest -Uri $url -OutFile $archive
+
+          Write-Host "Extracting archive to $dest..."
+          7z x $archive "-o$dest" -y | Out-Null
+
+          $extractedRoot = (Get-ChildItem -Path $dest -Directory | Select-Object -First 1).FullName
+          Write-Host "Discovered FFmpeg Root: $extractedRoot"
+
+          $binDir = Join-Path $extractedRoot "bin"
+          $includeDir = Join-Path $extractedRoot "include"
+          $libDir = Join-Path $extractedRoot "lib"
+
+          Write-Host "FFmpeg Bin: $binDir"
+          Write-Host "FFmpeg Include: $includeDir"
+          Write-Host "FFmpeg Lib: $libDir"
+
+          # ffmpeg-sys-next looks for FFMPEG_DIR containing include/ and lib/
+          "FFMPEG_DIR=$extractedRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "$binDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       # --- Build Release Binary ---
