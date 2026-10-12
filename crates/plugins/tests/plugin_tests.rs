@@ -268,4 +268,3 @@ fn test_lastfm_signature_and_plugin_lifecycle() {
     plugin.set_enabled(false);
     assert!(!plugin.config().enabled);
 }
-

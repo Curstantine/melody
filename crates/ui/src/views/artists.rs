@@ -1,14 +1,12 @@
+use core_engine::{ArtistSummary, SortDirection};
 use iced::border::Radius;
 use iced::widget::{button, column, container, row, scrollable, Space};
 use iced::{Alignment, Border, Element, Length, Padding};
-use core_engine::{ArtistSummary, SortDirection};
 
 use crate::components::{self, text};
 use crate::icons;
 use crate::message::{ArtistSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
-
-
 
 pub const DEFAULT_CATALOG_CHUNK_SIZE: usize = 60;
 
@@ -297,4 +295,3 @@ impl ArtistsView {
             .into()
     }
 }
-

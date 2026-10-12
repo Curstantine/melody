@@ -1,6 +1,8 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use iced::advanced::{layout, mouse, renderer, svg, widget::Tree, Clipboard, Layout, Shell, Widget};
+use iced::advanced::{
+    layout, mouse, renderer, svg, widget::Tree, Clipboard, Layout, Shell, Widget,
+};
 use iced::{event, window, Color, Element, Event, Length, Radians, Rectangle, Size};
 
 pub struct Spinner {

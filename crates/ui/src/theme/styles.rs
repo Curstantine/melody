@@ -1,5 +1,6 @@
 use iced::border::Radius;
-use iced::widget::{button, container, scrollable, slider, text_input};
+use iced::overlay::menu;
+use iced::widget::{button, container, pick_list, scrollable, slider, text_input};
 use iced::{Background, Border, Color, Shadow, Theme};
 
 use super::ThemeConfig;
@@ -46,6 +47,7 @@ pub fn status_bar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::
     }
 }
 
+#[allow(dead_code)]
 pub fn header_tab_button(
     cfg: &ThemeConfig,
     is_active: bool,
@@ -73,6 +75,103 @@ pub fn header_tab_button(
             },
             shadow: Shadow::default(),
         }
+    }
+}
+
+pub fn header_tab_container(
+    cfg: &ThemeConfig,
+    is_active: bool,
+    is_hovered: bool,
+    is_dragging: bool,
+) -> impl Fn(&Theme) -> container::Style + '_ {
+    move |_theme| {
+        let (bg, text, border) = if is_dragging {
+            (
+                blend_color(cfg.surface_hover_color(), cfg.primary_color(), 0.15),
+                cfg.primary_color(),
+                Border {
+                    color: cfg.primary_color(),
+                    width: 1.0,
+                    radius: Radius::from(4.0),
+                },
+            )
+        } else if is_active {
+            (
+                cfg.surface_hover_color(),
+                cfg.primary_color(),
+                Border {
+                    color: Color::TRANSPARENT,
+                    width: 1.0,
+                    radius: Radius::from(4.0),
+                },
+            )
+        } else if is_hovered {
+            (
+                cfg.surface_hover_color(),
+                cfg.text_color(),
+                Border {
+                    color: Color::TRANSPARENT,
+                    width: 1.0,
+                    radius: Radius::from(4.0),
+                },
+            )
+        } else {
+            (
+                Color::TRANSPARENT,
+                cfg.text_muted_color(),
+                Border {
+                    color: Color::TRANSPARENT,
+                    width: 1.0,
+                    radius: Radius::from(4.0),
+                },
+            )
+        };
+
+        container::Style {
+            background: Some(Background::Color(bg)),
+            text_color: Some(text),
+            border,
+            shadow: Shadow::default(),
+        }
+    }
+}
+
+pub fn pick_list_style(
+    cfg: &ThemeConfig,
+) -> impl Fn(&Theme, pick_list::Status) -> pick_list::Style + '_ {
+    move |_theme, status| {
+        let border_color = match status {
+            pick_list::Status::Active => cfg.border_color(),
+            pick_list::Status::Hovered | pick_list::Status::Opened => cfg.primary_color(),
+        };
+
+        pick_list::Style {
+            text_color: cfg.text_color(),
+            placeholder_color: cfg.text_muted_color(),
+            handle_color: cfg.text_muted_color(),
+            background: Background::Color(cfg.surface_color()),
+            border: Border {
+                color: border_color,
+                width: 1.0,
+                radius: Radius::from(4.0),
+            },
+        }
+    }
+}
+
+pub fn menu_style(
+    cfg: &ThemeConfig,
+) -> impl Fn(&Theme) -> menu::Style + '_ {
+    move |_theme| menu::Style {
+        text_color: cfg.text_color(),
+        background: Background::Color(cfg.surface_color()),
+        border: Border {
+            color: cfg.border_color(),
+            width: 1.0,
+            radius: Radius::from(4.0),
+        },
+        selected_text_color: cfg.primary_color(),
+        selected_background: Background::Color(cfg.surface_hover_color()),
     }
 }
 

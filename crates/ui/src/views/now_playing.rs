@@ -1,14 +1,12 @@
+use core_engine::{AudioTechnicalInfo, Track};
 use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, scrollable, stack, Space};
 use iced::{Alignment, ContentFit, Element, Length};
-use core_engine::{AudioTechnicalInfo, Track};
 
 use crate::components::{self, text};
 use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
-
-
 
 /// Self-contained state and view component for the Now Playing / Lyrics screen.
 #[derive(Debug, Default, Clone)]
@@ -369,4 +367,3 @@ impl NowPlayingView {
         }
     }
 }
-

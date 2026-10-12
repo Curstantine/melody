@@ -328,10 +328,7 @@ fn flush_resampler(
             if data_bytes.len() >= byte_count {
                 track.samples_buf.clear();
                 let float_slice: &[f32] = unsafe {
-                    std::slice::from_raw_parts(
-                        data_bytes.as_ptr() as *const f32,
-                        total_floats,
-                    )
+                    std::slice::from_raw_parts(data_bytes.as_ptr() as *const f32, total_floats)
                 };
                 track.samples_buf.extend_from_slice(float_slice);
 

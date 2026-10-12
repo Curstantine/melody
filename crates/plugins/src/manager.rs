@@ -160,7 +160,11 @@ impl PluginManager {
         if let Ok(list) = self.plugins.read() {
             for p in list.iter() {
                 if let Err(e) = p.on_playback_status_change(is_playing) {
-                    error!("Plugin {} on_playback_status_change error: {}", p.metadata().id, e);
+                    error!(
+                        "Plugin {} on_playback_status_change error: {}",
+                        p.metadata().id,
+                        e
+                    );
                 }
             }
         }

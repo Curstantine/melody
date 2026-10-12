@@ -99,10 +99,7 @@ impl ListenBrainzPlugin {
     }
 
     pub fn config(&self) -> ListenBrainzConfig {
-        self.config
-            .read()
-            .map(|c| c.clone())
-            .unwrap_or_default()
+        self.config.read().map(|c| c.clone()).unwrap_or_default()
     }
 
     pub fn status(&self) -> String {
@@ -212,7 +209,10 @@ impl ListenBrainzPlugin {
                         track_clone.artist, track_clone.title
                     );
                     if let Ok(mut s) = status_arc.write() {
-                        *s = format!("Playing now: {} - {}", track_clone.artist, track_clone.title);
+                        *s = format!(
+                            "Playing now: {} - {}",
+                            track_clone.artist, track_clone.title
+                        );
                     }
                 }
                 Err(err) => {

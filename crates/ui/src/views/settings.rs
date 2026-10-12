@@ -1,16 +1,17 @@
 use std::path::{Path, PathBuf};
 
 use iced::border::Radius;
-use iced::widget::{button, column, container, row, scrollable, text_input, Space};
+use iced::widget::{button, column, container, pick_list, row, scrollable, text_input, Space};
 use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::components::{self, border_hori, text};
 use crate::icons;
-use crate::message::{Message, SettingsMessage, SettingsTab, ViewMode};
+use crate::message::{Message, SettingsMessage, SettingsTab, ViewMode, ViewTab};
 use crate::theme::{styles, ThemeConfig};
 
 #[allow(dead_code)]
 pub struct SettingsContext<'a> {
+    pub tab_order: &'a [ViewTab],
     pub theme_names: Vec<String>,
     pub active_theme_name: &'a str,
     pub library_view_mode: ViewMode,
@@ -52,14 +53,14 @@ pub struct SettingsView {
     pub available_fonts: Vec<String>,
     pub custom_font_input: String,
     pub library_folders: Vec<String>,
-    pub scrobble_test_status: Option<(
-        plugins::scrobbler::ScrobbleService,
-        Result<String, String>,
-    )>,
+    pub scrobble_test_status: Option<(plugins::scrobbler::ScrobbleService, Result<String, String>)>,
 }
 
 impl SettingsView {
-    pub fn new(active_tab: SettingsTab, available_fonts: Vec<String>) -> Self {
+    pub fn new(active_tab: SettingsTab, mut available_fonts: Vec<String>) -> Self {
+        if !available_fonts.iter().any(|f| f == "Default") {
+            available_fonts.insert(0, "Default".to_string());
+        }
         Self {
             active_tab,
             available_fonts,
@@ -92,10 +93,7 @@ impl SettingsView {
 
     pub fn set_scrobble_test_status(
         &mut self,
-        status: Option<(
-            plugins::scrobbler::ScrobbleService,
-            Result<String, String>,
-        )>,
+        status: Option<(plugins::scrobbler::ScrobbleService, Result<String, String>)>,
     ) {
         self.scrobble_test_status = status;
     }
@@ -136,34 +134,36 @@ impl SettingsView {
         .spacing(2)
         .padding([8, 12]);
 
-        let nav_item =
-            |tab: SettingsTab, icon_svg: &'static str, title: &'static str, subtitle: &'static str| {
-                let is_active = self.active_tab == tab;
-                let color = if is_active {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_color()
-                };
-
-                button(
-                    row![
-                        icons::icon(icon_svg, 16.0, color),
-                        Space::with_width(10),
-                        column![
-                            text(theme_cfg, title).size(13).color(color),
-                            text(theme_cfg, subtitle)
-                                .size(10)
-                                .color(theme_cfg.text_muted_color()),
-                        ]
-                        .spacing(1),
-                    ]
-                    .align_y(Alignment::Center),
-                )
-                .padding([8, 12])
-                .width(Length::Fill)
-                .style(styles::settings_nav_button(theme_cfg, is_active))
-                .on_press(Message::SelectSettingsTab(tab))
+        let nav_item = |tab: SettingsTab,
+                        icon_svg: &'static str,
+                        title: &'static str,
+                        subtitle: &'static str| {
+            let is_active = self.active_tab == tab;
+            let color = if is_active {
+                theme_cfg.primary_color()
+            } else {
+                theme_cfg.text_color()
             };
+
+            button(
+                row![
+                    icons::icon(icon_svg, 16.0, color),
+                    Space::with_width(10),
+                    column![
+                        text(theme_cfg, title).size(13).color(color),
+                        text(theme_cfg, subtitle)
+                            .size(10)
+                            .color(theme_cfg.text_muted_color()),
+                    ]
+                    .spacing(1),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .padding([8, 12])
+            .width(Length::Fill)
+            .style(styles::settings_nav_button(theme_cfg, is_active))
+            .on_press(Message::SelectSettingsTab(tab))
+        };
 
         container(row![
             column![
@@ -206,15 +206,7 @@ impl SettingsView {
         theme_cfg: &'a ThemeConfig,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let header = column![
-            text(theme_cfg, "Appearance & Interface")
-                .size(20)
-                .color(theme_cfg.text_color()),
-            text(theme_cfg, "Customize color palette, typography font family, default display modes, and layout density")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-        ]
-        .spacing(4);
+        let header = components::settings_header(theme_cfg, "Appearance & Interface", Some("Customize color palette, typography font family, default display modes, and layout density"));
 
         // Theme chips
         let theme_buttons = {
@@ -238,305 +230,410 @@ impl SettingsView {
             row_wrap.wrap()
         };
 
-    let palette_preview = row![
-        swatch_card(theme_cfg, "Primary", theme_cfg.primary_color()),
-        swatch_card(theme_cfg, "Accent", theme_cfg.accent_color()),
-        swatch_card(theme_cfg, "Player Bar", theme_cfg.player_bar_bg_color()),
-        swatch_card(theme_cfg, "Surface", theme_cfg.surface_color()),
-        swatch_card(theme_cfg, "Surface Hover", theme_cfg.surface_hover_color()),
-        swatch_card(theme_cfg, "Background", theme_cfg.bg_color()),
-        swatch_card(theme_cfg, "Border", theme_cfg.border_color()),
-    ]
-    .spacing(10);
-
-    let reload_themes_btn = button(
-        row![
-            icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text_color()),
-            Space::with_width(6),
-            text(theme_cfg, "Reload Themes from Disk")
-                .size(12)
-                .color(theme_cfg.text_color()),
+        let palette_preview = row![
+            swatch_card(theme_cfg, "Background", theme_cfg.bg_color()),
+            swatch_card(theme_cfg, "Surface", theme_cfg.surface_color()),
+            swatch_card(theme_cfg, "Surface Hover", theme_cfg.surface_hover_color()),
+            swatch_card(theme_cfg, "Border", theme_cfg.border_color()),
+            swatch_card(theme_cfg, "Primary", theme_cfg.primary_color()),
+            swatch_card(theme_cfg, "Accent", theme_cfg.accent_color()),
+            swatch_card(theme_cfg, "Text", theme_cfg.text_color()),
+            swatch_card(theme_cfg, "Text Muted", theme_cfg.text_muted_color()),
+            swatch_card(theme_cfg, "Success", theme_cfg.success_color()),
+            swatch_card(theme_cfg, "Danger", theme_cfg.danger_color()),
+            swatch_card(theme_cfg, "Player Bar", theme_cfg.player_bar_bg_color()),
+            swatch_card(
+                theme_cfg,
+                "Player Bar Text",
+                theme_cfg.player_bar_text_color()
+            ),
+            swatch_card(theme_cfg, "Slider Active", theme_cfg.slider_active_color()),
+            swatch_card(theme_cfg, "Slider Rail", theme_cfg.slider_rail_color()),
         ]
-        .align_y(Alignment::Center),
-    )
-    .padding([6, 12])
-    .style(styles::ghost_button(theme_cfg, false))
-    .on_press(Message::ReloadThemes);
+        .spacing(10)
+        .wrap();
 
-    let themes_card = components::settings_card(
-        theme_cfg,
-        "Theme & Color Palette",
-        column![
-            text(theme_cfg, "Installed Theme Skins")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-            theme_buttons,
-            Space::with_height(6),
-            text(theme_cfg, "Active Palette Color Swatches")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-            palette_preview,
-            Space::with_height(4),
-            reload_themes_btn,
-        ]
-        .spacing(8),
-    );
-
-    // Default View Modes Card
-    let view_mode_row =
-        |label: &'static str, mode: ViewMode, on_change: fn(ViewMode) -> Message| {
+        let reload_themes_btn = button(
             row![
-                text(theme_cfg, label)
+                icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text_color()),
+                Space::with_width(6),
+                text(theme_cfg, "Reload Themes from Disk")
                     .size(12)
-                    .color(theme_cfg.text_color())
-                    .width(Length::Fixed(160.0)),
-                components::view_mode_toggle(theme_cfg, mode, on_change),
+                    .color(theme_cfg.text_color()),
             ]
-            .align_y(Alignment::Center)
-        };
-
-    let view_modes_card = components::settings_card(
-        theme_cfg,
-        "Default View Modes",
-        column![
-            text(
-                theme_cfg,
-                "Choose preferred layout presentation for library catalogs"
-            )
-            .size(12)
-            .color(theme_cfg.text_muted_color()),
-            view_mode_row(
-                "Library Tracks View:",
-                ctx.library_view_mode,
-                Message::SetLibraryViewMode,
-            ),
-            view_mode_row(
-                "Albums Catalog View:",
-                ctx.albums_view_mode,
-                Message::SetAlbumsViewMode,
-            ),
-            view_mode_row(
-                "Artists Catalog View:",
-                ctx.artists_view_mode,
-                Message::SetArtistsViewMode,
-            ),
-        ]
-        .spacing(10),
-    );
-
-    // Typography & Font Configuration Card
-    let active_font_family = ctx.primary_font.unwrap_or("Default").to_string();
-
-    let font_metrics = row![
-        components::metric_box(theme_cfg, "Active Font Family", active_font_family.clone()),
-        components::metric_box(
-            theme_cfg,
-            "Discovered Font Files",
-            format!("{} files", self.available_fonts.len()),
-        ),
-    ]
-    .spacing(12);
-
-    // Font selection chips
-    let font_chips = {
-        let mut row_wrap = row![].spacing(6);
-        for font_name in &self.available_fonts {
-            let is_active = match ctx.primary_font {
-                Some(active) => {
-                    active == font_name || (font_name == "Default" && active.is_empty())
-                }
-                None => font_name == "Default",
-            };
-            let icon_svg = if is_active {
-                icons::CHECK_SVG
-            } else {
-                icons::DISC_SVG
-            };
-            let btn = components::chip_with_icon(
-                theme_cfg,
-                icon_svg,
-                font_name.clone(),
-                is_active,
-                Message::SelectFont(font_name.clone()),
-            );
-            row_wrap = row_wrap.push(btn);
-        }
-        row_wrap.wrap()
-    };
-
-    // Custom font input row
-    let custom_font_trimmed = self.custom_font_input.trim().to_string();
-    let has_custom_input = !custom_font_trimmed.is_empty();
-
-    let apply_custom_font_btn = button(
-        row![
-            icons::icon(
-                icons::CHECK_SVG,
-                12.0,
-                if has_custom_input {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                }
-            ),
-            Space::with_width(4),
-            text(theme_cfg, "Apply Font")
-                .size(11)
-                .color(if has_custom_input {
-                    theme_cfg.primary_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                }),
-        ]
-        .align_y(Alignment::Center),
-    )
-    .padding([5, 10])
-    .style(styles::ghost_button(theme_cfg, false))
-    .on_press_maybe(if has_custom_input {
-        Some(Message::SelectFont(custom_font_trimmed))
-    } else {
-        None
-    });
-
-    let custom_font_row = row![
-        text_input(
-            "Enter custom system font family (e.g. Inter, Roboto, Arial)...",
-            &self.custom_font_input,
+            .align_y(Alignment::Center),
         )
-        .size(12)
-        .padding([5, 8])
-        .style(styles::search_input_style(theme_cfg))
-        .on_input(|s| Message::Settings(SettingsMessage::CustomFontInputChanged(s)))
-        .on_submit(Message::SelectFont(
-            self.custom_font_input.trim().to_string()
-        ))
-        .width(Length::Fill),
-        Space::with_width(8),
-        apply_custom_font_btn,
-    ]
-    .align_y(Alignment::Center);
+        .padding([6, 12])
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press(Message::ReloadThemes);
 
-    let active_iced_font = theme_cfg.font();
+        let themes_card = components::settings_card(
+            theme_cfg,
+            "Theme & Color Palette",
+            column![
+                text(theme_cfg, "Installed Theme Skins")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                theme_buttons,
+                Space::with_height(6),
+                text(theme_cfg, "Active Palette Color Swatches")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                palette_preview,
+                Space::with_height(4),
+                reload_themes_btn,
+            ]
+            .spacing(8),
+        );
 
-    let sample_text_box = container(
-        column![
-            text(theme_cfg, "Multilingual Glyph Rendering Preview:")
-                .size(11)
-                .color(theme_cfg.primary_color()),
-            Space::with_height(4),
-            text(
+        // Default View Modes Card
+        let view_mode_row =
+            |label: &'static str, mode: ViewMode, on_change: fn(ViewMode) -> Message| {
+                row![
+                    text(theme_cfg, label)
+                        .size(12)
+                        .color(theme_cfg.text_color())
+                        .width(Length::Fixed(160.0)),
+                    components::view_mode_toggle(theme_cfg, mode, on_change),
+                ]
+                .align_y(Alignment::Center)
+            };
+
+        let view_modes_card = components::settings_card(
+            theme_cfg,
+            "Default View Modes",
+            column![
+                text(
+                    theme_cfg,
+                    "Choose preferred layout presentation for library catalogs"
+                )
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+                view_mode_row(
+                    "Library Tracks View:",
+                    ctx.library_view_mode,
+                    Message::SetLibraryViewMode,
+                ),
+                view_mode_row(
+                    "Albums Catalog View:",
+                    ctx.albums_view_mode,
+                    Message::SetAlbumsViewMode,
+                ),
+                view_mode_row(
+                    "Artists Catalog View:",
+                    ctx.artists_view_mode,
+                    Message::SetArtistsViewMode,
+                ),
+            ]
+            .spacing(10),
+        );
+
+        // Typography & Font Configuration Card
+        let active_font_family = ctx.primary_font.unwrap_or("Default").to_string();
+
+        let font_metrics = row![
+            components::metric_box(theme_cfg, "Active Font Family", active_font_family.clone()),
+            components::metric_box(
                 theme_cfg,
-                "English: The quick brown fox jumps over the lazy dog."
+                "Discovered Font Files",
+                format!("{} files", self.available_fonts.len()),
+            ),
+        ]
+        .spacing(12);
+
+        // Font dropdown selector
+        let mut font_options = self.available_fonts.clone();
+        if !font_options.iter().any(|f| f == "Default") {
+            font_options.insert(0, "Default".to_string());
+        }
+        if let Some(active) = ctx.primary_font {
+            if !font_options.iter().any(|f| f == active) {
+                font_options.push(active.to_string());
+            }
+        }
+
+        let font_selector = pick_list(
+            font_options,
+            Some(active_font_family.clone()),
+            Message::SelectFont,
+        )
+        .placeholder("Select a system font...")
+        .padding([8, 12])
+        .text_size(12)
+        .width(Length::Fill)
+        .style(styles::pick_list_style(theme_cfg))
+        .menu_style(styles::menu_style(theme_cfg));
+
+        // Custom font input row
+        let custom_font_trimmed = self.custom_font_input.trim().to_string();
+        let has_custom_input = !custom_font_trimmed.is_empty();
+
+        let apply_custom_font_btn = button(
+            row![
+                icons::icon(
+                    icons::CHECK_SVG,
+                    12.0,
+                    if has_custom_input {
+                        theme_cfg.primary_color()
+                    } else {
+                        theme_cfg.text_muted_color()
+                    }
+                ),
+                Space::with_width(4),
+                text(theme_cfg, "Apply Font")
+                    .size(11)
+                    .color(if has_custom_input {
+                        theme_cfg.primary_color()
+                    } else {
+                        theme_cfg.text_muted_color()
+                    }),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .padding([5, 10])
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press_maybe(if has_custom_input {
+            Some(Message::SelectFont(custom_font_trimmed))
+        } else {
+            None
+        });
+
+        let custom_font_row = row![
+            text_input(
+                "Enter custom system font family (e.g. Inter, Roboto, Arial)...",
+                &self.custom_font_input,
             )
             .size(12)
-            .color(theme_cfg.text_color())
-            .font(active_iced_font),
-            text(
-                theme_cfg,
-                "日本語: あのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら"
-            )
-            .size(12)
-            .color(theme_cfg.text_color())
-            .font(active_iced_font),
-            text(theme_cfg, "中文: 落霞与孤齐飞，秋水共长天一色")
+            .padding([5, 8])
+            .style(styles::search_input_style(theme_cfg))
+            .on_input(|s| Message::Settings(SettingsMessage::CustomFontInputChanged(s)))
+            .on_submit(Message::SelectFont(
+                self.custom_font_input.trim().to_string()
+            ))
+            .width(Length::Fill),
+            Space::with_width(8),
+            apply_custom_font_btn,
+        ]
+        .align_y(Alignment::Center);
+
+        let active_iced_font = theme_cfg.font();
+
+        let sample_text_box = container(
+            column![
+                text(theme_cfg, "Multilingual Glyph Rendering Preview:")
+                    .size(11)
+                    .color(theme_cfg.primary_color()),
+                Space::with_height(4),
+                text(
+                    theme_cfg,
+                    "English: The quick brown fox jumps over the lazy dog."
+                )
                 .size(12)
                 .color(theme_cfg.text_color())
                 .font(active_iced_font),
-            text(
-                theme_cfg,
-                "한국어: 별 하나에 추억과 별 하나에 사랑과 쓸쓸함과 동경"
-            )
-            .size(12)
-            .color(theme_cfg.text_color())
-            .font(active_iced_font),
-        ]
-        .spacing(4),
-    )
-    .padding(12)
-    .width(Length::Fill)
-    .style(move |_theme| container::Style {
-        background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-        border: Border {
-            radius: Radius::from(4.0),
-            color: theme_cfg.border_color(),
-            width: 1.0,
-        },
-        ..Default::default()
-    });
+                text(
+                    theme_cfg,
+                    "日本語: あのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら"
+                )
+                .size(12)
+                .color(theme_cfg.text_color())
+                .font(active_iced_font),
+                text(theme_cfg, "中文: 落霞与孤齐飞，秋水共长天一色")
+                    .size(12)
+                    .color(theme_cfg.text_color())
+                    .font(active_iced_font),
+                text(
+                    theme_cfg,
+                    "한국어: 별 하나에 추억과 별 하나에 사랑과 쓸쓸함과 동경"
+                )
+                .size(12)
+                .color(theme_cfg.text_color())
+                .font(active_iced_font),
+            ]
+            .spacing(4),
+        )
+        .padding(12)
+        .width(Length::Fill)
+        .style(move |_theme| container::Style {
+            background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+            border: Border {
+                radius: Radius::from(4.0),
+                color: theme_cfg.border_color(),
+                width: 1.0,
+            },
+            ..Default::default()
+        });
 
-    let font_card = components::settings_card(
-        theme_cfg,
-        "Typography & Font Configuration",
-        column![
-            text(
-                theme_cfg,
-                "Select from discovered system/CJK fonts or specify any installed font family"
-            )
-            .size(12)
-            .color(theme_cfg.text_muted_color()),
-            font_metrics,
-            Space::with_height(4),
-            text(theme_cfg, "Choose Font:")
+        let font_card = components::settings_card(
+            theme_cfg,
+            "Typography & Font Configuration",
+            column![
+                text(
+                    theme_cfg,
+                    "Select from discovered system/CJK fonts or specify any installed font family"
+                )
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
-            font_chips,
-            Space::with_height(4),
-            text(theme_cfg, "Or Specify Custom Font:")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-            custom_font_row,
-            Space::with_height(6),
-            sample_text_box,
-        ]
-        .spacing(8),
-    );
-
-    // Viewport Virtualization Card
-    let page_sizes = [25, 50, 100, 200];
-    let page_size_buttons = {
-        let mut r = row![].spacing(6).align_y(Alignment::Center);
-        r = r.push(
-            text(theme_cfg, "Page Limit:")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
+                font_metrics,
+                Space::with_height(4),
+                text(theme_cfg, "Select Font Family:")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                font_selector,
+                Space::with_height(4),
+                text(theme_cfg, "Or Specify Custom Font:")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                custom_font_row,
+                Space::with_height(6),
+                sample_text_box,
+            ]
+            .spacing(8),
         );
-        for &size in &page_sizes {
-            let is_sel = ctx.page_size == size;
-            let btn = components::chip(
-                theme_cfg,
-                format!("{} tracks", size),
-                is_sel,
-                Message::SetPageSize(size),
-            );
-            r = r.push(btn);
-        }
-        r
-    };
 
-    let density_card = components::settings_card(
-        theme_cfg,
-        "Viewport Density & Performance",
-        column![
-            text(theme_cfg, "Controls the SQLite LIMIT per windowed viewport. Queries only retrieve visible rows into memory.")
+        // Viewport Virtualization Card
+        let page_sizes = [25, 50, 100, 200];
+        let page_size_buttons = {
+            let mut r = row![].spacing(6).align_y(Alignment::Center);
+            r = r.push(
+                text(theme_cfg, "Page Limit:")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+            );
+            for &size in &page_sizes {
+                let is_sel = ctx.page_size == size;
+                let btn = components::chip(
+                    theme_cfg,
+                    format!("{} tracks", size),
+                    is_sel,
+                    Message::SetPageSize(size),
+                );
+                r = r.push(btn);
+            }
+            r
+        };
+
+        let density_card = components::settings_card(
+            theme_cfg,
+            "Viewport Density & Performance",
+            column![
+                text(
+                    theme_cfg,
+                    "Controls the the amount of items loaded into memory per viewport."
+                )
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
-            page_size_buttons,
-        ]
-        .spacing(8),
-    );
+                page_size_buttons,
+            ]
+            .spacing(8),
+        );
 
-    column![
-        header,
-        themes_card,
-        font_card,
-        view_modes_card,
-        density_card,
-        Space::with_height(20),
-    ]
-    .spacing(18)
-    .padding(24)
-    .width(Length::Fill)
-    .into()
+        let tab_order_card = {
+            let mut tabs_row = row![].spacing(8).align_y(Alignment::Center);
+            for (idx, &tab) in ctx.tab_order.iter().enumerate() {
+                let can_move_left = idx > 0;
+                let can_move_right = idx + 1 < ctx.tab_order.len();
+
+                let left_btn = button(icons::icon(
+                    icons::ARROW_LEFT_SVG,
+                    12.0,
+                    if can_move_left {
+                        theme_cfg.text_color()
+                    } else {
+                        theme_cfg.text_muted_color().scale_alpha(0.3)
+                    },
+                ))
+                .padding([4, 6])
+                .style(styles::icon_control_button(theme_cfg));
+
+                let left_btn = if can_move_left {
+                    left_btn.on_press(Message::MoveTab(tab, true))
+                } else {
+                    left_btn
+                };
+
+                let right_btn = button(icons::icon(
+                    icons::ARROW_RIGHT_SVG,
+                    12.0,
+                    if can_move_right {
+                        theme_cfg.text_color()
+                    } else {
+                        theme_cfg.text_muted_color().scale_alpha(0.3)
+                    },
+                ))
+                .padding([4, 6])
+                .style(styles::icon_control_button(theme_cfg));
+
+                let right_btn = if can_move_right {
+                    right_btn.on_press(Message::MoveTab(tab, false))
+                } else {
+                    right_btn
+                };
+
+                let chip = container(
+                    row![
+                        icons::icon(icons::DRAG_HANDLE_SVG, 11.0, theme_cfg.primary_color()),
+                        Space::with_width(4),
+                        text(theme_cfg, tab.label())
+                            .size(12)
+                            .color(theme_cfg.text_color()),
+                        Space::with_width(6),
+                        left_btn,
+                        right_btn,
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .padding([4, 8])
+                .style(styles::table_row_container(theme_cfg, true));
+
+                tabs_row = tabs_row.push(chip);
+            }
+
+            let reset_btn = button(
+                row![
+                    icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.text_muted_color()),
+                    Space::with_width(6),
+                    text(theme_cfg, "Reset Order")
+                        .size(11)
+                        .color(theme_cfg.text_muted_color()),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .padding([5, 10])
+            .style(styles::icon_control_button(theme_cfg))
+            .on_press(Message::ResetTabOrder);
+
+            tabs_row = tabs_row.push(reset_btn);
+
+            components::settings_card(
+                theme_cfg,
+                "Navigation Tab Order",
+                column![
+                    text(
+                        theme_cfg,
+                        "Reorder the tabs shown in the top navigation bar. You can also drag and drop tabs directly in the top bar."
+                    )
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                    tabs_row,
+                ]
+                .spacing(10),
+            )
+        };
+
+        column![
+            header,
+            themes_card,
+            font_card,
+            tab_order_card,
+            view_modes_card,
+            density_card,
+            Space::with_height(20),
+        ]
+        .spacing(18)
+        .padding(24)
+        .width(Length::Fill)
+        .into()
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -548,15 +645,7 @@ impl SettingsView {
         theme_cfg: &'a ThemeConfig,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-    let header = column![
-        text(theme_cfg, "Library & Storage")
-            .size(20)
-            .color(theme_cfg.text_color()),
-        text(theme_cfg, "Manage indexed audio directories, rescan metadata, monitor disk caches, or reset storage")
-            .size(12)
-            .color(theme_cfg.text_muted_color()),
-    ]
-    .spacing(4);
+        let header = components::settings_header(theme_cfg, "Library & Storage", Some("Manage indexed audio directories, rescan metadata, monitor disk caches, or reset storage"));
 
         // Storage and Index Metrics
         let storage_stats_row1 = row![
@@ -853,7 +942,7 @@ impl SettingsView {
                         text(theme_cfg, "Reset Library Database")
                             .size(13)
                             .color(iced::Color::from_rgb(0.95, 0.35, 0.35)),
-                        text(theme_cfg, "Clears all indexed tracks, albums, and artist metadata from SQLite. Your audio files on disk remain untouched.")
+                        text(theme_cfg, "Clears all indexed tracks, albums, and artist metadata from database. Your audio files on disk remain untouched.")
                             .size(11)
                             .color(theme_cfg.text_muted_color()),
                     ]
@@ -878,30 +967,15 @@ impl SettingsView {
         .into()
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // 3. Scrobbling Section
-    // ─────────────────────────────────────────────────────────────────────────────
-
     fn view_scrobbling<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let header = column![
-        text(theme_cfg, "Scrobbling & Social Audio")
-            .size(20)
-            .color(theme_cfg.text_color()),
-        text(
-            theme_cfg,
-            "Track your listening habits and broadcast live playback status to ListenBrainz and Last.fm"
-        )
-        .size(12)
-        .color(theme_cfg.text_muted_color()),
-    ]
-    .spacing(4);
+        let header = components::settings_header(theme_cfg, "Scrobbling & Social Audio", Some("Track your listening habits and broadcast live playback status to ListenBrainz and Last.fm"));
 
-    // 1. General Preferences Card
-    let prefs_card = components::settings_card(
+        // 1. General Preferences Card
+        let prefs_card = components::settings_card(
         theme_cfg,
         "Scrobble Preferences",
         column![
@@ -976,9 +1050,8 @@ impl SettingsView {
         .spacing(12),
     );
 
-    // 2. ListenBrainz Card
-    let lb_test_banner =
-        if let Some((plugins::scrobbler::ScrobbleService::ListenBrainz, res)) =
+        // 2. ListenBrainz Card
+        let lb_test_banner = if let Some((plugins::scrobbler::ScrobbleService::ListenBrainz, res)) =
             self.scrobble_test_status.as_ref()
         {
             let (color, msg) = match res {
@@ -1004,104 +1077,104 @@ impl SettingsView {
             None
         };
 
-    let lb_test_btn = button(
-        row![
-            icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary_color()),
-            Space::with_width(6),
-            text(theme_cfg, "Test ListenBrainz Connection")
-                .size(11)
-                .color(theme_cfg.primary_color()),
-        ]
-        .align_y(Alignment::Center),
-    )
-    .padding([6, 12])
-    .style(styles::ghost_button(theme_cfg, false))
-    .on_press(Message::TestScrobble(
-        plugins::scrobbler::ScrobbleService::ListenBrainz,
-    ));
+        let lb_test_btn = button(
+            row![
+                icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary_color()),
+                Space::with_width(6),
+                text(theme_cfg, "Test ListenBrainz Connection")
+                    .size(11)
+                    .color(theme_cfg.primary_color()),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .padding([6, 12])
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press(Message::TestScrobble(
+            plugins::scrobbler::ScrobbleService::ListenBrainz,
+        ));
 
-    let mut lb_column = column![
-        row![
+        let mut lb_column = column![
+            row![
+                column![
+                    text(theme_cfg, "MetaBrainz ListenBrainz")
+                        .size(14)
+                        .color(theme_cfg.text_color()),
+                    text(
+                        theme_cfg,
+                        "Open-source community listening registry operated by MetaBrainz"
+                    )
+                    .size(11)
+                    .color(theme_cfg.text_muted_color()),
+                ]
+                .width(Length::Fill),
+                components::chip_with_icon(
+                    theme_cfg,
+                    if ctx.listenbrainz_enabled {
+                        icons::CHECK_SVG
+                    } else {
+                        icons::RADIO_SVG
+                    },
+                    if ctx.listenbrainz_enabled {
+                        "Plugin Active"
+                    } else {
+                        "Plugin Inactive"
+                    },
+                    ctx.listenbrainz_enabled,
+                    Message::ToggleListenBrainz(!ctx.listenbrainz_enabled),
+                ),
+            ]
+            .align_y(Alignment::Center),
+            row![
+                components::metric_box(theme_cfg, "Status", ctx.listenbrainz_status.to_string()),
+                components::metric_box(
+                    theme_cfg,
+                    "Session Scrobbles",
+                    ctx.listenbrainz_scrobbles.to_string(),
+                ),
+            ]
+            .spacing(12),
             column![
-                text(theme_cfg, "MetaBrainz ListenBrainz")
-                    .size(14)
+                text(theme_cfg, "User Token")
+                    .size(12)
                     .color(theme_cfg.text_color()),
+                text_input("Enter ListenBrainz user token...", ctx.listenbrainz_token)
+                    .on_input(Message::ListenBrainzTokenChanged)
+                    .style(styles::search_input_style(theme_cfg))
+                    .padding([7, 10]),
                 text(
                     theme_cfg,
-                    "Open-source community listening registry operated by MetaBrainz"
+                    "Obtain your user token from your profile at https://listenbrainz.org/profile/"
                 )
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
             ]
-            .width(Length::Fill),
-            components::chip_with_icon(
-                theme_cfg,
-                if ctx.listenbrainz_enabled {
-                    icons::CHECK_SVG
-                } else {
-                    icons::RADIO_SVG
-                },
-                if ctx.listenbrainz_enabled {
-                    "Plugin Active"
-                } else {
-                    "Plugin Inactive"
-                },
-                ctx.listenbrainz_enabled,
-                Message::ToggleListenBrainz(!ctx.listenbrainz_enabled),
-            ),
-        ]
-        .align_y(Alignment::Center),
-        row![
-            components::metric_box(theme_cfg, "Status", ctx.listenbrainz_status.to_string()),
-            components::metric_box(
-                theme_cfg,
-                "Session Scrobbles",
-                ctx.listenbrainz_scrobbles.to_string(),
-            ),
-        ]
-        .spacing(12),
-        column![
-            text(theme_cfg, "User Token")
-                .size(12)
-                .color(theme_cfg.text_color()),
-            text_input("Enter ListenBrainz user token...", ctx.listenbrainz_token)
-                .on_input(Message::ListenBrainzTokenChanged)
+            .spacing(4),
+            column![
+                text(theme_cfg, "API Endpoint URL")
+                    .size(12)
+                    .color(theme_cfg.text_color()),
+                text_input(
+                    "https://api.listenbrainz.org/1/submit-listens",
+                    ctx.listenbrainz_api_url
+                )
+                .on_input(Message::ListenBrainzUrlChanged)
                 .style(styles::search_input_style(theme_cfg))
                 .padding([7, 10]),
-            text(
-                theme_cfg,
-                "Obtain your user token from your profile at https://listenbrainz.org/profile/"
-            )
-            .size(11)
-            .color(theme_cfg.text_muted_color()),
+            ]
+            .spacing(4),
+            lb_test_btn,
         ]
-        .spacing(4),
-        column![
-            text(theme_cfg, "API Endpoint URL")
-                .size(12)
-                .color(theme_cfg.text_color()),
-            text_input(
-                "https://api.listenbrainz.org/1/submit-listens",
-                ctx.listenbrainz_api_url
-            )
-            .on_input(Message::ListenBrainzUrlChanged)
-            .style(styles::search_input_style(theme_cfg))
-            .padding([7, 10]),
-        ]
-        .spacing(4),
-        lb_test_btn,
-    ]
-    .spacing(12);
+        .spacing(12);
 
-    if let Some(banner) = lb_test_banner {
-        lb_column = lb_column.push(banner);
-    }
+        if let Some(banner) = lb_test_banner {
+            lb_column = lb_column.push(banner);
+        }
 
-    let listenbrainz_card = components::settings_card(theme_cfg, "ListenBrainz Plugin", lb_column);
+        let listenbrainz_card =
+            components::settings_card(theme_cfg, "ListenBrainz Plugin", lb_column);
 
-    // 3. Last.fm Card
-    let lastfm_test_banner =
-        if let Some((plugins::scrobbler::ScrobbleService::LastFm, res)) =
+        // 3. Last.fm Card
+        let lastfm_test_banner = if let Some((plugins::scrobbler::ScrobbleService::LastFm, res)) =
             self.scrobble_test_status.as_ref()
         {
             let (color, msg) = match res {
@@ -1127,129 +1200,129 @@ impl SettingsView {
             None
         };
 
-    let lastfm_test_btn = button(
-        row![
-            icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary_color()),
-            Space::with_width(6),
-            text(theme_cfg, "Test Last.fm Connection")
-                .size(11)
-                .color(theme_cfg.primary_color()),
-        ]
-        .align_y(Alignment::Center),
-    )
-    .padding([6, 12])
-    .style(styles::ghost_button(theme_cfg, false))
-    .on_press(Message::TestScrobble(
-        plugins::scrobbler::ScrobbleService::LastFm,
-    ));
+        let lastfm_test_btn = button(
+            row![
+                icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary_color()),
+                Space::with_width(6),
+                text(theme_cfg, "Test Last.fm Connection")
+                    .size(11)
+                    .color(theme_cfg.primary_color()),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .padding([6, 12])
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press(Message::TestScrobble(
+            plugins::scrobbler::ScrobbleService::LastFm,
+        ));
 
-    let mut lastfm_column = column![
-        row![
+        let mut lastfm_column = column![
+            row![
+                column![
+                    text(theme_cfg, "Last.fm Scrobbler")
+                        .size(14)
+                        .color(theme_cfg.text_color()),
+                    text(
+                        theme_cfg,
+                        "Submit listening history and now playing status to Last.fm"
+                    )
+                    .size(11)
+                    .color(theme_cfg.text_muted_color()),
+                ]
+                .width(Length::Fill),
+                components::chip_with_icon(
+                    theme_cfg,
+                    if ctx.lastfm_enabled {
+                        icons::CHECK_SVG
+                    } else {
+                        icons::RADIO_SVG
+                    },
+                    if ctx.lastfm_enabled {
+                        "Plugin Active"
+                    } else {
+                        "Plugin Inactive"
+                    },
+                    ctx.lastfm_enabled,
+                    Message::ToggleLastFm(!ctx.lastfm_enabled),
+                ),
+            ]
+            .align_y(Alignment::Center),
+            row![
+                components::metric_box(theme_cfg, "Status", ctx.lastfm_status.to_string()),
+                components::metric_box(
+                    theme_cfg,
+                    "Session Scrobbles",
+                    ctx.lastfm_scrobbles.to_string(),
+                ),
+            ]
+            .spacing(12),
             column![
-                text(theme_cfg, "Last.fm Scrobbler")
-                    .size(14)
+                text(theme_cfg, "API Key")
+                    .size(12)
                     .color(theme_cfg.text_color()),
+                text_input("Enter Last.fm API Key...", ctx.lastfm_api_key)
+                    .on_input(Message::LastFmApiKeyChanged)
+                    .style(styles::search_input_style(theme_cfg))
+                    .padding([7, 10]),
+            ]
+            .spacing(4),
+            column![
+                text(theme_cfg, "Shared Secret")
+                    .size(12)
+                    .color(theme_cfg.text_color()),
+                text_input("Enter Last.fm Shared Secret...", ctx.lastfm_api_secret)
+                    .on_input(Message::LastFmApiSecretChanged)
+                    .style(styles::search_input_style(theme_cfg))
+                    .padding([7, 10]),
+            ]
+            .spacing(4),
+            column![
+                text(theme_cfg, "Session Key (sk)")
+                    .size(12)
+                    .color(theme_cfg.text_color()),
+                text_input("Enter Last.fm Session Key (sk)...", ctx.lastfm_session_key)
+                    .on_input(Message::LastFmSessionKeyChanged)
+                    .style(styles::search_input_style(theme_cfg))
+                    .padding([7, 10]),
                 text(
                     theme_cfg,
-                    "Submit listening history and now playing status to Last.fm"
+                    "Obtain your API Key and Session Key from your Last.fm API account settings"
                 )
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
             ]
-            .width(Length::Fill),
-            components::chip_with_icon(
-                theme_cfg,
-                if ctx.lastfm_enabled {
-                    icons::CHECK_SVG
-                } else {
-                    icons::RADIO_SVG
-                },
-                if ctx.lastfm_enabled {
-                    "Plugin Active"
-                } else {
-                    "Plugin Inactive"
-                },
-                ctx.lastfm_enabled,
-                Message::ToggleLastFm(!ctx.lastfm_enabled),
-            ),
+            .spacing(4),
+            column![
+                text(theme_cfg, "API Endpoint URL")
+                    .size(12)
+                    .color(theme_cfg.text_color()),
+                text_input("https://ws.audioscrobbler.com/2.0/", ctx.lastfm_api_url)
+                    .on_input(Message::LastFmUrlChanged)
+                    .style(styles::search_input_style(theme_cfg))
+                    .padding([7, 10]),
+            ]
+            .spacing(4),
+            lastfm_test_btn,
         ]
-        .align_y(Alignment::Center),
-        row![
-            components::metric_box(theme_cfg, "Status", ctx.lastfm_status.to_string()),
-            components::metric_box(
-                theme_cfg,
-                "Session Scrobbles",
-                ctx.lastfm_scrobbles.to_string(),
-            ),
-        ]
-        .spacing(12),
-        column![
-            text(theme_cfg, "API Key")
-                .size(12)
-                .color(theme_cfg.text_color()),
-            text_input("Enter Last.fm API Key...", ctx.lastfm_api_key)
-                .on_input(Message::LastFmApiKeyChanged)
-                .style(styles::search_input_style(theme_cfg))
-                .padding([7, 10]),
-        ]
-        .spacing(4),
-        column![
-            text(theme_cfg, "Shared Secret")
-                .size(12)
-                .color(theme_cfg.text_color()),
-            text_input("Enter Last.fm Shared Secret...", ctx.lastfm_api_secret)
-                .on_input(Message::LastFmApiSecretChanged)
-                .style(styles::search_input_style(theme_cfg))
-                .padding([7, 10]),
-        ]
-        .spacing(4),
-        column![
-            text(theme_cfg, "Session Key (sk)")
-                .size(12)
-                .color(theme_cfg.text_color()),
-            text_input("Enter Last.fm Session Key (sk)...", ctx.lastfm_session_key)
-                .on_input(Message::LastFmSessionKeyChanged)
-                .style(styles::search_input_style(theme_cfg))
-                .padding([7, 10]),
-            text(
-                theme_cfg,
-                "Obtain your API Key and Session Key from your Last.fm API account settings"
-            )
-            .size(11)
-            .color(theme_cfg.text_muted_color()),
-        ]
-        .spacing(4),
-        column![
-            text(theme_cfg, "API Endpoint URL")
-                .size(12)
-                .color(theme_cfg.text_color()),
-            text_input("https://ws.audioscrobbler.com/2.0/", ctx.lastfm_api_url)
-                .on_input(Message::LastFmUrlChanged)
-                .style(styles::search_input_style(theme_cfg))
-                .padding([7, 10]),
-        ]
-        .spacing(4),
-        lastfm_test_btn,
-    ]
-    .spacing(12);
+        .spacing(12);
 
-    if let Some(banner) = lastfm_test_banner {
-        lastfm_column = lastfm_column.push(banner);
-    }
+        if let Some(banner) = lastfm_test_banner {
+            lastfm_column = lastfm_column.push(banner);
+        }
 
-    let lastfm_card = components::settings_card(theme_cfg, "Last.fm Plugin", lastfm_column);
+        let lastfm_card = components::settings_card(theme_cfg, "Last.fm Plugin", lastfm_column);
 
-    column![
-        header,
-        prefs_card,
-        listenbrainz_card,
-        lastfm_card,
-        Space::with_height(20),
-    ]
-    .spacing(18)
-    .padding(24)
-    .width(Length::Fill)
-    .into()
+        column![
+            header,
+            prefs_card,
+            listenbrainz_card,
+            lastfm_card,
+            Space::with_height(20),
+        ]
+        .spacing(18)
+        .padding(24)
+        .width(Length::Fill)
+        .into()
     }
 }
 

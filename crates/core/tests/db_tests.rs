@@ -367,7 +367,13 @@ async fn test_library_folders_and_clear_tracks() {
 
 #[tokio::test]
 async fn test_scan_directory_symlink_traversal() {
-    let base_temp = std::env::temp_dir().join(format!("vibecore_test_scan_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+    let base_temp = std::env::temp_dir().join(format!(
+        "vibecore_test_scan_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
     let real_dir = base_temp.join("real_music");
     let scan_dir = base_temp.join("library_root");
     let _ = std::fs::create_dir_all(&real_dir);
@@ -418,10 +424,16 @@ async fn test_insert_track_with_non_utf8_and_null_bytes() {
     };
 
     // Both single insert and batch insert must succeed without "TEXT value contains invalid UTF-8"
-    let id = db.insert_or_update_track(&track).await.expect("Single insert failed");
+    let id = db
+        .insert_or_update_track(&track)
+        .await
+        .expect("Single insert failed");
     assert!(id > 0);
 
     let batch = vec![track.clone()];
-    let inserted = db.insert_tracks_batch(&batch).await.expect("Batch insert failed");
+    let inserted = db
+        .insert_tracks_batch(&batch)
+        .await
+        .expect("Batch insert failed");
     assert_eq!(inserted, 1);
 }

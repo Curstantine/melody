@@ -13,4 +13,3 @@ pub use now_playing::NowPlayingView;
 pub use player_bar::PlayerBar;
 pub use settings::SettingsView;
 pub use status_bar::{StatusBar, StatusBarContext};
-

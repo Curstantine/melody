@@ -6,7 +6,7 @@ use std::time::Duration;
 use audio::{AudioController, AudioEngine};
 use core_engine::{LibraryDatabase, Track};
 use crossbeam_channel::Receiver;
-use iced::widget::{button, column, container, image, row, Space};
+use iced::widget::{button, column, container, image, mouse_area, row, Space};
 use iced::{Element, Length, Subscription, Task, Theme};
 use plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 #[cfg(target_os = "linux")]
@@ -35,6 +35,10 @@ pub struct App {
 
     // Navigation & Tabs
     active_tab: ViewTab,
+    tab_order: Vec<ViewTab>,
+    dragging_tab: Option<ViewTab>,
+    hovered_tab: Option<ViewTab>,
+    drag_order_changed: bool,
 
     // Screen-specific state components
     library: LibraryView,
@@ -138,6 +142,10 @@ impl App {
             theme_manager,
 
             active_tab: config.active_tab,
+            tab_order: config.tab_order.clone(),
+            dragging_tab: None,
+            hovered_tab: None,
+            drag_order_changed: false,
 
             library,
             albums,
@@ -209,7 +217,13 @@ impl App {
 
     pub fn subscription(&self) -> Subscription<Message> {
         // Poll audio playback status at 50ms intervals (~20 FPS smooth seekbar)
-        iced::time::every(Duration::from_millis(50)).map(|_| Message::AudioTick)
+        let ticker = iced::time::every(Duration::from_millis(50)).map(|_| Message::AudioTick);
+        if self.dragging_tab.is_some() {
+            let drag_sub = iced::event::listen_with(handle_drag_event);
+            Subscription::batch([ticker, drag_sub])
+        } else {
+            ticker
+        }
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -514,6 +528,74 @@ impl App {
                         save_task
                     }
                 }
+            }
+
+            Message::TabDragStarted(tab) => {
+                self.dragging_tab = Some(tab);
+                self.drag_order_changed = false;
+                if self.active_tab != tab {
+                    self.update(Message::SelectTab(tab))
+                } else {
+                    Task::none()
+                }
+            }
+
+            Message::TabDraggedOver(target_tab) => {
+                if let Some(dragged) = self.dragging_tab {
+                    if dragged != target_tab {
+                        if let (Some(drag_idx), Some(target_idx)) = (
+                            self.tab_order.iter().position(|&t| t == dragged),
+                            self.tab_order.iter().position(|&t| t == target_tab),
+                        ) {
+                            self.tab_order.remove(drag_idx);
+                            self.tab_order.insert(target_idx, dragged);
+                            self.drag_order_changed = true;
+                        }
+                    }
+                }
+                Task::none()
+            }
+
+            Message::TabDragReleased => {
+                let had_drag = self.dragging_tab.is_some();
+                let order_changed = self.drag_order_changed;
+                self.dragging_tab = None;
+                self.drag_order_changed = false;
+                if had_drag && order_changed {
+                    self.save_config_task()
+                } else {
+                    Task::none()
+                }
+            }
+
+            Message::TabHovered(hovered) => {
+                self.hovered_tab = hovered;
+                Task::none()
+            }
+
+            Message::MoveTab(tab, move_left) => {
+                if let Some(idx) = self.tab_order.iter().position(|&t| t == tab) {
+                    let new_idx = if move_left {
+                        if idx > 0 {
+                            idx - 1
+                        } else {
+                            return Task::none();
+                        }
+                    } else if idx + 1 < self.tab_order.len() {
+                        idx + 1
+                    } else {
+                        return Task::none();
+                    };
+                    self.tab_order.remove(idx);
+                    self.tab_order.insert(new_idx, tab);
+                    return self.save_config_task();
+                }
+                Task::none()
+            }
+
+            Message::ResetTabOrder => {
+                self.tab_order = crate::config::default_tab_order();
+                self.save_config_task()
             }
 
             Message::SearchInputChanged(query) => {
@@ -944,6 +1026,7 @@ impl App {
     pub fn to_config(&self) -> AppConfig {
         AppConfig {
             active_tab: self.active_tab,
+            tab_order: self.tab_order.clone(),
             settings_tab: self.settings.active_tab,
             theme_name: self.theme_manager.active_theme_name.clone(),
             primary_font: self.theme_manager.current_config.font_family.clone(),
@@ -1118,17 +1201,66 @@ impl App {
         let theme_cfg = &self.theme_manager.current_config;
 
         // Top Navigation & Tab Bar
-        let tab_btn = |label: &'static str, tab: ViewTab| {
+        let is_any_dragging = self.dragging_tab.is_some();
+
+        let tab_buttons = self.tab_order.iter().map(|&tab| -> Element<'_, Message> {
             let is_selected = self.active_tab == tab;
-            button(text(theme_cfg, label).size(11).color(if is_selected {
-                theme_cfg.primary_color()
-            } else {
-                theme_cfg.text_muted_color()
-            }))
-            .padding([5, 12])
-            .style(styles::header_tab_button(theme_cfg, is_selected))
-            .on_press(Message::SelectTab(tab))
-        };
+            let is_dragging = self.dragging_tab == Some(tab);
+            let is_hovered = self.hovered_tab == Some(tab);
+
+            let tab_inner = row![
+                icons::icon(
+                    icons::DRAG_HANDLE_SVG,
+                    10.0,
+                    if is_dragging {
+                        theme_cfg.primary_color()
+                    } else if is_selected {
+                        theme_cfg.primary_color().scale_alpha(0.7)
+                    } else if is_hovered {
+                        theme_cfg.text_color().scale_alpha(0.6)
+                    } else {
+                        theme_cfg.text_muted_color().scale_alpha(0.35)
+                    },
+                ),
+                text(theme_cfg, tab.label())
+                    .size(11)
+                    .color(if is_selected || is_dragging {
+                        theme_cfg.primary_color()
+                    } else if is_hovered {
+                        theme_cfg.text_color()
+                    } else {
+                        theme_cfg.text_muted_color()
+                    }),
+            ]
+            .spacing(5)
+            .align_y(iced::Alignment::Center);
+
+            let tab_container =
+                container(tab_inner)
+                    .padding([5, 10])
+                    .style(styles::header_tab_container(
+                        theme_cfg,
+                        is_selected,
+                        is_hovered,
+                        is_dragging,
+                    ));
+
+            mouse_area(tab_container)
+                .on_press(Message::TabDragStarted(tab))
+                .on_release(Message::TabDragReleased)
+                .on_enter(if is_any_dragging {
+                    Message::TabDraggedOver(tab)
+                } else {
+                    Message::TabHovered(Some(tab))
+                })
+                .on_exit(Message::TabHovered(None))
+                .interaction(if is_dragging {
+                    iced::mouse::Interaction::Grabbing
+                } else {
+                    iced::mouse::Interaction::Grab
+                })
+                .into()
+        });
 
         let settings_btn = button(icons::icon(
             icons::SETTINGS_SVG,
@@ -1143,19 +1275,15 @@ impl App {
         .style(styles::icon_control_button(theme_cfg))
         .on_press(Message::SelectTab(ViewTab::Settings));
 
+        let mut nav_row = row![].spacing(4).align_y(iced::Alignment::Center);
+        for btn in tab_buttons {
+            nav_row = nav_row.push(btn);
+        }
+        nav_row = nav_row.push(Space::with_width(Length::Fill));
+        nav_row = nav_row.push(settings_btn);
+
         let top_bar = container(column![
-            row![
-                tab_btn("Library", ViewTab::Tracks),
-                tab_btn("Now Playing", ViewTab::Lyrics),
-                tab_btn("Albums", ViewTab::Albums),
-                tab_btn("Artists", ViewTab::Artists),
-                Space::with_width(Length::Fill),
-                settings_btn,
-            ]
-            .spacing(4)
-            .align_y(iced::Alignment::Center)
-            .padding([4, 12])
-            .height(32),
+            nav_row.padding([4, 12]).height(32),
             border_vert(1.0, theme_cfg.border_color()),
         ])
         .style(styles::top_bar_container(theme_cfg))
@@ -1197,6 +1325,7 @@ impl App {
                 self.settings.view(
                     theme_cfg,
                     views::settings::SettingsContext {
+                        tab_order: &self.tab_order,
                         theme_names: self.theme_manager.theme_names(),
                         active_theme_name: &self.theme_manager.active_theme_name,
                         library_view_mode: self.library.view_mode,
@@ -1288,4 +1417,20 @@ impl App {
 
 fn get_database_path() -> PathBuf {
     core_engine::database_file()
+}
+
+fn handle_drag_event(
+    event: iced::Event,
+    _status: iced::event::Status,
+    _id: iced::window::Id,
+) -> Option<Message> {
+    match event {
+        iced::Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Left)) => {
+            Some(Message::TabDragReleased)
+        }
+        iced::Event::Touch(
+            iced::touch::Event::FingerLifted { .. } | iced::touch::Event::FingerLost { .. },
+        ) => Some(Message::TabDragReleased),
+        _ => None,
+    }
 }

@@ -345,8 +345,8 @@ impl LibraryView {
                             ))
                             .width(Length::Fill);
 
-                        let interactive_row = mouse_area(row_container)
-                            .on_press(Message::TrackClicked(track.id));
+                        let interactive_row =
+                            mouse_area(row_container).on_press(Message::TrackClicked(track.id));
 
                         track_items = track_items.push(interactive_row);
                     }
@@ -384,7 +384,7 @@ impl LibraryView {
                                     top_right: 6.0,
                                     bottom_left: 0.0,
                                     bottom_right: 0.0,
-                                    },
+                                },
                                 color: theme_cfg.border_color(),
                                 width: 1.0,
                             },
@@ -445,8 +445,8 @@ impl LibraryView {
                             })
                             .width(160);
 
-                        let interactive_card = mouse_area(card)
-                            .on_press(Message::TrackClicked(track.id));
+                        let interactive_card =
+                            mouse_area(card).on_press(Message::TrackClicked(track.id));
 
                         tiles_wrap = tiles_wrap.push(interactive_card);
                     }

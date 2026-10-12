@@ -14,6 +14,15 @@ use message::{AlbumSortField, ArtistSortField, SettingsTab, ViewMode, ViewTab};
 fn test_default_app_config() {
     let cfg = AppConfig::default();
     assert_eq!(cfg.active_tab, ViewTab::Tracks);
+    assert_eq!(
+        cfg.tab_order,
+        vec![
+            ViewTab::Tracks,
+            ViewTab::Lyrics,
+            ViewTab::Albums,
+            ViewTab::Artists
+        ]
+    );
     assert_eq!(cfg.settings_tab, SettingsTab::Appearance);
     assert_eq!(cfg.theme_name, "Default");
     assert_eq!(cfg.primary_font, None);
@@ -35,6 +44,12 @@ fn test_default_app_config() {
 fn test_config_toml_roundtrip() {
     let custom = AppConfig {
         active_tab: ViewTab::Albums,
+        tab_order: vec![
+            ViewTab::Albums,
+            ViewTab::Tracks,
+            ViewTab::Artists,
+            ViewTab::Lyrics,
+        ],
         settings_tab: SettingsTab::Library,
         theme_name: "Nord".to_string(),
         primary_font: Some("Inter".to_string()),
@@ -78,4 +93,33 @@ fn test_missing_config_returns_defaults() {
     let non_existent = PathBuf::from("/non/existent/path/vibecore_config.toml");
     let loaded = AppConfig::load_from_path(&non_existent);
     assert_eq!(loaded, AppConfig::default());
+}
+
+#[test]
+fn test_tab_order_sanitization() {
+    // Missing tabs and duplicates
+    let input = vec![ViewTab::Artists, ViewTab::Tracks, ViewTab::Artists];
+    let sanitized = config::sanitize_tab_order(&input);
+    assert_eq!(
+        sanitized,
+        vec![
+            ViewTab::Artists,
+            ViewTab::Tracks,
+            ViewTab::Lyrics,
+            ViewTab::Albums
+        ]
+    );
+
+    // Empty list restores all defaults
+    let empty: Vec<ViewTab> = vec![];
+    let sanitized_empty = config::sanitize_tab_order(&empty);
+    assert_eq!(
+        sanitized_empty,
+        vec![
+            ViewTab::Tracks,
+            ViewTab::Lyrics,
+            ViewTab::Albums,
+            ViewTab::Artists
+        ]
+    );
 }

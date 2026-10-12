@@ -13,7 +13,7 @@ mod theme;
 
 use std::path::Path;
 
-use message::{SettingsTab, ViewMode};
+use message::{SettingsTab, ViewMode, ViewTab};
 use theme::ThemeConfig;
 
 #[test]
@@ -52,6 +52,12 @@ fn test_settings_views_render_without_panicking() {
         };
 
         let ctx = settings::SettingsContext {
+            tab_order: &[
+                ViewTab::Tracks,
+                ViewTab::Lyrics,
+                ViewTab::Albums,
+                ViewTab::Artists,
+            ],
             theme_names: vec!["Default".to_string(), "Nord".to_string()],
             active_theme_name: "Default",
             library_view_mode: ViewMode::List,

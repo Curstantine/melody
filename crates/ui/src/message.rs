@@ -14,6 +14,18 @@ pub enum ViewTab {
     Settings,
 }
 
+impl ViewTab {
+    pub fn label(&self) -> &'static str {
+        match self {
+            ViewTab::Tracks => "Library",
+            ViewTab::Lyrics => "Now Playing",
+            ViewTab::Albums => "Albums",
+            ViewTab::Artists => "Artists",
+            ViewTab::Settings => "Settings",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum ViewMode {
     #[default]
@@ -73,6 +85,12 @@ pub enum Message {
 
     // Navigation & Views
     SelectTab(ViewTab),
+    TabDragStarted(ViewTab),
+    TabDraggedOver(ViewTab),
+    TabDragReleased,
+    TabHovered(Option<ViewTab>),
+    MoveTab(ViewTab, bool),
+    ResetTabOrder,
     SetLibraryViewMode(ViewMode),
     SetAlbumsViewMode(ViewMode),
     SetArtistsViewMode(ViewMode),

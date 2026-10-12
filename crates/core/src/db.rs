@@ -2,9 +2,9 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use turso::{params, Connection, Database, Error as TursoError, Row};
 use thiserror::Error;
 use tracing::{info, warn};
+use turso::{params, Connection, Database, Error as TursoError, Row};
 use walkdir::WalkDir;
 
 use crate::metadata::extract_metadata;
@@ -369,11 +369,7 @@ impl LibraryDatabase {
                     )
                     .await?
             }
-            _ => {
-                self.conn
-                    .query("SELECT COUNT(*) FROM tracks", ())
-                    .await?
-            }
+            _ => self.conn.query("SELECT COUNT(*) FROM tracks", ()).await?,
         };
 
         if let Some(row) = rows.next().await? {
@@ -624,7 +620,11 @@ impl LibraryDatabase {
 
         let mut batch = Vec::with_capacity(100);
 
-        for entry in WalkDir::new(dir_path).follow_links(true).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(dir_path)
+            .follow_links(true)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
             let path = entry.path();
             if path.is_file() {
                 if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
@@ -649,7 +649,10 @@ impl LibraryDatabase {
                                                 match self.insert_or_update_track(t).await {
                                                     Ok(_) => summary.inserted_tracks += 1,
                                                     Err(err) => {
-                                                        warn!("Failed to insert track {:?}: {}", t.file_path, err);
+                                                        warn!(
+                                                            "Failed to insert track {:?}: {}",
+                                                            t.file_path, err
+                                                        );
                                                         summary.failed_files += 1;
                                                     }
                                                 }

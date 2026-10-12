@@ -118,7 +118,10 @@ fn test_flac_embedded_picture_empty_mime() {
 
     // 3. Test extraction
     let extracted = core_engine::extract_cover_art(&flac_file);
-    assert!(extracted.is_some(), "Should extract embedded FLAC picture with empty MIME");
+    assert!(
+        extracted.is_some(),
+        "Should extract embedded FLAC picture with empty MIME"
+    );
     let art_bytes = extracted.unwrap();
     assert_eq!(art_bytes, jpeg_bytes);
 
@@ -141,7 +144,10 @@ fn test_user_reported_aurora_sky_track_cover_extraction() {
             "Must successfully extract cover from the user's Aurora Sky track"
         );
         let thumb = get_or_create_thumbnail(target, 200);
-        assert!(thumb.is_some(), "Must generate thumbnail for the user's track");
+        assert!(
+            thumb.is_some(),
+            "Must generate thumbnail for the user's track"
+        );
         let decoded = image::load_from_memory(&thumb.unwrap()).unwrap();
         assert_eq!(decoded.width(), 200);
         assert_eq!(decoded.height(), 200);

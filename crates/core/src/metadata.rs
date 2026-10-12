@@ -59,9 +59,7 @@ pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTech
     let file_size_bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
     let ictx = ffmpeg_next::format::input(path).ok()?;
 
-    let audio_stream = ictx
-        .streams()
-        .best(ffmpeg_next::media::Type::Audio)?;
+    let audio_stream = ictx.streams().best(ffmpeg_next::media::Type::Audio)?;
     let codec_params = audio_stream.parameters();
     let raw_par = unsafe { *codec_params.as_ptr() };
 
@@ -134,7 +132,10 @@ pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTech
         }
     };
 
-    let ext = path.extension().and_then(|e| e.to_str()).map(|s| s.to_lowercase());
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase());
     let format_name = match ext.as_deref() {
         Some("flac") => "FLAC Lossless",
         Some("mp3") => "MP3 Audio",
@@ -187,7 +188,10 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
     let file_len = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
     let ictx = ffmpeg_next::format::input(path).map_err(|e| {
         if !path.exists() {
-            MetadataError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))
+            MetadataError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "File not found",
+            ))
         } else {
             MetadataError::Ffmpeg(e)
         }
@@ -234,22 +238,16 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
                 year = parse_year(&val);
             }
             "COMPOSER" | "TCOM" if composer.is_none() => composer = Some(val),
-            "LABEL" | "PUBLISHER" | "ORGANIZATION" | "TPUB" if label.is_none() => {
-                label = Some(val)
-            }
+            "LABEL" | "PUBLISHER" | "ORGANIZATION" | "TPUB" if label.is_none() => label = Some(val),
             "MUSICBRAINZ_TRACKID" | "MUSICBRAINZ TRACK ID" | "MUSICBRAINZ_RECORDINGID"
                 if musicbrainz_track_id.is_none() =>
             {
                 musicbrainz_track_id = Some(val);
             }
-            "MUSICBRAINZ_ARTISTID" | "MUSICBRAINZ ARTIST ID"
-                if musicbrainz_artist_id.is_none() =>
-            {
+            "MUSICBRAINZ_ARTISTID" | "MUSICBRAINZ ARTIST ID" if musicbrainz_artist_id.is_none() => {
                 musicbrainz_artist_id = Some(val);
             }
-            "MUSICBRAINZ_ALBUMID" | "MUSICBRAINZ ALBUM ID"
-                if musicbrainz_album_id.is_none() =>
-            {
+            "MUSICBRAINZ_ALBUMID" | "MUSICBRAINZ ALBUM ID" if musicbrainz_album_id.is_none() => {
                 musicbrainz_album_id = Some(val);
             }
             _ => {}
@@ -335,8 +333,7 @@ pub fn sanitize_tag_bytes(bytes: &[u8]) -> String {
 
     // If there are consecutive non-ASCII bytes, it's typically multibyte Asian text (GBK/Shift-JIS)
     if has_consecutive_non_ascii {
-        let (cow_gbk, had_errors_gbk) =
-            encoding_rs::GB18030.decode_without_bom_handling(&filtered);
+        let (cow_gbk, had_errors_gbk) = encoding_rs::GB18030.decode_without_bom_handling(&filtered);
         if !had_errors_gbk {
             return cow_gbk.trim().to_string();
         }
@@ -357,8 +354,7 @@ pub fn sanitize_tag_bytes(bytes: &[u8]) -> String {
 
     // If not tried yet, try GB18030
     if !has_consecutive_non_ascii {
-        let (cow_gbk, had_errors_gbk) =
-            encoding_rs::GB18030.decode_without_bom_handling(&filtered);
+        let (cow_gbk, had_errors_gbk) = encoding_rs::GB18030.decode_without_bom_handling(&filtered);
         if !had_errors_gbk {
             return cow_gbk.trim().to_string();
         }

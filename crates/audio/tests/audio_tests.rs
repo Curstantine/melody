@@ -143,4 +143,3 @@ fn test_ring_buffer_flush_synchronization() {
     assert_eq!(read, 128);
     assert_eq!(read_buf, new_samples);
 }
-

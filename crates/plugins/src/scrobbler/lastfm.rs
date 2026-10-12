@@ -134,10 +134,7 @@ impl LastFmPlugin {
     }
 
     pub fn config(&self) -> LastFmConfig {
-        self.config
-            .read()
-            .map(|c| c.clone())
-            .unwrap_or_default()
+        self.config.read().map(|c| c.clone()).unwrap_or_default()
     }
 
     pub fn status(&self) -> String {
@@ -173,7 +170,9 @@ impl LastFmPlugin {
             return Err("Last.fm API Key is missing. Please enter your API Key.".to_string());
         }
         if session_key.is_empty() {
-            return Err("Last.fm Session Key (sk) is missing. Please enter your Session Key.".to_string());
+            return Err(
+                "Last.fm Session Key (sk) is missing. Please enter your Session Key.".to_string(),
+            );
         }
 
         let mut params = vec![
@@ -199,15 +198,15 @@ impl LastFmPlugin {
 
         if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body_str) {
             if let Some(user) = val.get("user") {
-                let username = user
-                    .get("name")
-                    .and_then(|n| n.as_str())
-                    .unwrap_or("User");
+                let username = user.get("name").and_then(|n| n.as_str()).unwrap_or("User");
                 let playcount = user
                     .get("playcount")
                     .and_then(|p| p.as_str())
                     .unwrap_or("0");
-                let msg = format!("Authenticated as '{}' (Total scrobbles: {})", username, playcount);
+                let msg = format!(
+                    "Authenticated as '{}' (Total scrobbles: {})",
+                    username, playcount
+                );
                 self.set_status(format!("Connected as {}", username));
                 return Ok(msg);
             } else if let Some(err_msg) = val.get("message").and_then(|m| m.as_str()) {
@@ -256,7 +255,10 @@ impl LastFmPlugin {
                         track_clone.artist, track_clone.title
                     );
                     if let Ok(mut s) = status_arc.write() {
-                        *s = format!("Playing now: {} - {}", track_clone.artist, track_clone.title);
+                        *s = format!(
+                            "Playing now: {} - {}",
+                            track_clone.artist, track_clone.title
+                        );
                     }
                 }
                 Err(err) => {

@@ -1,16 +1,43 @@
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use crate::message::{AlbumSortField, ArtistSortField, SettingsTab, ViewMode, ViewTab};
 
 pub const DEFAULT_PAGE_SIZE: usize = 50;
 
+pub fn default_tab_order() -> Vec<ViewTab> {
+    vec![
+        ViewTab::Tracks,
+        ViewTab::Lyrics,
+        ViewTab::Albums,
+        ViewTab::Artists,
+    ]
+}
+
+pub fn sanitize_tab_order(order: &[ViewTab]) -> Vec<ViewTab> {
+    let standard = default_tab_order();
+    let mut sanitized = Vec::with_capacity(standard.len());
+    for &tab in order {
+        if standard.contains(&tab) && !sanitized.contains(&tab) {
+            sanitized.push(tab);
+        }
+    }
+    for tab in standard {
+        if !sanitized.contains(&tab) {
+            sanitized.push(tab);
+        }
+    }
+    sanitized
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AppConfig {
     #[serde(default)]
     pub active_tab: ViewTab,
+    #[serde(default = "default_tab_order")]
+    pub tab_order: Vec<ViewTab>,
     #[serde(default)]
     pub settings_tab: SettingsTab,
 
@@ -142,6 +169,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             active_tab: ViewTab::Tracks,
+            tab_order: default_tab_order(),
             settings_tab: SettingsTab::Appearance,
             theme_name: default_theme_name(),
             primary_font: None,
@@ -177,8 +205,9 @@ impl AppConfig {
 
         match fs::read_to_string(path) {
             Ok(content) => match toml::from_str::<Self>(&content) {
-                Ok(config) => {
+                Ok(mut config) => {
                     info!("Successfully loaded settings from {:?}", path);
+                    config.tab_order = sanitize_tab_order(&config.tab_order);
                     config
                 }
                 Err(err) => {

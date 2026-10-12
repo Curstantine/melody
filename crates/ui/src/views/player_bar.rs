@@ -1,14 +1,12 @@
+use core_engine::{format_duration, Track};
 use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, slider, stack, Space};
 use iced::{Alignment, Element, Length};
-use core_engine::{format_duration, Track};
 
 use crate::components::{self, text};
 use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
-
-
 
 /// Self-contained state and view component for the bottom persistent player bar widget.
 #[derive(Debug, Default, Clone)]
@@ -229,7 +227,7 @@ impl PlayerBar {
         let top_right_timing = row![Space::with_width(Length::Fill), time_info,]
             .padding(iced::Padding {
                 top: 8.0,
-                right: 16.0,
+                right: 20.0,
                 bottom: 0.0,
                 left: 0.0,
             })
@@ -246,4 +244,3 @@ impl PlayerBar {
             .into()
     }
 }
-

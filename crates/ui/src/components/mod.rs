@@ -1,7 +1,7 @@
+use core_engine::SortDirection;
 use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, Space};
 use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length};
-use core_engine::SortDirection;
 
 use crate::icons;
 use crate::message::{Message, ViewMode};
@@ -288,6 +288,23 @@ pub fn cover_art<'a>(
         })
         .into(),
     }
+}
+
+pub fn settings_header<'a>(
+    theme_cfg: &'a ThemeConfig,
+    title: &'static str,
+    description: Option<&'static str>,
+) -> Element<'a, Message> {
+    column![text(theme_cfg, title)
+        .size(20)
+        .color(theme_cfg.text_color()),]
+    .push_maybe(description.map(|x| {
+        text(theme_cfg, x)
+            .size(12)
+            .color(theme_cfg.text_muted_color())
+    }))
+    .spacing(4)
+    .into()
 }
 
 /// A card container with a primary colored title header.

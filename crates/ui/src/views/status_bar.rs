@@ -1,6 +1,6 @@
+use core_engine::{format_duration, AlbumSummary, ArtistSummary, Track};
 use iced::widget::{column, container, row, Space};
 use iced::{Alignment, Element, Length};
-use core_engine::{format_duration, AlbumSummary, ArtistSummary, Track};
 
 use crate::components::{border_vert, scanning_indicator, text};
 use crate::icons;
@@ -27,8 +27,6 @@ pub struct StatusBarContext<'a> {
     pub is_scanning: bool,
 }
 
-
-
 /// Persistent bottom status bar component.
 pub struct StatusBar;
 
@@ -52,7 +50,8 @@ impl StatusBar {
                     )
                 };
 
-                let filter_indicator: Element<'a, Message> = if !ctx.search_query.trim().is_empty() {
+                let filter_indicator: Element<'a, Message> = if !ctx.search_query.trim().is_empty()
+                {
                     text(
                         theme_cfg,
                         format!("·  Filter: \"{}\"", ctx.search_query.trim()),
@@ -192,4 +191,3 @@ impl StatusBar {
         .into()
     }
 }
-

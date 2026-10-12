@@ -6,10 +6,10 @@ mod components;
 mod icons;
 #[path = "../src/message.rs"]
 mod message;
-#[path = "../src/theme/mod.rs"]
-mod theme;
 #[path = "../src/views/now_playing.rs"]
 mod now_playing;
+#[path = "../src/theme/mod.rs"]
+mod theme;
 
 use core_engine::{AudioTechnicalInfo, Track};
 use theme::ThemeConfig;
@@ -20,16 +20,7 @@ fn test_now_playing_empty_state_renders() {
     let now_playing_view = now_playing::NowPlayingView::new();
 
     let _element = now_playing_view.view(
-        &theme_cfg,
-        None,
-        None,
-        None,
-        None,
-        None,
-        false,
-        false,
-        false,
-        None,
+        &theme_cfg, None, None, None, None, None, false, false, false, None,
     );
 }
 

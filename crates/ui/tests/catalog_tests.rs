@@ -13,8 +13,8 @@ mod message;
 #[path = "../src/theme/mod.rs"]
 mod theme;
 
-use message::{AlbumSortField, ArtistSortField, Message, ViewMode};
 use core_engine::{AlbumSummary, ArtistSummary};
+use message::{AlbumSortField, ArtistSortField, Message, ViewMode};
 use theme::ThemeConfig;
 
 use crate::components::text;
@@ -160,4 +160,3 @@ fn test_artists_view_component_state() {
     let theme_cfg = ThemeConfig::default();
     let _rendered = artists_view.view(&theme_cfg);
 }
-

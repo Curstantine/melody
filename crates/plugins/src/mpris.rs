@@ -8,8 +8,8 @@ mod linux {
     use crossbeam_channel::Sender;
     use mpris_server::zbus::{fdo, Result as ZbusResult};
     use mpris_server::{
-        LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property, RootInterface,
-        Server, Signal, Time, TrackId, Volume,
+        LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property,
+        RootInterface, Server, Signal, Time, TrackId, Volume,
     };
     use tracing::{error, info};
     use url::Url;
@@ -47,7 +47,8 @@ mod linux {
 
         fn set_volume_ratio(&self, vol: f64) {
             let clamped = vol.clamp(0.0, 1.0);
-            self.volume.store((clamped * 10000.0) as u32, Ordering::Relaxed);
+            self.volume
+                .store((clamped * 10000.0) as u32, Ordering::Relaxed);
         }
     }
 
@@ -167,7 +168,12 @@ mod linux {
         async fn playback_status(&self) -> fdo::Result<PlaybackStatus> {
             if self.is_playing.load(Ordering::Relaxed) {
                 Ok(PlaybackStatus::Playing)
-            } else if self.current_track.read().map(|g| g.is_some()).unwrap_or(false) {
+            } else if self
+                .current_track
+                .read()
+                .map(|g| g.is_some())
+                .unwrap_or(false)
+            {
                 Ok(PlaybackStatus::Paused)
             } else {
                 Ok(PlaybackStatus::Stopped)
@@ -445,7 +451,13 @@ mod linux {
             self.inner.is_playing.store(is_playing, Ordering::Relaxed);
             let status = if is_playing {
                 PlaybackStatus::Playing
-            } else if self.inner.current_track.read().map(|g| g.is_some()).unwrap_or(false) {
+            } else if self
+                .inner
+                .current_track
+                .read()
+                .map(|g| g.is_some())
+                .unwrap_or(false)
+            {
                 PlaybackStatus::Paused
             } else {
                 PlaybackStatus::Stopped
@@ -463,15 +475,17 @@ mod linux {
 
         fn on_seeked(&self, position_ms: u64) -> Result<(), String> {
             self.inner.position_ms.store(position_ms, Ordering::Relaxed);
-            self.send_msg(MprisServerMsg::Seeked(Time::from_millis(position_ms as i64)));
+            self.send_msg(MprisServerMsg::Seeked(Time::from_millis(
+                position_ms as i64,
+            )));
             Ok(())
         }
 
         fn on_volume_change(&self, volume: f32) -> Result<(), String> {
             self.inner.set_volume_ratio(volume as f64);
-            self.send_msg(MprisServerMsg::PropertiesChanged(vec![
-                Property::Volume(volume as f64),
-            ]));
+            self.send_msg(MprisServerMsg::PropertiesChanged(vec![Property::Volume(
+                volume as f64,
+            )]));
             Ok(())
         }
 
@@ -490,9 +504,9 @@ mod linux {
 
         fn on_shuffle_change(&self, is_shuffle: bool) -> Result<(), String> {
             self.inner.is_shuffle.store(is_shuffle, Ordering::Relaxed);
-            self.send_msg(MprisServerMsg::PropertiesChanged(vec![
-                Property::Shuffle(is_shuffle),
-            ]));
+            self.send_msg(MprisServerMsg::PropertiesChanged(vec![Property::Shuffle(
+                is_shuffle,
+            )]));
             Ok(())
         }
     }
