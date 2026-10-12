@@ -63,6 +63,12 @@ impl LyricsPlugin {
     }
 }
 
+impl Default for LyricsPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Plugin for LyricsPlugin {
     fn metadata(&self) -> &PluginMetadata {
         &self.meta
@@ -90,6 +96,12 @@ impl DiscordRpcPlugin {
                 description: "Updates Discord Rich Presence with current track info".to_string(),
             },
         }
+    }
+}
+
+impl Default for DiscordRpcPlugin {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

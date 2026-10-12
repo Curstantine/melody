@@ -226,8 +226,8 @@ impl AudioConverter {
                     let mut dst_frame = vec![0.0f32; self.dst_channels];
                     for f in 0..out_frames {
                         let mut src_frame = vec![0.0f32; self.src_channels];
-                        for c in 0..self.src_channels {
-                            src_frame[c] = self.output_planes[c][f];
+                        for (c, sample) in src_frame.iter_mut().enumerate().take(self.src_channels) {
+                            *sample = self.output_planes[c][f];
                         }
                         downmix_frame(&src_frame, &mut dst_frame);
                         output.extend_from_slice(&dst_frame);
@@ -277,8 +277,8 @@ impl AudioConverter {
                 let mut dst_frame = vec![0.0f32; self.dst_channels];
                 for f in 0..out_frames {
                     let mut src_frame = vec![0.0f32; self.src_channels];
-                    for c in 0..self.src_channels {
-                        src_frame[c] = self.output_planes[c][f];
+                    for (c, sample) in src_frame.iter_mut().enumerate().take(self.src_channels) {
+                        *sample = self.output_planes[c][f];
                     }
                     downmix_frame(&src_frame, &mut dst_frame);
                     output.extend_from_slice(&dst_frame);

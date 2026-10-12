@@ -170,5 +170,5 @@ pub enum Message {
     AlbumsLoaded(Vec<AlbumSummary>),
     ArtistsLoaded(Vec<ArtistSummary>),
     LibraryFoldersLoaded(Vec<String>),
-    TrackResolvedForPlayback(Option<Track>),
+    TrackResolvedForPlayback(Box<Option<Track>>),
 }

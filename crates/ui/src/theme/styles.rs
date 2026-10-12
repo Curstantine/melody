@@ -443,7 +443,7 @@ pub fn search_input_style(
 ) -> impl Fn(&Theme, text_input::Status) -> text_input::Style + '_ {
     move |_theme, status| {
         let border_color = match status {
-            text_input::Status::Focused { .. } => cfg.primary_color(),
+            text_input::Status::Focused => cfg.primary_color(),
             text_input::Status::Hovered => cfg.accent_color(),
             _ => cfg.border_color(),
         };

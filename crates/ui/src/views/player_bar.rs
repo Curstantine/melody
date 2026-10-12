@@ -30,6 +30,7 @@ impl PlayerBar {
         self.seek_pos_ms
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,

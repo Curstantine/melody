@@ -32,7 +32,7 @@ impl AudioTechnicalInfo {
     }
 
     pub fn formatted_sample_rate(&self) -> String {
-        if self.sample_rate_hz % 1000 == 0 {
+        if self.sample_rate_hz.is_multiple_of(1000) {
             format!("{} kHz", self.sample_rate_hz / 1000)
         } else {
             format!("{:.1} kHz", self.sample_rate_hz as f64 / 1000.0)

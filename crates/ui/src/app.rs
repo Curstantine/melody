@@ -282,18 +282,18 @@ impl App {
             Message::PlayTrack(track_id) => {
                 // If the track is already in the currently visible window, play immediately without querying DB
                 if let Some(track) = self.library.find_track(track_id).cloned() {
-                    return self.update(Message::TrackResolvedForPlayback(Some(track)));
+                    return self.update(Message::TrackResolvedForPlayback(Box::new(Some(track))));
                 }
 
                 let db = self.db.clone();
                 Task::perform(
                     async move { db.get_track_by_id(track_id).await.unwrap_or(None) },
-                    Message::TrackResolvedForPlayback,
+                    |res| Message::TrackResolvedForPlayback(Box::new(res)),
                 )
             }
 
             Message::TrackResolvedForPlayback(maybe_track) => {
-                if let Some(track) = maybe_track {
+                if let Some(track) = *maybe_track {
                     info!("Playing track: {} (ID {})", track.title, track.id);
                     let path = PathBuf::from(&track.file_path);
 
@@ -488,7 +488,7 @@ impl App {
                                 let db = self.db.clone();
                                 return Task::perform(
                                     async move { db.get_track_by_path(&path_str).await.unwrap_or(None) },
-                                    Message::TrackResolvedForPlayback,
+                                    |res| Message::TrackResolvedForPlayback(Box::new(res)),
                                 );
                             }
                         }

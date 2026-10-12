@@ -187,11 +187,7 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
 
     // SPSC ring buffer for decoding worker -> cpal callback
     // Note: The producer is held by the worker
-    let mut ring_producer = if let Some(producer) = WORKER_PRODUCER.lock().unwrap().take() {
-        Some(producer)
-    } else {
-        None
-    };
+    let mut ring_producer = WORKER_PRODUCER.lock().unwrap().take();
 
     loop {
         // 1. Process all pending commands

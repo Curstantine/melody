@@ -37,28 +37,46 @@
           freetype
           ffmpeg
         ];
+
+        melodyPkg = pkgs.callPackage ./nix/package.nix { };
       in
       {
+        packages.default = melodyPkg;
+        packages.melody = melodyPkg;
+
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
             pkg-config
             clang
           ];
-          buildInputs = with pkgs; [
-            nixd
-            nixfmt
-            noto-fonts-cjk-sans
-            (pkgs.rust-bin.stable.latest.default.override {
-              extensions = [
-                "rust-src"
-                "rust-analyzer"
-              ];
-            })
-          ] ++ runtimeLibs;
+          buildInputs =
+            with pkgs;
+            [
+              nixd
+              nixfmt
+              noto-fonts-cjk-sans
+              (pkgs.rust-bin.stable.latest.default.override {
+                extensions = [
+                  "rust-src"
+                  "rust-analyzer"
+                ];
+              })
+            ]
+            ++ runtimeLibs;
 
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath runtimeLibs;
           LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
         };
+
+        checks.build = melodyPkg;
       }
-    );
+    )
+    // {
+      overlays.default = final: prev: {
+        melody = self.packages.${final.stdenv.hostPlatform.system}.default;
+      };
+
+      nixosModules.default = import ./nix/module.nix;
+      nixosModules.melody = self.nixosModules.default;
+    };
 }
