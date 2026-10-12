@@ -21,7 +21,7 @@ pub fn thumbnail_cache_dir() -> PathBuf {
 /// Generates a deterministic hash-based cache key for a given track path and thumbnail dimension
 pub fn compute_thumbnail_cache_key(track_path: &Path, max_dim: u32) -> String {
     let mut hasher = DefaultHasher::new();
-    "v2_square".hash(&mut hasher);
+    "v3_square".hash(&mut hasher);
     track_path.to_string_lossy().hash(&mut hasher);
     max_dim.hash(&mut hasher);
 
@@ -87,6 +87,7 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
             {
                 let _ = fs::create_dir_all(&cache_dir);
                 let _ = fs::write(&thumb_file, &out_bytes);
+                let _ = fs::remove_file(&none_marker);
                 debug!(
                     "Generated thumbnail for {:?} ({} bytes)",
                     track_path,
@@ -96,6 +97,7 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
             } else {
                 // If encoding failed, fallback to original if reasonably small
                 if original_bytes.len() < 300_000 {
+                    let _ = fs::remove_file(&none_marker);
                     Some(original_bytes)
                 } else {
                     None
@@ -105,6 +107,7 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
         Err(e) => {
             debug!("Failed to decode cover image for {:?}: {}", track_path, e);
             if original_bytes.len() < 300_000 {
+                let _ = fs::remove_file(&none_marker);
                 Some(original_bytes)
             } else {
                 None
