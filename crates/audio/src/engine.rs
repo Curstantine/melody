@@ -423,10 +423,22 @@ fn advance_position(
     }
 }
 
+type CpalStreamSetup = (cpal::Stream, u32, usize, Arc<AtomicBool>, Arc<AtomicU64>);
+
+/// Shared, per-stream state handed to the realtime output callbacks.
+struct CallbackState<'a> {
+    consumer: &'a mut ringbuf::HeapCons<f32>,
+    flush_flag: &'a AtomicBool,
+    status: &'a AudioStatus,
+    sample_rate: u32,
+    channels: usize,
+    pos_rem: &'a mut u64,
+}
+
 fn setup_cpal_stream(
     device: &cpal::Device,
     status: AudioStatus,
-) -> Result<(cpal::Stream, u32, usize, Arc<AtomicBool>, Arc<AtomicU64>), AudioEngineError> {
+) -> Result<CpalStreamSetup, AudioEngineError> {
     let config = device.default_output_config()?;
     let sample_rate = config.sample_rate().0;
     let channels = config.channels() as usize;
@@ -453,15 +465,15 @@ fn setup_cpal_stream(
             &config.into(),
             move |data: &mut [f32], info: &cpal::OutputCallbackInfo| {
                 record_output_latency(info, &latency_cb);
-                audio_callback_f32(
-                    data,
-                    &mut consumer,
-                    &flush_cb,
-                    &status_cb,
+                let mut state = CallbackState {
+                    consumer: &mut consumer,
+                    flush_flag: &flush_cb,
+                    status: &status_cb,
                     sample_rate,
                     channels,
-                    &mut pos_rem,
-                );
+                    pos_rem: &mut pos_rem,
+                };
+                audio_callback_f32(data, &mut state);
             },
             err_fn,
             None,
@@ -472,16 +484,15 @@ fn setup_cpal_stream(
                 &config.into(),
                 move |data: &mut [i16], info: &cpal::OutputCallbackInfo| {
                     record_output_latency(info, &latency_cb);
-                    audio_callback_i16(
-                        data,
-                        &mut consumer,
-                        &mut scratch,
-                        &flush_cb,
-                        &status_cb,
+                    let mut state = CallbackState {
+                        consumer: &mut consumer,
+                        flush_flag: &flush_cb,
+                        status: &status_cb,
                         sample_rate,
                         channels,
-                        &mut pos_rem,
-                    );
+                        pos_rem: &mut pos_rem,
+                    };
+                    audio_callback_i16(data, &mut scratch, &mut state);
                 },
                 err_fn,
                 None,
@@ -493,16 +504,15 @@ fn setup_cpal_stream(
                 &config.into(),
                 move |data: &mut [u16], info: &cpal::OutputCallbackInfo| {
                     record_output_latency(info, &latency_cb);
-                    audio_callback_u16(
-                        data,
-                        &mut consumer,
-                        &mut scratch,
-                        &flush_cb,
-                        &status_cb,
+                    let mut state = CallbackState {
+                        consumer: &mut consumer,
+                        flush_flag: &flush_cb,
+                        status: &status_cb,
                         sample_rate,
                         channels,
-                        &mut pos_rem,
-                    );
+                        pos_rem: &mut pos_rem,
+                    };
+                    audio_callback_u16(data, &mut scratch, &mut state);
                 },
                 err_fn,
                 None,
@@ -516,54 +526,43 @@ fn setup_cpal_stream(
     Ok((stream, sample_rate, channels, flush_flag, latency_us))
 }
 
-fn audio_callback_f32(
-    data: &mut [f32],
-    consumer: &mut ringbuf::HeapCons<f32>,
-    flush_flag: &AtomicBool,
-    status: &AudioStatus,
-    sample_rate: u32,
-    channels: usize,
-    pos_rem: &mut u64,
-) {
-    if flush_flag.swap(false, Ordering::SeqCst) {
-        consumer.clear();
+fn audio_callback_f32(data: &mut [f32], state: &mut CallbackState) {
+    if state.flush_flag.swap(false, Ordering::SeqCst) {
+        state.consumer.clear();
     }
 
-    if !status.is_playing() {
+    if !state.status.is_playing() {
         data.fill(0.0);
         return;
     }
 
-    let read_count = consumer.pop_slice(data);
+    let read_count = state.consumer.pop_slice(data);
     if read_count < data.len() {
         data[read_count..].fill(0.0);
     }
 
-    let vol = status.volume();
+    let vol = state.status.volume();
     if (vol - 1.0).abs() > 0.001 {
         for sample in &mut data[..read_count] {
             *sample *= vol;
         }
     }
 
-    advance_position(status, read_count, channels, sample_rate, pos_rem);
+    advance_position(
+        state.status,
+        read_count,
+        state.channels,
+        state.sample_rate,
+        state.pos_rem,
+    );
 }
 
-fn audio_callback_i16(
-    data: &mut [i16],
-    consumer: &mut ringbuf::HeapCons<f32>,
-    scratch: &mut Vec<f32>,
-    flush_flag: &AtomicBool,
-    status: &AudioStatus,
-    sample_rate: u32,
-    channels: usize,
-    pos_rem: &mut u64,
-) {
-    if flush_flag.swap(false, Ordering::SeqCst) {
-        consumer.clear();
+fn audio_callback_i16(data: &mut [i16], scratch: &mut Vec<f32>, state: &mut CallbackState) {
+    if state.flush_flag.swap(false, Ordering::SeqCst) {
+        state.consumer.clear();
     }
 
-    if !status.is_playing() {
+    if !state.status.is_playing() {
         data.fill(0);
         return;
     }
@@ -572,35 +571,32 @@ fn audio_callback_i16(
         scratch.resize(data.len(), 0.0);
     }
     let scratch_slice = &mut scratch[..data.len()];
-    let read_count = consumer.pop_slice(scratch_slice);
+    let read_count = state.consumer.pop_slice(scratch_slice);
     if read_count < data.len() {
         scratch_slice[read_count..].fill(0.0);
     }
 
-    let vol = status.volume();
+    let vol = state.status.volume();
     for (i, sample) in data.iter_mut().enumerate() {
         let clamped = (scratch_slice[i] * vol).clamp(-1.0, 1.0);
         *sample = (clamped * i16::MAX as f32) as i16;
     }
 
-    advance_position(status, read_count, channels, sample_rate, pos_rem);
+    advance_position(
+        state.status,
+        read_count,
+        state.channels,
+        state.sample_rate,
+        state.pos_rem,
+    );
 }
 
-fn audio_callback_u16(
-    data: &mut [u16],
-    consumer: &mut ringbuf::HeapCons<f32>,
-    scratch: &mut Vec<f32>,
-    flush_flag: &AtomicBool,
-    status: &AudioStatus,
-    sample_rate: u32,
-    channels: usize,
-    pos_rem: &mut u64,
-) {
-    if flush_flag.swap(false, Ordering::SeqCst) {
-        consumer.clear();
+fn audio_callback_u16(data: &mut [u16], scratch: &mut Vec<f32>, state: &mut CallbackState) {
+    if state.flush_flag.swap(false, Ordering::SeqCst) {
+        state.consumer.clear();
     }
 
-    if !status.is_playing() {
+    if !state.status.is_playing() {
         data.fill(u16::MAX / 2);
         return;
     }
@@ -609,18 +605,24 @@ fn audio_callback_u16(
         scratch.resize(data.len(), 0.0);
     }
     let scratch_slice = &mut scratch[..data.len()];
-    let read_count = consumer.pop_slice(scratch_slice);
+    let read_count = state.consumer.pop_slice(scratch_slice);
     if read_count < data.len() {
         scratch_slice[read_count..].fill(0.0);
     }
 
-    let vol = status.volume();
+    let vol = state.status.volume();
     for (i, sample) in data.iter_mut().enumerate() {
         let clamped = (scratch_slice[i] * vol).clamp(-1.0, 1.0);
         *sample = (((clamped + 1.0) * 0.5) * u16::MAX as f32) as u16;
     }
 
-    advance_position(status, read_count, channels, sample_rate, pos_rem);
+    advance_position(
+        state.status,
+        read_count,
+        state.channels,
+        state.sample_rate,
+        state.pos_rem,
+    );
 }
 
 fn flush_audio_buffer(flush_flag: &Option<Arc<AtomicBool>>) {

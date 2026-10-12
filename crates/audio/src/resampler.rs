@@ -244,10 +244,15 @@ impl AudioConverter {
 
                     for f in 0..out_frames {
                         if src_channels <= 8 && dst_channels <= 8 {
-                            for (c, sample) in src_frame_stack[..src_channels].iter_mut().enumerate() {
+                            for (c, sample) in
+                                src_frame_stack[..src_channels].iter_mut().enumerate()
+                            {
                                 *sample = self.output_planes[c][f];
                             }
-                            downmix_frame(&src_frame_stack[..src_channels], &mut dst_frame_stack[..dst_channels]);
+                            downmix_frame(
+                                &src_frame_stack[..src_channels],
+                                &mut dst_frame_stack[..dst_channels],
+                            );
                             output.extend_from_slice(&dst_frame_stack[..dst_channels]);
                         } else {
                             if self.src_frame_buf.len() < src_channels {
@@ -256,7 +261,9 @@ impl AudioConverter {
                             if self.dst_frame_buf.len() < dst_channels {
                                 self.dst_frame_buf.resize(dst_channels, 0.0);
                             }
-                            for (c, sample) in self.src_frame_buf.iter_mut().enumerate().take(src_channels) {
+                            for (c, sample) in
+                                self.src_frame_buf.iter_mut().enumerate().take(src_channels)
+                            {
                                 *sample = self.output_planes[c][f];
                             }
                             downmix_frame(&self.src_frame_buf, &mut self.dst_frame_buf);
@@ -319,7 +326,10 @@ impl AudioConverter {
                         for (c, sample) in src_frame_stack[..src_channels].iter_mut().enumerate() {
                             *sample = self.output_planes[c][f];
                         }
-                        downmix_frame(&src_frame_stack[..src_channels], &mut dst_frame_stack[..dst_channels]);
+                        downmix_frame(
+                            &src_frame_stack[..src_channels],
+                            &mut dst_frame_stack[..dst_channels],
+                        );
                         output.extend_from_slice(&dst_frame_stack[..dst_channels]);
                     } else {
                         if self.src_frame_buf.len() < src_channels {
@@ -328,7 +338,9 @@ impl AudioConverter {
                         if self.dst_frame_buf.len() < dst_channels {
                             self.dst_frame_buf.resize(dst_channels, 0.0);
                         }
-                        for (c, sample) in self.src_frame_buf.iter_mut().enumerate().take(src_channels) {
+                        for (c, sample) in
+                            self.src_frame_buf.iter_mut().enumerate().take(src_channels)
+                        {
                             *sample = self.output_planes[c][f];
                         }
                         downmix_frame(&self.src_frame_buf, &mut self.dst_frame_buf);
