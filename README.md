@@ -13,10 +13,10 @@ vibecore/
 │   ├── default.toml
 │   └── xcode_default_darker.toml
 └── crates/
-    ├── player-core/      # SQLite schema, track metadata parsing, disk thumbnail cache
-    ├── player-audio/     # Audio worker thread, CPAL output stream, lock-free ring buffer
-    ├── player-plugins/   # Plugin contracts, lyrics fetcher, event dispatchers
-    └── player-ui/        # Iced GUI, views (Music, Albums, Artists, Lyrics, Settings)
+    ├── core/         # SQLite schema, track metadata parsing, disk thumbnail cache
+    ├── audio/        # Audio worker thread, CPAL output stream, lock-free ring buffer
+    ├── plugins/      # Plugin contracts, lyrics fetcher, event dispatchers
+    └── ui/           # Iced GUI, views (Music, Albums, Artists, Now Playing, Settings)
 ```
 
 ---
@@ -71,7 +71,8 @@ Standard Rust toolchain (`cargo`, `rustc`).
 Run the player:
 
 ```bash
-cargo run -p player-ui
+cargo run
+# or: cargo run -p ui --bin vibecore
 ```
 
 Run tests across all crates:

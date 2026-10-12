@@ -466,6 +466,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "audio"
+version = "0.1.0"
+dependencies = [
+ "core",
+ "cpal",
+ "crossbeam-channel",
+ "ffmpeg-next",
+ "ringbuf",
+ "rubato",
+ "thiserror 2.0.21",
+ "tracing",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1077,6 +1091,23 @@ dependencies = [
  "serde_json",
  "time",
  "url",
+]
+
+[[package]]
+name = "core"
+version = "0.1.0"
+dependencies = [
+ "directories",
+ "encoding_rs",
+ "ffmpeg-next",
+ "image",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "turso",
+ "walkdir",
 ]
 
 [[package]]
@@ -4640,74 +4671,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
-name = "player-audio"
-version = "0.1.0"
-dependencies = [
- "cpal",
- "crossbeam-channel",
- "ffmpeg-next",
- "player-core",
- "ringbuf",
- "rubato",
- "thiserror 2.0.21",
- "tracing",
-]
-
-[[package]]
-name = "player-core"
-version = "0.1.0"
-dependencies = [
- "directories",
- "encoding_rs",
- "ffmpeg-next",
- "image",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "turso",
- "walkdir",
-]
-
-[[package]]
-name = "player-plugins"
+name = "plugins"
 version = "0.1.0"
 dependencies = [
  "async-io",
+ "core",
  "crossbeam-channel",
  "extism",
  "futures-lite",
  "md-5",
  "mpris-server",
- "player-core",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
  "tracing",
  "ureq",
  "url",
-]
-
-[[package]]
-name = "player-ui"
-version = "0.1.0"
-dependencies = [
- "crossbeam-channel",
- "iced",
- "player-audio",
- "player-core",
- "player-plugins",
- "rfd",
- "serde",
- "serde_json",
- "tokio",
- "toml 0.8.23",
- "tracing",
- "tracing-subscriber",
- "ttf-parser 0.21.1",
- "url",
- "walkdir",
 ]
 
 [[package]]
@@ -6949,6 +6928,27 @@ dependencies = [
  "memoffset",
  "tempfile",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "ui"
+version = "0.1.0"
+dependencies = [
+ "audio",
+ "core",
+ "crossbeam-channel",
+ "iced",
+ "plugins",
+ "rfd",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml 0.8.23",
+ "tracing",
+ "tracing-subscriber",
+ "ttf-parser 0.21.1",
+ "url",
+ "walkdir",
 ]
 
 [[package]]
