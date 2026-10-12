@@ -224,15 +224,18 @@ impl AlbumsView {
     }
 
     pub fn clear(&mut self) {
-        self.albums.clear();
-        self.failed.clear();
+        // Replace with empty collections to drop the backing allocations entirely.
+        // `.clear()` would retain the heap capacity; we want the memory gone.
+        self.albums = Vec::new();
+        self.failed = HashSet::new();
         self.clear_covers();
     }
 
     pub fn clear_covers(&mut self) {
-        self.album_covers.clear();
-        self.cover_order.clear();
-        self.in_flight.clear();
+        // Same reasoning: replace rather than clear so capacity is freed.
+        self.album_covers = HashMap::new();
+        self.cover_order = Vec::new();
+        self.in_flight = HashSet::new();
         self.visible_count = DEFAULT_CATALOG_CHUNK_SIZE;
     }
 
