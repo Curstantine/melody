@@ -72,7 +72,7 @@ impl LastFmPlugin {
                 id: "builtin.lastfm".to_string(),
                 name: "Last.fm Scrobbler".to_string(),
                 version: "1.0.0".to_string(),
-                author: "vibecore".to_string(),
+                author: "melody".to_string(),
                 description: "Submits playback history and now playing status to Last.fm"
                     .to_string(),
             },

@@ -55,7 +55,7 @@ impl LyricsPlugin {
                 id: "builtin.lyrics".to_string(),
                 name: "Local Lyrics Provider".to_string(),
                 version: "1.0.0".to_string(),
-                author: "vibecore".to_string(),
+                author: "melody".to_string(),
                 description: "Loads matching lyrics (.lrc or .txt) from the music directory"
                     .to_string(),
             },
@@ -86,7 +86,7 @@ impl DiscordRpcPlugin {
                 id: "builtin.discord_rpc".to_string(),
                 name: "Discord Rich Presence".to_string(),
                 version: "1.0.0".to_string(),
-                author: "vibecore".to_string(),
+                author: "melody".to_string(),
                 description: "Updates Discord Rich Presence with current track info".to_string(),
             },
         }

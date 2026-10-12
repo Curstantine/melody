@@ -87,7 +87,7 @@ fn test_config_toml_roundtrip() {
     };
 
     let temp_dir = std::env::temp_dir();
-    let temp_file = temp_dir.join(format!("vibecore_test_config_{}.toml", std::process::id()));
+    let temp_file = temp_dir.join(format!("melody_test_config_{}.toml", std::process::id()));
 
     custom.save_to_path(&temp_file);
     assert!(temp_file.exists());
@@ -100,7 +100,7 @@ fn test_config_toml_roundtrip() {
 
 #[test]
 fn test_missing_config_returns_defaults() {
-    let non_existent = PathBuf::from("/non/existent/path/vibecore_config.toml");
+    let non_existent = PathBuf::from("/non/existent/path/melody_config.toml");
     let loaded = AppConfig::load_from_path(&non_existent);
     assert_eq!(loaded, AppConfig::default());
 }

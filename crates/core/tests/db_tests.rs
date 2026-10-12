@@ -124,7 +124,7 @@ fn test_duration_formatting() {
 
 #[test]
 fn test_cover_art_directory_fallback() {
-    let temp_dir = std::env::temp_dir().join("vibecore_test_cover_art");
+    let temp_dir = std::env::temp_dir().join("melody_test_cover_art");
     let _ = std::fs::create_dir_all(&temp_dir);
 
     let song_path = temp_dir.join("test_song.flac");
@@ -368,7 +368,7 @@ async fn test_library_folders_and_clear_tracks() {
 #[tokio::test]
 async fn test_scan_directory_symlink_traversal() {
     let base_temp = std::env::temp_dir().join(format!(
-        "vibecore_test_scan_{}",
+        "melody_test_scan_{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()

@@ -1,16 +1,16 @@
 use directories::ProjectDirs;
 use std::path::PathBuf;
 
-/// Returns the primary `ProjectDirs` object for Vibecore, if resolvable by the platform.
+/// Returns the primary `ProjectDirs` object for Melody, if resolvable by the platform.
 pub fn project_dirs() -> Option<ProjectDirs> {
-    ProjectDirs::from("moe", "curstantine", "vibecore")
+    ProjectDirs::from("moe", "curstantine", "melody")
 }
 
 /// Directory where application configuration files (e.g. `config.toml`, themes) reside.
 ///
-/// On Linux: `~/.config/vibecore`
-/// On macOS: `~/Library/Application Support/moe.curstantine.vibecore`
-/// On Windows: `AppData/Roaming/curstantine/vibecore/config`
+/// On Linux: `~/.config/melody`
+/// On macOS: `~/Library/Application Support/moe.curstantine.melody`
+/// On Windows: `AppData/Roaming/curstantine/melody/config`
 pub fn config_dir() -> PathBuf {
     if let Some(proj) = project_dirs() {
         let dir = proj.config_dir().to_path_buf();
@@ -23,9 +23,9 @@ pub fn config_dir() -> PathBuf {
 
 /// Directory where persistent application data (e.g. `library.db`) resides.
 ///
-/// On Linux: `~/.local/share/vibecore`
-/// On macOS: `~/Library/Application Support/moe.curstantine.vibecore`
-/// On Windows: `AppData/Roaming/curstantine/vibecore/data`
+/// On Linux: `~/.local/share/melody`
+/// On macOS: `~/Library/Application Support/moe.curstantine.melody`
+/// On Windows: `AppData/Roaming/curstantine/melody/data`
 pub fn data_dir() -> PathBuf {
     if let Some(proj) = project_dirs() {
         let dir = proj.data_dir().to_path_buf();
@@ -38,9 +38,9 @@ pub fn data_dir() -> PathBuf {
 
 /// Directory where ephemeral caches (e.g. downscaled cover art thumbnails) reside.
 ///
-/// On Linux: `~/.cache/vibecore`
-/// On macOS: `~/Library/Caches/moe.curstantine.vibecore`
-/// On Windows: `AppData/Local/curstantine/vibecore/cache`
+/// On Linux: `~/.cache/melody`
+/// On macOS: `~/Library/Caches/moe.curstantine.melody`
+/// On Windows: `AppData/Local/curstantine/melody/cache`
 pub fn cache_dir() -> PathBuf {
     if let Some(proj) = project_dirs() {
         let dir = proj.cache_dir().to_path_buf();

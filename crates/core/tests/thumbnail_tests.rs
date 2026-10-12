@@ -2,7 +2,7 @@ use core_engine::get_or_create_thumbnail;
 
 #[test]
 fn test_thumbnail_generation_and_caching() {
-    let temp_dir = std::env::temp_dir().join("vibecore_test_thumbnails");
+    let temp_dir = std::env::temp_dir().join("melody_test_thumbnails");
     let _ = std::fs::create_dir_all(&temp_dir);
 
     // Create a 600x600 test image
@@ -65,7 +65,7 @@ fn test_thumbnail_generation_and_caching() {
 
 #[test]
 fn test_flac_embedded_picture_empty_mime() {
-    let temp_dir = std::env::temp_dir().join("vibecore_test_flac_pic");
+    let temp_dir = std::env::temp_dir().join("melody_test_flac_pic");
     let _ = std::fs::create_dir_all(&temp_dir);
     let flac_file = temp_dir.join("test_empty_mime.flac");
 

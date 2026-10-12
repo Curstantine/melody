@@ -4,10 +4,10 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-default-run = "vibecore"
+default-run = "melody"
 
 [[bin]]
-name = "vibecore"
+name = "melody"
 path = "src/main.rs"
 
 [dependencies]

@@ -88,11 +88,11 @@ mod linux {
         }
 
         async fn identity(&self) -> fdo::Result<String> {
-            Ok("Vibecore".to_string())
+            Ok("Melody".to_string())
         }
 
         async fn desktop_entry(&self) -> fdo::Result<String> {
-            Ok("vibecore".to_string())
+            Ok("melody".to_string())
         }
 
         async fn supported_uri_schemes(&self) -> fdo::Result<Vec<String>> {
@@ -325,7 +325,7 @@ mod linux {
                 id: "builtin.mpris".to_string(),
                 name: "MPRIS D-Bus Interface".to_string(),
                 version: "1.0.0".to_string(),
-                author: "vibecore".to_string(),
+                author: "melody".to_string(),
                 description: "Exposes org.mpris.MediaPlayer2 player interface on Linux D-Bus"
                     .to_string(),
             };
@@ -338,14 +338,14 @@ mod linux {
                 .name("mpris-worker".to_string())
                 .spawn(move || {
                     async_io::block_on(async move {
-                        let server = match Server::new("vibecore", inner_clone).await {
+                        let server = match Server::new("melody", inner_clone).await {
                             Ok(s) => s,
                             Err(e) => {
                                 error!("Failed to initialize MPRIS D-Bus server: {}", e);
                                 return;
                             }
                         };
-                        info!("MPRIS D-Bus server successfully registered on org.mpris.MediaPlayer2.vibecore");
+                        info!("MPRIS D-Bus server successfully registered on org.mpris.MediaPlayer2.melody");
 
                         // Worker loop handling signals and properties changed
                         loop {

@@ -49,7 +49,7 @@ impl ListenBrainzPlugin {
                 id: "builtin.listenbrainz".to_string(),
                 name: "ListenBrainz Scrobbler".to_string(),
                 version: "1.0.0".to_string(),
-                author: "vibecore".to_string(),
+                author: "melody".to_string(),
                 description: "Submits playback history and now playing status to ListenBrainz"
                     .to_string(),
             },
@@ -191,8 +191,8 @@ impl ListenBrainzPlugin {
                             "track_name": track_clone.title,
                             "release_name": track_clone.album,
                             "additional_info": {
-                                "media_player": "Vibecore",
-                                "submission_client": "Vibecore"
+                                "media_player": "Melody",
+                                "submission_client": "Melody"
                             }
                         }
                     }
@@ -248,8 +248,8 @@ impl ListenBrainzPlugin {
                             "track_name": track_clone.title,
                             "release_name": track_clone.album,
                             "additional_info": {
-                                "media_player": "Vibecore",
-                                "submission_client": "Vibecore",
+                                "media_player": "Melody",
+                                "submission_client": "Melody",
                                 "duration_ms": track_clone.duration_ms
                             }
                         }

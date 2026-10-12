@@ -69,7 +69,7 @@ impl PlayerBar {
             ],
             None => column![
                 text(theme_cfg, "No track playing").size(13).color(bar_fg),
-                text(theme_cfg, "Vibecore")
+                text(theme_cfg, "Melody")
                     .size(11)
                     .color(theme_cfg.text_muted_color()),
             ],

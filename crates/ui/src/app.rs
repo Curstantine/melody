@@ -78,7 +78,7 @@ pub struct App {
 
 impl App {
     pub fn new() -> (Self, Task<Message>) {
-        info!("Initializing Vibecore Native Player application");
+        info!("Initializing Melody Native Player application");
 
         let db_path = get_database_path();
         info!("Using SQLite database at: {:?}", db_path);
@@ -217,8 +217,8 @@ impl App {
 
     pub fn title(&self) -> String {
         match &self.current_track {
-            Some(track) => format!("{} - {} | Vibecore", track.title, track.artist),
-            None => "Vibecore".to_string(),
+            Some(track) => format!("{} - {} | Melody", track.title, track.artist),
+            None => "Melody".to_string(),
         }
     }
 

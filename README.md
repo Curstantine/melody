@@ -1,4 +1,4 @@
-# Vibecore
+# Melody
 
 A modern, native music player built in pure Rust. It renders crisp interfaces with **[Iced](https://github.com/iced-rs/iced)**, decodes audio cleanly using **[Symphonia](https://github.com/pdeljanov/Symphonia)**, and handles audio output with **[CPAL](https://github.com/RustAudio/cpal)**.
 
@@ -7,7 +7,7 @@ A modern, native music player built in pure Rust. It renders crisp interfaces wi
 ## Workspace Layout
 
 ```
-vibecore/
+melody/
 ├── flake.nix             # Nix dev shell with all native graphic/audio libraries
 ├── themes/               # TOML color themes (hot-reloadable)
 │   ├── default.toml
@@ -72,7 +72,7 @@ Run the player:
 
 ```bash
 cargo run
-# or: cargo run -p ui --bin vibecore
+# or: cargo run -p ui --bin melody
 ```
 
 Run tests across all crates:
@@ -91,12 +91,12 @@ cargo build --workspace --release
 
 ## Configuration & Data Paths
 
-Vibecore stores settings and cached data according to standard OS conventions:
+Melody stores settings and cached data according to standard OS conventions:
 
-- **Database**: `~/.local/share/vibecore/library.db` (Linux) / OS app data directory
-- **Config**: `~/.config/vibecore/config.toml` (Linux) / OS config directory
-- **Thumbnail Cache**: `~/.cache/vibecore/thumbnails/` (Linux) / OS cache directory
-- **Themes**: `./themes/` or `~/.config/vibecore/themes/`
+- **Database**: `~/.local/share/melody/library.db` (Linux) / OS app data directory
+- **Config**: `~/.config/melody/config.toml` (Linux) / OS config directory
+- **Thumbnail Cache**: `~/.cache/melody/thumbnails/` (Linux) / OS cache directory
+- **Themes**: `./themes/` or `~/.config/melody/themes/`
 
 ---
 
