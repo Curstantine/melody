@@ -52,11 +52,10 @@ pub struct SettingsViewData<'a> {
 
     pub submit_now_playing: bool,
     pub scrobble_percent: u32,
-    pub scrobble_test_status: Option<&'a (player_plugins::scrobbler::ScrobbleService, Result<String, String>)>,
-
-    // Debug
-    pub volume: f32,
-    pub active_plugins_count: usize,
+    pub scrobble_test_status: Option<&'a (
+        player_plugins::scrobbler::ScrobbleService,
+        Result<String, String>,
+    )>,
 }
 
 pub fn view<'a>(theme_cfg: &'a ThemeConfig, data: SettingsViewData<'a>) -> Element<'a, Message> {
@@ -68,7 +67,6 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, data: SettingsViewData<'a>) -> Eleme
         SettingsTab::Appearance => view_appearance(theme_cfg, &data),
         SettingsTab::Library => view_library(theme_cfg, &data),
         SettingsTab::Scrobbling => view_scrobbling(theme_cfg, &data),
-        SettingsTab::Debug => view_debug(theme_cfg, &data),
     };
 
     let main_panel = scrollable(content)
@@ -143,13 +141,7 @@ fn view_sidebar<'a>(theme_cfg: &'a ThemeConfig, active_tab: SettingsTab) -> Elem
                 icons::RADIO_SVG,
                 "Scrobbling",
                 "ListenBrainz & Last.fm",
-            ),
-            nav_item(
-                SettingsTab::Debug,
-                icons::TERMINAL_SVG,
-                "Debug",
-                "Audio Engine & Pipeline",
-            ),
+            )
         ]
         .width(220.0)
         .spacing(2),
@@ -938,31 +930,32 @@ fn view_scrobbling<'a>(
     );
 
     // 2. ListenBrainz Card
-    let lb_test_banner = if let Some((player_plugins::scrobbler::ScrobbleService::ListenBrainz, res)) = data.scrobble_test_status {
-        let (color, msg) = match res {
-            Ok(ref m) => (Color::from_rgb(0.2, 0.8, 0.4), m.as_str()),
-            Err(ref e) => (Color::from_rgb(0.9, 0.3, 0.3), e.as_str()),
-        };
-        Some(
-            container(
-                text(theme_cfg, msg)
-                    .size(12)
-                    .color(color),
+    let lb_test_banner =
+        if let Some((player_plugins::scrobbler::ScrobbleService::ListenBrainz, res)) =
+            data.scrobble_test_status
+        {
+            let (color, msg) = match res {
+                Ok(ref m) => (Color::from_rgb(0.2, 0.8, 0.4), m.as_str()),
+                Err(ref e) => (Color::from_rgb(0.9, 0.3, 0.3), e.as_str()),
+            };
+            Some(
+                container(text(theme_cfg, msg).size(12).color(color))
+                    .padding([6, 10])
+                    .style(move |_theme| container::Style {
+                        background: Some(iced::Background::Color(Color::from_rgba(
+                            color.r, color.g, color.b, 0.1,
+                        ))),
+                        border: Border {
+                            radius: Radius::from(4.0),
+                            color,
+                            width: 1.0,
+                        },
+                        ..Default::default()
+                    }),
             )
-            .padding([6, 10])
-            .style(move |_theme| container::Style {
-                background: Some(iced::Background::Color(Color::from_rgba(color.r, color.g, color.b, 0.1))),
-                border: Border {
-                    radius: Radius::from(4.0),
-                    color,
-                    width: 1.0,
-                },
-                ..Default::default()
-            }),
-        )
-    } else {
-        None
-    };
+        } else {
+            None
+        };
 
     let lb_test_btn = button(
         row![
@@ -976,7 +969,9 @@ fn view_scrobbling<'a>(
     )
     .padding([6, 12])
     .style(styles::ghost_button(theme_cfg, false))
-    .on_press(Message::TestScrobble(player_plugins::scrobbler::ScrobbleService::ListenBrainz));
+    .on_press(Message::TestScrobble(
+        player_plugins::scrobbler::ScrobbleService::ListenBrainz,
+    ));
 
     let mut lb_column = column![
         row![
@@ -1022,13 +1017,10 @@ fn view_scrobbling<'a>(
             text(theme_cfg, "User Token")
                 .size(12)
                 .color(theme_cfg.text_color()),
-            text_input(
-                "Enter ListenBrainz user token...",
-                data.listenbrainz_token
-            )
-            .on_input(Message::ListenBrainzTokenChanged)
-            .style(styles::search_input_style(theme_cfg))
-            .padding([7, 10]),
+            text_input("Enter ListenBrainz user token...", data.listenbrainz_token)
+                .on_input(Message::ListenBrainzTokenChanged)
+                .style(styles::search_input_style(theme_cfg))
+                .padding([7, 10]),
             text(
                 theme_cfg,
                 "Obtain your user token from your profile at https://listenbrainz.org/profile/"
@@ -1058,38 +1050,35 @@ fn view_scrobbling<'a>(
         lb_column = lb_column.push(banner);
     }
 
-    let listenbrainz_card = components::settings_card(
-        theme_cfg,
-        "ListenBrainz Plugin",
-        lb_column,
-    );
+    let listenbrainz_card = components::settings_card(theme_cfg, "ListenBrainz Plugin", lb_column);
 
     // 3. Last.fm Card
-    let lastfm_test_banner = if let Some((player_plugins::scrobbler::ScrobbleService::LastFm, res)) = data.scrobble_test_status {
-        let (color, msg) = match res {
-            Ok(ref m) => (Color::from_rgb(0.2, 0.8, 0.4), m.as_str()),
-            Err(ref e) => (Color::from_rgb(0.9, 0.3, 0.3), e.as_str()),
-        };
-        Some(
-            container(
-                text(theme_cfg, msg)
-                    .size(12)
-                    .color(color),
+    let lastfm_test_banner =
+        if let Some((player_plugins::scrobbler::ScrobbleService::LastFm, res)) =
+            data.scrobble_test_status
+        {
+            let (color, msg) = match res {
+                Ok(ref m) => (Color::from_rgb(0.2, 0.8, 0.4), m.as_str()),
+                Err(ref e) => (Color::from_rgb(0.9, 0.3, 0.3), e.as_str()),
+            };
+            Some(
+                container(text(theme_cfg, msg).size(12).color(color))
+                    .padding([6, 10])
+                    .style(move |_theme| container::Style {
+                        background: Some(iced::Background::Color(Color::from_rgba(
+                            color.r, color.g, color.b, 0.1,
+                        ))),
+                        border: Border {
+                            radius: Radius::from(4.0),
+                            color,
+                            width: 1.0,
+                        },
+                        ..Default::default()
+                    }),
             )
-            .padding([6, 10])
-            .style(move |_theme| container::Style {
-                background: Some(iced::Background::Color(Color::from_rgba(color.r, color.g, color.b, 0.1))),
-                border: Border {
-                    radius: Radius::from(4.0),
-                    color,
-                    width: 1.0,
-                },
-                ..Default::default()
-            }),
-        )
-    } else {
-        None
-    };
+        } else {
+            None
+        };
 
     let lastfm_test_btn = button(
         row![
@@ -1103,7 +1092,9 @@ fn view_scrobbling<'a>(
     )
     .padding([6, 12])
     .style(styles::ghost_button(theme_cfg, false))
-    .on_press(Message::TestScrobble(player_plugins::scrobbler::ScrobbleService::LastFm));
+    .on_press(Message::TestScrobble(
+        player_plugins::scrobbler::ScrobbleService::LastFm,
+    ));
 
     let mut lastfm_column = column![
         row![
@@ -1149,39 +1140,30 @@ fn view_scrobbling<'a>(
             text(theme_cfg, "API Key")
                 .size(12)
                 .color(theme_cfg.text_color()),
-            text_input(
-                "Enter Last.fm API Key...",
-                data.lastfm_api_key
-            )
-            .on_input(Message::LastFmApiKeyChanged)
-            .style(styles::search_input_style(theme_cfg))
-            .padding([7, 10]),
+            text_input("Enter Last.fm API Key...", data.lastfm_api_key)
+                .on_input(Message::LastFmApiKeyChanged)
+                .style(styles::search_input_style(theme_cfg))
+                .padding([7, 10]),
         ]
         .spacing(4),
         column![
             text(theme_cfg, "Shared Secret")
                 .size(12)
                 .color(theme_cfg.text_color()),
-            text_input(
-                "Enter Last.fm Shared Secret...",
-                data.lastfm_api_secret
-            )
-            .on_input(Message::LastFmApiSecretChanged)
-            .style(styles::search_input_style(theme_cfg))
-            .padding([7, 10]),
+            text_input("Enter Last.fm Shared Secret...", data.lastfm_api_secret)
+                .on_input(Message::LastFmApiSecretChanged)
+                .style(styles::search_input_style(theme_cfg))
+                .padding([7, 10]),
         ]
         .spacing(4),
         column![
             text(theme_cfg, "Session Key (sk)")
                 .size(12)
                 .color(theme_cfg.text_color()),
-            text_input(
-                "Enter Last.fm Session Key (sk)...",
-                data.lastfm_session_key
-            )
-            .on_input(Message::LastFmSessionKeyChanged)
-            .style(styles::search_input_style(theme_cfg))
-            .padding([7, 10]),
+            text_input("Enter Last.fm Session Key (sk)...", data.lastfm_session_key)
+                .on_input(Message::LastFmSessionKeyChanged)
+                .style(styles::search_input_style(theme_cfg))
+                .padding([7, 10]),
             text(
                 theme_cfg,
                 "Obtain your API Key and Session Key from your Last.fm API account settings"
@@ -1194,13 +1176,10 @@ fn view_scrobbling<'a>(
             text(theme_cfg, "API Endpoint URL")
                 .size(12)
                 .color(theme_cfg.text_color()),
-            text_input(
-                "https://ws.audioscrobbler.com/2.0/",
-                data.lastfm_api_url
-            )
-            .on_input(Message::LastFmUrlChanged)
-            .style(styles::search_input_style(theme_cfg))
-            .padding([7, 10]),
+            text_input("https://ws.audioscrobbler.com/2.0/", data.lastfm_api_url)
+                .on_input(Message::LastFmUrlChanged)
+                .style(styles::search_input_style(theme_cfg))
+                .padding([7, 10]),
         ]
         .spacing(4),
         lastfm_test_btn,
@@ -1211,224 +1190,13 @@ fn view_scrobbling<'a>(
         lastfm_column = lastfm_column.push(banner);
     }
 
-    let lastfm_card = components::settings_card(
-        theme_cfg,
-        "Last.fm Plugin",
-        lastfm_column,
-    );
+    let lastfm_card = components::settings_card(theme_cfg, "Last.fm Plugin", lastfm_column);
 
     column![
         header,
         prefs_card,
         listenbrainz_card,
         lastfm_card,
-        Space::with_height(20),
-    ]
-    .spacing(18)
-    .padding(24)
-    .width(Length::Fill)
-    .into()
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. Debug & Pipeline Section
-// ─────────────────────────────────────────────────────────────────────────────
-
-fn view_debug<'a>(theme_cfg: &'a ThemeConfig, data: &SettingsViewData<'a>) -> Element<'a, Message> {
-    let header = column![
-        text(theme_cfg, "Audio Pipeline & Debug")
-            .size(20)
-            .color(theme_cfg.text_color()),
-        text(
-            theme_cfg,
-            "Architecture inspection, lock-free audio thread guarantees, and runtime telemetry"
-        )
-        .size(12)
-        .color(theme_cfg.text_muted_color()),
-    ]
-    .spacing(4);
-
-    // Audio Pipeline Architecture Card
-    let audio_pipeline_card = components::settings_card(
-        theme_cfg,
-        "Lock-Free Realtime Audio Pipeline",
-        column![
-            text(theme_cfg, "Dedicated audio decoding thread completely decoupled from the UI event loop")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-            row![
-                components::metric_box(theme_cfg, "Audio Worker Thread", "Decoupled".to_string()),
-                components::metric_box(theme_cfg, "Sinc Resampler", "FFT (rubato)".to_string()),
-                components::metric_box(theme_cfg, "Ring Buffer", "SPSC Lock-Free".to_string()),
-                components::metric_box(theme_cfg, "Playback Volume", format!("{:.0}%", data.volume * 100.0)),
-            ]
-            .spacing(12),
-            Space::with_height(4),
-            container(
-                column![
-                    text(theme_cfg, "Architectural Invariants & Telemetry:")
-                        .size(11)
-                        .color(theme_cfg.primary_color()),
-                    text(theme_cfg, "• Audio output callback never allocates on heap and never acquires UI locks.")
-                        .size(11)
-                        .color(theme_cfg.text_muted_color()),
-                    text(theme_cfg, "• Telemetry is polled via relaxed atomic primitives (AudioStatus) every 50ms.")
-                        .size(11)
-                        .color(theme_cfg.text_muted_color()),
-                    text(theme_cfg, "• Dynamic ITU-R BS.775 downmix for surround/multichannel audio formats to stereo.")
-                        .size(11)
-                        .color(theme_cfg.text_muted_color()),
-                    text(theme_cfg, "• Ring buffer backpressure automatically pauses decoding when the playback queue is full.")
-                        .size(11)
-                        .color(theme_cfg.text_muted_color()),
-                ]
-                .spacing(3),
-            )
-            .padding(12)
-            .width(Length::Fill)
-            .style(move |_theme| container::Style {
-                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-                border: Border {
-                    radius: Radius::from(4.0),
-                    color: theme_cfg.border_color(),
-                    width: 1.0,
-                },
-                ..Default::default()
-            }),
-        ]
-        .spacing(10),
-    );
-
-    // Embedded Storage Pipeline Card
-    let db_pipeline_card = components::settings_card(
-        theme_cfg,
-        "SQLite WAL Database Pipeline",
-        column![
-            text(theme_cfg, "Windowed queries and B-Tree indexing preserve a 30-50 MB RAM baseline")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-            row![
-                components::metric_box(theme_cfg, "Journal Mode", "WAL (Write-Ahead)".to_string()),
-                components::metric_box(theme_cfg, "Synchronous Pragma", "NORMAL".to_string()),
-                components::metric_box(theme_cfg, "Query Strategy", "Windowed LIMIT/OFFSET".to_string()),
-                components::metric_box(theme_cfg, "Foreign Keys", "ON (Cascade)".to_string()),
-            ]
-            .spacing(12),
-            Space::with_height(4),
-            container(
-                column![
-                    text(theme_cfg, "Database Pipeline Guarantees:")
-                        .size(11)
-                        .color(theme_cfg.primary_color()),
-                    text(theme_cfg, "• Full track records are never loaded all at once into RAM.")
-                        .size(11)
-                        .color(theme_cfg.text_muted_color()),
-                    text(theme_cfg, "• Viewport scrolling lazily streams windowed pages (LIMIT ? OFFSET ?).")
-                        .size(11)
-                        .color(theme_cfg.text_muted_color()),
-                    text(theme_cfg, "• Indices on title, artist, album, and file_path enable sub-millisecond lookups.")
-                        .size(11)
-                        .color(theme_cfg.text_muted_color()),
-                ]
-                .spacing(3),
-            )
-            .padding(12)
-            .width(Length::Fill)
-            .style(move |_theme| container::Style {
-                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-                border: Border {
-                    radius: Radius::from(4.0),
-                    color: theme_cfg.border_color(),
-                    width: 1.0,
-                },
-                ..Default::default()
-            }),
-        ]
-        .spacing(10),
-    );
-
-    // Plugins & Extension Pipeline Card
-    let plugins_card = components::settings_card(
-        theme_cfg,
-        "Extensibility & Plugins Pipeline",
-        column![
-            text(theme_cfg, "Plugin manager event dispatch system")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-            row![
-                components::metric_box(theme_cfg, "Plugin Bus", "Active".to_string()),
-                components::metric_box(
-                    theme_cfg,
-                    "Loaded Plugins",
-                    format!("{} active", data.active_plugins_count),
-                ),
-                components::metric_box(
-                    theme_cfg,
-                    "Event Handlers",
-                    "on_track_change, on_playback_end".to_string(),
-                ),
-            ]
-            .spacing(12),
-        ]
-        .spacing(10),
-    );
-
-    // Environment & System Paths Card
-    let env_card = components::settings_card(
-        theme_cfg,
-        "System Environment & Paths",
-        column![
-            text(theme_cfg, "Platform runtime and filesystem locations")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-            row![
-                components::metric_box(
-                    theme_cfg,
-                    "Target Architecture",
-                    format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
-                ),
-                components::metric_box(
-                    theme_cfg,
-                    "GUI Framework",
-                    "Iced v0.13 (The Elm Architecture)".to_string(),
-                ),
-            ]
-            .spacing(12),
-            Space::with_height(4),
-            column![
-                text(
-                    theme_cfg,
-                    format!("Configuration (TOML): {}", data.config_path.display())
-                )
-                .size(11)
-                .color(theme_cfg.text_muted_color()),
-                text(
-                    theme_cfg,
-                    format!("Database Path: {}", data.db_path.display())
-                )
-                .size(11)
-                .color(theme_cfg.text_muted_color()),
-                text(
-                    theme_cfg,
-                    format!(
-                        "Thumbnail Cache Directory: {}",
-                        player_core::thumbnail_cache_dir().display()
-                    )
-                )
-                .size(11)
-                .color(theme_cfg.text_muted_color()),
-            ]
-            .spacing(4),
-        ]
-        .spacing(10),
-    );
-
-    column![
-        header,
-        audio_pipeline_card,
-        db_pipeline_card,
-        plugins_card,
-        env_card,
         Space::with_height(20),
     ]
     .spacing(18)

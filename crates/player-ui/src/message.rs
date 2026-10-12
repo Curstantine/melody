@@ -46,7 +46,6 @@ pub enum SettingsTab {
     Appearance,
     Library,
     Scrobbling,
-    Debug,
 }
 
 #[derive(Debug, Clone)]
@@ -122,7 +121,10 @@ pub enum Message {
     ToggleSubmitNowPlaying(bool),
     SetScrobblePercent(u32),
     TestScrobble(player_plugins::scrobbler::ScrobbleService),
-    ScrobbleTestFinished(player_plugins::scrobbler::ScrobbleService, Result<String, String>),
+    ScrobbleTestFinished(
+        player_plugins::scrobbler::ScrobbleService,
+        Result<String, String>,
+    ),
 
     // Library Maintenance
     AddLibraryFolderClicked,

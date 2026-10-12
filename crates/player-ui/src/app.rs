@@ -8,9 +8,9 @@ use iced::widget::{button, column, container, image, row, Space};
 use iced::{Element, Length, Subscription, Task, Theme};
 use player_audio::{AudioController, AudioEngine};
 use player_core::{AlbumSummary, ArtistSummary, LibraryDatabase, SortDirection, SortField, Track};
+use player_plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 #[cfg(target_os = "linux")]
 use player_plugins::MprisPlugin;
-use player_plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 use player_plugins::{PlayerAction, PluginManager, TrackMetadata};
 use tracing::{error, info};
 
@@ -106,18 +106,17 @@ impl App {
         let db_path = get_database_path();
         info!("Using SQLite database at: {:?}", db_path);
 
-        let db = tokio::runtime::Handle::current()
-            .block_on(async {
-                LibraryDatabase::new(&db_path).await.unwrap_or_else(|e| {
-                    error!(
-                        "Failed to open disk database, falling back to in-memory: {}",
-                        e
-                    );
-                    tokio::runtime::Handle::current()
-                        .block_on(async { LibraryDatabase::in_memory().await })
-                        .expect("In-memory database failed")
-                })
-            });
+        let db = tokio::runtime::Handle::current().block_on(async {
+            LibraryDatabase::new(&db_path).await.unwrap_or_else(|e| {
+                error!(
+                    "Failed to open disk database, falling back to in-memory: {}",
+                    e
+                );
+                tokio::runtime::Handle::current()
+                    .block_on(async { LibraryDatabase::in_memory().await })
+                    .expect("In-memory database failed")
+            })
+        });
 
         let config = AppConfig::load();
 
@@ -130,9 +129,7 @@ impl App {
         let listenbrainz_plugin = Arc::new(ListenBrainzPlugin::new(
             config.scrobble.to_listenbrainz_config(),
         ));
-        let lastfm_plugin = Arc::new(LastFmPlugin::new(
-            config.scrobble.to_lastfm_config(),
-        ));
+        let lastfm_plugin = Arc::new(LastFmPlugin::new(config.scrobble.to_lastfm_config()));
         plugin_manager.register_plugin(listenbrainz_plugin.clone());
         plugin_manager.register_plugin(lastfm_plugin.clone());
 
@@ -279,7 +276,8 @@ impl App {
                 self.is_playing = status.is_playing();
 
                 if was_playing != self.is_playing {
-                    self.plugin_manager.on_playback_status_change(self.is_playing);
+                    self.plugin_manager
+                        .on_playback_status_change(self.is_playing);
                 }
 
                 if !self.is_seeking {
@@ -314,7 +312,12 @@ impl App {
 
             Message::PlayTrack(track_id) => {
                 // If the track is already in the currently visible window, play immediately without querying DB
-                if let Some(track) = self.visible_tracks.iter().find(|t| t.id == track_id).cloned() {
+                if let Some(track) = self
+                    .visible_tracks
+                    .iter()
+                    .find(|t| t.id == track_id)
+                    .cloned()
+                {
                     return self.update(Message::TrackResolvedForPlayback(Some(track)));
                 }
 
@@ -487,76 +490,74 @@ impl App {
                 self.save_config_task()
             }
 
-            Message::MprisAction(action) => {
-                match action {
-                    PlayerAction::Play => {
-                        self.audio_controller.play();
+            Message::MprisAction(action) => match action {
+                PlayerAction::Play => {
+                    self.audio_controller.play();
+                    Task::none()
+                }
+                PlayerAction::Pause => {
+                    self.audio_controller.pause();
+                    Task::none()
+                }
+                PlayerAction::TogglePlayPause => self.update(Message::TogglePlayPause),
+                PlayerAction::Stop => self.update(Message::Stop),
+                PlayerAction::Next => self.update(Message::NextTrack),
+                PlayerAction::Previous => self.update(Message::PreviousTrack),
+                PlayerAction::Seek(offset) => {
+                    let current = Duration::from_millis(self.position_ms);
+                    let target = current.saturating_add(offset);
+                    let target_ms = target.as_millis().min(self.duration_ms as u128) as u64;
+                    self.audio_controller.seek(Duration::from_millis(target_ms));
+                    self.position_ms = target_ms;
+                    self.plugin_manager.on_seeked(target_ms);
+                    Task::none()
+                }
+                PlayerAction::SetPosition(pos) => {
+                    let target_ms = pos.as_millis().min(self.duration_ms as u128) as u64;
+                    self.audio_controller.seek(Duration::from_millis(target_ms));
+                    self.position_ms = target_ms;
+                    self.plugin_manager.on_seeked(target_ms);
+                    Task::none()
+                }
+                PlayerAction::SetVolume(vol) => self.update(Message::VolumeChanged(vol)),
+                PlayerAction::SetShuffle(shuffle) => {
+                    if self.is_shuffle != shuffle {
+                        self.update(Message::ToggleShuffle)
+                    } else {
                         Task::none()
-                    }
-                    PlayerAction::Pause => {
-                        self.audio_controller.pause();
-                        Task::none()
-                    }
-                    PlayerAction::TogglePlayPause => self.update(Message::TogglePlayPause),
-                    PlayerAction::Stop => self.update(Message::Stop),
-                    PlayerAction::Next => self.update(Message::NextTrack),
-                    PlayerAction::Previous => self.update(Message::PreviousTrack),
-                    PlayerAction::Seek(offset) => {
-                        let current = Duration::from_millis(self.position_ms);
-                        let target = current.saturating_add(offset);
-                        let target_ms = target.as_millis().min(self.duration_ms as u128) as u64;
-                        self.audio_controller.seek(Duration::from_millis(target_ms));
-                        self.position_ms = target_ms;
-                        self.plugin_manager.on_seeked(target_ms);
-                        Task::none()
-                    }
-                    PlayerAction::SetPosition(pos) => {
-                        let target_ms = pos.as_millis().min(self.duration_ms as u128) as u64;
-                        self.audio_controller.seek(Duration::from_millis(target_ms));
-                        self.position_ms = target_ms;
-                        self.plugin_manager.on_seeked(target_ms);
-                        Task::none()
-                    }
-                    PlayerAction::SetVolume(vol) => self.update(Message::VolumeChanged(vol)),
-                    PlayerAction::SetShuffle(shuffle) => {
-                        if self.is_shuffle != shuffle {
-                            self.update(Message::ToggleShuffle)
-                        } else {
-                            Task::none()
-                        }
-                    }
-                    PlayerAction::SetRepeat(repeat) => {
-                        if self.is_repeat != repeat {
-                            self.update(Message::ToggleRepeat)
-                        } else {
-                            Task::none()
-                        }
-                    }
-                    PlayerAction::OpenUri(uri) => {
-                        if let Ok(url) = url::Url::parse(&uri) {
-                            if url.scheme() == "file" {
-                                if let Ok(path) = url.to_file_path() {
-                                    let path_str = path.to_string_lossy().to_string();
-                                    let db = self.db.clone();
-                                    return Task::perform(
-                                        async move { db.get_track_by_path(&path_str).await.unwrap_or(None) },
-                                        Message::TrackResolvedForPlayback,
-                                    );
-                                }
-                            }
-                        }
-                        Task::none()
-                    }
-                    PlayerAction::Raise => {
-                        info!("MPRIS Raise requested");
-                        Task::none()
-                    }
-                    PlayerAction::Quit => {
-                        info!("MPRIS Quit requested");
-                        iced::window::get_latest().and_then(iced::window::close)
                     }
                 }
-            }
+                PlayerAction::SetRepeat(repeat) => {
+                    if self.is_repeat != repeat {
+                        self.update(Message::ToggleRepeat)
+                    } else {
+                        Task::none()
+                    }
+                }
+                PlayerAction::OpenUri(uri) => {
+                    if let Ok(url) = url::Url::parse(&uri) {
+                        if url.scheme() == "file" {
+                            if let Ok(path) = url.to_file_path() {
+                                let path_str = path.to_string_lossy().to_string();
+                                let db = self.db.clone();
+                                return Task::perform(
+                                    async move { db.get_track_by_path(&path_str).await.unwrap_or(None) },
+                                    Message::TrackResolvedForPlayback,
+                                );
+                            }
+                        }
+                    }
+                    Task::none()
+                }
+                PlayerAction::Raise => {
+                    info!("MPRIS Raise requested");
+                    Task::none()
+                }
+                PlayerAction::Quit => {
+                    info!("MPRIS Quit requested");
+                    iced::window::get_latest().and_then(iced::window::close)
+                }
+            },
 
             Message::SelectTab(tab) => {
                 self.active_tab = tab;
@@ -800,7 +801,8 @@ impl App {
                         let mut total_summary = player_core::ScanSummary::default();
                         for folder_str in folders {
                             let path = PathBuf::from(folder_str);
-                            if let Ok(summary) = db.scan_directory(&path, None::<fn(usize, usize)>).await
+                            if let Ok(summary) =
+                                db.scan_directory(&path, None::<fn(usize, usize)>).await
                             {
                                 total_summary.scanned_files += summary.scanned_files;
                                 total_summary.inserted_tracks += summary.inserted_tracks;
@@ -969,12 +971,8 @@ impl App {
                 Task::perform(
                     async move {
                         tokio::task::spawn_blocking(move || match service {
-                            ScrobbleService::ListenBrainz => {
-                                (service, plugin_lb.test_connection())
-                            }
-                            ScrobbleService::LastFm => {
-                                (service, plugin_lfm.test_connection())
-                            }
+                            ScrobbleService::ListenBrainz => (service, plugin_lb.test_connection()),
+                            ScrobbleService::LastFm => (service, plugin_lfm.test_connection()),
                         })
                         .await
                         .unwrap_or_else(|e| (service, Err(format!("Task execution error: {}", e))))
@@ -1053,7 +1051,11 @@ impl App {
                         _ => SortDirection::Ascending,
                     };
                 }
-                Self::sort_artists(&mut self.artists, self.artist_sort_field, self.artist_sort_dir);
+                Self::sort_artists(
+                    &mut self.artists,
+                    self.artist_sort_field,
+                    self.artist_sort_dir,
+                );
                 self.visible_artists_count = DEFAULT_CATALOG_CHUNK_SIZE;
                 self.save_config_task()
             }
@@ -1128,8 +1130,7 @@ impl App {
         }
 
         if self.is_shuffle && !self.visible_tracks.is_empty() {
-            let rand_idx =
-                (self.position_ms as usize ^ 0x9e3779b9) % self.visible_tracks.len();
+            let rand_idx = (self.position_ms as usize ^ 0x9e3779b9) % self.visible_tracks.len();
             return Some(self.visible_tracks[rand_idx].clone());
         }
 
@@ -1301,7 +1302,10 @@ impl App {
 
         Task::perform(
             async move {
-                let total = db.get_total_track_count(query.as_deref()).await.unwrap_or(0);
+                let total = db
+                    .get_total_track_count(query.as_deref())
+                    .await
+                    .unwrap_or(0);
                 let tracks = db
                     .get_tracks_window(0, page_size, query.as_deref(), sort_field, sort_dir)
                     .await
@@ -1326,7 +1330,10 @@ impl App {
         Task::batch([
             Task::perform(
                 async move {
-                    let total = db.get_total_track_count(query.as_deref()).await.unwrap_or(0);
+                    let total = db
+                        .get_total_track_count(query.as_deref())
+                        .await
+                        .unwrap_or(0);
                     let tracks = db
                         .get_tracks_window(0, page_size, query.as_deref(), sort_field, sort_dir)
                         .await
@@ -1528,9 +1535,6 @@ impl App {
                         submit_now_playing: self.scrobble_config.submit_now_playing,
                         scrobble_percent: self.scrobble_config.scrobble_percent,
                         scrobble_test_status: self.scrobble_test_status.as_ref(),
-
-                        volume: self.volume,
-                        active_plugins_count: self.plugin_manager.plugin_count(),
                     },
                 )
             }

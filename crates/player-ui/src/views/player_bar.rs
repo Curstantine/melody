@@ -139,23 +139,24 @@ pub fn view<'a>(
     .style(styles::player_bar_button(theme_cfg, is_repeat))
     .on_press(Message::ToggleRepeat);
 
-    let vol_pct = (volume * 100.0).round() as u32;
-    let vol_icon_svg = if volume <= 0.01 {
-        icons::VOL_MUTE_SVG
-    } else if volume < 0.5 {
-        icons::VOL_LOW_SVG
-    } else {
-        icons::VOL_HIGH_SVG
-    };
-
     let vol_slider = slider(0.0..=1.0, volume, Message::VolumeChanged)
         .style(styles::volume_slider_style(theme_cfg))
         .width(90);
 
     let vol_control = row![
-        icons::icon(vol_icon_svg, 15.0, bar_fg),
+        icons::icon(
+            if volume <= 0.01 {
+                icons::VOL_MUTE_SVG
+            } else if volume < 0.5 {
+                icons::VOL_LOW_SVG
+            } else {
+                icons::VOL_HIGH_SVG
+            },
+            15.0,
+            bar_fg
+        ),
         vol_slider,
-        text(theme_cfg, format!("{}%", vol_pct))
+        text(theme_cfg, format!("{}%", (volume * 100.0).round() as u32))
             .size(11)
             .color(theme_cfg.text_muted_color())
             .width(32),
