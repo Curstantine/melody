@@ -75,6 +75,8 @@ pub const ARROW_LEFT_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" view
 #[allow(dead_code)]
 pub const ARROW_RIGHT_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>"#;
 
+pub const BUG_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 8h-2.81a5.985 5.985 0 0 0-1.82-1.96l1.35-1.35-1.41-1.42-1.72 1.72A5.957 5.957 0 0 0 12 4c-.68 0-1.34.11-1.96.31L8.32 2.6 6.9 4.02l1.35 1.35A5.985 5.985 0 0 0 6.44 7.3H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.44a6 6 0 0 0 11.12 0H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zM12 20a4 4 0 0 1-4-4v-5a4 4 0 0 1 8 0v5a4 4 0 0 1-4 4z" fill="currentColor"/></svg>"#;
+
 pub fn icon<'a>(svg_str: &'static str, size: f32, color: Color) -> Svg<'a, Theme> {
     iced::widget::svg(Handle::from_memory(svg_str.as_bytes()))
         .width(Length::Fixed(size))

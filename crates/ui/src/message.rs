@@ -68,6 +68,7 @@ pub enum SettingsTab {
     Appearance,
     Library,
     Scrobbling,
+    Debug,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

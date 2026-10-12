@@ -117,6 +117,7 @@ impl SettingsView {
             SettingsTab::Appearance => self.view_appearance(theme_cfg, &ctx),
             SettingsTab::Library => self.view_library(theme_cfg, &ctx),
             SettingsTab::Scrobbling => self.view_scrobbling(theme_cfg, &ctx),
+            SettingsTab::Debug => self.view_debug(theme_cfg, &ctx),
         };
 
         let main_panel = scrollable(content)
@@ -193,6 +194,12 @@ impl SettingsView {
                     icons::RADIO_SVG,
                     "Scrobbling",
                     "ListenBrainz & Last.fm",
+                ),
+                nav_item(
+                    SettingsTab::Debug,
+                    icons::BUG_SVG,
+                    "Debug",
+                    "Runtime & Diagnostics",
                 )
             ]
             .width(220.0)
@@ -759,28 +766,10 @@ impl SettingsView {
         ]
         .spacing(12);
 
-        let memory_stats_row = row![
-            components::metric_box(
-                theme_cfg,
-                "Process Memory (RSS)",
-                ctx.memory_rss_bytes
-                    .map(format_file_size)
-                    .unwrap_or_else(|| "n/a".to_string()),
-            ),
-            components::metric_box(
-                theme_cfg,
-                "Peak Process Memory",
-                ctx.memory_peak_bytes
-                    .map(format_file_size)
-                    .unwrap_or_else(|| "n/a".to_string()),
-            ),
-        ]
-        .spacing(12);
-
         let stats_card = components::settings_card(
             theme_cfg,
             "Storage & Index Metrics",
-            column![storage_stats_row1, storage_stats_row2, memory_stats_row].spacing(10),
+            column![storage_stats_row1, storage_stats_row2].spacing(10),
         );
 
         // Scanned Folders List
@@ -1419,6 +1408,73 @@ impl SettingsView {
         .padding(24)
         .width(Length::Fill)
         .into()
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 4. Debug Section
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    fn view_debug<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        ctx: &SettingsContext<'a>,
+    ) -> Element<'a, Message> {
+        let header = components::settings_header(
+            theme_cfg,
+            "Debug & Diagnostics",
+            Some("Runtime memory usage and filesystem locations for troubleshooting"),
+        );
+
+        let memory_card = components::settings_card(
+            theme_cfg,
+            "Process Memory",
+            row![
+                components::metric_box(
+                    theme_cfg,
+                    "Resident Set (RSS)",
+                    ctx.memory_rss_bytes
+                        .map(format_file_size)
+                        .unwrap_or_else(|| "n/a".to_string()),
+                ),
+                components::metric_box(
+                    theme_cfg,
+                    "Peak Resident",
+                    ctx.memory_peak_bytes
+                        .map(format_file_size)
+                        .unwrap_or_else(|| "n/a".to_string()),
+                ),
+            ]
+            .spacing(12),
+        );
+
+        let path_block = |label: &'static str, value: String| -> Element<'a, Message> {
+            column![
+                text(theme_cfg, label)
+                    .size(11)
+                    .color(theme_cfg.primary_color()),
+                text(theme_cfg, value)
+                    .size(12)
+                    .color(theme_cfg.text_color()),
+            ]
+            .spacing(2)
+            .into()
+        };
+
+        let paths_card = components::settings_card(
+            theme_cfg,
+            "File Locations",
+            column![
+                path_block("Library Database", ctx.db_path.display().to_string()),
+                path_block("Configuration File", ctx.config_path.display().to_string()),
+            ]
+            .spacing(12),
+        );
+
+        column![header, memory_card, paths_card, Space::with_height(20)]
+            .spacing(18)
+            .padding(24)
+            .width(Length::Fill)
+            .into()
     }
 }
 
