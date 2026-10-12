@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use core_engine::{AlbumSummary, ArtistSummary, ScanSummary, SortField, Track, TrackRow};
+use core_engine::{
+    AlbumSummary, ArtistSummary, AudioTechnicalInfo, CacheStats, ScanSummary, SortField, Track,
+    TrackRow,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -112,6 +115,7 @@ pub enum Message {
 
     // Library & Pagination
     SearchInputChanged(String),
+    SearchDebounced(u64),
     SortChanged(SortField),
     LibraryScrolled(iced::widget::scrollable::Viewport),
     TrackWindowLoaded {
@@ -178,4 +182,13 @@ pub enum Message {
     ArtistsLoaded(Vec<ArtistSummary>),
     LibraryFoldersLoaded(Vec<String>),
     TrackResolvedForPlayback(Box<Option<Track>>),
+    PlaybackAssetsLoaded {
+        track_id: i64,
+        cover: Option<Vec<u8>>,
+        blurred: Option<Vec<u8>>,
+        next_cover: Option<Vec<u8>>,
+        tech_info: Option<AudioTechnicalInfo>,
+        lyrics: Option<String>,
+    },
+    StorageStatsLoaded(CacheStats, u64),
 }

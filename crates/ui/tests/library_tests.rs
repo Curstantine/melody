@@ -24,6 +24,7 @@ fn make_rows(start: usize, count: usize) -> Vec<TrackRow> {
             album: format!("Album {:05}", i % 12_500).into(),
             duration_ms: 180_000,
             file_path: format!("/music/track_{:06}.flac", i),
+            duration_label: "3:00".to_string(),
         })
         .collect()
 }

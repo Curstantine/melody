@@ -20,6 +20,7 @@ image = { version = "0.24", default-features = false, features = ["jpeg", "png"]
 directories = "5.0"
 turso = "0.8.3-pre.1"
 encoding_rs = "0.8"
+tokio = { version = "1", features = ["rt"] }
 
 [dev-dependencies]
 tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread"] }

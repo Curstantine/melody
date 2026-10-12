@@ -38,6 +38,9 @@ fn sample_albums(count: usize) -> Vec<AlbumSummary> {
             year: Some(2020),
             cover_track_id: Some(i as i64 + 1),
             added_timestamp: 1_700_000_000 + i as i64,
+            year_label: "2020".to_string(),
+            tracks_label: "10 tracks".to_string(),
+            duration_label: "3:00".to_string(),
         })
         .collect()
 }
@@ -265,6 +268,9 @@ fn test_album_and_artist_views_render_sliced() {
             year: Some(2020),
             cover_track_id: None,
             added_timestamp: 1700000000 + i as i64,
+            year_label: "2020".to_string(),
+            tracks_label: "10 tracks".to_string(),
+            duration_label: "3:00".to_string(),
         })
         .collect();
 
@@ -273,6 +279,7 @@ fn test_album_and_artist_views_render_sliced() {
             artist: format!("Artist {}", i).into(),
             track_count: 5,
             album_count: 1,
+            stats_label: "1 albums • 5 tracks".to_string(),
         })
         .collect();
 
@@ -316,6 +323,9 @@ fn test_albums_view_component_state() {
             year: Some(2021),
             cover_track_id: None,
             added_timestamp: 1700000000 + i as i64,
+            year_label: "2021".to_string(),
+            tracks_label: "5 tracks".to_string(),
+            duration_label: "1:00".to_string(),
         })
         .collect();
 
@@ -381,6 +391,7 @@ fn test_artists_view_component_state() {
             artist: format!("Artist {}", i).into(),
             track_count: 3,
             album_count: 1,
+            stats_label: "1 albums • 3 tracks".to_string(),
         })
         .collect();
 
@@ -393,4 +404,30 @@ fn test_artists_view_component_state() {
 
     let theme_cfg = ThemeConfig::default();
     let _rendered = artists_view.view(&theme_cfg);
+}
+
+#[test]
+fn test_artists_view_is_virtualized() {
+    let mut view = artists::ArtistsView::new(ViewMode::List, ArtistSortField::Artist);
+    let all: Vec<ArtistSummary> = (0..10_000)
+        .map(|i| ArtistSummary {
+            artist: format!("Artist {}", i).into(),
+            track_count: 1,
+            album_count: 1,
+            stats_label: "1 albums • 1 tracks".to_string(),
+        })
+        .collect();
+    view.set_artists(all);
+
+    // Only a small window is materialized regardless of catalog size.
+    assert!(view.window_len() < 200, "window_len={}", view.window_len());
+    assert_eq!(view.total_tracks, 10_000);
+    assert_eq!(view.total_albums, 10_000);
+
+    // Scrolling to the middle relocates a bounded window without growing it.
+    view.on_scroll_metrics(100_000.0, 1000.0, 700.0);
+    assert!(view.window_len() < 200, "window_len={}", view.window_len());
+
+    let theme_cfg = ThemeConfig::default();
+    let _rendered = view.view(&theme_cfg);
 }

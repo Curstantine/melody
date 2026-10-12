@@ -97,6 +97,11 @@ pub struct ThemeConfig {
     pub slider_rail: Option<Color>,
     #[serde(default)]
     pub font_family: Option<String>,
+    /// Cached resolved font. Kept in sync with `font_family` via
+    /// [`ThemeConfig::refresh_font`]; never serialized. Caching it here removes
+    /// a global mutex + hash lookup from every text widget on every frame.
+    #[serde(skip)]
+    pub font: iced::Font,
 }
 
 impl Default for ThemeConfig {
@@ -118,6 +123,7 @@ impl Default for ThemeConfig {
             slider_active: Some(parse_hex("#ffffff")),
             slider_rail: Some(parse_hex("#363636")),
             font_family: None,
+            font: iced::Font::DEFAULT,
         }
     }
 }
@@ -198,7 +204,13 @@ impl ThemeConfig {
     }
 
     pub fn font(&self) -> iced::Font {
-        font_from_family_name(self.font_family.as_deref())
+        self.font
+    }
+
+    /// Recomputes the cached [`iced::Font`] from the current `font_family`.
+    /// Must be called after any mutation of `font_family`.
+    pub fn refresh_font(&mut self) {
+        self.font = font_from_family_name(self.font_family.as_deref());
     }
 }
 
@@ -233,6 +245,9 @@ pub struct ThemeManager {
     pub active_theme_name: String,
     pub current_config: ThemeConfig,
     cached_theme_names: Vec<String>,
+    /// Pre-built iced theme for the active config. Rebuilt only on theme/font
+    /// changes so `App::theme()` does not allocate on every frame.
+    cached_theme: Theme,
 }
 
 impl Default for ThemeManager {
@@ -243,11 +258,13 @@ impl Default for ThemeManager {
 
 impl ThemeManager {
     pub fn new() -> Self {
+        let default_config = ThemeConfig::default();
         let mut manager = Self {
             themes: HashMap::new(),
             active_theme_name: DEFAULT_THEME_NAME.to_string(),
-            current_config: ThemeConfig::default(),
+            current_config: default_config.clone(),
             cached_theme_names: Vec::new(),
+            cached_theme: default_config.to_iced_theme(),
         };
 
         manager.load_all_themes();
@@ -278,6 +295,8 @@ impl ThemeManager {
                 self.current_config.font_family = saved_font;
             }
         }
+        self.current_config.refresh_font();
+        self.cached_theme = self.current_config.to_iced_theme();
 
         let mut names: Vec<String> = self.themes.keys().cloned().collect();
         names.sort();
@@ -299,7 +318,8 @@ impl ThemeManager {
             if path.extension().and_then(|e| e.to_str()) == Some("toml") {
                 if let Ok(content) = fs::read_to_string(path) {
                     match toml::from_str::<ThemeConfig>(&content) {
-                        Ok(theme) => {
+                        Ok(mut theme) => {
+                            theme.refresh_font();
                             info!("Loaded theme '{}' from {:?}", theme.name, path);
                             self.themes.insert(theme.name.clone(), theme);
                         }
@@ -320,6 +340,8 @@ impl ThemeManager {
             if saved_font.is_some() {
                 self.current_config.font_family = saved_font;
             }
+            self.current_config.refresh_font();
+            self.cached_theme = self.current_config.to_iced_theme();
             info!("Switched theme to '{}'", name);
             true
         } else {
@@ -330,6 +352,14 @@ impl ThemeManager {
     pub fn set_font(&mut self, font_name: Option<String>) {
         info!("Setting active theme font family to: {:?}", font_name);
         self.current_config.font_family = font_name;
+        self.current_config.refresh_font();
+        self.cached_theme = self.current_config.to_iced_theme();
+    }
+
+    /// Returns the cached iced theme. Cheap (`Arc` clone) and allocation-free
+    /// compared to rebuilding via `to_iced_theme` every frame.
+    pub fn theme(&self) -> Theme {
+        self.cached_theme.clone()
     }
 
     pub fn theme_names(&self) -> &[String] {

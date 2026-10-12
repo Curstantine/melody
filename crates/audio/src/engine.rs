@@ -138,7 +138,6 @@ struct LoadedTrack {
     reached_eof: bool,
     decoded_frame: AudioFrame,
     resampled_frame: AudioFrame,
-    samples_buf: Vec<f32>,
 }
 
 fn target_channel_layout(channels: usize) -> ChannelLayout {
@@ -325,17 +324,15 @@ fn drain_decoder_frames(
                     let data_bytes = track.resampled_frame.data(0);
                     let byte_count = total_floats * std::mem::size_of::<f32>();
                     if data_bytes.len() >= byte_count {
-                        track.samples_buf.clear();
                         let float_slice: &[f32] = unsafe {
                             std::slice::from_raw_parts(
                                 data_bytes.as_ptr() as *const f32,
                                 total_floats,
                             )
                         };
-                        track.samples_buf.extend_from_slice(float_slice);
 
                         if let Some(ref mut prod) = ring_producer {
-                            push_to_ring_buffer(prod, &track.samples_buf);
+                            push_to_ring_buffer(prod, float_slice);
                         }
                     }
                 }
@@ -359,14 +356,12 @@ fn flush_resampler(
             let data_bytes = track.resampled_frame.data(0);
             let byte_count = total_floats * std::mem::size_of::<f32>();
             if data_bytes.len() >= byte_count {
-                track.samples_buf.clear();
                 let float_slice: &[f32] = unsafe {
                     std::slice::from_raw_parts(data_bytes.as_ptr() as *const f32, total_floats)
                 };
-                track.samples_buf.extend_from_slice(float_slice);
 
                 if let Some(ref mut prod) = ring_producer {
-                    push_to_ring_buffer(prod, &track.samples_buf);
+                    push_to_ring_buffer(prod, float_slice);
                 }
             }
         }
@@ -693,7 +688,6 @@ fn handle_command(
                 let _ = track.input.seek(0, ..);
                 track.decoder.flush();
                 track.reached_eof = false;
-                track.samples_buf.clear();
             }
             flush_audio_buffer(flush_flag);
         }
@@ -707,7 +701,6 @@ fn handle_command(
                     Ok(_) => {
                         track.decoder.flush();
                         track.reached_eof = false;
-                        track.samples_buf.clear();
                         flush_audio_buffer(flush_flag);
                         status.set_position_ms(duration.as_millis() as u64);
                         info!("Seeked to {:?}", duration);
@@ -791,7 +784,6 @@ fn load_track(
         reached_eof: false,
         decoded_frame: AudioFrame::empty(),
         resampled_frame: AudioFrame::empty(),
-        samples_buf: Vec::with_capacity(4096),
     };
 
     Ok((loaded, duration_ms))

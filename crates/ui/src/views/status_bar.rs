@@ -15,8 +15,14 @@ pub struct StatusBarContext<'a> {
     pub search_query: &'a str,
     // Albums context
     pub albums: &'a [AlbumSummary],
+    /// Precomputed album totals (avoid folding the catalog every frame).
+    pub album_tracks: usize,
+    pub album_duration_ms: u64,
     // Artists context
     pub artists: &'a [ArtistSummary],
+    /// Precomputed artist totals.
+    pub artist_albums: usize,
+    pub artist_tracks: usize,
     // Now Playing context
     pub current_track: Option<&'a Track>,
     pub is_playing: bool,
@@ -64,8 +70,8 @@ impl StatusBar {
 
             ViewTab::Albums => {
                 let total_albums = ctx.albums.len();
-                let total_tracks: usize = ctx.albums.iter().map(|a| a.track_count).sum();
-                let total_duration_ms: u64 = ctx.albums.iter().map(|a| a.total_duration_ms).sum();
+                let total_tracks = ctx.album_tracks;
+                let total_duration_ms = ctx.album_duration_ms;
 
                 row![
                     icons::icon(icons::ALBUM_SVG, 11.0, muted),
@@ -88,8 +94,8 @@ impl StatusBar {
 
             ViewTab::Artists => {
                 let total_artists = ctx.artists.len();
-                let total_albums: usize = ctx.artists.iter().map(|a| a.album_count).sum();
-                let total_tracks: usize = ctx.artists.iter().map(|a| a.track_count).sum();
+                let total_albums = ctx.artist_albums;
+                let total_tracks = ctx.artist_tracks;
 
                 row![
                     icons::icon(icons::USER_AVATAR_SVG, 11.0, muted),

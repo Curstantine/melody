@@ -70,6 +70,11 @@ pub struct App {
     scrobble_config: ScrobbleConfig,
 
     config_save_seq: u64,
+    search_seq: u64,
+
+    // Storage telemetry (refreshed on demand, never per frame)
+    cache_stats: core_engine::CacheStats,
+    db_size_bytes: u64,
 
     mpris_rx: Option<Receiver<PlayerAction>>,
 }
@@ -181,6 +186,9 @@ impl App {
             lastfm_plugin,
             scrobble_config: config.scrobble,
             config_save_seq: 0,
+            search_seq: 0,
+            cache_stats: core_engine::CacheStats::default(),
+            db_size_bytes: 0,
 
             mpris_rx,
         };
@@ -220,7 +228,7 @@ impl App {
     }
 
     pub fn theme(&self) -> Theme {
-        self.theme_manager.current_config.to_iced_theme()
+        self.theme_manager.theme()
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
@@ -291,46 +299,29 @@ impl App {
                     info!("Playing track: {} (ID {})", track.title, track.id);
                     let path = PathBuf::from(&track.file_path);
 
-                    let cover_bytes =
-                        core_engine::get_or_create_thumbnail(&path, core_engine::THUMB_DIM_HIGH)
-                            .or_else(|| core_engine::extract_cover_art(&path));
-
-                    if let Some(ref bytes) = cover_bytes {
-                        self.current_blurred_cover = core_engine::generate_blurred_cover(bytes)
-                            .map(image::Handle::from_bytes);
-                    } else {
-                        self.current_blurred_cover = None;
-                    }
-
-                    self.current_cover = cover_bytes.map(image::Handle::from_bytes);
-                    self.current_tech_info =
-                        core_engine::extract_technical_info(&path, track.duration_ms);
-
-                    self.audio_controller.load(path, true);
+                    // Start playback immediately; the expensive visual/metadata
+                    // work is dispatched to a blocking worker below so the UI
+                    // thread never stalls on disk I/O, image decoding or FFmpeg.
+                    self.audio_controller.load(path.clone(), true);
                     let track_id = track.id;
                     self.current_track = Some(track.clone());
                     self.current_track_id = Some(track_id);
                     self.position_ms = 0;
                     self.duration_ms = track.duration_ms;
 
-                    // Pre-extract cover for next track for the Now Playing view
-                    let next_track_opt = self.get_next_track();
-                    self.current_next_cover = next_track_opt.and_then(|nt| {
-                        let nt_path = PathBuf::from(&nt.file_path);
-                        core_engine::get_or_create_thumbnail(
-                            &nt_path,
-                            core_engine::THUMB_DIM_DEFAULT,
-                        )
-                        .or_else(|| core_engine::extract_cover_art(&nt_path))
-                        .map(image::Handle::from_bytes)
-                    });
+                    // Clear stale assets from the previous track right away so we
+                    // never render a mismatched cover while the new one loads.
+                    self.current_cover = None;
+                    self.current_blurred_cover = None;
+                    self.current_next_cover = None;
+                    self.current_tech_info = None;
+                    self.now_playing.set_lyrics(None);
 
-                    let lyrics = self
-                        .plugin_manager
-                        .fetch_lyrics(&track.artist, &track.title);
-                    self.now_playing.set_lyrics(lyrics);
+                    let artist = track.artist.clone();
+                    let title = track.title.clone();
+                    let duration_ms = track.duration_ms;
 
-                    // Notify plugins
+                    // Notify plugins synchronously (cheap state updates).
                     self.plugin_manager.on_track_change(&TrackMetadata {
                         title: track.title,
                         artist: track.artist,
@@ -338,7 +329,79 @@ impl App {
                         duration_ms: track.duration_ms,
                         file_path: track.file_path,
                     });
+
+                    // Resolve the next track's path from the in-memory window; the
+                    // background task then produces its thumbnail off-thread.
+                    let next_track_path = self
+                        .get_next_track()
+                        .map(|nt| PathBuf::from(&nt.file_path));
+
+                    let plugin_manager = self.plugin_manager.clone();
+                    Task::perform(
+                        async move {
+                            tokio::task::spawn_blocking(move || {
+                                let cover = core_engine::get_or_create_thumbnail(
+                                    &path,
+                                    core_engine::THUMB_DIM_HIGH,
+                                )
+                                .or_else(|| core_engine::extract_cover_art(&path));
+
+                                let blurred = cover
+                                    .as_deref()
+                                    .and_then(core_engine::generate_blurred_cover);
+
+                                let tech_info =
+                                    core_engine::extract_technical_info(&path, duration_ms);
+
+                                let lyrics = plugin_manager.fetch_lyrics(&artist, &title);
+
+                                let next_cover = next_track_path.and_then(|nt_path| {
+                                    core_engine::get_or_create_thumbnail(
+                                        &nt_path,
+                                        core_engine::THUMB_DIM_DEFAULT,
+                                    )
+                                    .or_else(|| core_engine::extract_cover_art(&nt_path))
+                                });
+
+                                (cover, blurred, next_cover, tech_info, lyrics)
+                            })
+                            .await
+                            .unwrap_or((None, None, None, None, None))
+                        },
+                        move |(cover, blurred, next_cover, tech_info, lyrics)| {
+                            Message::PlaybackAssetsLoaded {
+                                track_id,
+                                cover,
+                                blurred,
+                                next_cover,
+                                tech_info,
+                                lyrics,
+                            }
+                        },
+                    )
+                } else {
+                    Task::none()
                 }
+            }
+
+            Message::PlaybackAssetsLoaded {
+                track_id,
+                cover,
+                blurred,
+                next_cover,
+                tech_info,
+                lyrics,
+            } => {
+                // Drop assets that belong to a track the user has since skipped.
+                if self.current_track_id != Some(track_id) {
+                    return Task::none();
+                }
+
+                self.current_cover = cover.map(image::Handle::from_bytes);
+                self.current_blurred_cover = blurred.map(image::Handle::from_bytes);
+                self.current_next_cover = next_cover.map(image::Handle::from_bytes);
+                self.current_tech_info = tech_info;
+                self.now_playing.set_lyrics(lyrics);
                 Task::none()
             }
 
@@ -515,6 +578,7 @@ impl App {
                             save_task
                         }
                     }
+                    ViewTab::Settings => Task::batch([save_task, self.load_storage_stats_task()]),
                     _ => {
                         self.albums.clear_covers();
                         save_task
@@ -592,7 +656,25 @@ impl App {
 
             Message::SearchInputChanged(query) => {
                 self.library.set_search_query(query);
-                self.reload_tracks_task()
+                // Debounce: typing fires a query per keystroke, and a leading
+                // wildcard LIKE cannot use an index, so we wait out the burst.
+                self.search_seq = self.search_seq.wrapping_add(1);
+                let seq = self.search_seq;
+                Task::perform(
+                    async move {
+                        tokio::time::sleep(Duration::from_millis(250)).await;
+                        seq
+                    },
+                    Message::SearchDebounced,
+                )
+            }
+
+            Message::SearchDebounced(seq) => {
+                if seq == self.search_seq {
+                    self.reload_tracks_task()
+                } else {
+                    Task::none()
+                }
             }
 
             Message::SortChanged(field) => {
@@ -820,9 +902,22 @@ impl App {
 
             Message::ClearThumbnailCache => {
                 info!("Purging thumbnail disk and GPU cache");
-                let _ = core_engine::clear_thumbnail_cache();
                 self.albums.clear_covers();
-                Task::none()
+                let db_path = self.db_path.clone();
+                Task::perform(
+                    async move {
+                        tokio::task::spawn_blocking(move || {
+                            let _ = core_engine::clear_thumbnail_cache();
+                            let stats = core_engine::get_thumbnail_cache_stats();
+                            let db_size =
+                                std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+                            (stats, db_size)
+                        })
+                        .await
+                        .unwrap_or_default()
+                    },
+                    |(stats, db_size)| Message::StorageStatsLoaded(stats, db_size),
+                )
             }
 
             Message::ScanFinished(_summary) => {
@@ -834,7 +929,14 @@ impl App {
                         Message::LibraryFoldersLoaded,
                     ),
                     self.reload_after_scan_task(),
+                    self.load_storage_stats_task(),
                 ])
+            }
+
+            Message::StorageStatsLoaded(stats, db_size_bytes) => {
+                self.cache_stats = stats;
+                self.db_size_bytes = db_size_bytes;
+                Task::none()
             }
 
             Message::Settings(settings_msg) => {
@@ -844,7 +946,7 @@ impl App {
 
             Message::SelectSettingsTab(tab) => {
                 self.settings.select_tab(tab);
-                self.save_config_task()
+                Task::batch([self.save_config_task(), self.load_storage_stats_task()])
             }
 
             Message::SelectAlbum(album_name) => {
@@ -1134,6 +1236,24 @@ impl App {
         )
     }
 
+    /// Refreshes thumbnail-cache and database-size telemetry off the UI thread.
+    /// Called only when the relevant screens/actions occur instead of every frame.
+    fn load_storage_stats_task(&self) -> Task<Message> {
+        let db_path = self.db_path.clone();
+        Task::perform(
+            async move {
+                tokio::task::spawn_blocking(move || {
+                    let stats = core_engine::get_thumbnail_cache_stats();
+                    let db_size = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+                    (stats, db_size)
+                })
+                .await
+                .unwrap_or_default()
+            },
+            |(stats, db_size)| Message::StorageStatsLoaded(stats, db_size),
+        )
+    }
+
     fn load_cover_chunk_task(
         &self,
         request_id: u64,
@@ -1150,15 +1270,19 @@ impl App {
         let db = self.db.clone();
         Task::perform(
             async move {
-                // Resolve a representative track path for each visible album, then
-                // downscale/cache the cover off the async runtime.
-                let mut resolved = Vec::with_capacity(chunk.len());
-                for (key, id) in chunk {
-                    match db.get_track_path_by_id(id).await {
-                        Ok(Some(path)) => resolved.push((key, Some(PathBuf::from(path)))),
-                        _ => resolved.push((key, None)),
-                    }
-                }
+                // Resolve representative track paths for the whole chunk in a
+                // single `IN (...)` query, then downscale/cache covers off the
+                // async runtime.
+                let ids: Vec<i64> = chunk.iter().map(|(_, id)| *id).collect();
+                let paths = db.get_track_paths_by_ids(&ids).await.unwrap_or_default();
+
+                let resolved: Vec<(String, Option<PathBuf>)> = chunk
+                    .into_iter()
+                    .map(|(key, id)| {
+                        let path = paths.get(&id).map(PathBuf::from);
+                        (key, path)
+                    })
+                    .collect();
 
                 tokio::task::spawn_blocking(move || {
                     let mut results = Vec::with_capacity(resolved.len());
@@ -1406,10 +1530,8 @@ impl App {
                 )
             }
             ViewTab::Settings => {
-                let cache_stats = core_engine::get_thumbnail_cache_stats();
-                let db_size_bytes = std::fs::metadata(&self.db_path)
-                    .map(|m| m.len())
-                    .unwrap_or(0);
+                let cache_stats = self.cache_stats;
+                let db_size_bytes = self.db_size_bytes;
 
                 self.settings.view(
                     theme_cfg,
@@ -1479,7 +1601,11 @@ impl App {
             total_tracks: self.library.total_tracks,
             search_query: &self.library.search_query,
             albums: &self.albums.albums,
+            album_tracks: self.albums.total_tracks,
+            album_duration_ms: self.albums.total_duration_ms,
             artists: &self.artists.artists,
+            artist_albums: self.artists.total_albums,
+            artist_tracks: self.artists.total_tracks,
             current_track: self.current_track.as_ref(),
             is_playing: self.is_playing,
             is_scanning: self.is_scanning,

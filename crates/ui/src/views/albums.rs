@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-use core_engine::{format_duration, AlbumSummary, SortDirection};
+use core_engine::{AlbumSummary, SortDirection};
 use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, scrollable, Space};
 use iced::{Alignment, Element, Length, Padding};
@@ -79,6 +79,10 @@ pub struct AlbumsView {
     pub in_flight: HashMap<String, (u64, Instant)>,
     pub failed: HashSet<String>,
     next_request_id: u64,
+    /// Precomputed catalog totals so the status bar never folds over the whole
+    /// catalog on every frame.
+    pub total_tracks: usize,
+    pub total_duration_ms: u64,
 }
 
 impl AlbumsView {
@@ -109,6 +113,8 @@ impl AlbumsView {
             in_flight: HashMap::new(),
             failed: HashSet::new(),
             next_request_id: 0,
+            total_tracks: 0,
+            total_duration_ms: 0,
         }
     }
 
@@ -163,11 +169,17 @@ impl AlbumsView {
     pub fn set_albums(&mut self, mut albums: Vec<AlbumSummary>) {
         Self::sort_albums(&mut albums, self.sort_field, self.sort_dir);
         self.albums = albums;
+        self.recompute_totals();
         self.failed.clear();
         self.in_flight.clear();
         self.last_scroll_y = 0.0;
         self.window_start = 0;
         self.window_end = self.default_window_end();
+    }
+
+    fn recompute_totals(&mut self) {
+        self.total_tracks = self.albums.iter().map(|a| a.track_count).sum();
+        self.total_duration_ms = self.albums.iter().map(|a| a.total_duration_ms).sum();
     }
 
     pub fn toggle_sort(&mut self, field: AlbumSortField) {
@@ -440,6 +452,8 @@ impl AlbumsView {
         // `.clear()` would retain the heap capacity; we want the memory gone.
         self.albums = Vec::new();
         self.failed = HashSet::new();
+        self.total_tracks = 0;
+        self.total_duration_ms = 0;
         self.clear_covers();
     }
 
@@ -552,7 +566,6 @@ impl AlbumsView {
                     theme_cfg.primary_color(),
                 );
 
-                let year_str = album.year.map(|y| format!("{}", y)).unwrap_or_default();
                 let meta = container(
                     column![
                         text(theme_cfg, album.album.as_ref())
@@ -563,17 +576,17 @@ impl AlbumsView {
                                 .size(11)
                                 .color(theme_cfg.text_muted_color())
                                 .width(Length::Fill),
-                            text(theme_cfg, year_str)
+                            text(theme_cfg, album.year_label.as_str())
                                 .size(11)
                                 .color(theme_cfg.text_muted_color()),
                         ]
                         .align_y(Alignment::Center),
                         row![
-                            text(theme_cfg, format!("{} tracks", album.track_count))
+                            text(theme_cfg, album.tracks_label.as_str())
                                 .size(10)
                                 .color(theme_cfg.text_muted_color()),
                             Space::with_width(Length::Fill),
-                            text(theme_cfg, format_duration(album.total_duration_ms))
+                            text(theme_cfg, album.duration_label.as_str())
                                 .size(10)
                                 .color(theme_cfg.text_muted_color()),
                         ]
@@ -646,28 +659,33 @@ impl AlbumsView {
                 theme_cfg.primary_color(),
             );
 
-            let subtitle = if let Some(year) = album.year {
-                format!("{} • {}", album.artist, year)
-            } else {
-                album.artist.to_string()
-            };
+            let mut subtitle = row![text(theme_cfg, album.artist.as_ref())
+                .size(11)
+                .color(theme_cfg.text_muted_color())];
+            if !album.year_label.is_empty() {
+                subtitle = subtitle
+                    .push(text(theme_cfg, " • ").size(11).color(theme_cfg.text_muted_color()))
+                    .push(
+                        text(theme_cfg, album.year_label.as_str())
+                            .size(11)
+                            .color(theme_cfg.text_muted_color()),
+                    );
+            }
 
             let title_block = column![
                 text(theme_cfg, album.album.as_ref())
                     .size(13)
                     .color(theme_cfg.text_color()),
-                text(theme_cfg, subtitle)
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
+                subtitle,
             ]
             .spacing(2)
             .width(Length::Fill);
 
             let details = column![
-                text(theme_cfg, format!("{} tracks", album.track_count))
+                text(theme_cfg, album.tracks_label.as_str())
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
-                text(theme_cfg, format_duration(album.total_duration_ms))
+                text(theme_cfg, album.duration_label.as_str())
                     .size(11)
                     .color(theme_cfg.text_muted_color()),
             ]

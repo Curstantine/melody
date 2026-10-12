@@ -74,11 +74,15 @@ pub struct TrackRow {
     pub album: InternedStr,
     pub duration_ms: u64,
     pub file_path: String,
+    /// Pre-rendered duration (`m:ss` / `h:mm:ss`) so list rendering performs no
+    /// `format!` allocation on every frame.
+    #[serde(default)]
+    pub duration_label: String,
 }
 
 impl TrackRow {
-    pub fn formatted_duration(&self) -> String {
-        format_duration(self.duration_ms)
+    pub fn formatted_duration(&self) -> &str {
+        &self.duration_label
     }
 
     pub fn display_artist(&self) -> &str {
@@ -118,6 +122,13 @@ pub struct AlbumSummary {
     pub year: Option<u32>,
     pub cover_track_id: Option<i64>,
     pub added_timestamp: i64,
+    /// Pre-rendered display strings so catalog rendering allocates nothing per frame.
+    #[serde(default)]
+    pub year_label: String,
+    #[serde(default)]
+    pub tracks_label: String,
+    #[serde(default)]
+    pub duration_label: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -125,6 +136,9 @@ pub struct ArtistSummary {
     pub artist: InternedStr,
     pub track_count: usize,
     pub album_count: usize,
+    /// Pre-rendered "N albums • M tracks" label for allocation-free rendering.
+    #[serde(default)]
+    pub stats_label: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

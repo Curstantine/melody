@@ -57,6 +57,7 @@ fn test_now_playing_with_track_and_next_track() {
         artist: "Synthwave Master".into(),
         album: "Future Echoes".into(),
         duration_ms: 198_000,
+        duration_label: "3:18".to_string(),
     };
 
     let tech_info = AudioTechnicalInfo {

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -10,7 +11,8 @@ use walkdir::WalkDir;
 use crate::intern;
 use crate::metadata::extract_metadata;
 use crate::model::{
-    AlbumSummary, ArtistSummary, NewTrack, SortDirection, SortField, Track, TrackIdHeader, TrackRow,
+    format_duration, AlbumSummary, ArtistSummary, NewTrack, SortDirection, SortField, Track,
+    TrackIdHeader, TrackRow,
 };
 
 #[derive(Error, Debug)]
@@ -530,6 +532,40 @@ impl LibraryDatabase {
         Ok(rows_out)
     }
 
+    /// Fetches the filesystem path for every requested track id in a single
+    /// `WHERE id IN (...)` query, replacing the per-id round trips used by the
+    /// album cover loader.
+    pub async fn get_track_paths_by_ids(
+        &self,
+        ids: &[i64],
+    ) -> Result<HashMap<i64, String>, DbError> {
+        let mut out = HashMap::with_capacity(ids.len());
+        if ids.is_empty() {
+            return Ok(out);
+        }
+
+        let placeholders = std::iter::repeat("?")
+            .take(ids.len())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let query = format!(
+            "SELECT id, file_path FROM tracks WHERE id IN ({})",
+            placeholders
+        );
+
+        let mut rows = self
+            .conn
+            .query(&query, turso::params_from_iter(ids.iter().copied()))
+            .await?;
+
+        while let Some(row) = rows.next().await? {
+            let id: i64 = row.get(0)?;
+            let path: String = row.get(1)?;
+            out.insert(id, path);
+        }
+        Ok(out)
+    }
+
     /// Fetches only the filesystem path for a track id (used to resolve album
     /// cover art for the visible catalog window).
     pub async fn get_track_path_by_id(&self, id: i64) -> Result<Option<String>, DbError> {
@@ -605,6 +641,9 @@ impl LibraryDatabase {
                 year,
                 cover_track_id,
                 added_timestamp,
+                year_label: year.map(|y| format!("{}", y)).unwrap_or_default(),
+                tracks_label: format!("{} tracks", count),
+                duration_label: format_duration(duration as u64),
             });
         }
         Ok(albums)
@@ -633,6 +672,7 @@ impl LibraryDatabase {
                 artist: intern::intern(&artist),
                 track_count: track_count as usize,
                 album_count: album_count as usize,
+                stats_label: format!("{} albums \u{2022} {} tracks", album_count, track_count),
             });
         }
         Ok(artists)
@@ -698,7 +738,12 @@ impl LibraryDatabase {
         Ok(count)
     }
 
-    /// Recursively scan directory and index all supported audio files into libSQL
+    /// Recursively scan directory and index all supported audio files.
+    ///
+    /// The directory walk is streamed lazily (so peak memory stays proportional
+    /// to a single batch rather than the whole library), while the blocking
+    /// per-file FFmpeg metadata probe runs on `spawn_blocking` workers so the
+    /// async runtime driving the UI is never stalled.
     pub async fn scan_directory<P: AsRef<Path>, F: Fn(usize, usize)>(
         &self,
         dir_path: P,
@@ -709,7 +754,7 @@ impl LibraryDatabase {
             "mp3", "flac", "ogg", "oga", "wav", "m4a", "aac", "alac", "opus", "aiff",
         ];
 
-        let mut batch = Vec::with_capacity(100);
+        let mut batch: Vec<NewTrack> = Vec::with_capacity(100);
 
         for entry in WalkDir::new(dir_path)
             .follow_links(true)
@@ -717,77 +762,46 @@ impl LibraryDatabase {
             .filter_map(|e| e.ok())
         {
             let path = entry.path();
-            if path.is_file() {
-                if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-                    let ext_lower = ext.to_lowercase();
-                    if supported_exts.contains(&ext_lower.as_str()) {
-                        summary.scanned_files += 1;
-                        match extract_metadata(path) {
-                            Ok(track) => {
-                                batch.push(track);
-                                if batch.len() >= 100 {
-                                    match self.insert_tracks_batch(&batch).await {
-                                        Ok(inserted) => {
-                                            summary.inserted_tracks += inserted;
-                                        }
-                                        Err(e) => {
-                                            warn!(
-                                                "Batch insertion failed for {} tracks: {}. Falling back to individual inserts...",
-                                                batch.len(),
-                                                e
-                                            );
-                                            for t in &batch {
-                                                match self.insert_or_update_track(t).await {
-                                                    Ok(_) => summary.inserted_tracks += 1,
-                                                    Err(err) => {
-                                                        warn!(
-                                                            "Failed to insert track {:?}: {}",
-                                                            t.file_path, err
-                                                        );
-                                                        summary.failed_files += 1;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    batch.clear();
-                                    if let Some(ref cb) = progress_cb {
-                                        cb(summary.scanned_files, summary.inserted_tracks);
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                warn!("Failed to extract metadata for {:?}: {}", path, e);
-                                summary.failed_files += 1;
-                            }
+            if !path.is_file() {
+                continue;
+            }
+            let Some(ext) = path.extension().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            let ext_lower = ext.to_lowercase();
+            if !supported_exts.contains(&ext_lower.as_str()) {
+                continue;
+            }
+
+            summary.scanned_files += 1;
+
+            let parse_path = path.to_path_buf();
+            let parsed = tokio::task::spawn_blocking(move || extract_metadata(&parse_path)).await;
+
+            match parsed {
+                Ok(Ok(track)) => {
+                    batch.push(track);
+                    if batch.len() >= 100 {
+                        self.flush_scan_batch(&batch, &mut summary).await;
+                        batch.clear();
+                        if let Some(ref cb) = progress_cb {
+                            cb(summary.scanned_files, summary.inserted_tracks);
                         }
                     }
+                }
+                Ok(Err(e)) => {
+                    warn!("Failed to extract metadata for {:?}: {}", path, e);
+                    summary.failed_files += 1;
+                }
+                Err(e) => {
+                    warn!("Metadata task failed for {:?}: {}", path, e);
+                    summary.failed_files += 1;
                 }
             }
         }
 
         if !batch.is_empty() {
-            match self.insert_tracks_batch(&batch).await {
-                Ok(inserted) => {
-                    summary.inserted_tracks += inserted;
-                }
-                Err(e) => {
-                    warn!(
-                        "Final batch insertion failed for {} tracks: {}. Falling back to individual inserts...",
-                        batch.len(),
-                        e
-                    );
-                    for t in &batch {
-                        match self.insert_or_update_track(t).await {
-                            Ok(_) => summary.inserted_tracks += 1,
-                            Err(err) => {
-                                warn!("Failed to insert track {:?}: {}", t.file_path, err);
-                                summary.failed_files += 1;
-                            }
-                        }
-                    }
-                }
-            }
+            self.flush_scan_batch(&batch, &mut summary).await;
             if let Some(ref cb) = progress_cb {
                 cb(summary.scanned_files, summary.inserted_tracks);
             }
@@ -799,6 +813,32 @@ impl LibraryDatabase {
         );
 
         Ok(summary)
+    }
+
+    /// Inserts a batch within a transaction, falling back to individual inserts
+    /// (and counting failures) when the batched statement errors out.
+    async fn flush_scan_batch(&self, batch: &[NewTrack], summary: &mut ScanSummary) {
+        match self.insert_tracks_batch(batch).await {
+            Ok(inserted) => {
+                summary.inserted_tracks += inserted;
+            }
+            Err(e) => {
+                warn!(
+                    "Batch insertion failed for {} tracks: {}. Falling back to individual inserts...",
+                    batch.len(),
+                    e
+                );
+                for t in batch {
+                    match self.insert_or_update_track(t).await {
+                        Ok(_) => summary.inserted_tracks += 1,
+                        Err(err) => {
+                            warn!("Failed to insert track {:?}: {}", t.file_path, err);
+                            summary.failed_files += 1;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -847,6 +887,7 @@ fn map_track_row_summary(row: &Row) -> Result<TrackRow, DbError> {
         album: intern::intern(&album),
         duration_ms: duration as u64,
         file_path: row.get(5)?,
+        duration_label: format_duration(duration as u64),
     })
 }
 
