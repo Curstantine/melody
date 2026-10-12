@@ -63,7 +63,6 @@ impl NowPlayingView {
         next_cover: Option<&'a image::Handle>,
         is_repeat: bool,
         is_shuffle: bool,
-        is_loved: bool,
         tech_info: Option<&'a AudioTechnicalInfo>,
     ) -> Element<'a, Message> {
         let content: Element<'a, Message> = match current_track {
@@ -112,24 +111,10 @@ impl NowPlayingView {
                     .height(Length::Fill)
                     .align_y(Alignment::Center);
 
-                // 2. Right side: Bottom-right docked card matching the general app UI
-                let love_btn = button(if is_loved {
-                    icons::icon(icons::HEART_FILLED_SVG, 14.0, theme_cfg.primary_color())
-                } else {
-                    icons::icon(icons::HEART_SVG, 14.0, theme_cfg.text_muted_color())
-                })
-                .padding([2, 4])
-                .style(styles::icon_control_button(theme_cfg))
-                .on_press(Message::ToggleLoveCurrentTrack);
-
-                let title_row = row![
-                    text(theme_cfg, &track.title)
-                        .size(17)
-                        .color(theme_cfg.text_color()),
-                    Space::with_width(Length::Fill),
-                    love_btn,
-                ]
-                .align_y(Alignment::Center);
+                let title = text(theme_cfg, &track.title)
+                    .size(17)
+                    .color(theme_cfg.text_color())
+                    .align_y(Alignment::Center);
 
                 let artist_album_text =
                     text(theme_cfg, format!("{} • {}", track.artist, track.album))
@@ -311,7 +296,7 @@ impl NowPlayingView {
                 // Card container matching the general app UI with balanced bottom padding
                 let bottom_right_card = container(
                     column![
-                        title_row,
+                        title,
                         artist_album_text,
                         details_row,
                         extra_tags,

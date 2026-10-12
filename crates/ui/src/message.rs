@@ -90,7 +90,6 @@ pub enum Message {
     AudioTick,
     ToggleShuffle,
     ToggleRepeat,
-    ToggleLoveCurrentTrack,
     MprisAction(plugins::PlayerAction),
 
     // Navigation & Views

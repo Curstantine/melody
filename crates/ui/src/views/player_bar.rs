@@ -42,7 +42,6 @@ impl PlayerBar {
         volume: f32,
         is_shuffle: bool,
         is_repeat: bool,
-        is_loved: bool,
     ) -> Element<'a, Message> {
         let bar_fg = theme_cfg.player_bar_text_color();
 
@@ -138,16 +137,6 @@ impl PlayerBar {
             .align_x(Alignment::Center)
             .align_y(Alignment::Center);
 
-        // 3. Right: Secondary Controls (Love, Shuffle, Repeat) & Volume Control
-        let love_btn = button(if is_loved {
-            icons::icon(icons::HEART_FILLED_SVG, 16.0, theme_cfg.danger_color())
-        } else {
-            icons::icon(icons::HEART_SVG, 16.0, bar_fg)
-        })
-        .padding([6, 8])
-        .style(styles::player_bar_button(theme_cfg, is_loved))
-        .on_press(Message::ToggleLoveCurrentTrack);
-
         let shuffle_btn = button(icons::icon(
             icons::SHUFFLE_SVG,
             15.0,
@@ -200,15 +189,9 @@ impl PlayerBar {
         .spacing(6)
         .align_y(Alignment::Center);
 
-        let right_controls = row![
-            love_btn,
-            shuffle_btn,
-            repeat_btn,
-            Space::with_width(6),
-            vol_control,
-        ]
-        .spacing(4)
-        .align_y(Alignment::Center);
+        let right_controls = row![shuffle_btn, repeat_btn, Space::with_width(6), vol_control,]
+            .spacing(4)
+            .align_y(Alignment::Center);
 
         // Sides layer: Left track info and right controls bounded around center clearance
         let sides_row = row![

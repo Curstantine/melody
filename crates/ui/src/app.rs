@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -61,7 +60,6 @@ pub struct App {
     volume: f32,
     is_shuffle: bool,
     is_repeat: bool,
-    loved_tracks: HashSet<i64>,
 
     // Global Scanning Telemetry
     is_scanning: bool,
@@ -176,7 +174,6 @@ impl App {
             volume: config.volume,
             is_shuffle: config.is_shuffle,
             is_repeat: config.is_repeat,
-            loved_tracks: HashSet::new(),
 
             is_scanning: false,
 
@@ -385,19 +382,6 @@ impl App {
                 info!("Repeat toggled: {}", self.is_repeat);
                 self.plugin_manager.on_repeat_change(self.is_repeat);
                 self.save_config_task()
-            }
-
-            Message::ToggleLoveCurrentTrack => {
-                if let Some(id) = self.current_track_id {
-                    if self.loved_tracks.contains(&id) {
-                        self.loved_tracks.remove(&id);
-                        info!("Removed from loved tracks: {}", id);
-                    } else {
-                        self.loved_tracks.insert(id);
-                        info!("Added to loved tracks: {}", id);
-                    }
-                }
-                Task::none()
             }
 
             Message::PreviousTrack => {
@@ -1346,10 +1330,6 @@ impl App {
             ViewTab::Artists => self.artists.view(theme_cfg),
             ViewTab::Lyrics => {
                 let next_track = self.get_next_track();
-                let is_loved = self
-                    .current_track_id
-                    .map(|id| self.loved_tracks.contains(&id))
-                    .unwrap_or(false);
 
                 self.now_playing.view(
                     theme_cfg,
@@ -1360,7 +1340,6 @@ impl App {
                     self.current_next_cover.as_ref(),
                     self.is_repeat,
                     self.is_shuffle,
-                    is_loved,
                     self.current_tech_info.as_ref(),
                 )
             }
@@ -1421,11 +1400,6 @@ impl App {
             .height(Length::Fill)
             .clip(true);
 
-        let is_loved = self
-            .current_track_id
-            .map(|id| self.loved_tracks.contains(&id))
-            .unwrap_or(false);
-
         let player_bar = self.player_bar.view(
             theme_cfg,
             self.current_track.as_ref(),
@@ -1436,7 +1410,6 @@ impl App {
             self.volume,
             self.is_shuffle,
             self.is_repeat,
-            is_loved,
         );
 
         let status_bar_ctx = StatusBarContext {

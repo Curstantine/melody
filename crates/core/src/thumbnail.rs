@@ -11,7 +11,8 @@ use crate::metadata::extract_cover_art;
 use crate::paths;
 
 pub const THUMB_DIM_DEFAULT: u32 = 256;
-pub const THUMB_DIM_HIGH: u32 = 512;
+pub const THUMB_DIM_HIGH: u32 = 300;
+pub const EXCEPTION_MIN_SIZE: usize = 100_000;
 
 /// Returns the platform-specific directory where cover thumbnails are cached on disk
 pub fn thumbnail_cache_dir() -> PathBuf {
@@ -77,26 +78,29 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
             let thumb = img.resize_to_fill(max_dim, max_dim, image::imageops::FilterType::Triangle);
             let rgb = image::DynamicImage::ImageRgb8(thumb.to_rgb8());
 
+            let output_format = if max_dim >= THUMB_DIM_HIGH {
+                ImageOutputFormat::Jpeg(85)
+            } else {
+                ImageOutputFormat::Jpeg(70)
+            };
+
             let mut out_bytes = Vec::new();
             if rgb
-                .write_to(
-                    &mut Cursor::new(&mut out_bytes),
-                    ImageOutputFormat::Jpeg(80),
-                )
+                .write_to(&mut Cursor::new(&mut out_bytes), output_format)
                 .is_ok()
             {
                 let _ = fs::create_dir_all(&cache_dir);
                 let _ = fs::write(&thumb_file, &out_bytes);
                 let _ = fs::remove_file(&none_marker);
+
                 debug!(
-                    "Generated thumbnail for {:?} ({} bytes)",
-                    track_path,
+                    "Generated thumbnail for {track_path:?} ({} bytes)",
                     out_bytes.len()
                 );
+
                 Some(out_bytes)
             } else {
-                // If encoding failed, fallback to original if reasonably small
-                if original_bytes.len() < 300_000 {
+                if original_bytes.len() < EXCEPTION_MIN_SIZE {
                     let _ = fs::remove_file(&none_marker);
                     Some(original_bytes)
                 } else {
@@ -106,7 +110,7 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
         }
         Err(e) => {
             debug!("Failed to decode cover image for {:?}: {}", track_path, e);
-            if original_bytes.len() < 300_000 {
+            if original_bytes.len() < EXCEPTION_MIN_SIZE {
                 let _ = fs::remove_file(&none_marker);
                 Some(original_bytes)
             } else {
@@ -121,14 +125,17 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
 pub fn generate_blurred_cover(image_bytes: &[u8]) -> Option<Vec<u8>> {
     let img = image::load_from_memory(image_bytes).ok()?;
     let small = img.thumbnail_exact(64, 64);
-    let blurred = image::imageops::blur(&small, 8.0);
-    let rgb = image::DynamicImage::ImageRgba8(blurred);
+    let blurred = image::imageops::blur(&small, 6.0);
+    let darken = image::imageops::brighten(&blurred, -10);
+    let rgb = image::DynamicImage::ImageRgba8(darken);
+
     let mut out_bytes = Vec::new();
     rgb.write_to(
         &mut Cursor::new(&mut out_bytes),
         ImageOutputFormat::Jpeg(70),
     )
     .ok()?;
+
     Some(out_bytes)
 }
 
