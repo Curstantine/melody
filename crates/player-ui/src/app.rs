@@ -4,7 +4,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crossbeam_channel::Receiver;
-use directories::ProjectDirs;
 use iced::widget::{button, column, container, image, row, Space};
 use iced::{Element, Length, Subscription, Task, Theme};
 use player_audio::{AudioController, AudioEngine};
@@ -107,13 +106,18 @@ impl App {
         let db_path = get_database_path();
         info!("Using SQLite database at: {:?}", db_path);
 
-        let db = LibraryDatabase::new(&db_path).unwrap_or_else(|e| {
-            error!(
-                "Failed to open disk database, falling back to in-memory: {}",
-                e
-            );
-            LibraryDatabase::in_memory().expect("In-memory SQLite failed")
-        });
+        let db = tokio::runtime::Handle::current()
+            .block_on(async {
+                LibraryDatabase::new(&db_path).await.unwrap_or_else(|e| {
+                    error!(
+                        "Failed to open disk database, falling back to in-memory: {}",
+                        e
+                    );
+                    tokio::runtime::Handle::current()
+                        .block_on(async { LibraryDatabase::in_memory().await })
+                        .expect("In-memory database failed")
+                })
+            });
 
         let config = AppConfig::load();
 
@@ -150,25 +154,6 @@ impl App {
         }
 
         let page_size = config.page_size;
-        let total_tracks = db.get_total_track_count(None).unwrap_or(0);
-        let visible_tracks = db
-            .get_tracks_window(
-                0,
-                page_size,
-                None,
-                SortField::Title,
-                SortDirection::Ascending,
-            )
-            .unwrap_or_default();
-        let mut albums = db.get_albums().unwrap_or_default();
-        Self::sort_albums(
-            &mut albums,
-            config.album_sort_field,
-            SortDirection::Ascending,
-        );
-        let artists = db.get_artists().unwrap_or_default();
-        let library_folders = db.get_library_folders().unwrap_or_default();
-
         let available_fonts = crate::font::list_font_families();
         let primary_font = config.primary_font;
         let config_path = AppConfig::config_path();
@@ -192,8 +177,8 @@ impl App {
             hovered_track_id: None,
             last_track_click: None,
 
-            visible_tracks,
-            total_tracks,
+            visible_tracks: Vec::new(),
+            total_tracks: 0,
             page: 0,
             page_size,
             is_loading_more: false,
@@ -201,16 +186,16 @@ impl App {
             sort_field: SortField::Title,
             sort_dir: SortDirection::Ascending,
 
-            albums,
+            albums: Vec::new(),
             album_covers: HashMap::new(),
             album_sort_field: config.album_sort_field,
             album_sort_dir: SortDirection::Ascending,
             visible_albums_count: DEFAULT_CATALOG_CHUNK_SIZE,
-            artists,
+            artists: Vec::new(),
             artist_sort_field: config.artist_sort_field,
             artist_sort_dir: SortDirection::Ascending,
             visible_artists_count: DEFAULT_CATALOG_CHUNK_SIZE,
-            library_folders,
+            library_folders: Vec::new(),
 
             current_track: None,
             current_track_id: None,
@@ -242,11 +227,30 @@ impl App {
             mpris_rx,
         };
 
-        let initial_task = if app.active_tab == ViewTab::Albums {
-            app.load_visible_album_covers_task()
-        } else {
-            Task::none()
-        };
+        let initial_task = Task::batch([
+            app.reload_tracks_task(),
+            {
+                let db = app.db.clone();
+                Task::perform(
+                    async move { db.get_albums().await.unwrap_or_default() },
+                    Message::AlbumsLoaded,
+                )
+            },
+            {
+                let db = app.db.clone();
+                Task::perform(
+                    async move { db.get_artists().await.unwrap_or_default() },
+                    Message::ArtistsLoaded,
+                )
+            },
+            {
+                let db = app.db.clone();
+                Task::perform(
+                    async move { db.get_library_folders().await.unwrap_or_default() },
+                    Message::LibraryFoldersLoaded,
+                )
+            },
+        ]);
 
         (app, initial_task)
     }
@@ -309,7 +313,20 @@ impl App {
             }
 
             Message::PlayTrack(track_id) => {
-                if let Ok(Some(track)) = self.db.get_track_by_id(track_id) {
+                // If the track is already in the currently visible window, play immediately without querying DB
+                if let Some(track) = self.visible_tracks.iter().find(|t| t.id == track_id).cloned() {
+                    return self.update(Message::TrackResolvedForPlayback(Some(track)));
+                }
+
+                let db = self.db.clone();
+                Task::perform(
+                    async move { db.get_track_by_id(track_id).await.unwrap_or(None) },
+                    Message::TrackResolvedForPlayback,
+                )
+            }
+
+            Message::TrackResolvedForPlayback(maybe_track) => {
+                if let Some(track) = maybe_track {
                     info!("Playing track: {} (ID {})", track.title, track.id);
                     let path = PathBuf::from(&track.file_path);
 
@@ -328,6 +345,7 @@ impl App {
                         player_core::extract_technical_info(&path, track.duration_ms);
 
                     self.audio_controller.load(path, true);
+                    let track_id = track.id;
                     self.current_track = Some(track.clone());
                     self.current_track_id = Some(track_id);
                     self.position_ms = 0;
@@ -518,9 +536,12 @@ impl App {
                         if let Ok(url) = url::Url::parse(&uri) {
                             if url.scheme() == "file" {
                                 if let Ok(path) = url.to_file_path() {
-                                    if let Ok(Some(track)) = self.db.get_track_by_path(path.to_str().unwrap_or_default()) {
-                                        return self.update(Message::PlayTrack(track.id));
-                                    }
+                                    let path_str = path.to_string_lossy().to_string();
+                                    let db = self.db.clone();
+                                    return Task::perform(
+                                        async move { db.get_track_by_path(&path_str).await.unwrap_or(None) },
+                                        Message::TrackResolvedForPlayback,
+                                    );
                                 }
                             }
                         }
@@ -546,7 +567,7 @@ impl App {
                         let load_task = if self.albums.is_empty() {
                             let db = self.db.clone();
                             Task::perform(
-                                async move { db.get_albums().unwrap_or_default() },
+                                async move { db.get_albums().await.unwrap_or_default() },
                                 Message::AlbumsLoaded,
                             )
                         } else {
@@ -559,7 +580,7 @@ impl App {
                         if self.artists.is_empty() {
                             let db = self.db.clone();
                             let load_task = Task::perform(
-                                async move { db.get_artists().unwrap_or_default() },
+                                async move { db.get_artists().await.unwrap_or_default() },
                                 Message::ArtistsLoaded,
                             );
                             Task::batch([save_task, load_task])
@@ -676,17 +697,21 @@ impl App {
                 Some(path) => {
                     info!("Scanning folder: {:?}", path);
                     let path_str = path.to_string_lossy().to_string();
-                    let _ = self.db.add_library_folder(&path_str);
-                    self.library_folders = self.db.get_library_folders().unwrap_or_default();
                     let db = self.db.clone();
                     Task::perform(
                         async move {
+                            let _ = db.add_library_folder(&path_str).await;
+                            let folders = db.get_library_folders().await.unwrap_or_default();
                             let summary = db
                                 .scan_directory(&path, None::<fn(usize, usize)>)
+                                .await
                                 .unwrap_or_default();
-                            summary
+                            (folders, summary)
                         },
-                        Message::ScanFinished,
+                        |(_folders, summary)| {
+                            // First update folders then process scan results
+                            Message::ScanFinished(summary)
+                        },
                     )
                 }
                 None => {
@@ -713,13 +738,13 @@ impl App {
                 Some(path) => {
                     let path_str = path.to_string_lossy().to_string();
                     info!("Adding library folder: {}", path_str);
-                    let _ = self.db.add_library_folder(&path_str);
-                    self.library_folders = self.db.get_library_folders().unwrap_or_default();
                     let db = self.db.clone();
                     Task::perform(
                         async move {
+                            let _ = db.add_library_folder(&path_str).await;
                             let summary = db
                                 .scan_directory(&path, None::<fn(usize, usize)>)
+                                .await
                                 .unwrap_or_default();
                             summary
                         },
@@ -734,8 +759,18 @@ impl App {
 
             Message::RemoveLibraryFolder(path_str) => {
                 info!("Removing library folder: {}", path_str);
-                let _ = self.db.remove_library_folder(&path_str);
-                self.library_folders = self.db.get_library_folders().unwrap_or_default();
+                let db = self.db.clone();
+                Task::perform(
+                    async move {
+                        let _ = db.remove_library_folder(&path_str).await;
+                        db.get_library_folders().await.unwrap_or_default()
+                    },
+                    Message::LibraryFoldersLoaded,
+                )
+            }
+
+            Message::LibraryFoldersLoaded(folders) => {
+                self.library_folders = folders;
                 Task::none()
             }
 
@@ -747,6 +782,7 @@ impl App {
                     async move {
                         let summary = db
                             .scan_directory(&path, None::<fn(usize, usize)>)
+                            .await
                             .unwrap_or_default();
                         summary
                     },
@@ -764,7 +800,7 @@ impl App {
                         let mut total_summary = player_core::ScanSummary::default();
                         for folder_str in folders {
                             let path = PathBuf::from(folder_str);
-                            if let Ok(summary) = db.scan_directory(&path, None::<fn(usize, usize)>)
+                            if let Ok(summary) = db.scan_directory(&path, None::<fn(usize, usize)>).await
                             {
                                 total_summary.scanned_files += summary.scanned_files;
                                 total_summary.inserted_tracks += summary.inserted_tracks;
@@ -780,7 +816,7 @@ impl App {
 
             Message::ClearLibrary => {
                 info!("Clearing all tracks from library database");
-                let _ = self.db.clear_all_tracks();
+                let db = self.db.clone();
                 self.visible_tracks.clear();
                 self.total_tracks = 0;
                 self.albums.clear();
@@ -791,7 +827,12 @@ impl App {
                 self.current_cover = None;
                 self.is_playing = false;
                 self.audio_controller.stop();
-                Task::none()
+                Task::perform(
+                    async move {
+                        let _ = db.clear_all_tracks().await;
+                    },
+                    |_| Message::TracksLoaded(Vec::new(), 0),
+                )
             }
 
             Message::ClearThumbnailCache => {
@@ -804,8 +845,14 @@ impl App {
             Message::ScanFinished(summary) => {
                 info!("Scan completed: {} tracks indexed", summary.inserted_tracks);
                 self.is_scanning = false;
-                self.library_folders = self.db.get_library_folders().unwrap_or_default();
-                self.reload_after_scan_task()
+                let db = self.db.clone();
+                Task::batch([
+                    Task::perform(
+                        async move { db.get_library_folders().await.unwrap_or_default() },
+                        Message::LibraryFoldersLoaded,
+                    ),
+                    self.reload_after_scan_task(),
+                ])
             }
 
             Message::SelectSettingsTab(tab) => {
@@ -1093,12 +1140,6 @@ impl App {
                     return Some(self.visible_tracks[pos + 1].clone());
                 }
             }
-            // If at end of window or not in visible tracks, query database
-            if let Ok(Some(next)) = self.db.get_next_track(cur_id) {
-                if Some(next.id) != self.current_track_id {
-                    return Some(next);
-                }
-            }
         }
 
         // Fallback: first track if available
@@ -1260,9 +1301,10 @@ impl App {
 
         Task::perform(
             async move {
-                let total = db.get_total_track_count(query.as_deref()).unwrap_or(0);
+                let total = db.get_total_track_count(query.as_deref()).await.unwrap_or(0);
                 let tracks = db
                     .get_tracks_window(0, page_size, query.as_deref(), sort_field, sort_dir)
+                    .await
                     .unwrap_or_default();
                 (tracks, total)
             },
@@ -1284,9 +1326,10 @@ impl App {
         Task::batch([
             Task::perform(
                 async move {
-                    let total = db.get_total_track_count(query.as_deref()).unwrap_or(0);
+                    let total = db.get_total_track_count(query.as_deref()).await.unwrap_or(0);
                     let tracks = db
                         .get_tracks_window(0, page_size, query.as_deref(), sort_field, sort_dir)
+                        .await
                         .unwrap_or_default();
                     (tracks, total)
                 },
@@ -1295,14 +1338,14 @@ impl App {
             {
                 let db = self.db.clone();
                 Task::perform(
-                    async move { db.get_albums().unwrap_or_default() },
+                    async move { db.get_albums().await.unwrap_or_default() },
                     Message::AlbumsLoaded,
                 )
             },
             {
                 let db = self.db.clone();
                 Task::perform(
-                    async move { db.get_artists().unwrap_or_default() },
+                    async move { db.get_artists().await.unwrap_or_default() },
                     Message::ArtistsLoaded,
                 )
             },
@@ -1324,6 +1367,7 @@ impl App {
         Task::perform(
             async move {
                 db.get_tracks_window(offset, limit, query.as_deref(), sort_field, sort_dir)
+                    .await
                     .unwrap_or_default()
             },
             Message::MoreTracksLoaded,
@@ -1546,11 +1590,5 @@ impl App {
 }
 
 fn get_database_path() -> PathBuf {
-    if let Some(proj_dirs) = ProjectDirs::from("moe", "curstantine", "vibecore") {
-        let data_dir = proj_dirs.data_dir();
-        let _ = std::fs::create_dir_all(data_dir);
-        data_dir.join("library.db")
-    } else {
-        PathBuf::from("library.db")
-    }
+    player_core::database_file()
 }

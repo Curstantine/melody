@@ -1,8 +1,8 @@
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rusqlite::{params, Connection, OptionalExtension};
+use libsql::{params, Connection, Database};
 use thiserror::Error;
 use tracing::{info, warn};
 use walkdir::WalkDir;
@@ -14,15 +14,16 @@ use crate::model::{
 
 #[derive(Error, Debug)]
 pub enum DbError {
-    #[error("SQLite error: {0}")]
-    Sqlite(#[from] rusqlite::Error),
+    #[error("libSQL error: {0}")]
+    LibSql(#[from] libsql::Error),
     #[error("Lock error: {0}")]
     Lock(String),
 }
 
 #[derive(Debug, Clone)]
 pub struct LibraryDatabase {
-    conn: Arc<Mutex<Connection>>,
+    _db: Arc<Database>,
+    conn: Connection,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -34,34 +35,32 @@ pub struct ScanSummary {
 }
 
 impl LibraryDatabase {
-    pub fn new<P: AsRef<Path>>(db_path: P) -> Result<Self, DbError> {
-        let conn = Connection::open(db_path)?;
-        let db = Self {
-            conn: Arc::new(Mutex::new(conn)),
+    pub async fn new<P: AsRef<Path>>(db_path: P) -> Result<Self, DbError> {
+        let db = libsql::Builder::new_local(db_path.as_ref()).build().await?;
+        let conn = db.connect()?;
+        let library_db = Self {
+            _db: Arc::new(db),
+            conn,
         };
-        db.init_schema()?;
-        Ok(db)
+        library_db.init_schema().await?;
+        Ok(library_db)
     }
 
-    pub fn in_memory() -> Result<Self, DbError> {
-        let conn = Connection::open_in_memory()?;
-        let db = Self {
-            conn: Arc::new(Mutex::new(conn)),
+    pub async fn in_memory() -> Result<Self, DbError> {
+        let db = libsql::Builder::new_local(":memory:").build().await?;
+        let conn = db.connect()?;
+        let library_db = Self {
+            _db: Arc::new(db),
+            conn,
         };
-        db.init_schema()?;
-        Ok(db)
+        library_db.init_schema().await?;
+        Ok(library_db)
     }
 
-    pub fn init_schema(&self) -> Result<(), DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-
-        // Enable WAL mode and synchronous=NORMAL for optimal performance & concurrency
-        conn.pragma_update(None, "journal_mode", "WAL")?;
-        conn.pragma_update(None, "synchronous", "NORMAL")?;
-        conn.pragma_update(None, "foreign_keys", "ON")?;
-
-        conn.execute_batch(
-            r#"
+    pub async fn init_schema(&self) -> Result<(), DbError> {
+        self.conn
+            .execute_batch(
+                r#"
             CREATE TABLE IF NOT EXISTS tracks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 file_path TEXT NOT NULL UNIQUE,
@@ -107,40 +106,65 @@ impl LibraryDatabase {
                 added_timestamp INTEGER NOT NULL
             );
             "#,
-        )?;
+            )
+            .await?;
 
         // Safe migrations for databases created before schema additions
-        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN album_artist TEXT", []);
-        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN disc_num INTEGER", []);
-        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN year INTEGER", []);
-        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN composer TEXT", []);
-        let _ = conn.execute("ALTER TABLE tracks ADD COLUMN label TEXT", []);
-        let _ = conn.execute(
-            "ALTER TABLE tracks ADD COLUMN musicbrainz_track_id TEXT",
-            [],
-        );
-        let _ = conn.execute(
-            "ALTER TABLE tracks ADD COLUMN musicbrainz_artist_id TEXT",
-            [],
-        );
-        let _ = conn.execute(
-            "ALTER TABLE tracks ADD COLUMN musicbrainz_album_id TEXT",
-            [],
-        );
+        let _ = self
+            .conn
+            .execute("ALTER TABLE tracks ADD COLUMN album_artist TEXT", ())
+            .await;
+        let _ = self
+            .conn
+            .execute("ALTER TABLE tracks ADD COLUMN disc_num INTEGER", ())
+            .await;
+        let _ = self
+            .conn
+            .execute("ALTER TABLE tracks ADD COLUMN year INTEGER", ())
+            .await;
+        let _ = self
+            .conn
+            .execute("ALTER TABLE tracks ADD COLUMN composer TEXT", ())
+            .await;
+        let _ = self
+            .conn
+            .execute("ALTER TABLE tracks ADD COLUMN label TEXT", ())
+            .await;
+        let _ = self
+            .conn
+            .execute(
+                "ALTER TABLE tracks ADD COLUMN musicbrainz_track_id TEXT",
+                (),
+            )
+            .await;
+        let _ = self
+            .conn
+            .execute(
+                "ALTER TABLE tracks ADD COLUMN musicbrainz_artist_id TEXT",
+                (),
+            )
+            .await;
+        let _ = self
+            .conn
+            .execute(
+                "ALTER TABLE tracks ADD COLUMN musicbrainz_album_id TEXT",
+                (),
+            )
+            .await;
 
         info!("Database schema initialized successfully");
         Ok(())
     }
 
-    pub fn insert_or_update_track(&self, track: &NewTrack) -> Result<i64, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
+    pub async fn insert_or_update_track(&self, track: &NewTrack) -> Result<i64, DbError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
 
-        conn.execute(
-            r#"
+        self.conn
+            .execute(
+                r#"
             INSERT INTO tracks (
                 file_path, title, artist, album_artist, album, genre, duration_ms,
                 track_num, disc_num, year, composer, label,
@@ -163,45 +187,45 @@ impl LibraryDatabase {
                 musicbrainz_artist_id = excluded.musicbrainz_artist_id,
                 musicbrainz_album_id = excluded.musicbrainz_album_id
             "#,
-            params![
-                track.file_path,
-                track.title,
-                track.artist,
-                track.album_artist,
-                track.album,
-                track.genre,
-                track.duration_ms,
-                track.track_num,
-                track.disc_num,
-                track.year,
-                track.composer,
-                track.label,
-                track.musicbrainz_track_id,
-                track.musicbrainz_artist_id,
-                track.musicbrainz_album_id,
-                now,
-            ],
-        )?;
+                params![
+                    track.file_path.clone(),
+                    track.title.clone(),
+                    track.artist.clone(),
+                    track.album_artist.clone(),
+                    track.album.clone(),
+                    track.genre.clone(),
+                    track.duration_ms as i64,
+                    track.track_num.map(|n| n as i64),
+                    track.disc_num.map(|n| n as i64),
+                    track.year.map(|n| n as i64),
+                    track.composer.clone(),
+                    track.label.clone(),
+                    track.musicbrainz_track_id.clone(),
+                    track.musicbrainz_artist_id.clone(),
+                    track.musicbrainz_album_id.clone(),
+                    now,
+                ],
+            )
+            .await?;
 
-        let id = conn.last_insert_rowid();
+        let id = self.conn.last_insert_rowid();
         Ok(id)
     }
 
-    pub fn insert_tracks_batch(&self, tracks: &[NewTrack]) -> Result<usize, DbError> {
+    pub async fn insert_tracks_batch(&self, tracks: &[NewTrack]) -> Result<usize, DbError> {
         if tracks.is_empty() {
             return Ok(0);
         }
 
-        let mut conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let tx = conn.transaction()?;
+        let tx = self.conn.transaction().await?;
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
 
         let mut count = 0;
-        {
-            let mut stmt = tx.prepare_cached(
+        for track in tracks {
+            tx.execute(
                 r#"
                 INSERT INTO tracks (
                     file_path, title, artist, album_artist, album, genre, duration_ms,
@@ -225,143 +249,143 @@ impl LibraryDatabase {
                     musicbrainz_artist_id = excluded.musicbrainz_artist_id,
                     musicbrainz_album_id = excluded.musicbrainz_album_id
                 "#,
-            )?;
-
-            for track in tracks {
-                stmt.execute(params![
-                    track.file_path,
-                    track.title,
-                    track.artist,
-                    track.album_artist,
-                    track.album,
-                    track.genre,
-                    track.duration_ms,
-                    track.track_num,
-                    track.disc_num,
-                    track.year,
-                    track.composer,
-                    track.label,
-                    track.musicbrainz_track_id,
-                    track.musicbrainz_artist_id,
-                    track.musicbrainz_album_id,
+                params![
+                    track.file_path.clone(),
+                    track.title.clone(),
+                    track.artist.clone(),
+                    track.album_artist.clone(),
+                    track.album.clone(),
+                    track.genre.clone(),
+                    track.duration_ms as i64,
+                    track.track_num.map(|n| n as i64),
+                    track.disc_num.map(|n| n as i64),
+                    track.year.map(|n| n as i64),
+                    track.composer.clone(),
+                    track.label.clone(),
+                    track.musicbrainz_track_id.clone(),
+                    track.musicbrainz_artist_id.clone(),
+                    track.musicbrainz_album_id.clone(),
                     now,
-                ])?;
-                count += 1;
-            }
+                ],
+            )
+            .await?;
+            count += 1;
         }
 
-        tx.commit()?;
+        tx.commit().await?;
         Ok(count)
     }
-}
 
-fn map_track_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Track> {
-    Ok(Track {
-        id: row.get(0)?,
-        file_path: row.get(1)?,
-        title: row.get(2)?,
-        artist: row.get(3)?,
-        album_artist: row.get(4)?,
-        album: row.get(5)?,
-        genre: row.get(6)?,
-        duration_ms: row.get(7)?,
-        track_num: row.get(8)?,
-        disc_num: row.get(9)?,
-        year: row.get(10)?,
-        composer: row.get(11)?,
-        label: row.get(12)?,
-        musicbrainz_track_id: row.get(13)?,
-        musicbrainz_artist_id: row.get(14)?,
-        musicbrainz_album_id: row.get(15)?,
-        added_timestamp: row.get(16)?,
-    })
-}
-
-impl LibraryDatabase {
-    pub fn get_track_by_id(&self, id: i64) -> Result<Option<Track>, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let mut stmt = conn.prepare_cached(
-            r#"
+    pub async fn get_track_by_id(&self, id: i64) -> Result<Option<Track>, DbError> {
+        let mut rows = self
+            .conn
+            .query(
+                r#"
             SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
                    track_num, disc_num, year, composer, label,
                    musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
             FROM tracks WHERE id = ?1
             "#,
-        )?;
+                params![id],
+            )
+            .await?;
 
-        let track = stmt.query_row(params![id], map_track_row).optional()?;
-
-        Ok(track)
+        if let Some(row) = rows.next().await? {
+            Ok(Some(map_track_row(&row)?))
+        } else {
+            Ok(None)
+        }
     }
 
-    pub fn get_track_by_path(&self, file_path: &str) -> Result<Option<Track>, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let mut stmt = conn.prepare_cached(
-            r#"
+    pub async fn get_track_by_path(&self, file_path: &str) -> Result<Option<Track>, DbError> {
+        let mut rows = self
+            .conn
+            .query(
+                r#"
             SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
                    track_num, disc_num, year, composer, label,
                    musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
             FROM tracks WHERE file_path = ?1
             "#,
-        )?;
+                params![file_path.to_string()],
+            )
+            .await?;
 
-        let track = stmt
-            .query_row(params![file_path], map_track_row)
-            .optional()?;
-
-        Ok(track)
+        if let Some(row) = rows.next().await? {
+            Ok(Some(map_track_row(&row)?))
+        } else {
+            Ok(None)
+        }
     }
 
-    pub fn get_next_track(&self, current_id: i64) -> Result<Option<Track>, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let mut stmt = conn.prepare_cached(
-            r#"
+    pub async fn get_next_track(&self, current_id: i64) -> Result<Option<Track>, DbError> {
+        let mut rows = self
+            .conn
+            .query(
+                r#"
             SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
                    track_num, disc_num, year, composer, label,
                    musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
             FROM tracks WHERE id > ?1 ORDER BY id ASC LIMIT 1
             "#,
-        )?;
+                params![current_id],
+            )
+            .await?;
 
-        let track = stmt.query_row(params![current_id], map_track_row).optional()?;
-        if track.is_some() {
-            return Ok(track);
+        if let Some(row) = rows.next().await? {
+            return Ok(Some(map_track_row(&row)?));
         }
 
         // Wrap around to first track
-        let mut stmt_first = conn.prepare_cached(
-            r#"
+        let mut rows_first = self
+            .conn
+            .query(
+                r#"
             SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
                    track_num, disc_num, year, composer, label,
                    musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
             FROM tracks ORDER BY id ASC LIMIT 1
             "#,
-        )?;
+                (),
+            )
+            .await?;
 
-        let first_track = stmt_first.query_row([], map_track_row).optional()?;
-        Ok(first_track)
+        if let Some(row) = rows_first.next().await? {
+            Ok(Some(map_track_row(&row)?))
+        } else {
+            Ok(None)
+        }
     }
 
-    pub fn get_total_track_count(&self, filter: Option<&str>) -> Result<usize, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let count: i64 = match filter {
+    pub async fn get_total_track_count(&self, filter: Option<&str>) -> Result<usize, DbError> {
+        let mut rows = match filter {
             Some(f) if !f.trim().is_empty() => {
                 let pattern = format!("%{}%", f.trim());
-                conn.query_row(
-                    "SELECT COUNT(*) FROM tracks WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1",
-                    params![pattern],
-                    |row| row.get(0),
-                )?
+                self.conn
+                    .query(
+                        "SELECT COUNT(*) FROM tracks WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1",
+                        params![pattern],
+                    )
+                    .await?
             }
-            _ => conn.query_row("SELECT COUNT(*) FROM tracks", [], |row| row.get(0))?,
+            _ => {
+                self.conn
+                    .query("SELECT COUNT(*) FROM tracks", ())
+                    .await?
+            }
         };
 
-        Ok(count as usize)
+        if let Some(row) = rows.next().await? {
+            let count: i64 = row.get(0)?;
+            Ok(count as usize)
+        } else {
+            Ok(0)
+        }
     }
 
     /// Read queries with LIMIT and OFFSET based on the active viewport
     /// Never pull all tracks into a `Vec<Track>`
-    pub fn get_tracks_window(
+    pub async fn get_tracks_window(
         &self,
         offset: usize,
         limit: usize,
@@ -369,8 +393,6 @@ impl LibraryDatabase {
         sort_field: SortField,
         sort_dir: SortDirection,
     ) -> Result<Vec<Track>, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-
         let sort_col = match sort_field {
             SortField::Title => "title",
             SortField::Artist => "artist",
@@ -402,12 +424,13 @@ impl LibraryDatabase {
                 sort_col, dir_str
             );
 
-            let mut stmt = conn.prepare(&query)?;
-            let rows =
-                stmt.query_map(params![pattern, limit as i64, offset as i64], map_track_row)?;
+            let mut rows = self
+                .conn
+                .query(&query, params![pattern, limit as i64, offset as i64])
+                .await?;
 
-            for row in rows {
-                tracks.push(row?);
+            while let Some(row) = rows.next().await? {
+                tracks.push(map_track_row(&row)?);
             }
         } else {
             let query = format!(
@@ -422,11 +445,13 @@ impl LibraryDatabase {
                 sort_col, dir_str
             );
 
-            let mut stmt = conn.prepare(&query)?;
-            let rows = stmt.query_map(params![limit as i64, offset as i64], map_track_row)?;
+            let mut rows = self
+                .conn
+                .query(&query, params![limit as i64, offset as i64])
+                .await?;
 
-            for row in rows {
-                tracks.push(row?);
+            while let Some(row) = rows.next().await? {
+                tracks.push(map_track_row(&row)?);
             }
         }
 
@@ -434,30 +459,29 @@ impl LibraryDatabase {
     }
 
     /// Lightweight in-memory index struct for global shuffle, playlist generation, or totals
-    pub fn get_all_track_headers(&self) -> Result<Vec<TrackIdHeader>, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let mut stmt = conn.prepare_cached("SELECT id, duration_ms FROM tracks ORDER BY id ASC")?;
-
-        let rows = stmt.query_map([], |row| {
-            let id: i64 = row.get(0)?;
-            let dur: i64 = row.get(1)?;
-            Ok(TrackIdHeader {
-                id,
-                duration_ms: dur as u32,
-            })
-        })?;
+    pub async fn get_all_track_headers(&self) -> Result<Vec<TrackIdHeader>, DbError> {
+        let mut rows = self
+            .conn
+            .query("SELECT id, duration_ms FROM tracks ORDER BY id ASC", ())
+            .await?;
 
         let mut headers = Vec::new();
-        for r in rows {
-            headers.push(r?);
+        while let Some(row) = rows.next().await? {
+            let id: i64 = row.get(0)?;
+            let dur: i64 = row.get(1)?;
+            headers.push(TrackIdHeader {
+                id,
+                duration_ms: dur as u32,
+            });
         }
         Ok(headers)
     }
 
-    pub fn get_albums(&self) -> Result<Vec<AlbumSummary>, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let mut stmt = conn.prepare_cached(
-            r#"
+    pub async fn get_albums(&self) -> Result<Vec<AlbumSummary>, DbError> {
+        let mut rows = self
+            .conn
+            .query(
+                r#"
             SELECT 
                 album,
                 COALESCE(
@@ -473,9 +497,12 @@ impl LibraryDatabase {
             GROUP BY album, COALESCE(NULLIF(album_artist, ''), '')
             ORDER BY album ASC
             "#,
-        )?;
+                (),
+            )
+            .await?;
 
-        let rows = stmt.query_map([], |row| {
+        let mut albums = Vec::new();
+        while let Some(row) = rows.next().await? {
             let album: String = row.get(0)?;
             let artist: String = row.get(1)?;
             let count: i64 = row.get(2)?;
@@ -483,7 +510,7 @@ impl LibraryDatabase {
             let year: Option<u32> = row.get(4)?;
             let cover_track_path: Option<String> = row.get(5)?;
             let added_timestamp: i64 = row.get(6)?;
-            Ok(AlbumSummary {
+            albums.push(AlbumSummary {
                 album,
                 artist,
                 track_count: count as usize,
@@ -491,96 +518,100 @@ impl LibraryDatabase {
                 year,
                 cover_track_path,
                 added_timestamp,
-            })
-        })?;
-
-        let mut albums = Vec::new();
-        for r in rows {
-            albums.push(r?);
+            });
         }
         Ok(albums)
     }
 
-    pub fn get_artists(&self) -> Result<Vec<ArtistSummary>, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let mut stmt = conn.prepare_cached(
-            r#"
+    pub async fn get_artists(&self) -> Result<Vec<ArtistSummary>, DbError> {
+        let mut rows = self
+            .conn
+            .query(
+                r#"
             SELECT artist, COUNT(*) as track_count, COUNT(DISTINCT album) as album_count
             FROM tracks
             GROUP BY artist
             ORDER BY artist ASC
             "#,
-        )?;
+                (),
+            )
+            .await?;
 
-        let rows = stmt.query_map([], |row| {
+        let mut artists = Vec::new();
+        while let Some(row) = rows.next().await? {
             let artist: String = row.get(0)?;
             let track_count: i64 = row.get(1)?;
             let album_count: i64 = row.get(2)?;
-            Ok(ArtistSummary {
+            artists.push(ArtistSummary {
                 artist,
                 track_count: track_count as usize,
                 album_count: album_count as usize,
-            })
-        })?;
-
-        let mut artists = Vec::new();
-        for r in rows {
-            artists.push(r?);
+            });
         }
         Ok(artists)
     }
 
-    pub fn delete_track(&self, id: i64) -> Result<bool, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let affected = conn.execute("DELETE FROM tracks WHERE id = ?1", params![id])?;
+    pub async fn delete_track(&self, id: i64) -> Result<bool, DbError> {
+        let affected = self
+            .conn
+            .execute("DELETE FROM tracks WHERE id = ?1", params![id])
+            .await?;
         Ok(affected > 0)
     }
 
     /// Retrieves all configured music library scan paths
-    pub fn get_library_folders(&self) -> Result<Vec<String>, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let mut stmt = conn.prepare("SELECT path FROM library_folders ORDER BY id ASC")?;
-        let rows = stmt.query_map([], |row| row.get(0))?;
+    pub async fn get_library_folders(&self) -> Result<Vec<String>, DbError> {
+        let mut rows = self
+            .conn
+            .query("SELECT path FROM library_folders ORDER BY id ASC", ())
+            .await?;
+
         let mut folders = Vec::new();
-        for r in rows {
-            folders.push(r?);
+        while let Some(row) = rows.next().await? {
+            let path: String = row.get(0)?;
+            folders.push(path);
         }
         Ok(folders)
     }
 
     /// Adds a directory path to the library folders list if not already present
-    pub fn add_library_folder(&self, path: &str) -> Result<bool, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
+    pub async fn add_library_folder(&self, path: &str) -> Result<bool, DbError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
-        let affected = conn.execute(
-            "INSERT OR IGNORE INTO library_folders (path, added_timestamp) VALUES (?1, ?2)",
-            params![path, now],
-        )?;
+        let affected = self
+            .conn
+            .execute(
+                "INSERT OR IGNORE INTO library_folders (path, added_timestamp) VALUES (?1, ?2)",
+                params![path.to_string(), now],
+            )
+            .await?;
         Ok(affected > 0)
     }
 
     /// Removes a directory path from the library folders list
-    pub fn remove_library_folder(&self, path: &str) -> Result<bool, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let affected =
-            conn.execute("DELETE FROM library_folders WHERE path = ?1", params![path])?;
+    pub async fn remove_library_folder(&self, path: &str) -> Result<bool, DbError> {
+        let affected = self
+            .conn
+            .execute(
+                "DELETE FROM library_folders WHERE path = ?1",
+                params![path.to_string()],
+            )
+            .await?;
         Ok(affected > 0)
     }
 
     /// Wipes all indexed tracks and playlist associations from the database
-    pub fn clear_all_tracks(&self) -> Result<usize, DbError> {
-        let conn = self.conn.lock().map_err(|e| DbError::Lock(e.to_string()))?;
-        let count = conn.execute("DELETE FROM tracks", [])?;
-        let _ = conn.execute("DELETE FROM playlist_tracks", []);
-        let _ = conn.execute("VACUUM", []);
+    pub async fn clear_all_tracks(&self) -> Result<u64, DbError> {
+        let count = self.conn.execute("DELETE FROM tracks", ()).await?;
+        let _ = self.conn.execute("DELETE FROM playlist_tracks", ()).await;
+        let _ = self.conn.execute("VACUUM", ()).await;
         Ok(count)
     }
 
-    /// Recursively scan directory and index all supported audio files into SQLite
-    pub fn scan_directory<P: AsRef<Path>, F: Fn(usize, usize)>(
+    /// Recursively scan directory and index all supported audio files into libSQL
+    pub async fn scan_directory<P: AsRef<Path>, F: Fn(usize, usize)>(
         &self,
         dir_path: P,
         progress_cb: Option<F>,
@@ -603,7 +634,7 @@ impl LibraryDatabase {
                             Ok(track) => {
                                 batch.push(track);
                                 if batch.len() >= 100 {
-                                    let inserted = self.insert_tracks_batch(&batch)?;
+                                    let inserted = self.insert_tracks_batch(&batch).await?;
                                     summary.inserted_tracks += inserted;
                                     batch.clear();
                                     if let Some(ref cb) = progress_cb {
@@ -622,7 +653,7 @@ impl LibraryDatabase {
         }
 
         if !batch.is_empty() {
-            let inserted = self.insert_tracks_batch(&batch)?;
+            let inserted = self.insert_tracks_batch(&batch).await?;
             summary.inserted_tracks += inserted;
             if let Some(ref cb) = progress_cb {
                 cb(summary.scanned_files, summary.inserted_tracks);
@@ -636,4 +667,38 @@ impl LibraryDatabase {
 
         Ok(summary)
     }
+}
+
+fn map_track_row(row: &libsql::Row) -> Result<Track, DbError> {
+    Ok(Track {
+        id: row.get(0)?,
+        file_path: row.get(1)?,
+        title: row.get(2)?,
+        artist: row.get(3)?,
+        album_artist: row.get(4)?,
+        album: row.get(5)?,
+        genre: row.get(6)?,
+        duration_ms: {
+            let dur: i64 = row.get(7)?;
+            dur as u64
+        },
+        track_num: {
+            let num: Option<i64> = row.get(8)?;
+            num.map(|n| n as u32)
+        },
+        disc_num: {
+            let disc: Option<i64> = row.get(9)?;
+            disc.map(|n| n as u32)
+        },
+        year: {
+            let yr: Option<i64> = row.get(10)?;
+            yr.map(|n| n as u32)
+        },
+        composer: row.get(11)?,
+        label: row.get(12)?,
+        musicbrainz_track_id: row.get(13)?,
+        musicbrainz_artist_id: row.get(14)?,
+        musicbrainz_album_id: row.get(15)?,
+        added_timestamp: row.get(16)?,
+    })
 }

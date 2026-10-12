@@ -1,9 +1,4 @@
-use std::fs::File;
 use std::path::Path;
-use symphonia::core::formats::FormatOptions;
-use symphonia::core::io::MediaSourceStream;
-use symphonia::core::meta::{MetadataOptions, StandardTagKey, Value};
-use symphonia::core::probe::Hint;
 use thiserror::Error;
 
 use crate::model::NewTrack;
@@ -50,39 +45,53 @@ impl AudioTechnicalInfo {
     }
 }
 
+fn init_ffmpeg() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        let _ = ffmpeg_next::init();
+    });
+}
+
 pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTechnicalInfo> {
-    let file = File::open(path).ok()?;
-    let file_size_bytes = file.metadata().map(|m| m.len()).unwrap_or(0);
-    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    init_ffmpeg();
+    let file_size_bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+    let ictx = ffmpeg_next::format::input(path).ok()?;
 
-    let mut hint = Hint::new();
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|s| s.to_lowercase());
-    if let Some(ref e) = ext {
-        hint.with_extension(e);
-    }
+    let audio_stream = ictx
+        .streams()
+        .best(ffmpeg_next::media::Type::Audio)?;
+    let codec_params = audio_stream.parameters();
+    let raw_par = unsafe { *codec_params.as_ptr() };
 
-    let probed = symphonia::default::get_probe()
-        .format(
-            &hint,
-            mss,
-            &FormatOptions::default(),
-            &MetadataOptions::default(),
-        )
-        .ok()?;
+    let sample_rate_hz = if raw_par.sample_rate > 0 {
+        raw_par.sample_rate as u32
+    } else {
+        44100
+    };
 
-    let format = probed.format;
-    let track = format
-        .tracks()
-        .iter()
-        .find(|t| t.codec_params.codec != symphonia::core::codecs::CODEC_TYPE_NULL)?;
+    let channels = if raw_par.ch_layout.nb_channels > 0 {
+        raw_par.ch_layout.nb_channels as u32
+    } else {
+        2
+    };
 
-    let params = &track.codec_params;
-    let sample_rate_hz = params.sample_rate.unwrap_or(44100);
-    let channels = params.channels.map(|c| c.count() as u32).unwrap_or(2);
-    let bit_depth = params.bits_per_sample;
+    let bit_depth = if raw_par.bits_per_raw_sample > 0 {
+        Some(raw_par.bits_per_raw_sample as u32)
+    } else if raw_par.bits_per_coded_sample > 0 {
+        Some(raw_par.bits_per_coded_sample as u32)
+    } else {
+        match raw_par.format {
+            // AV_SAMPLE_FMT_U8 / U8P
+            0 | 5 => Some(8),
+            // AV_SAMPLE_FMT_S16 / S16P
+            1 | 6 => Some(16),
+            // AV_SAMPLE_FMT_S32 / S32P / FLT / FLTP
+            2 | 7 | 3 | 8 => Some(32),
+            // AV_SAMPLE_FMT_DBL / DBLP / S64 / S64P
+            4 | 9 | 10 | 11 => Some(64),
+            _ => None,
+        }
+    };
 
     let channel_layout = match channels {
         1 => "Mono".to_string(),
@@ -94,27 +103,36 @@ pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTech
         ch => format!("{} ch", ch),
     };
 
-    let codec_name = match params.codec {
-        symphonia::core::codecs::CODEC_TYPE_FLAC => "FLAC".to_string(),
-        symphonia::core::codecs::CODEC_TYPE_MP3 => "MP3 (MPEG Audio Layer III)".to_string(),
-        symphonia::core::codecs::CODEC_TYPE_AAC => "AAC (Advanced Audio Coding)".to_string(),
-        symphonia::core::codecs::CODEC_TYPE_VORBIS => "Vorbis".to_string(),
-        symphonia::core::codecs::CODEC_TYPE_OPUS => "Opus".to_string(),
-        symphonia::core::codecs::CODEC_TYPE_PCM_S16LE
-        | symphonia::core::codecs::CODEC_TYPE_PCM_S16BE
-        | symphonia::core::codecs::CODEC_TYPE_PCM_S24LE
-        | symphonia::core::codecs::CODEC_TYPE_PCM_S24BE
-        | symphonia::core::codecs::CODEC_TYPE_PCM_S32LE
-        | symphonia::core::codecs::CODEC_TYPE_PCM_S32BE
-        | symphonia::core::codecs::CODEC_TYPE_PCM_F32LE
-        | symphonia::core::codecs::CODEC_TYPE_PCM_F32BE => "PCM (Uncompressed)".to_string(),
-        symphonia::core::codecs::CODEC_TYPE_ALAC => "ALAC (Apple Lossless)".to_string(),
-        _ => ext
-            .as_deref()
-            .map(|e| e.to_uppercase())
-            .unwrap_or_else(|| "Unknown".to_string()),
+    let codec_id = codec_params.id();
+    let codec_name = match codec_id {
+        ffmpeg_next::codec::Id::FLAC => "FLAC".to_string(),
+        ffmpeg_next::codec::Id::MP3 => "MP3 (MPEG Audio Layer III)".to_string(),
+        ffmpeg_next::codec::Id::AAC => "AAC (Advanced Audio Coding)".to_string(),
+        ffmpeg_next::codec::Id::VORBIS => "Vorbis".to_string(),
+        ffmpeg_next::codec::Id::OPUS => "Opus".to_string(),
+        ffmpeg_next::codec::Id::ALAC => "ALAC (Apple Lossless)".to_string(),
+        ffmpeg_next::codec::Id::PCM_S16LE
+        | ffmpeg_next::codec::Id::PCM_S16BE
+        | ffmpeg_next::codec::Id::PCM_S24LE
+        | ffmpeg_next::codec::Id::PCM_S24BE
+        | ffmpeg_next::codec::Id::PCM_S32LE
+        | ffmpeg_next::codec::Id::PCM_S32BE
+        | ffmpeg_next::codec::Id::PCM_F32LE
+        | ffmpeg_next::codec::Id::PCM_F32BE => "PCM (Uncompressed)".to_string(),
+        _ => {
+            let name = codec_id.name();
+            if name.is_empty() {
+                path.extension()
+                    .and_then(|e| e.to_str())
+                    .map(|e| e.to_uppercase())
+                    .unwrap_or_else(|| "Unknown".to_string())
+            } else {
+                name.to_uppercase()
+            }
+        }
     };
 
+    let ext = path.extension().and_then(|e| e.to_str()).map(|s| s.to_lowercase());
     let format_name = match ext.as_deref() {
         Some("flac") => "FLAC Lossless",
         Some("mp3") => "MP3 Audio",
@@ -132,7 +150,12 @@ pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTech
         let kbps = (file_size_bytes as f64 * 8.0) / dur_secs / 1000.0;
         Some(kbps.round() as u32)
     } else {
-        None
+        let br = ictx.bit_rate();
+        if br > 0 {
+            Some((br / 1000) as u32)
+        } else {
+            None
+        }
     };
 
     Some(AudioTechnicalInfo {
@@ -151,30 +174,22 @@ pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTech
 pub enum MetadataError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("Symphonia probe/decode error: {0}")]
-    Symphonia(#[from] symphonia::core::errors::Error),
+    #[error("FFmpeg error: {0}")]
+    Ffmpeg(#[from] ffmpeg_next::Error),
     #[error("Unsupported audio format or no tracks found")]
     UnsupportedFormat,
 }
 
 pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
-    let file = File::open(path)?;
-    let file_len = file.metadata().map(|m| m.len()).unwrap_or(0);
-    let mss = MediaSourceStream::new(Box::new(file), Default::default());
-
-    let mut hint = Hint::new();
-    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-        hint.with_extension(ext);
-    }
-
-    let mut probed = symphonia::default::get_probe().format(
-        &hint,
-        mss,
-        &FormatOptions::default(),
-        &MetadataOptions::default(),
-    )?;
-
-    let format = &mut probed.format;
+    init_ffmpeg();
+    let file_len = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+    let ictx = ffmpeg_next::format::input(path).map_err(|e| {
+        if !path.exists() {
+            MetadataError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))
+        } else {
+            MetadataError::Ffmpeg(e)
+        }
+    })?;
 
     let mut title: Option<String> = None;
     let mut artist: Option<String> = None;
@@ -190,146 +205,87 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
     let mut musicbrainz_artist_id: Option<String> = None;
     let mut musicbrainz_album_id: Option<String> = None;
 
-    // Helper to extract tag values
-    let mut parse_tag = |std_key: Option<StandardTagKey>, key: &str, value: &Value| {
-        let val_str = match value {
-            Value::String(s) => s.trim().to_string(),
-            Value::UnsignedInt(n) => n.to_string(),
-            Value::SignedInt(n) => n.to_string(),
-            _ => return,
-        };
+    let mut parse_tag = |key: &str, val_str: &str| {
+        let val = val_str.trim().to_string();
+        if val.is_empty() {
+            return;
+        }
 
-        if let Some(sk) = std_key {
-            match sk {
-                StandardTagKey::TrackTitle if title.is_none() => title = Some(val_str),
-                StandardTagKey::Artist if artist.is_none() => artist = Some(val_str),
-                StandardTagKey::AlbumArtist if album_artist.is_none() => {
-                    album_artist = Some(val_str)
-                }
-                StandardTagKey::Album if album.is_none() => album = Some(val_str),
-                StandardTagKey::Genre if genre.is_none() => genre = Some(val_str),
-                StandardTagKey::TrackNumber if track_num.is_none() => {
-                    track_num = parse_index_slash(&val_str);
-                }
-                StandardTagKey::DiscNumber if disc_num.is_none() => {
-                    disc_num = parse_index_slash(&val_str);
-                }
-                StandardTagKey::Date
-                | StandardTagKey::ReleaseDate
-                | StandardTagKey::OriginalDate
-                    if year.is_none() =>
-                {
-                    year = parse_year(&val_str);
-                }
-                StandardTagKey::Composer if composer.is_none() => composer = Some(val_str),
-                StandardTagKey::Label if label.is_none() => label = Some(val_str),
-                StandardTagKey::MusicBrainzTrackId | StandardTagKey::MusicBrainzRecordingId
-                    if musicbrainz_track_id.is_none() =>
-                {
-                    musicbrainz_track_id = Some(val_str);
-                }
-                StandardTagKey::MusicBrainzArtistId if musicbrainz_artist_id.is_none() => {
-                    musicbrainz_artist_id = Some(val_str);
-                }
-                StandardTagKey::MusicBrainzAlbumId if musicbrainz_album_id.is_none() => {
-                    musicbrainz_album_id = Some(val_str);
-                }
-                _ => {}
+        let key_upper = key.to_uppercase();
+        match key_upper.as_str() {
+            "TITLE" | "TIT2" if title.is_none() => title = Some(val),
+            "ARTIST" | "TPE1" if artist.is_none() => artist = Some(val),
+            "ALBUMARTIST" | "ALBUM ARTIST" | "ALBUM_ARTIST" | "TPE2" | "AART"
+                if album_artist.is_none() =>
+            {
+                album_artist = Some(val)
             }
-        } else {
-            let key_upper = key.to_uppercase();
-            match key_upper.as_str() {
-                "TITLE" | "TIT2" if title.is_none() => title = Some(val_str),
-                "ARTIST" | "TPE1" if artist.is_none() => artist = Some(val_str),
-                "ALBUMARTIST" | "ALBUM ARTIST" | "TPE2" | "AART" if album_artist.is_none() => {
-                    album_artist = Some(val_str)
-                }
-                "ALBUM" | "TALB" if album.is_none() => album = Some(val_str),
-                "GENRE" | "TCON" if genre.is_none() => genre = Some(val_str),
-                "TRACK" | "TRACKNUMBER" | "TRCK" if track_num.is_none() => {
-                    track_num = parse_index_slash(&val_str);
-                }
-                "DISC" | "DISCNUMBER" | "TPOS" if disc_num.is_none() => {
-                    disc_num = parse_index_slash(&val_str);
-                }
-                "DATE" | "YEAR" | "TYER" | "TDRC" | "TDRL" | "ORIGINALDATE" if year.is_none() => {
-                    year = parse_year(&val_str);
-                }
-                "COMPOSER" | "TCOM" if composer.is_none() => composer = Some(val_str),
-                "LABEL" | "PUBLISHER" | "ORGANIZATION" | "TPUB" if label.is_none() => {
-                    label = Some(val_str)
-                }
-                "MUSICBRAINZ_TRACKID" | "MUSICBRAINZ TRACK ID" | "MUSICBRAINZ_RECORDINGID"
-                    if musicbrainz_track_id.is_none() =>
-                {
-                    musicbrainz_track_id = Some(val_str);
-                }
-                "MUSICBRAINZ_ARTISTID" | "MUSICBRAINZ ARTIST ID"
-                    if musicbrainz_artist_id.is_none() =>
-                {
-                    musicbrainz_artist_id = Some(val_str);
-                }
-                "MUSICBRAINZ_ALBUMID" | "MUSICBRAINZ ALBUM ID"
-                    if musicbrainz_album_id.is_none() =>
-                {
-                    musicbrainz_album_id = Some(val_str);
-                }
-                _ => {}
+            "ALBUM" | "TALB" if album.is_none() => album = Some(val),
+            "GENRE" | "TCON" if genre.is_none() => genre = Some(val),
+            "TRACK" | "TRACKNUMBER" | "TRCK" if track_num.is_none() => {
+                track_num = parse_index_slash(&val);
             }
+            "DISC" | "DISCNUMBER" | "TPOS" if disc_num.is_none() => {
+                disc_num = parse_index_slash(&val);
+            }
+            "DATE" | "YEAR" | "TYER" | "TDRC" | "TDRL" | "ORIGINALDATE" if year.is_none() => {
+                year = parse_year(&val);
+            }
+            "COMPOSER" | "TCOM" if composer.is_none() => composer = Some(val),
+            "LABEL" | "PUBLISHER" | "ORGANIZATION" | "TPUB" if label.is_none() => {
+                label = Some(val)
+            }
+            "MUSICBRAINZ_TRACKID" | "MUSICBRAINZ TRACK ID" | "MUSICBRAINZ_RECORDINGID"
+                if musicbrainz_track_id.is_none() =>
+            {
+                musicbrainz_track_id = Some(val);
+            }
+            "MUSICBRAINZ_ARTISTID" | "MUSICBRAINZ ARTIST ID"
+                if musicbrainz_artist_id.is_none() =>
+            {
+                musicbrainz_artist_id = Some(val);
+            }
+            "MUSICBRAINZ_ALBUMID" | "MUSICBRAINZ ALBUM ID"
+                if musicbrainz_album_id.is_none() =>
+            {
+                musicbrainz_album_id = Some(val);
+            }
+            _ => {}
         }
     };
 
-    // Check container metadata
-    if let Some(metadata) = format.metadata().current() {
-        for tag in metadata.tags() {
-            parse_tag(tag.std_key, &tag.key, &tag.value);
+    // 1. Parse container metadata
+    for (k, v) in ictx.metadata().iter() {
+        parse_tag(k, v);
+    }
+
+    // 2. Parse audio stream metadata
+    let audio_stream = ictx.streams().best(ffmpeg_next::media::Type::Audio);
+    if let Some(ref st) = audio_stream {
+        for (k, v) in st.metadata().iter() {
+            parse_tag(k, v);
         }
     }
 
-    // Also check probe sideband metadata if available
-    if let Some(metadata) = probed.metadata.get().as_ref().and_then(|m| m.current()) {
-        for tag in metadata.tags() {
-            parse_tag(tag.std_key, &tag.key, &tag.value);
-        }
-    }
-
-    // Determine duration
+    // Duration calculation
     let mut duration_ms = 0u64;
-    let track = format
-        .tracks()
-        .iter()
-        .find(|t| t.codec_params.codec != symphonia::core::codecs::CODEC_TYPE_NULL);
-
-    if let Some(t) = track {
-        let params = &t.codec_params;
-        if let (Some(n_frames), Some(sample_rate)) = (params.n_frames, params.sample_rate) {
-            if sample_rate > 0 {
-                duration_ms = (n_frames * 1000) / (sample_rate as u64);
-            }
-        } else if let Some(tb) = params.time_base {
-            if let Some(n_frames) = params.n_frames {
-                let time = tb.calc_time(n_frames);
-                duration_ms = (time.seconds * 1000) + ((time.frac * 1000.0) as u64);
-            }
+    let format_dur = ictx.duration();
+    if format_dur > 0 {
+        // format_dur is in AV_TIME_BASE units (microseconds)
+        duration_ms = (format_dur as u64) / 1000;
+    } else if let Some(ref st) = audio_stream {
+        let dur = st.duration();
+        if dur > 0 {
+            let tb = st.time_base();
+            let secs = (dur as f64) * (tb.numerator() as f64) / (tb.denominator() as f64);
+            duration_ms = (secs * 1000.0).round() as u64;
         }
+    }
 
-        // If duration is still 0 and we have a bitrate and file length, estimate duration
-        if duration_ms == 0 {
-            let mut bit_rate = None;
-            if let Some(br) = params.bits_per_sample {
-                if let Some(sr) = params.sample_rate {
-                    bit_rate = Some(
-                        (br as u64)
-                            * (sr as u64)
-                            * (params.channels.map(|c| c.count() as u64).unwrap_or(2)),
-                    );
-                }
-            }
-            if let Some(br) = bit_rate {
-                if br > 0 && file_len > 0 {
-                    duration_ms = (file_len * 8 * 1000) / br;
-                }
-            }
+    if duration_ms == 0 && file_len > 0 {
+        let br = ictx.bit_rate();
+        if br > 0 {
+            duration_ms = (file_len * 8 * 1000) / (br as u64);
         }
     }
 
@@ -389,34 +345,28 @@ fn parse_index_slash(val: &str) -> Option<u32> {
 }
 
 /// Extracts album cover art image data from either embedded audio metadata
-/// (ID3, Vorbis Comments, FLAC picture block, MP4 covr) or directory image files
+/// (attached pictures / cover art streams) or directory image files
 /// (`cover.jpg`, `folder.png`, `front.jpg`, etc.).
 pub fn extract_cover_art(path: &Path) -> Option<Vec<u8>> {
-    // 1. Try reading embedded visual art via Symphonia
-    if let Ok(file) = File::open(path) {
-        let mss = MediaSourceStream::new(Box::new(file), Default::default());
-        let mut hint = Hint::new();
-        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-            hint.with_extension(ext);
-        }
+    init_ffmpeg();
 
-        if let Ok(mut probed) = symphonia::default::get_probe().format(
-            &hint,
-            mss,
-            &FormatOptions::default(),
-            &MetadataOptions::default(),
-        ) {
-            // Check container metadata for visuals
-            if let Some(metadata) = probed.format.metadata().current() {
-                if let Some(visual) = metadata.visuals().first() {
-                    return Some(visual.data.to_vec());
-                }
-            }
+    // 1. Try reading embedded visual art via FFmpeg attached pictures
+    if let Ok(ictx) = ffmpeg_next::format::input(path) {
+        for stream in ictx.streams() {
+            let is_attached_pic = stream
+                .disposition()
+                .contains(ffmpeg_next::format::stream::Disposition::ATTACHED_PIC);
 
-            // Check probe metadata for visuals
-            if let Some(metadata) = probed.metadata.get().as_ref().and_then(|m| m.current()) {
-                if let Some(visual) = metadata.visuals().first() {
-                    return Some(visual.data.to_vec());
+            let is_video = stream.parameters().medium() == ffmpeg_next::media::Type::Video;
+
+            if is_attached_pic || is_video {
+                unsafe {
+                    let av_stream_ptr = stream.as_ptr();
+                    let pkt = (*av_stream_ptr).attached_pic;
+                    if !pkt.data.is_null() && pkt.size > 0 {
+                        let slice = std::slice::from_raw_parts(pkt.data, pkt.size as usize);
+                        return Some(slice.to_vec());
+                    }
                 }
             }
         }

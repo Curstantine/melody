@@ -35,9 +35,11 @@ fn test_audio_technical_info_formatting() {
     assert_eq!(info_44k.formatted_file_size(), "8.1 MB");
 }
 
-#[test]
-fn test_database_lifecycle_and_pagination() {
-    let db = LibraryDatabase::in_memory().expect("Failed to create in-memory db");
+#[tokio::test]
+async fn test_database_lifecycle_and_pagination() {
+    let db = LibraryDatabase::in_memory()
+        .await
+        .expect("Failed to create in-memory db");
 
     // Insert test tracks
     for i in 1..=105 {
@@ -60,22 +62,25 @@ fn test_database_lifecycle_and_pagination() {
             ..Default::default()
         };
         db.insert_or_update_track(&track)
+            .await
             .expect("Failed to insert track");
     }
 
     // Test total count
-    let total = db.get_total_track_count(None).expect("Count failed");
+    let total = db.get_total_track_count(None).await.expect("Count failed");
     assert_eq!(total, 105);
 
     // Test filtered count
     let alpha_count = db
         .get_total_track_count(Some("Alpha"))
+        .await
         .expect("Filter count failed");
     assert_eq!(alpha_count, 53); // odd numbers from 1 to 105
 
     // Test window pagination (limit 20, offset 0)
     let page1 = db
         .get_tracks_window(0, 20, None, SortField::Title, SortDirection::Ascending)
+        .await
         .expect("Window failed");
     assert_eq!(page1.len(), 20);
     assert_eq!(page1[0].title, "Song 001");
@@ -84,6 +89,7 @@ fn test_database_lifecycle_and_pagination() {
     // Test second page (limit 20, offset 20)
     let page2 = db
         .get_tracks_window(20, 20, None, SortField::Title, SortDirection::Ascending)
+        .await
         .expect("Window failed");
     assert_eq!(page2.len(), 20);
     assert_eq!(page2[0].title, "Song 021");
@@ -91,20 +97,21 @@ fn test_database_lifecycle_and_pagination() {
     // Test last partial page (offset 100, limit 20 -> 5 tracks)
     let page6 = db
         .get_tracks_window(100, 20, None, SortField::Title, SortDirection::Ascending)
+        .await
         .expect("Window failed");
     assert_eq!(page6.len(), 5);
 
     // Test lightweight headers
-    let headers = db.get_all_track_headers().expect("Headers failed");
+    let headers = db.get_all_track_headers().await.expect("Headers failed");
     assert_eq!(headers.len(), 105);
     assert_eq!(headers[0].id, 1);
 
     // Test album aggregation
-    let albums = db.get_albums().expect("Albums failed");
+    let albums = db.get_albums().await.expect("Albums failed");
     assert!(!albums.is_empty());
 
     // Test artist aggregation
-    let artists = db.get_artists().expect("Artists failed");
+    let artists = db.get_artists().await.expect("Artists failed");
     assert_eq!(artists.len(), 2);
 }
 
@@ -142,9 +149,11 @@ fn test_cover_art_directory_fallback() {
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
 
-#[test]
-fn test_album_grouping_and_compilations() {
-    let db = LibraryDatabase::in_memory().expect("Failed to create in-memory db");
+#[tokio::test]
+async fn test_album_grouping_and_compilations() {
+    let db = LibraryDatabase::in_memory()
+        .await
+        .expect("Failed to create in-memory db");
 
     // Compilation album with different track artists, no album_artist set
     let compilation_tracks = vec![
@@ -184,7 +193,9 @@ fn test_album_grouping_and_compilations() {
     ];
 
     for t in &compilation_tracks {
-        db.insert_or_update_track(t).expect("Insert track failed");
+        db.insert_or_update_track(t)
+            .await
+            .expect("Insert track failed");
     }
 
     // Single-artist album
@@ -214,10 +225,12 @@ fn test_album_grouping_and_compilations() {
     ];
 
     for t in &solo_tracks {
-        db.insert_or_update_track(t).expect("Insert track failed");
+        db.insert_or_update_track(t)
+            .await
+            .expect("Insert track failed");
     }
 
-    let albums = db.get_albums().expect("get_albums failed");
+    let albums = db.get_albums().await.expect("get_albums failed");
     assert_eq!(albums.len(), 2, "Should have exactly 2 aggregated albums");
 
     let comp_album = albums
@@ -235,9 +248,11 @@ fn test_album_grouping_and_compilations() {
     assert_eq!(solo_album.year, Some(2022));
 }
 
-#[test]
-fn test_extra_metadata_tags_persistence() {
-    let db = LibraryDatabase::in_memory().expect("Failed to create in-memory db");
+#[tokio::test]
+async fn test_extra_metadata_tags_persistence() {
+    let db = LibraryDatabase::in_memory()
+        .await
+        .expect("Failed to create in-memory db");
 
     let track = NewTrack {
         file_path: "/music/classical_01.flac".to_string(),
@@ -259,9 +274,11 @@ fn test_extra_metadata_tags_persistence() {
 
     let id = db
         .insert_or_update_track(&track)
+        .await
         .expect("Insert track failed");
     let fetched = db
         .get_track_by_id(id)
+        .await
         .expect("Query failed")
         .expect("Track not found");
 
@@ -288,27 +305,32 @@ fn test_extra_metadata_tags_persistence() {
     );
 }
 
-#[test]
-fn test_library_folders_and_clear_tracks() {
-    let db = LibraryDatabase::in_memory().expect("Failed to create in-memory db");
+#[tokio::test]
+async fn test_library_folders_and_clear_tracks() {
+    let db = LibraryDatabase::in_memory()
+        .await
+        .expect("Failed to create in-memory db");
 
     // Initially empty
-    let folders = db.get_library_folders().expect("get folders failed");
+    let folders = db.get_library_folders().await.expect("get folders failed");
     assert!(folders.is_empty());
 
     // Add folders
     let added = db
         .add_library_folder("/home/user/Music")
+        .await
         .expect("add folder failed");
     assert!(added);
     let added_dup = db
         .add_library_folder("/home/user/Music")
+        .await
         .expect("add dup failed");
     assert!(!added_dup); // Ignored due to UNIQUE constraint
     db.add_library_folder("/mnt/external/Audio")
+        .await
         .expect("add 2nd folder failed");
 
-    let folders = db.get_library_folders().expect("get folders failed");
+    let folders = db.get_library_folders().await.expect("get folders failed");
     assert_eq!(folders.len(), 2);
     assert!(folders.contains(&"/home/user/Music".to_string()));
     assert!(folders.contains(&"/mnt/external/Audio".to_string()));
@@ -316,9 +338,10 @@ fn test_library_folders_and_clear_tracks() {
     // Remove folder
     let removed = db
         .remove_library_folder("/home/user/Music")
+        .await
         .expect("remove failed");
     assert!(removed);
-    let folders = db.get_library_folders().expect("get folders failed");
+    let folders = db.get_library_folders().await.expect("get folders failed");
     assert_eq!(folders.len(), 1);
     assert_eq!(folders[0], "/mnt/external/Audio");
 
@@ -333,10 +356,11 @@ fn test_library_folders_and_clear_tracks() {
         ..Default::default()
     };
     db.insert_or_update_track(&track)
+        .await
         .expect("insert track failed");
-    assert_eq!(db.get_total_track_count(None).unwrap(), 1);
+    assert_eq!(db.get_total_track_count(None).await.unwrap(), 1);
 
-    let cleared = db.clear_all_tracks().expect("clear failed");
+    let cleared = db.clear_all_tracks().await.expect("clear failed");
     assert_eq!(cleared, 1);
-    assert_eq!(db.get_total_track_count(None).unwrap(), 0);
+    assert_eq!(db.get_total_track_count(None).await.unwrap(), 0);
 }

@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use directories::ProjectDirs;
 use iced::{theme::Palette, Color, Theme};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
@@ -262,11 +261,7 @@ impl ThemeManager {
     }
 
     pub fn theme_dir() -> PathBuf {
-        if let Some(proj_dirs) = ProjectDirs::from("moe", "curstantine", "vibecore") {
-            proj_dirs.config_dir().join("themes")
-        } else {
-            PathBuf::from("themes")
-        }
+        player_core::user_themes_dir()
     }
 
     pub fn load_all_themes(&mut self) {

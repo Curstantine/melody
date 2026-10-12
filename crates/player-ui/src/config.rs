@@ -1,7 +1,5 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-
-use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
@@ -163,13 +161,7 @@ impl Default for AppConfig {
 
 impl AppConfig {
     pub fn config_path() -> PathBuf {
-        if let Some(proj_dirs) = ProjectDirs::from("moe", "curstantine", "vibecore") {
-            let config_dir = proj_dirs.config_dir();
-            let _ = fs::create_dir_all(config_dir);
-            config_dir.join("config.toml")
-        } else {
-            PathBuf::from("config.toml")
-        }
+        player_core::config_file()
     }
 
     pub fn load() -> Self {
