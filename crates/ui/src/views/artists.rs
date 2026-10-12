@@ -8,7 +8,6 @@ use crate::icons;
 use crate::message::{ArtistSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
-#[allow(dead_code)]
 pub const DEFAULT_ARTIST_TILE_WIDTH: u32 = 140;
 /// Fixed pixel height of a single list row.
 pub const LIST_ROW_HEIGHT: f32 = 52.0;
@@ -358,9 +357,6 @@ impl ArtistsView {
         let start_row = self.window_start / per_row;
         let end_row = self.window_end.div_ceil(per_row);
         let row_h = self.row_height();
-        let tile_w = self.tile_width as f32;
-        let avatar_size = self.avatar_size();
-        let icon_size = (avatar_size * 0.52).clamp(24.0, 52.0);
 
         let mut content = column![].spacing(0).width(Length::Fill);
 
@@ -373,62 +369,7 @@ impl ArtistsView {
             let mut tile_row = row![].spacing(ROW_SPACING).align_y(Alignment::Start);
 
             for artist in chunk {
-                let avatar = container(icons::icon(
-                    icons::USER_AVATAR_SVG,
-                    icon_size,
-                    theme_cfg.primary_color(),
-                ))
-                .width(avatar_size)
-                .height(avatar_size)
-                .center_x(avatar_size)
-                .center_y(avatar_size)
-                .style(move |_theme| container::Style {
-                    background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-                    border: Border {
-                        radius: Radius::from(avatar_size / 2.0),
-                        color: theme_cfg.border_color(),
-                        width: 1.0,
-                    },
-                    ..Default::default()
-                });
-
-                let meta = container(
-                    column![
-                        text(theme_cfg, artist.artist.as_ref())
-                            .size(13)
-                            .color(theme_cfg.text_color()),
-                        text(theme_cfg, artist.stats_label.as_str())
-                            .size(10)
-                            .color(theme_cfg.text_muted_color()),
-                    ]
-                    .spacing(3)
-                    .align_x(Alignment::Center)
-                    .padding(8),
-                )
-                .width(tile_w)
-                .height(TILE_META_HEIGHT);
-
-                let card_content = container(column![avatar, meta])
-                    .width(tile_w)
-                    .height(avatar_size + TILE_META_HEIGHT)
-                    .align_x(Alignment::Center)
-                    .clip(true)
-                    .style(move |_theme| container::Style {
-                        background: Some(iced::Background::Color(theme_cfg.surface_color())),
-                        border: Border {
-                            radius: Radius::from(6.0),
-                            color: theme_cfg.border_color(),
-                            width: 1.0,
-                        },
-                        ..Default::default()
-                    });
-
-                let card_btn = button(card_content)
-                    .style(styles::tile(theme_cfg))
-                    .padding(0)
-                    .on_press(Message::SelectArtist(artist.artist.to_string()));
-
-                tile_row = tile_row.push(card_btn);
+                tile_row = tile_row.push(self.tile(artist, theme_cfg));
             }
 
             content = content.push(
@@ -454,6 +395,62 @@ impl ArtistsView {
         .height(Length::Fill)
         .style(styles::scrollable_style(theme_cfg))
         .into()
+    }
+
+    fn tile<'a>(
+        &self,
+        artist: &'a ArtistSummary,
+        theme_cfg: &'a ThemeConfig,
+    ) -> Element<'a, Message> {
+        let tile_w = self.tile_width as f32;
+        let avatar_size = self.avatar_size();
+        let icon_size = (avatar_size * 0.52).clamp(24.0, 52.0);
+
+        let avatar = container(icons::icon(
+            icons::USER_AVATAR_SVG,
+            icon_size,
+            theme_cfg.primary_color(),
+        ))
+        .center(avatar_size) // sets width + height and centers the icon
+        .style(move |_theme| container::Style {
+            background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+            border: Border {
+                radius: Radius::from(avatar_size / 2.0),
+                color: theme_cfg.border_color(),
+                width: 1.0,
+            },
+            ..Default::default()
+        });
+
+        let meta = container(
+            column![
+                text(theme_cfg, artist.artist.as_ref())
+                    .size(13)
+                    .color(theme_cfg.text_color()),
+                text(theme_cfg, artist.stats_label.as_str())
+                    .size(10)
+                    .color(theme_cfg.text_muted_color()),
+            ]
+            .spacing(3)
+            .align_x(Alignment::Center),
+        )
+        .padding(8)
+        .center_x(Length::Fill) // fills the tile width and centers the column
+        .height(TILE_META_HEIGHT);
+
+        let card = container(
+            column![avatar, meta]
+                .align_x(Alignment::Center)
+                .width(Length::Fill),
+        )
+        .width(tile_w)
+        .height(avatar_size + TILE_META_HEIGHT);
+
+        button(card)
+            .style(styles::tile(theme_cfg))
+            .padding(0)
+            .on_press(Message::SelectArtist(artist.artist.to_string()))
+            .into()
     }
 
     fn view_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
