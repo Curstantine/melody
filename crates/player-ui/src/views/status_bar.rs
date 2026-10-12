@@ -1,8 +1,8 @@
 use iced::widget::{column, container, row, Space};
-use iced::{Alignment, Degrees, Element, Length, Radians};
+use iced::{Alignment, Element, Length};
 use player_core::{format_duration, AlbumSummary, ArtistSummary, Track};
 
-use crate::components::{border_vert, text};
+use crate::components::{border_vert, scanning_indicator, text};
 use crate::icons;
 use crate::message::{Message, ViewTab};
 use crate::theme::{styles, ThemeConfig};
@@ -25,7 +25,6 @@ pub struct StatusBarContext<'a> {
     pub is_playing: bool,
     // Global telemetry
     pub is_scanning: bool,
-    pub scan_spinner_angle: f32,
 }
 
 pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Element<'a, Message> {
@@ -170,20 +169,8 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
     };
 
     // 2. Global Right Section
-    let right_items: Element<'a, Message> = if ctx.is_scanning {
-        row![
-            icons::icon(icons::REFRESH_SVG, 11.0, muted)
-                .rotation(Radians::from(Degrees(ctx.scan_spinner_angle))),
-            text(theme_cfg, "Scanning library...").size(11).color(muted),
-        ]
-        .spacing(4)
-        .align_y(Alignment::Center)
-        .into()
-    } else {
-        Space::with_width(0).into()
-    };
-
-    let status_row = row![left_items, Space::with_width(Length::Fill), right_items,]
+    let status_row = row![left_items, Space::with_width(Length::Fill),]
+        .push_maybe(ctx.is_scanning.then_some(scanning_indicator(theme_cfg)))
         .spacing(8)
         .height(24)
         .align_y(Alignment::Center)

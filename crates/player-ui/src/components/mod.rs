@@ -9,6 +9,9 @@ use crate::theme::{styles, ThemeConfig};
 
 use std::borrow::Cow;
 
+pub mod spinner;
+pub use spinner::Spinner;
+
 /// A text widget configured with adaptive text shaping:
 /// - Uses `Shaping::Basic` for pure ASCII text for zero-cost immediate shaping and high frame rates.
 /// - Uses `Shaping::Advanced` for Chinese, Japanese, Korean, and multilingual Unicode characters
@@ -344,5 +347,23 @@ pub fn metric_box<'a>(
         ..Default::default()
     })
     .width(Length::FillPortion(1))
+    .into()
+}
+
+/// A self-contained scanning indicator component powered by the `Spinner` widget.
+pub fn scanning_indicator<'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    let handle = iced::widget::svg::Handle::from_memory(icons::REFRESH_SVG.as_bytes());
+    let spinner = Spinner::new(handle)
+        .size(11.0)
+        .color(theme_cfg.text_muted_color());
+
+    row![
+        spinner,
+        text(theme_cfg, "Scanning library...")
+            .size(11)
+            .color(theme_cfg.text_muted_color()),
+    ]
+    .spacing(4)
+    .align_y(Alignment::Center)
     .into()
 }
