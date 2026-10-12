@@ -24,7 +24,7 @@ fn main() -> iced::Result {
         .subscription(App::subscription)
         .window(window::Settings {
             size: iced::Size::new(1130.0, 740.0),
-            min_size: Some(iced::Size::new(580.0, 520.0)),
+            min_size: Some(iced::Size::new(1000.0, 520.0)),
             position: window::Position::Centered,
             ..Default::default()
         });

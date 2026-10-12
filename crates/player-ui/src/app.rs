@@ -86,6 +86,7 @@ pub struct App {
 
     // Library Scanning & Fonts
     is_scanning: bool,
+    scan_spinner_angle: f32,
     available_fonts: Vec<String>,
     primary_font: Option<String>,
     custom_font_input: String,
@@ -212,6 +213,7 @@ impl App {
             loved_tracks: HashSet::new(),
 
             is_scanning: false,
+            scan_spinner_angle: 0.0,
             available_fonts,
             primary_font,
             custom_font_input: String::new(),
@@ -305,6 +307,12 @@ impl App {
                 }
                 if let Some(action) = mpris_action {
                     return self.update(Message::MprisAction(action));
+                }
+
+                if self.is_scanning {
+                    self.scan_spinner_angle = (self.scan_spinner_angle + 18.0) % 360.0;
+                } else {
+                    self.scan_spinner_angle = 0.0;
                 }
 
                 Task::none()
@@ -848,8 +856,7 @@ impl App {
                 Task::none()
             }
 
-            Message::ScanFinished(summary) => {
-                info!("Scan completed: {} tracks indexed", summary.inserted_tracks);
+            Message::ScanFinished(_summary) => {
                 self.is_scanning = false;
                 let db = self.db.clone();
                 Task::batch([
@@ -1584,6 +1591,7 @@ impl App {
             current_track: self.current_track.as_ref(),
             is_playing: self.is_playing,
             is_scanning: self.is_scanning,
+            scan_spinner_angle: self.scan_spinner_angle,
         };
 
         let status_bar = views::status_bar::view(theme_cfg, status_bar_ctx);

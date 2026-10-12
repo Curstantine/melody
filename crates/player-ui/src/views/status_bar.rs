@@ -1,5 +1,5 @@
 use iced::widget::{column, container, row, Space};
-use iced::{Alignment, Element, Length};
+use iced::{Alignment, Degrees, Element, Length, Radians};
 use player_core::{format_duration, AlbumSummary, ArtistSummary, Track};
 
 use crate::components::{border_vert, text};
@@ -25,6 +25,7 @@ pub struct StatusBarContext<'a> {
     pub is_playing: bool,
     // Global telemetry
     pub is_scanning: bool,
+    pub scan_spinner_angle: f32,
 }
 
 pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Element<'a, Message> {
@@ -171,8 +172,8 @@ pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Elemen
     // 2. Global Right Section
     let right_items: Element<'a, Message> = if ctx.is_scanning {
         row![
-            icons::icon(icons::REFRESH_SVG, 11.0, muted),
-            Space::with_width(3),
+            icons::icon(icons::REFRESH_SVG, 11.0, muted)
+                .rotation(Radians::from(Degrees(ctx.scan_spinner_angle))),
             text(theme_cfg, "Scanning library...").size(11).color(muted),
         ]
         .spacing(4)
