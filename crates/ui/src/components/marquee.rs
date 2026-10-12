@@ -17,7 +17,8 @@ pub struct Marquee {
     font: Font,
     speed_px_per_sec: f32,
     gap: f32,
-    pause_ms: u64,
+    pause_start_ms: u64,
+    pause_end_ms: u64,
 }
 
 impl Marquee {
@@ -29,7 +30,8 @@ impl Marquee {
             font: Font::DEFAULT,
             speed_px_per_sec: 35.0,
             gap: 50.0,
-            pause_ms: 2000,
+            pause_start_ms: 2500,
+            pause_end_ms: 3000,
         }
     }
 
@@ -59,7 +61,18 @@ impl Marquee {
     }
 
     pub fn pause_ms(mut self, pause_ms: u64) -> Self {
-        self.pause_ms = pause_ms;
+        self.pause_start_ms = pause_ms;
+        self.pause_end_ms = pause_ms;
+        self
+    }
+
+    pub fn pause_start_ms(mut self, pause_start_ms: u64) -> Self {
+        self.pause_start_ms = pause_start_ms;
+        self
+    }
+
+    pub fn pause_end_ms(mut self, pause_end_ms: u64) -> Self {
+        self.pause_end_ms = pause_end_ms;
         self
     }
 }
@@ -169,7 +182,7 @@ where
         // Text overflows: compute marquee scroll translation
         let cycle_distance = text_w + self.gap;
         let scroll_duration_ms = (cycle_distance / self.speed_px_per_sec * 1000.0) as u64;
-        let total_cycle_ms = self.pause_ms + scroll_duration_ms;
+        let total_cycle_ms = self.pause_start_ms + scroll_duration_ms + self.pause_end_ms;
 
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -182,11 +195,13 @@ where
             0
         };
 
-        let offset_x = if cycle_pos_ms <= self.pause_ms {
+        let offset_x = if cycle_pos_ms <= self.pause_start_ms {
             0.0
-        } else {
-            let active_ms = cycle_pos_ms - self.pause_ms;
+        } else if cycle_pos_ms < self.pause_start_ms + scroll_duration_ms {
+            let active_ms = cycle_pos_ms - self.pause_start_ms;
             (active_ms as f32 / 1000.0) * self.speed_px_per_sec
+        } else {
+            0.0
         };
 
         // Clip to the bounds of the marquee widget

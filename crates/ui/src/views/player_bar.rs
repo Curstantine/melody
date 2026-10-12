@@ -80,7 +80,7 @@ impl PlayerBar {
         let track_section = row![cover_art, Space::with_width(10), track_details]
             .spacing(2)
             .align_y(Alignment::Center)
-            .width(480);
+            .width(Length::Fill);
 
         // 2. Center: Controls and Seek Bar
         let prev_btn = button(icons::icon(icons::PREV_SVG, 15.0, bar_fg))
@@ -128,9 +128,14 @@ impl PlayerBar {
             .align_x(Alignment::End)
             .color(theme_cfg.text_muted_color());
 
-        let center_panel = column![buttons]
+        let buttons_width = 176.0;
+
+        // Perfectly centered controls across the entire screen
+        let center_controls = container(buttons)
+            .width(Length::Fill)
+            .height(Length::Fill)
             .align_x(Alignment::Center)
-            .width(Length::FillPortion(2));
+            .align_y(Alignment::Center);
 
         // 3. Right: Secondary Controls (Love, Shuffle, Repeat) & Volume Control
         let love_btn = button(if is_loved {
@@ -203,14 +208,18 @@ impl PlayerBar {
         .spacing(4)
         .align_y(Alignment::Center);
 
-        let main_row = row![
-            track_section,
-            Space::with_width(Length::FillPortion(1)),
-            center_panel,
-            Space::with_width(Length::FillPortion(1)),
-            right_controls,
+        // Sides layer: Left track info and right controls bounded around center clearance
+        let sides_row = row![
+            container(track_section)
+                .width(Length::Fill)
+                .align_y(Alignment::Center),
+            Space::with_width(buttons_width + 48.0),
+            container(right_controls)
+                .width(Length::Fill)
+                .align_x(Alignment::End)
+                .align_y(Alignment::Center),
         ]
-        .spacing(12)
+        .spacing(0)
         .align_y(Alignment::Center)
         .padding([0, 16])
         .width(Length::Fill)
@@ -237,7 +246,7 @@ impl PlayerBar {
             })
             .width(Length::Fill);
 
-        let bar_stack = stack![main_row, top_right_timing, seek_bar,]
+        let bar_stack = stack![sides_row, center_controls, top_right_timing, seek_bar,]
             .width(Length::Fill)
             .height(72);
 
