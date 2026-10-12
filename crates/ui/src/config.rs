@@ -166,7 +166,7 @@ impl ScrobbleConfig {
 }
 
 fn default_theme_name() -> String {
-    "Default".to_string()
+    crate::theme::DEFAULT_THEME_NAME.to_string()
 }
 
 fn default_page_size() -> usize {

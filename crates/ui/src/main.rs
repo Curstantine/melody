@@ -9,6 +9,7 @@ mod views;
 
 use app::App;
 use iced::window;
+use tracing::info;
 
 fn main() -> iced::Result {
     // Initialize logging
@@ -32,7 +33,7 @@ fn main() -> iced::Result {
     let config = config::AppConfig::load();
 
     if let Some(ref font_name) = config.primary_font {
-        tracing::info!("Setting default font from saved config to: {}", font_name);
+        info!("Setting default font from saved config to: {font_name}");
         builder = builder.default_font(theme::font_from_family_name(Some(font_name)));
     }
 

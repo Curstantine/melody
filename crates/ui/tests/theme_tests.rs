@@ -3,7 +3,7 @@
 #[path = "../src/theme/mod.rs"]
 mod theme;
 
-use theme::{parse_hex, ThemeConfig, ThemeManager};
+use theme::{parse_hex, ThemeConfig, ThemeManager, DEFAULT_THEME_NAME};
 
 #[test]
 fn test_hex_color_parsing() {
@@ -30,14 +30,14 @@ fn test_theme_manager() {
     let mut manager = ThemeManager::new();
     let names = manager.theme_names();
 
-    assert!(names.contains(&"Default".to_string()));
-    assert_eq!(manager.active_theme_name, "Default");
-    assert_eq!(manager.current_config.name, "Default");
+    assert!(names.contains(&DEFAULT_THEME_NAME.to_string()));
+    assert_eq!(manager.active_theme_name, DEFAULT_THEME_NAME);
+    assert_eq!(manager.current_config.name, DEFAULT_THEME_NAME);
 
-    let switched = manager.set_theme("Default");
+    let switched = manager.set_theme(DEFAULT_THEME_NAME);
     assert!(switched);
-    assert_eq!(manager.active_theme_name, "Default");
-    assert_eq!(manager.current_config.name, "Default");
+    assert_eq!(manager.active_theme_name, DEFAULT_THEME_NAME);
+    assert_eq!(manager.current_config.name, DEFAULT_THEME_NAME);
 
     let invalid = manager.set_theme("NonExistentTheme");
     assert!(!invalid);

@@ -8,6 +8,8 @@ mod config;
 mod icons;
 #[path = "../src/message.rs"]
 mod message;
+#[path = "../src/theme/mod.rs"]
+mod theme;
 
 use config::AppConfig;
 use message::{AlbumSortField, ArtistSortField, SettingsTab, ViewMode, ViewTab};
@@ -26,7 +28,7 @@ fn test_default_app_config() {
         ]
     );
     assert_eq!(cfg.settings_tab, SettingsTab::Appearance);
-    assert_eq!(cfg.theme_name, "Default");
+    assert_eq!(cfg.theme_name, theme::DEFAULT_THEME_NAME);
     assert_eq!(cfg.primary_font, None);
     assert_eq!(cfg.library_view_mode, ViewMode::List);
     assert_eq!(cfg.albums_view_mode, ViewMode::Tile);

@@ -8,6 +8,8 @@ use iced::{theme::Palette, Color, Theme};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
+pub const DEFAULT_THEME_NAME: &str = "Dark";
+
 mod hex_color {
     use iced::Color;
     use serde::{de::Error as _, Deserialize, Deserializer, Serializer};
@@ -100,7 +102,7 @@ pub struct ThemeConfig {
 impl Default for ThemeConfig {
     fn default() -> Self {
         Self {
-            name: "Default".to_string(),
+            name: DEFAULT_THEME_NAME.to_string(),
             background: parse_hex("#161616"),
             surface: parse_hex("#191919"),
             surface_hover: parse_hex("#282828"),
@@ -218,18 +220,8 @@ fn intern_str(s: &str) -> &'static str {
 
 pub fn font_from_family_name(name: Option<&str>) -> iced::Font {
     if let Some(name) = name {
-        match name {
-            "System Monospace" | "Monospace" => iced::Font::MONOSPACE,
-            "System Serif" | "Serif" => iced::Font {
-                family: iced::font::Family::Serif,
-                ..iced::Font::DEFAULT
-            },
-            "System Sans-Serif" | "Sans-Serif" | "Default" => iced::Font::DEFAULT,
-            _ => {
-                let family_static = intern_str(name);
-                iced::Font::with_name(family_static)
-            }
-        }
+        let family_static = intern_str(name);
+        iced::Font::with_name(family_static)
     } else {
         iced::Font::DEFAULT
     }
@@ -253,7 +245,7 @@ impl ThemeManager {
     pub fn new() -> Self {
         let mut manager = Self {
             themes: HashMap::new(),
-            active_theme_name: "Default".to_string(),
+            active_theme_name: DEFAULT_THEME_NAME.to_string(),
             current_config: ThemeConfig::default(),
             cached_theme_names: Vec::new(),
         };
