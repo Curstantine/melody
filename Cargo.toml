@@ -1,10 +1,10 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/player-core",
-    "crates/player-audio",
-    "crates/player-plugins",
-    "crates/player-ui",
+    "crates/core",
+    "crates/audio",
+    "crates/plugins",
+    "crates/ui",
 ]
 
 [workspace.package]

@@ -35,12 +35,14 @@
           libxrandr
           fontconfig
           freetype
+          ffmpeg
         ];
       in
       {
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
             pkg-config
+            clang
           ];
           buildInputs = with pkgs; [
             nixd
@@ -50,6 +52,7 @@
             freetype
             noto-fonts-cjk-sans
             ibm-plex
+            ffmpeg
             (pkgs.rust-bin.stable.latest.default.override {
               extensions = [
                 "rust-src"
@@ -59,6 +62,7 @@
           ] ++ runtimeLibs;
 
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath runtimeLibs;
+          LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
         };
       }
     );

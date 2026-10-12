@@ -1,0 +1,16 @@
+[package]
+name = "audio"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+core_engine = { package = "core", path = "../core" }
+cpal = "0.15"
+ffmpeg-next = "9.0.0"
+ringbuf = "0.4.7"
+crossbeam-channel = "0.5"
+thiserror = "2.0"
+tracing = "0.1"
+rubato = "0.16"
