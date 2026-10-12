@@ -1,6 +1,5 @@
 pub mod db;
 pub mod intern;
-pub mod memory;
 pub mod metadata;
 pub mod model;
 pub mod paths;

@@ -25,12 +25,10 @@ fn test_settings_tab_variants_and_defaults() {
         SettingsTab::Appearance,
         SettingsTab::Library,
         SettingsTab::Scrobbling,
-        SettingsTab::Debug,
     ];
     assert_ne!(tabs[0], tabs[1]);
     assert_ne!(tabs[1], tabs[2]);
-    assert_ne!(tabs[2], tabs[3]);
-    assert_ne!(tabs[0], tabs[3]);
+    assert_ne!(tabs[0], tabs[2]);
 }
 
 #[test]
@@ -44,7 +42,6 @@ fn test_settings_views_render_without_panicking() {
         SettingsTab::Appearance,
         SettingsTab::Library,
         SettingsTab::Scrobbling,
-        SettingsTab::Debug,
     ] {
         let settings_view = settings::SettingsView {
             active_tab: tab,
@@ -81,8 +78,6 @@ fn test_settings_views_render_without_panicking() {
             db_size_bytes: 2048576,
             cache_file_count: 42,
             cache_size_bytes: 524288,
-            memory_rss_bytes: Some(104857600),
-            memory_peak_bytes: Some(209715200),
             is_scanning: false,
 
             listenbrainz_enabled: true,

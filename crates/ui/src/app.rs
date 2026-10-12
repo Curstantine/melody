@@ -1434,8 +1434,6 @@ impl App {
                         db_size_bytes,
                         cache_file_count: cache_stats.file_count,
                         cache_size_bytes: cache_stats.total_bytes,
-                        memory_rss_bytes: core_engine::memory::resident_bytes(),
-                        memory_peak_bytes: core_engine::memory::peak_resident_bytes(),
                         is_scanning: self.is_scanning,
 
                         listenbrainz_enabled: self.scrobble_config.listenbrainz_enabled,
