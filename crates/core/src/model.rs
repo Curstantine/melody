@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::intern::InternedStr;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Track {
     pub id: i64,
@@ -58,6 +60,36 @@ pub struct TrackIdHeader {
     pub duration_ms: u32,
 }
 
+/// A narrow projection of a track used by the virtualized library list.
+///
+/// Only the columns actually rendered in a list row are fetched. Combined with
+/// the bounded sliding window in the UI, resident memory stays proportional to
+/// the viewport size rather than the size of the library. `artist`/`album` are
+/// interned to share the repeated metadata strings.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TrackRow {
+    pub id: i64,
+    pub title: String,
+    pub artist: InternedStr,
+    pub album: InternedStr,
+    pub duration_ms: u64,
+    pub file_path: String,
+}
+
+impl TrackRow {
+    pub fn formatted_duration(&self) -> String {
+        format_duration(self.duration_ms)
+    }
+
+    pub fn display_artist(&self) -> &str {
+        if self.artist.is_empty() {
+            "Unknown Artist"
+        } else {
+            &self.artist
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct NewTrack {
     pub file_path: String,
@@ -79,18 +111,18 @@ pub struct NewTrack {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AlbumSummary {
-    pub album: String,
-    pub artist: String,
+    pub album: InternedStr,
+    pub artist: InternedStr,
     pub track_count: usize,
     pub total_duration_ms: u64,
     pub year: Option<u32>,
-    pub cover_track_path: Option<String>,
+    pub cover_track_id: Option<i64>,
     pub added_timestamp: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtistSummary {
-    pub artist: String,
+    pub artist: InternedStr,
     pub track_count: usize,
     pub album_count: usize,
 }

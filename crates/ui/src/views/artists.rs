@@ -196,7 +196,7 @@ impl ArtistsView {
                         column![
                             avatar,
                             Space::with_height(6),
-                            text(theme_cfg, &artist.artist)
+                            text(theme_cfg, artist.artist.as_ref())
                                 .size(13)
                                 .color(theme_cfg.text_color()),
                             text(
@@ -228,7 +228,7 @@ impl ArtistsView {
                     let card_btn = button(card_content)
                         .style(styles::ghost_button(theme_cfg, false))
                         .padding(0)
-                        .on_press(Message::SelectArtist(artist.artist.clone()));
+                        .on_press(Message::SelectArtist(artist.artist.to_string()));
 
                     tiles = tiles.push(card_btn);
                 }
@@ -271,7 +271,7 @@ impl ArtistsView {
                     });
 
                     let title_block = column![
-                        text(theme_cfg, &artist.artist)
+                        text(theme_cfg, artist.artist.as_ref())
                             .size(13)
                             .color(theme_cfg.text_color()),
                         text(
@@ -295,7 +295,7 @@ impl ArtistsView {
                     let row_btn = button(artist_row)
                         .style(styles::tile(theme_cfg))
                         .width(Length::Fill)
-                        .on_press(Message::SelectArtist(artist.artist.clone()));
+                        .on_press(Message::SelectArtist(artist.artist.to_string()));
 
                     artist_list = artist_list.push(row_btn);
                 }

@@ -1,16 +1,19 @@
 pub mod db;
+pub mod intern;
+pub mod memory;
 pub mod metadata;
 pub mod model;
 pub mod paths;
 pub mod thumbnail;
 
 pub use db::{DbError, LibraryDatabase, ScanSummary};
+pub use intern::InternedStr;
 pub use metadata::{
     extract_cover_art, extract_metadata, extract_technical_info, AudioTechnicalInfo, MetadataError,
 };
 pub use model::{
     format_duration, AlbumSummary, ArtistSummary, NewTrack, SortDirection, SortField, Track,
-    TrackIdHeader,
+    TrackIdHeader, TrackRow,
 };
 pub use paths::{
     cache_dir, config_dir, config_file, data_dir, database_file, project_dirs, thumbnail_cache_dir,

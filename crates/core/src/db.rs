@@ -7,9 +7,10 @@ use tracing::{info, warn};
 use turso::{params, Connection, Database, Error as TursoError, Row};
 use walkdir::WalkDir;
 
+use crate::intern;
 use crate::metadata::extract_metadata;
 use crate::model::{
-    AlbumSummary, ArtistSummary, NewTrack, SortDirection, SortField, Track, TrackIdHeader,
+    AlbumSummary, ArtistSummary, NewTrack, SortDirection, SortField, Track, TrackIdHeader, TrackRow,
 };
 
 #[derive(Error, Debug)]
@@ -395,7 +396,7 @@ impl LibraryDatabase {
             SortField::Artist => "artist",
             SortField::Album => "album",
             SortField::Duration => "duration_ms",
-            SortField::TrackNum => "track_num",
+            SortField::TrackNum => "track_num NULLS LAST",
             SortField::AddedDate => "added_timestamp",
         };
 
@@ -415,7 +416,7 @@ impl LibraryDatabase {
                        musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
                 FROM tracks
                 WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1
-                ORDER BY {} {} NULLS LAST
+                ORDER BY {} {}
                 LIMIT ?2 OFFSET ?3
                 "#,
                 sort_col, dir_str
@@ -436,7 +437,7 @@ impl LibraryDatabase {
                        track_num, disc_num, year, composer, label,
                        musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
                 FROM tracks
-                ORDER BY {} {} NULLS LAST
+                ORDER BY {} {}
                 LIMIT ?1 OFFSET ?2
                 "#,
                 sort_col, dir_str
@@ -453,6 +454,95 @@ impl LibraryDatabase {
         }
 
         Ok(tracks)
+    }
+
+    /// Reads a narrow slice of track rows for the virtualized library list.
+    ///
+    /// Only the rendered columns are selected and the repeated `artist`/`album`
+    /// values are interned, so a bounded window costs a few hundred KB
+    /// regardless of total library size.
+    pub async fn get_track_rows_window(
+        &self,
+        offset: usize,
+        limit: usize,
+        filter: Option<&str>,
+        sort_field: SortField,
+        sort_dir: SortDirection,
+    ) -> Result<Vec<TrackRow>, DbError> {
+        let sort_col = match sort_field {
+            SortField::Title => "title",
+            SortField::Artist => "artist",
+            SortField::Album => "album",
+            SortField::Duration => "duration_ms",
+            SortField::TrackNum => "track_num NULLS LAST",
+            SortField::AddedDate => "added_timestamp",
+        };
+
+        let dir_str = match sort_dir {
+            SortDirection::Ascending => "ASC",
+            SortDirection::Descending => "DESC",
+        };
+
+        let mut rows_out = Vec::with_capacity(limit);
+
+        if let Some(f) = filter.filter(|s| !s.trim().is_empty()) {
+            let pattern = format!("%{}%", f.trim());
+            let query = format!(
+                r#"
+                SELECT id, title, artist, album, duration_ms, file_path
+                FROM tracks
+                WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1
+                ORDER BY {} {}
+                LIMIT ?2 OFFSET ?3
+                "#,
+                sort_col, dir_str
+            );
+
+            let mut rows = self
+                .conn
+                .query(&query, params![pattern, limit as i64, offset as i64])
+                .await?;
+
+            while let Some(row) = rows.next().await? {
+                rows_out.push(map_track_row_summary(&row)?);
+            }
+        } else {
+            let query = format!(
+                r#"
+                SELECT id, title, artist, album, duration_ms, file_path
+                FROM tracks
+                ORDER BY {} {}
+                LIMIT ?1 OFFSET ?2
+                "#,
+                sort_col, dir_str
+            );
+
+            let mut rows = self
+                .conn
+                .query(&query, params![limit as i64, offset as i64])
+                .await?;
+
+            while let Some(row) = rows.next().await? {
+                rows_out.push(map_track_row_summary(&row)?);
+            }
+        }
+
+        Ok(rows_out)
+    }
+
+    /// Fetches only the filesystem path for a track id (used to resolve album
+    /// cover art for the visible catalog window).
+    pub async fn get_track_path_by_id(&self, id: i64) -> Result<Option<String>, DbError> {
+        let mut rows = self
+            .conn
+            .query("SELECT file_path FROM tracks WHERE id = ?1", params![id])
+            .await?;
+
+        if let Some(row) = rows.next().await? {
+            Ok(Some(row.get(0)?))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Lightweight in-memory index struct for global shuffle, playlist generation, or totals
@@ -488,7 +578,7 @@ impl LibraryDatabase {
                 COUNT(*) as track_count,
                 SUM(duration_ms) as total_duration,
                 MIN(year) as year,
-                MIN(file_path) as cover_track_path,
+                MIN(id) as cover_track_id,
                 MAX(added_timestamp) as added_timestamp
             FROM tracks
             GROUP BY album, COALESCE(NULLIF(album_artist, ''), '')
@@ -505,15 +595,15 @@ impl LibraryDatabase {
             let count: i64 = row.get(2)?;
             let duration: i64 = row.get(3)?;
             let year: Option<u32> = row.get(4)?;
-            let cover_track_path: Option<String> = row.get(5)?;
+            let cover_track_id: Option<i64> = row.get(5)?;
             let added_timestamp: i64 = row.get(6)?;
             albums.push(AlbumSummary {
-                album,
-                artist,
+                album: intern::intern(&album),
+                artist: intern::intern(&artist),
                 track_count: count as usize,
                 total_duration_ms: duration as u64,
                 year,
-                cover_track_path,
+                cover_track_id,
                 added_timestamp,
             });
         }
@@ -540,7 +630,7 @@ impl LibraryDatabase {
             let track_count: i64 = row.get(1)?;
             let album_count: i64 = row.get(2)?;
             artists.push(ArtistSummary {
-                artist,
+                artist: intern::intern(&artist),
                 track_count: track_count as usize,
                 album_count: album_count as usize,
             });
@@ -604,6 +694,7 @@ impl LibraryDatabase {
         let count = self.conn.execute("DELETE FROM tracks", ()).await?;
         let _ = self.conn.execute("DELETE FROM playlist_tracks", ()).await;
         let _ = self.conn.execute("VACUUM", ()).await;
+        intern::clear();
         Ok(count)
     }
 
@@ -742,6 +833,20 @@ fn map_track_row(row: &Row) -> Result<Track, DbError> {
         musicbrainz_artist_id: row.get(14)?,
         musicbrainz_album_id: row.get(15)?,
         added_timestamp: row.get(16)?,
+    })
+}
+
+fn map_track_row_summary(row: &Row) -> Result<TrackRow, DbError> {
+    let artist: String = row.get(2)?;
+    let album: String = row.get(3)?;
+    let duration: i64 = row.get(4)?;
+    Ok(TrackRow {
+        id: row.get(0)?,
+        title: row.get(1)?,
+        artist: intern::intern(&artist),
+        album: intern::intern(&album),
+        duration_ms: duration as u64,
+        file_path: row.get(5)?,
     })
 }
 

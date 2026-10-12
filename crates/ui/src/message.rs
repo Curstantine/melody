@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use core_engine::{AlbumSummary, ArtistSummary, ScanSummary, SortField, Track};
+use core_engine::{AlbumSummary, ArtistSummary, ScanSummary, SortField, Track, TrackRow};
 
 use serde::{Deserialize, Serialize};
 
@@ -114,7 +114,10 @@ pub enum Message {
     SearchInputChanged(String),
     SortChanged(SortField),
     LibraryScrolled(iced::widget::scrollable::Viewport),
-    MoreTracksLoaded(Vec<Track>),
+    TrackWindowLoaded {
+        offset: usize,
+        rows: Vec<TrackRow>,
+    },
     SetPageSize(usize),
 
     // Scanning & File Picking
@@ -129,7 +132,12 @@ pub enum Message {
     ArtistSortChanged(ArtistSortField),
     AlbumsScrolled(iced::widget::scrollable::Viewport),
     ArtistsScrolled(iced::widget::scrollable::Viewport),
-    AlbumCoverChunkLoaded(Vec<(String, Vec<u8>)>, Vec<(String, PathBuf)>),
+    EnsureAlbumCovers,
+    AlbumCoverChunkLoaded {
+        request_id: u64,
+        results: Vec<(String, Vec<u8>)>,
+        remaining: Vec<(String, i64)>,
+    },
 
     // Themes & Settings
     Settings(SettingsMessage),
@@ -165,7 +173,7 @@ pub enum Message {
     ClearThumbnailCache,
 
     // Loaded data callbacks
-    TracksLoaded(Vec<Track>, usize),
+    TracksLoaded(Vec<TrackRow>, usize),
     AlbumsLoaded(Vec<AlbumSummary>),
     ArtistsLoaded(Vec<ArtistSummary>),
     LibraryFoldersLoaded(Vec<String>),

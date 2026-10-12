@@ -78,6 +78,8 @@ fn test_settings_views_render_without_panicking() {
             db_size_bytes: 2048576,
             cache_file_count: 42,
             cache_size_bytes: 524288,
+            memory_rss_bytes: Some(104857600),
+            memory_peak_bytes: Some(209715200),
             is_scanning: false,
 
             listenbrainz_enabled: true,

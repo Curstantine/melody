@@ -33,6 +33,8 @@ pub struct SettingsContext<'a> {
     pub db_size_bytes: u64,
     pub cache_file_count: usize,
     pub cache_size_bytes: u64,
+    pub memory_rss_bytes: Option<u64>,
+    pub memory_peak_bytes: Option<u64>,
     pub is_scanning: bool,
 
     pub listenbrainz_enabled: bool,
@@ -757,10 +759,28 @@ impl SettingsView {
         ]
         .spacing(12);
 
+        let memory_stats_row = row![
+            components::metric_box(
+                theme_cfg,
+                "Process Memory (RSS)",
+                ctx.memory_rss_bytes
+                    .map(format_file_size)
+                    .unwrap_or_else(|| "n/a".to_string()),
+            ),
+            components::metric_box(
+                theme_cfg,
+                "Peak Process Memory",
+                ctx.memory_peak_bytes
+                    .map(format_file_size)
+                    .unwrap_or_else(|| "n/a".to_string()),
+            ),
+        ]
+        .spacing(12);
+
         let stats_card = components::settings_card(
             theme_cfg,
             "Storage & Index Metrics",
-            column![storage_stats_row1, storage_stats_row2,].spacing(10),
+            column![storage_stats_row1, storage_stats_row2, memory_stats_row].spacing(10),
         );
 
         // Scanned Folders List

@@ -11,10 +11,7 @@ use crate::theme::{styles, ThemeConfig};
 pub struct StatusBarContext<'a> {
     pub active_tab: ViewTab,
     // Tracks (Music) context
-    pub page: usize,
-    pub page_size: usize,
     pub total_tracks: usize,
-    pub visible_count: usize,
     pub search_query: &'a str,
     // Albums context
     pub albums: &'a [AlbumSummary],
@@ -37,17 +34,9 @@ impl StatusBar {
         let left_items: Element<'a, Message> = match ctx.active_tab {
             ViewTab::Tracks => {
                 let count_text = if !ctx.search_query.trim().is_empty() {
-                    format!(
-                        "Showing {} of {} tracks",
-                        ctx.visible_count, ctx.total_tracks
-                    )
-                } else if ctx.visible_count >= ctx.total_tracks {
-                    format!("{} tracks in library", ctx.total_tracks)
+                    format!("{} matching tracks", ctx.total_tracks)
                 } else {
-                    format!(
-                        "Loaded {} of {} tracks",
-                        ctx.visible_count, ctx.total_tracks
-                    )
+                    format!("{} tracks in library", ctx.total_tracks)
                 };
 
                 let filter_indicator: Element<'a, Message> = if !ctx.search_query.trim().is_empty()

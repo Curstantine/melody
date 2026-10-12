@@ -11,7 +11,7 @@ mod now_playing;
 #[path = "../src/theme/mod.rs"]
 mod theme;
 
-use core_engine::{AudioTechnicalInfo, Track};
+use core_engine::{AudioTechnicalInfo, Track, TrackRow};
 use theme::ThemeConfig;
 
 #[test]
@@ -22,9 +22,8 @@ fn test_now_playing_empty_state_renders() {
     now_playing_view.set_cover_size(300);
     assert_eq!(now_playing_view.cover_size, 300);
 
-    let _element = now_playing_view.view(
-        &theme_cfg, None, None, None, None, None, false, false, None,
-    );
+    let _element =
+        now_playing_view.view(&theme_cfg, None, None, None, None, None, false, false, None);
 }
 
 #[test]
@@ -51,24 +50,13 @@ fn test_now_playing_with_track_and_next_track() {
         added_timestamp: 1700000000,
     };
 
-    let next_track = Track {
+    let next_track = TrackRow {
         id: 2,
         file_path: "/music/track2.flac".to_string(),
         title: "Night Cruise".to_string(),
-        artist: "Synthwave Master".to_string(),
-        album_artist: None,
-        album: "Future Echoes".to_string(),
-        genre: Some("Synthwave".to_string()),
+        artist: "Synthwave Master".into(),
+        album: "Future Echoes".into(),
         duration_ms: 198_000,
-        track_num: Some(4),
-        disc_num: Some(1),
-        year: Some(2025),
-        composer: None,
-        label: None,
-        musicbrainz_track_id: None,
-        musicbrainz_artist_id: None,
-        musicbrainz_album_id: None,
-        added_timestamp: 1700000001,
     };
 
     let tech_info = AudioTechnicalInfo {

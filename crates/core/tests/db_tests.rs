@@ -235,16 +235,19 @@ async fn test_album_grouping_and_compilations() {
 
     let comp_album = albums
         .iter()
-        .find(|a| a.album == "Summer Vibes 2024")
+        .find(|a| a.album.as_ref() == "Summer Vibes 2024")
         .unwrap();
     assert_eq!(comp_album.track_count, 3);
-    assert_eq!(comp_album.artist, "Various Artists");
+    assert_eq!(comp_album.artist.as_ref(), "Various Artists");
     assert_eq!(comp_album.year, Some(2024));
-    assert!(comp_album.cover_track_path.is_some());
+    assert!(comp_album.cover_track_id.is_some());
 
-    let solo_album = albums.iter().find(|a| a.album == "Moonlight").unwrap();
+    let solo_album = albums
+        .iter()
+        .find(|a| a.album.as_ref() == "Moonlight")
+        .unwrap();
     assert_eq!(solo_album.track_count, 2);
-    assert_eq!(solo_album.artist, "Luna");
+    assert_eq!(solo_album.artist.as_ref(), "Luna");
     assert_eq!(solo_album.year, Some(2022));
 }
 

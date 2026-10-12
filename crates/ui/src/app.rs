@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use audio::{AudioController, AudioEngine};
-use core_engine::{LibraryDatabase, Track};
+use core_engine::{LibraryDatabase, Track, TrackRow};
 use crossbeam_channel::Receiver;
 use iced::widget::{button, column, container, image, mouse_area, row, Space};
 use iced::{Element, Length, Subscription, Task, Theme};
@@ -226,12 +226,14 @@ impl App {
     pub fn subscription(&self) -> Subscription<Message> {
         // Poll audio playback status at 50ms intervals (~20 FPS smooth seekbar)
         let ticker = iced::time::every(Duration::from_millis(50)).map(|_| Message::AudioTick);
+        // Periodic self-healing pass for the album cover window.
+        let covers =
+            iced::time::every(Duration::from_millis(400)).map(|_| Message::EnsureAlbumCovers);
+        let mut subscriptions = vec![ticker, covers];
         if self.dragging_tab.is_some() {
-            let drag_sub = iced::event::listen_with(handle_drag_event);
-            Subscription::batch([ticker, drag_sub])
-        } else {
-            ticker
+            subscriptions.push(iced::event::listen_with(handle_drag_event));
         }
+        Subscription::batch(subscriptions)
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -277,11 +279,6 @@ impl App {
             }
 
             Message::PlayTrack(track_id) => {
-                // If the track is already in the currently visible window, play immediately without querying DB
-                if let Some(track) = self.library.find_track(track_id).cloned() {
-                    return self.update(Message::TrackResolvedForPlayback(Box::new(Some(track))));
-                }
-
                 let db = self.db.clone();
                 Task::perform(
                     async move { db.get_track_by_id(track_id).await.unwrap_or(None) },
@@ -393,7 +390,7 @@ impl App {
                 }
 
                 if let Some(cur_id) = self.current_track_id {
-                    if let Some(prev) = self.library.get_previous_track(cur_id) {
+                    if let Some(prev) = self.library.get_previous_row(cur_id) {
                         return self.update(Message::PlayTrack(prev.id));
                     }
                 }
@@ -609,8 +606,13 @@ impl App {
             }
 
             Message::SetAlbumsViewMode(mode) => {
-                self.albums.set_view_mode(mode);
-                self.save_config_task()
+                let changed = self.albums.set_view_mode(mode);
+                let covers = if changed {
+                    self.load_visible_album_covers_task()
+                } else {
+                    Task::none()
+                };
+                Task::batch([self.save_config_task(), covers])
             }
 
             Message::SetArtistsViewMode(mode) => {
@@ -619,14 +621,24 @@ impl App {
             }
 
             Message::SetTileWidth(width) => {
-                self.albums.set_tile_width(width);
+                let albums_changed = self.albums.set_tile_width(width);
                 self.artists.set_tile_width(width);
-                self.save_config_debounced()
+                let covers = if albums_changed {
+                    self.load_visible_album_covers_task()
+                } else {
+                    Task::none()
+                };
+                Task::batch([self.save_config_debounced(), covers])
             }
 
             Message::SetAlbumTileWidth(width) => {
-                self.albums.set_tile_width(width);
-                self.save_config_debounced()
+                let changed = self.albums.set_tile_width(width);
+                let covers = if changed {
+                    self.load_visible_album_covers_task()
+                } else {
+                    Task::none()
+                };
+                Task::batch([self.save_config_debounced(), covers])
             }
 
             Message::SetArtistTileWidth(width) => {
@@ -952,20 +964,20 @@ impl App {
                 Task::none()
             }
 
-            Message::TracksLoaded(tracks, total) => {
-                self.library.set_tracks(tracks, total);
+            Message::TracksLoaded(rows, total) => {
+                self.library.set_window(rows, total);
                 Task::none()
             }
 
             Message::LibraryScrolled(viewport) => {
-                if self.library.on_scroll(&viewport) {
-                    return self.load_more_tracks_task();
+                if let Some(offset) = self.library.on_scroll(&viewport) {
+                    return self.load_track_window_task(offset);
                 }
                 Task::none()
             }
 
-            Message::MoreTracksLoaded(tracks) => {
-                self.library.append_tracks(tracks);
+            Message::TrackWindowLoaded { offset, rows } => {
+                self.library.replace_window(offset, rows);
                 Task::none()
             }
 
@@ -983,10 +995,16 @@ impl App {
 
             Message::AlbumsLoaded(albums) => {
                 self.albums.set_albums(albums);
+                // The catalog was (re)loaded at offset 0; keep the scrollable in
+                // sync so the window and the viewport cannot disagree.
+                let snap = iced::widget::scrollable::snap_to(
+                    iced::widget::scrollable::Id::new("albums_scroll"),
+                    iced::widget::scrollable::RelativeOffset::START,
+                );
                 if self.active_tab == ViewTab::Albums {
-                    self.load_visible_album_covers_task()
+                    Task::batch([self.load_visible_album_covers_task(), snap])
                 } else {
-                    Task::none()
+                    snap
                 }
             }
 
@@ -995,6 +1013,16 @@ impl App {
                     return self.load_visible_album_covers_task();
                 }
                 Task::none()
+            }
+
+            Message::EnsureAlbumCovers => {
+                if self.active_tab != ViewTab::Albums || self.albums.is_empty() {
+                    return Task::none();
+                }
+                // Release keys whose request never returned, then request any
+                // visible cover that is still missing.
+                self.albums.expire_stale_in_flight(Duration::from_secs(10));
+                self.load_visible_album_covers_task()
             }
 
             Message::ArtistsLoaded(artists) => {
@@ -1007,19 +1035,31 @@ impl App {
                 Task::none()
             }
 
-            Message::AlbumCoverChunkLoaded(chunk_results, remaining) => {
-                self.albums.insert_covers(chunk_results);
+            Message::AlbumCoverChunkLoaded {
+                request_id,
+                results,
+                remaining,
+            } => {
+                self.albums.insert_covers(request_id, results);
                 let remaining: Vec<_> = remaining
                     .into_iter()
                     .filter(|(k, _)| self.albums.is_in_flight(k))
                     .collect();
+
+                // After every batch, re-scan the current window for anything
+                // still missing. This guarantees the landing window converges
+                // even when fast scrolling abandoned earlier cover requests.
+                let visible_follow_up = self.load_visible_album_covers_task();
+
                 if remaining.is_empty() {
-                    Task::none()
+                    visible_follow_up
                 } else {
-                    self.load_cover_chunk_task(remaining)
+                    Task::batch([
+                        self.load_cover_chunk_task(request_id, remaining),
+                        visible_follow_up,
+                    ])
                 }
             }
-
 
             Message::SaveConfig => {
                 self.config_save_seq = self.config_save_seq.wrapping_add(1);
@@ -1038,14 +1078,9 @@ impl App {
         }
     }
 
-    pub fn get_next_track(&self) -> Option<&Track> {
-        self.library.get_next_track(
-            self.current_track_id,
-            self.is_repeat,
-            self.is_shuffle,
-            self.position_ms,
-            self.current_track.as_ref(),
-        )
+    pub fn get_next_track(&self) -> Option<&TrackRow> {
+        self.library
+            .get_next_row(self.current_track_id, self.is_shuffle, self.position_ms)
     }
 
     pub fn to_config(&self) -> AppConfig {
@@ -1099,7 +1134,11 @@ impl App {
         )
     }
 
-    fn load_cover_chunk_task(&self, mut pending: Vec<(String, PathBuf)>) -> Task<Message> {
+    fn load_cover_chunk_task(
+        &self,
+        request_id: u64,
+        mut pending: Vec<(String, i64)>,
+    ) -> Task<Message> {
         const CHUNK_SIZE: usize = 16;
         let (chunk, remaining) = if pending.len() <= CHUNK_SIZE {
             (pending, Vec::new())
@@ -1108,16 +1147,32 @@ impl App {
             (pending, rest)
         };
 
+        let db = self.db.clone();
         Task::perform(
             async move {
+                // Resolve a representative track path for each visible album, then
+                // downscale/cache the cover off the async runtime.
+                let mut resolved = Vec::with_capacity(chunk.len());
+                for (key, id) in chunk {
+                    match db.get_track_path_by_id(id).await {
+                        Ok(Some(path)) => resolved.push((key, Some(PathBuf::from(path)))),
+                        _ => resolved.push((key, None)),
+                    }
+                }
+
                 tokio::task::spawn_blocking(move || {
-                    let mut results = Vec::with_capacity(chunk.len());
-                    for (key, path) in chunk {
-                        let bytes = core_engine::get_or_create_thumbnail(
-                            &path,
-                            core_engine::THUMB_DIM_DEFAULT,
-                        )
-                        .unwrap_or_default();
+                    let mut results = Vec::with_capacity(resolved.len());
+                    for (key, path) in resolved {
+                        // `None` bytes means "no cover available"; `Some` carries the
+                        // downscaled JPEG. A missing path is treated as no cover.
+                        let bytes = match path {
+                            Some(path) => core_engine::get_or_create_thumbnail(
+                                &path,
+                                core_engine::THUMB_DIM_DEFAULT,
+                            )
+                            .unwrap_or_default(),
+                            None => Vec::new(),
+                        };
                         results.push((key, bytes));
                     }
 
@@ -1126,7 +1181,11 @@ impl App {
                 .await
                 .unwrap_or_else(|_| (Vec::new(), Vec::new()))
             },
-            |(results, remaining)| Message::AlbumCoverChunkLoaded(results, remaining),
+            move |(results, remaining)| Message::AlbumCoverChunkLoaded {
+                request_id,
+                results,
+                remaining,
+            },
         )
     }
 
@@ -1135,14 +1194,15 @@ impl App {
         if to_load.is_empty() {
             return Task::none();
         }
-        self.albums
+        let request_id = self
+            .albums
             .mark_loading(to_load.iter().map(|(k, _)| k.clone()));
-        self.load_cover_chunk_task(to_load)
+        self.load_cover_chunk_task(request_id, to_load)
     }
 
     fn reload_tracks_task(&self) -> Task<Message> {
         let db = self.db.clone();
-        let page_size = self.library.page_size;
+        let window_size = self.library.window_capacity();
         let query = if self.library.search_query.trim().is_empty() {
             None
         } else {
@@ -1157,19 +1217,19 @@ impl App {
                     .get_total_track_count(query.as_deref())
                     .await
                     .unwrap_or(0);
-                let tracks = db
-                    .get_tracks_window(0, page_size, query.as_deref(), sort_field, sort_dir)
+                let rows = db
+                    .get_track_rows_window(0, window_size, query.as_deref(), sort_field, sort_dir)
                     .await
                     .unwrap_or_default();
-                (tracks, total)
+                (rows, total)
             },
-            |(tracks, total)| Message::TracksLoaded(tracks, total),
+            |(rows, total)| Message::TracksLoaded(rows, total),
         )
     }
 
     fn reload_after_scan_task(&mut self) -> Task<Message> {
         let db = self.db.clone();
-        let page_size = self.library.page_size;
+        let window_size = self.library.window_capacity();
         let query = if self.library.search_query.trim().is_empty() {
             None
         } else {
@@ -1184,13 +1244,13 @@ impl App {
                     .get_total_track_count(query.as_deref())
                     .await
                     .unwrap_or(0);
-                let tracks = db
-                    .get_tracks_window(0, page_size, query.as_deref(), sort_field, sort_dir)
+                let rows = db
+                    .get_track_rows_window(0, window_size, query.as_deref(), sort_field, sort_dir)
                     .await
                     .unwrap_or_default();
-                (tracks, total)
+                (rows, total)
             },
-            |(tracks, total)| Message::TracksLoaded(tracks, total),
+            |(rows, total)| Message::TracksLoaded(rows, total),
         )];
 
         if self.active_tab == ViewTab::Albums {
@@ -1216,10 +1276,9 @@ impl App {
         Task::batch(tasks)
     }
 
-    fn load_more_tracks_task(&self) -> Task<Message> {
+    fn load_track_window_task(&self, offset: usize) -> Task<Message> {
         let db = self.db.clone();
-        let offset = self.library.visible_tracks.len();
-        let limit = self.library.page_size;
+        let limit = self.library.window_capacity();
         let query = if self.library.search_query.trim().is_empty() {
             None
         } else {
@@ -1230,11 +1289,13 @@ impl App {
 
         Task::perform(
             async move {
-                db.get_tracks_window(offset, limit, query.as_deref(), sort_field, sort_dir)
+                let rows = db
+                    .get_track_rows_window(offset, limit, query.as_deref(), sort_field, sort_dir)
                     .await
-                    .unwrap_or_default()
+                    .unwrap_or_default();
+                (offset, rows)
             },
-            Message::MoreTracksLoaded,
+            |(offset, rows)| Message::TrackWindowLoaded { offset, rows },
         )
     }
 
@@ -1373,6 +1434,8 @@ impl App {
                         db_size_bytes,
                         cache_file_count: cache_stats.file_count,
                         cache_size_bytes: cache_stats.total_bytes,
+                        memory_rss_bytes: core_engine::memory::resident_bytes(),
+                        memory_peak_bytes: core_engine::memory::peak_resident_bytes(),
                         is_scanning: self.is_scanning,
 
                         listenbrainz_enabled: self.scrobble_config.listenbrainz_enabled,
@@ -1415,10 +1478,7 @@ impl App {
 
         let status_bar_ctx = StatusBarContext {
             active_tab: self.active_tab,
-            page: self.library.page,
-            page_size: self.library.page_size,
             total_tracks: self.library.total_tracks,
-            visible_count: self.library.visible_tracks.len(),
             search_query: &self.library.search_query,
             albums: &self.albums.albums,
             artists: &self.artists.artists,

@@ -1,4 +1,4 @@
-use core_engine::{AudioTechnicalInfo, Track};
+use core_engine::{AudioTechnicalInfo, Track, TrackRow};
 use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, scrollable, stack, Space};
 use iced::{Alignment, ContentFit, Element, Length};
@@ -59,7 +59,7 @@ impl NowPlayingView {
         current_track: Option<&'a Track>,
         current_cover: Option<&'a image::Handle>,
         blurred_cover: Option<&'a image::Handle>,
-        next_track: Option<&'a Track>,
+        next_track: Option<&'a TrackRow>,
         next_cover: Option<&'a image::Handle>,
         is_repeat: bool,
         is_shuffle: bool,
