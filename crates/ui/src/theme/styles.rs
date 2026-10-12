@@ -159,9 +159,7 @@ pub fn pick_list_style(
     }
 }
 
-pub fn menu_style(
-    cfg: &ThemeConfig,
-) -> impl Fn(&Theme) -> menu::Style + '_ {
+pub fn menu_style(cfg: &ThemeConfig) -> impl Fn(&Theme) -> menu::Style + '_ {
     move |_theme| menu::Style {
         text_color: cfg.text_color(),
         background: Background::Color(cfg.surface_color()),

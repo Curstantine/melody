@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use iced::border::Radius;
-use iced::widget::{button, column, container, pick_list, row, scrollable, slider, text_input, Space};
+use iced::widget::{
+    button, column, container, pick_list, row, scrollable, slider, text_input, Space,
+};
 use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::components::{self, border_hori, text};
@@ -290,8 +292,6 @@ impl SettingsView {
             .spacing(8),
         );
 
-
-
         // Typography & Font Configuration Card
         let active_font_family = ctx.primary_font.unwrap_or("Default").to_string();
 
@@ -539,11 +539,9 @@ impl SettingsView {
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
                     row![
-                        slider(
-                            120.0..=300.0,
-                            ctx.album_tile_width as f32,
-                            |val| Message::SetAlbumTileWidth(val.round() as u32),
-                        )
+                        slider(120.0..=300.0, ctx.album_tile_width as f32, |val| {
+                            Message::SetAlbumTileWidth(val.round() as u32)
+                        },)
                         .on_release(Message::SaveConfig)
                         .style(styles::settings_slider_style(theme_cfg))
                         .width(Length::Fixed(160.0)),
@@ -606,11 +604,9 @@ impl SettingsView {
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
                     row![
-                        slider(
-                            120.0..=280.0,
-                            ctx.artist_tile_width as f32,
-                            |val| Message::SetArtistTileWidth(val.round() as u32),
-                        )
+                        slider(120.0..=280.0, ctx.artist_tile_width as f32, |val| {
+                            Message::SetArtistTileWidth(val.round() as u32)
+                        },)
                         .on_release(Message::SaveConfig)
                         .style(styles::settings_slider_style(theme_cfg))
                         .width(Length::Fixed(160.0)),
@@ -649,23 +645,18 @@ impl SettingsView {
             theme_cfg,
             "Now Playing",
             column![
-                text(
-                    theme_cfg,
-                    "Artwork dimensions and playback display options"
-                )
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
+                text(theme_cfg, "Artwork dimensions and playback display options")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
                 row![
                     text(theme_cfg, "Cover Art Dimension:")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
                     row![
-                        slider(
-                            160.0..=320.0,
-                            ctx.now_playing_cover_size as f32,
-                            |val| Message::SetNowPlayingCoverSize(val.round() as u32),
-                        )
+                        slider(160.0..=320.0, ctx.now_playing_cover_size as f32, |val| {
+                            Message::SetNowPlayingCoverSize(val.round() as u32)
+                        },)
                         .on_release(Message::SaveConfig)
                         .style(styles::settings_slider_style(theme_cfg))
                         .width(Length::Fixed(160.0)),

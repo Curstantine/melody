@@ -105,7 +105,12 @@ where
         Size::new(Length::Fill, Length::Shrink)
     }
 
-    fn layout(&self, tree: &mut Tree, _renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
+    fn layout(
+        &self,
+        tree: &mut Tree,
+        _renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
         let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
 
         let shaping = if self.content.is_ascii() {
@@ -128,10 +133,11 @@ where
 
         let height = state.paragraph.raw().min_height().max(self.size.0);
 
-        let node_size = limits
-            .width(Length::Fill)
-            .height(Length::Shrink)
-            .resolve(Length::Fill, Length::Shrink, Size::new(0.0, height));
+        let node_size = limits.width(Length::Fill).height(Length::Shrink).resolve(
+            Length::Fill,
+            Length::Shrink,
+            Size::new(0.0, height),
+        );
 
         layout::Node::new(node_size)
     }
@@ -175,7 +181,12 @@ where
 
         if text_w <= bounds.width {
             // Text fits cleanly without overflowing
-            renderer.fill_paragraph(paragraph, Point::new(bounds.x, y_pos), self.color, *viewport);
+            renderer.fill_paragraph(
+                paragraph,
+                Point::new(bounds.x, y_pos),
+                self.color,
+                *viewport,
+            );
             return;
         }
 

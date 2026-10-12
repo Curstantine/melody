@@ -2,10 +2,10 @@
 
 use std::path::PathBuf;
 
-#[path = "../src/icons.rs"]
-mod icons;
 #[path = "../src/config.rs"]
 mod config;
+#[path = "../src/icons.rs"]
+mod icons;
 #[path = "../src/message.rs"]
 mod message;
 
