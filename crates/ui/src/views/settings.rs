@@ -6,7 +6,7 @@ use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::components::{self, border_hori, text};
 use crate::icons;
-use crate::message::{Message, SettingsTab, ViewMode};
+use crate::message::{Message, SettingsMessage, SettingsTab, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
 #[allow(dead_code)]
@@ -69,10 +69,19 @@ impl SettingsView {
         }
     }
 
+    pub fn update(&mut self, message: SettingsMessage) {
+        match message {
+            SettingsMessage::CustomFontInputChanged(input) => {
+                self.custom_font_input = input;
+            }
+        }
+    }
+
     pub fn select_tab(&mut self, tab: SettingsTab) {
         self.active_tab = tab;
     }
 
+    #[allow(dead_code)]
     pub fn set_custom_font_input(&mut self, input: String) {
         self.custom_font_input = input;
     }
@@ -397,7 +406,7 @@ impl SettingsView {
         .size(12)
         .padding([5, 8])
         .style(styles::search_input_style(theme_cfg))
-        .on_input(Message::CustomFontInputChanged)
+        .on_input(|s| Message::Settings(SettingsMessage::CustomFontInputChanged(s)))
         .on_submit(Message::SelectFont(
             self.custom_font_input.trim().to_string()
         ))

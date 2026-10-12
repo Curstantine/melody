@@ -546,11 +546,6 @@ impl App {
                 self.save_config_task()
             }
 
-            Message::TrackHovered(maybe_id) => {
-                self.library.hover_track(maybe_id);
-                Task::none()
-            }
-
             Message::TrackClicked(id) => {
                 if self.library.on_track_click(id) {
                     self.update(Message::PlayTrack(id))
@@ -737,6 +732,11 @@ impl App {
                 ])
             }
 
+            Message::Settings(settings_msg) => {
+                self.settings.update(settings_msg);
+                Task::none()
+            }
+
             Message::SelectSettingsTab(tab) => {
                 self.settings.select_tab(tab);
                 self.save_config_task()
@@ -774,11 +774,6 @@ impl App {
                 };
                 self.theme_manager.set_font(font_opt);
                 self.save_config_task()
-            }
-
-            Message::CustomFontInputChanged(input) => {
-                self.settings.set_custom_font_input(input);
-                Task::none()
             }
 
             Message::ToggleListenBrainz(enabled) => {

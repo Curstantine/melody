@@ -106,6 +106,7 @@ fn test_albums_view_component_state() {
     let covers_to_insert: Vec<(String, Vec<u8>)> = (0..150)
         .map(|i| (format!("Artist:Album_{}", i), dummy_bytes.clone()))
         .collect();
+    albums_view.mark_loading(covers_to_insert.iter().map(|(k, _)| k.clone()));
     albums_view.insert_covers(covers_to_insert);
     assert_eq!(albums_view.album_covers.len(), albums::MAX_ALBUM_COVERS);
     assert_eq!(albums_view.cover_order.len(), albums::MAX_ALBUM_COVERS);
@@ -115,10 +116,12 @@ fn test_albums_view_component_state() {
 
     // Verify LRU recency promotion: re-insert item 30 (which makes it newest), then insert 60 new items.
     // Since MAX_ALBUM_COVERS is 120, the 60 oldest items (31..91) are evicted, but item 30 is retained.
+    albums_view.mark_loading(vec!["Artist:Album_30".to_string()]);
     albums_view.insert_covers(vec![("Artist:Album_30".to_string(), dummy_bytes.clone())]);
     let new_batch: Vec<(String, Vec<u8>)> = (150..210)
         .map(|i| (format!("Artist:Album_{}", i), dummy_bytes.clone()))
         .collect();
+    albums_view.mark_loading(new_batch.iter().map(|(k, _)| k.clone()));
     albums_view.insert_covers(new_batch);
     assert_eq!(albums_view.album_covers.len(), albums::MAX_ALBUM_COVERS);
     assert_eq!(albums_view.cover_order.len(), albums::MAX_ALBUM_COVERS);

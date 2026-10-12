@@ -20,7 +20,6 @@ pub struct LibraryView {
     pub sort_field: SortField,
     pub sort_dir: SortDirection,
     pub selected_track_id: Option<i64>,
-    pub hovered_track_id: Option<i64>,
     pub last_track_click: Option<(i64, std::time::Instant)>,
 }
 
@@ -37,7 +36,6 @@ impl LibraryView {
             sort_field: SortField::Title,
             sort_dir: SortDirection::Ascending,
             selected_track_id: None,
-            hovered_track_id: None,
             last_track_click: None,
         }
     }
@@ -82,10 +80,6 @@ impl LibraryView {
         self.view_mode = mode;
     }
 
-    pub fn hover_track(&mut self, maybe_id: Option<i64>) {
-        self.hovered_track_id = maybe_id;
-    }
-
     /// Handles a track click event. Returns `true` if it's a double-click (meaning playback should start).
     pub fn on_track_click(&mut self, id: i64) -> bool {
         let now = std::time::Instant::now();
@@ -123,7 +117,6 @@ impl LibraryView {
         self.visible_tracks.clear();
         self.total_tracks = 0;
         self.selected_track_id = None;
-        self.hovered_track_id = None;
         self.last_track_click = None;
     }
 
@@ -275,49 +268,17 @@ impl LibraryView {
                     for (idx, track) in self.visible_tracks.iter().enumerate() {
                         let is_active = current_track_id == Some(track.id);
                         let is_selected = self.selected_track_id == Some(track.id);
-                        let is_hovered = self.hovered_track_id == Some(track.id);
                         let display_index = (self.page * self.page_size) + idx + 1;
 
-                        // Left-most action: # index replaced by Play button on hover, or playing status
+                        // Left-most action: # index, or playing speaker indicator if active
                         let left_action: Element<'a, Message> = if is_active {
-                            if is_hovered {
-                                button(
-                                    container(icons::icon(
-                                        if is_playing {
-                                            icons::PAUSE_SVG
-                                        } else {
-                                            icons::PLAY_SVG
-                                        },
-                                        12.0,
-                                        theme_cfg.primary_color(),
-                                    ))
-                                    .width(36)
-                                    .height(24)
-                                    .center_x(36)
-                                    .center_y(24),
-                                )
-                                .style(styles::icon_control_button(theme_cfg))
-                                .padding(0)
-                                .width(36)
-                                .height(24)
-                                .on_press(Message::TogglePlayPause)
-                                .into()
-                            } else {
-                                container(icons::icon(
-                                    icons::SPEAKER_PLAYING_SVG,
-                                    13.0,
-                                    theme_cfg.primary_color(),
-                                ))
-                                .width(36)
-                                .height(24)
-                                .center_x(36)
-                                .center_y(24)
-                                .into()
-                            }
-                        } else if is_hovered {
                             button(
                                 container(icons::icon(
-                                    icons::PLAY_SVG,
+                                    if is_playing {
+                                        icons::PAUSE_SVG
+                                    } else {
+                                        icons::PLAY_SVG
+                                    },
                                     12.0,
                                     theme_cfg.primary_color(),
                                 ))
@@ -330,7 +291,7 @@ impl LibraryView {
                             .padding(0)
                             .width(36)
                             .height(24)
-                            .on_press(Message::PlayTrack(track.id))
+                            .on_press(Message::TogglePlayPause)
                             .into()
                         } else {
                             container(
@@ -380,14 +341,12 @@ impl LibraryView {
                         let row_container = container(track_row)
                             .style(styles::table_row_container(
                                 theme_cfg,
-                                is_active || is_selected || is_hovered,
+                                is_active || is_selected,
                             ))
                             .width(Length::Fill);
 
                         let interactive_row = mouse_area(row_container)
-                            .on_press(Message::TrackClicked(track.id))
-                            .on_enter(Message::TrackHovered(Some(track.id)))
-                            .on_exit(Message::TrackHovered(None));
+                            .on_press(Message::TrackClicked(track.id));
 
                         track_items = track_items.push(interactive_row);
                     }
@@ -405,12 +364,9 @@ impl LibraryView {
                     for track in self.visible_tracks.iter() {
                         let is_active = current_track_id == Some(track.id);
                         let is_selected = self.selected_track_id == Some(track.id);
-                        let is_hovered = self.hovered_track_id == Some(track.id);
 
-                        let disc_box = container(if is_active && !is_hovered {
+                        let disc_box = container(if is_active {
                             icons::icon(icons::SPEAKER_PLAYING_SVG, 32.0, theme_cfg.primary_color())
-                        } else if is_hovered {
-                            icons::icon(icons::PLAY_SVG, 32.0, theme_cfg.primary_color())
                         } else {
                             icons::icon(icons::DISC_SVG, 36.0, theme_cfg.text_muted_color())
                         })
@@ -428,7 +384,7 @@ impl LibraryView {
                                     top_right: 6.0,
                                     bottom_left: 0.0,
                                     bottom_right: 0.0,
-                                },
+                                    },
                                 color: theme_cfg.border_color(),
                                 width: 1.0,
                             },
@@ -490,9 +446,7 @@ impl LibraryView {
                             .width(160);
 
                         let interactive_card = mouse_area(card)
-                            .on_press(Message::TrackClicked(track.id))
-                            .on_enter(Message::TrackHovered(Some(track.id)))
-                            .on_exit(Message::TrackHovered(None));
+                            .on_press(Message::TrackClicked(track.id));
 
                         tiles_wrap = tiles_wrap.push(interactive_card);
                     }

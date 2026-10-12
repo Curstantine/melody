@@ -48,6 +48,11 @@ pub enum SettingsTab {
     Scrobbling,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SettingsMessage {
+    CustomFontInputChanged(String),
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Message {
@@ -74,7 +79,6 @@ pub enum Message {
 
     // Track interactions
     TrackClicked(i64),
-    TrackHovered(Option<i64>),
 
     // Library & Pagination
     SearchInputChanged(String),
@@ -98,11 +102,11 @@ pub enum Message {
     AlbumCoverChunkLoaded(Vec<(String, Vec<u8>)>, Vec<(String, PathBuf)>),
 
     // Themes & Settings
+    Settings(SettingsMessage),
     SelectSettingsTab(SettingsTab),
     SelectTheme(String),
     ReloadThemes,
     SelectFont(String),
-    CustomFontInputChanged(String),
     ConfigSaved,
 
     // Scrobbling
