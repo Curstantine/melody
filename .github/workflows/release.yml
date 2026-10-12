@@ -66,6 +66,8 @@ jobs:
             libavutil-dev \
             libswresample-dev \
             libswscale-dev \
+            libavfilter-dev \
+            libavdevice-dev \
             ffmpeg
 
       # --- Windows Dependencies ---
