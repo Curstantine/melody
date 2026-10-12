@@ -1208,20 +1208,16 @@ impl App {
             let is_dragging = self.dragging_tab == Some(tab);
             let is_hovered = self.hovered_tab == Some(tab);
 
+            let tab_icon_color = if is_selected || is_dragging {
+                theme_cfg.primary_color()
+            } else if is_hovered {
+                theme_cfg.text_color()
+            } else {
+                theme_cfg.text_muted_color()
+            };
+
             let tab_inner = row![
-                icons::icon(
-                    icons::DRAG_HANDLE_SVG,
-                    10.0,
-                    if is_dragging {
-                        theme_cfg.primary_color()
-                    } else if is_selected {
-                        theme_cfg.primary_color().scale_alpha(0.7)
-                    } else if is_hovered {
-                        theme_cfg.text_color().scale_alpha(0.6)
-                    } else {
-                        theme_cfg.text_muted_color().scale_alpha(0.35)
-                    },
-                ),
+                icons::icon(tab.icon_svg(), 12.0, tab_icon_color),
                 text(theme_cfg, tab.label())
                     .size(11)
                     .color(if is_selected || is_dragging {
@@ -1232,7 +1228,7 @@ impl App {
                         theme_cfg.text_muted_color()
                     }),
             ]
-            .spacing(5)
+            .spacing(6)
             .align_y(iced::Alignment::Center);
 
             let tab_container =
@@ -1254,11 +1250,7 @@ impl App {
                     Message::TabHovered(Some(tab))
                 })
                 .on_exit(Message::TabHovered(None))
-                .interaction(if is_dragging {
-                    iced::mouse::Interaction::Grabbing
-                } else {
-                    iced::mouse::Interaction::Grab
-                })
+                .interaction(iced::mouse::Interaction::Pointer)
                 .into()
         });
 

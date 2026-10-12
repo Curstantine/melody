@@ -528,104 +528,10 @@ impl SettingsView {
             .spacing(8),
         );
 
-        let tab_order_card = {
-            let mut tabs_row = row![].spacing(8).align_y(Alignment::Center);
-            for (idx, &tab) in ctx.tab_order.iter().enumerate() {
-                let can_move_left = idx > 0;
-                let can_move_right = idx + 1 < ctx.tab_order.len();
-
-                let left_btn = button(icons::icon(
-                    icons::ARROW_LEFT_SVG,
-                    12.0,
-                    if can_move_left {
-                        theme_cfg.text_color()
-                    } else {
-                        theme_cfg.text_muted_color().scale_alpha(0.3)
-                    },
-                ))
-                .padding([4, 6])
-                .style(styles::icon_control_button(theme_cfg));
-
-                let left_btn = if can_move_left {
-                    left_btn.on_press(Message::MoveTab(tab, true))
-                } else {
-                    left_btn
-                };
-
-                let right_btn = button(icons::icon(
-                    icons::ARROW_RIGHT_SVG,
-                    12.0,
-                    if can_move_right {
-                        theme_cfg.text_color()
-                    } else {
-                        theme_cfg.text_muted_color().scale_alpha(0.3)
-                    },
-                ))
-                .padding([4, 6])
-                .style(styles::icon_control_button(theme_cfg));
-
-                let right_btn = if can_move_right {
-                    right_btn.on_press(Message::MoveTab(tab, false))
-                } else {
-                    right_btn
-                };
-
-                let chip = container(
-                    row![
-                        icons::icon(icons::DRAG_HANDLE_SVG, 11.0, theme_cfg.primary_color()),
-                        Space::with_width(4),
-                        text(theme_cfg, tab.label())
-                            .size(12)
-                            .color(theme_cfg.text_color()),
-                        Space::with_width(6),
-                        left_btn,
-                        right_btn,
-                    ]
-                    .align_y(Alignment::Center),
-                )
-                .padding([4, 8])
-                .style(styles::table_row_container(theme_cfg, true));
-
-                tabs_row = tabs_row.push(chip);
-            }
-
-            let reset_btn = button(
-                row![
-                    icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.text_muted_color()),
-                    Space::with_width(6),
-                    text(theme_cfg, "Reset Order")
-                        .size(11)
-                        .color(theme_cfg.text_muted_color()),
-                ]
-                .align_y(Alignment::Center),
-            )
-            .padding([5, 10])
-            .style(styles::icon_control_button(theme_cfg))
-            .on_press(Message::ResetTabOrder);
-
-            tabs_row = tabs_row.push(reset_btn);
-
-            components::settings_card(
-                theme_cfg,
-                "Navigation Tab Order",
-                column![
-                    text(
-                        theme_cfg,
-                        "Reorder the tabs shown in the top navigation bar. You can also drag and drop tabs directly in the top bar."
-                    )
-                    .size(12)
-                    .color(theme_cfg.text_muted_color()),
-                    tabs_row,
-                ]
-                .spacing(10),
-            )
-        };
-
         column![
             header,
             themes_card,
             font_card,
-            tab_order_card,
             view_modes_card,
             density_card,
             Space::with_height(20),

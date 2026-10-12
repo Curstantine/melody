@@ -2,6 +2,8 @@
 
 use std::path::PathBuf;
 
+#[path = "../src/icons.rs"]
+mod icons;
 #[path = "../src/config.rs"]
 mod config;
 #[path = "../src/message.rs"]

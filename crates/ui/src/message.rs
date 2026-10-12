@@ -24,6 +24,16 @@ impl ViewTab {
             ViewTab::Settings => "Settings",
         }
     }
+
+    pub fn icon_svg(&self) -> &'static str {
+        match self {
+            ViewTab::Tracks => crate::icons::MUSIC_NOTE_SVG,
+            ViewTab::Lyrics => crate::icons::SPEAKER_PLAYING_SVG,
+            ViewTab::Albums => crate::icons::ALBUM_SVG,
+            ViewTab::Artists => crate::icons::USER_AVATAR_SVG,
+            ViewTab::Settings => crate::icons::SETTINGS_SVG,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
