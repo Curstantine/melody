@@ -80,7 +80,7 @@ impl PlayerBar {
         let track_section = row![cover_art, Space::with_width(10), track_details]
             .spacing(2)
             .align_y(Alignment::Center)
-            .width(380);
+            .width(480);
 
         // 2. Center: Controls and Seek Bar
         let prev_btn = button(icons::icon(icons::PREV_SVG, 15.0, bar_fg))
