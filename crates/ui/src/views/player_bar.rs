@@ -58,10 +58,14 @@ impl PlayerBar {
 
         let track_details = match current_track {
             Some(track) => column![
-                text(theme_cfg, &track.title).size(13).color(bar_fg),
-                text(theme_cfg, format!("{} • {}", track.artist, track.album))
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
+                components::Marquee::new(&track.title)
+                    .size(13.0)
+                    .color(bar_fg)
+                    .font(theme_cfg.font()),
+                components::Marquee::new(format!("{} • {}", track.artist, track.album))
+                    .size(11.0)
+                    .color(theme_cfg.text_muted_color())
+                    .font(theme_cfg.font()),
             ],
             None => column![
                 text(theme_cfg, "No track playing").size(13).color(bar_fg),

@@ -9,7 +9,10 @@ use crate::theme::{styles, ThemeConfig};
 
 use std::borrow::Cow;
 
+pub mod marquee;
 pub mod spinner;
+#[allow(unused_imports)]
+pub use marquee::Marquee;
 pub use spinner::Spinner;
 
 /// A text widget configured with adaptive text shaping:
