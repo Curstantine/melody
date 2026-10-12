@@ -1,10 +1,11 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use iced::advanced::text::Paragraph;
-use iced::advanced::{
-    layout, mouse, renderer, text, widget::Tree, Clipboard, Layout, Shell, Widget,
+use iced::advanced::widget::tree::{self, Tree};
+use iced::advanced::{layout, mouse, renderer, text, Clipboard, Layout, Shell, Widget};
+use iced::{
+    alignment, event, window, Color, Element, Event, Font, Length, Pixels, Point, Rectangle, Size,
 };
-use iced::{event, window, Color, Element, Event, Font, Length, Pixels, Point, Rectangle, Size};
 
 /// An auto-scrolling single-line marquee widget.
 /// When the text width exceeds the available container width, it smoothly scrolls horizontally
@@ -63,34 +64,56 @@ impl Marquee {
     }
 }
 
+pub struct State<P: Paragraph> {
+    paragraph: text::paragraph::Plain<P>,
+}
+
+impl<P: Paragraph> Default for State<P> {
+    fn default() -> Self {
+        Self {
+            paragraph: text::paragraph::Plain::default(),
+        }
+    }
+}
+
 impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer> for Marquee
 where
     Renderer: text::Renderer<Font = Font>,
 {
+    fn tag(&self) -> tree::Tag {
+        tree::Tag::of::<State<Renderer::Paragraph>>()
+    }
+
+    fn state(&self) -> tree::State {
+        tree::State::new(State::<Renderer::Paragraph>::default())
+    }
+
     fn size(&self) -> Size<Length> {
         Size::new(Length::Fill, Length::Shrink)
     }
 
-    fn layout(&self, _tree: &mut Tree, _renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
+    fn layout(&self, tree: &mut Tree, _renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
+        let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
+
         let shaping = if self.content.is_ascii() {
             iced::widget::text::Shaping::Basic
         } else {
             iced::widget::text::Shaping::Advanced
         };
 
-        let paragraph = <Renderer::Paragraph as Paragraph>::with_text(iced::advanced::text::Text {
+        state.paragraph.update(iced::advanced::text::Text {
             content: self.content.as_str(),
-            bounds: Size::INFINITY,
+            bounds: Size::new(f32::INFINITY, f32::INFINITY),
             size: self.size,
             line_height: iced::widget::text::LineHeight::default(),
             font: self.font,
-            horizontal_alignment: iced::alignment::Horizontal::Left,
-            vertical_alignment: iced::alignment::Vertical::Center,
+            horizontal_alignment: alignment::Horizontal::Left,
+            vertical_alignment: alignment::Vertical::Top,
             shaping,
             wrapping: iced::widget::text::Wrapping::None,
         });
 
-        let height = paragraph.min_height();
+        let height = state.paragraph.raw().min_height().max(self.size.0);
 
         let node_size = limits
             .width(Length::Fill)
@@ -119,7 +142,7 @@ where
 
     fn draw(
         &self,
-        _tree: &Tree,
+        tree: &Tree,
         renderer: &mut Renderer,
         _theme: &Theme,
         _style: &renderer::Style,
@@ -127,34 +150,19 @@ where
         _cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
+        let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
+        let paragraph = state.paragraph.raw();
+
         let bounds = layout.bounds();
         let clip_rect = bounds.intersection(viewport).unwrap_or(bounds);
 
-        let shaping = if self.content.is_ascii() {
-            iced::widget::text::Shaping::Basic
-        } else {
-            iced::widget::text::Shaping::Advanced
-        };
-
-        let paragraph = <Renderer::Paragraph as Paragraph>::with_text(iced::advanced::text::Text {
-            content: self.content.as_str(),
-            bounds: Size::INFINITY,
-            size: self.size,
-            line_height: iced::widget::text::LineHeight::default(),
-            font: self.font,
-            horizontal_alignment: iced::alignment::Horizontal::Left,
-            vertical_alignment: iced::alignment::Vertical::Center,
-            shaping,
-            wrapping: iced::widget::text::Wrapping::None,
-        });
-
         let text_w = paragraph.min_width();
-        let text_h = paragraph.min_height();
+        let text_h = paragraph.min_height().max(self.size.0);
         let y_pos = bounds.y + (bounds.height - text_h) / 2.0;
 
         if text_w <= bounds.width {
             // Text fits cleanly without overflowing
-            renderer.fill_paragraph(&paragraph, Point::new(bounds.x, y_pos), self.color, clip_rect);
+            renderer.fill_paragraph(paragraph, Point::new(bounds.x, y_pos), self.color, *viewport);
             return;
         }
 
@@ -181,15 +189,16 @@ where
             (active_ms as f32 / 1000.0) * self.speed_px_per_sec
         };
 
-        // Draw primary copy
-        let x1 = bounds.x - offset_x;
-        renderer.fill_paragraph(&paragraph, Point::new(x1, y_pos), self.color, clip_rect);
+        // Clip to the bounds of the marquee widget
+        renderer.with_layer(clip_rect, |renderer| {
+            let x1 = bounds.x - offset_x;
+            renderer.fill_paragraph(paragraph, Point::new(x1, y_pos), self.color, clip_rect);
 
-        // Draw following looping copy once primary starts moving
-        if offset_x > 0.0 {
-            let x2 = x1 + cycle_distance;
-            renderer.fill_paragraph(&paragraph, Point::new(x2, y_pos), self.color, clip_rect);
-        }
+            if offset_x > 0.0 {
+                let x2 = x1 + cycle_distance;
+                renderer.fill_paragraph(paragraph, Point::new(x2, y_pos), self.color, clip_rect);
+            }
+        });
     }
 }
 
