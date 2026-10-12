@@ -130,7 +130,6 @@ struct LoadedTrack {
     input: Input,
     decoder: ffmpeg_next::codec::decoder::Audio,
     stream_index: usize,
-    time_base: ffmpeg_next::Rational,
     resampler: ResamplerContext,
     reached_eof: bool,
     decoded_frame: AudioFrame,
@@ -543,6 +542,21 @@ fn audio_callback_u16(
     }
 }
 
+fn flush_audio_buffer(flush_flag: &Option<Arc<AtomicBool>>) {
+    if let Some(ref f) = flush_flag {
+        f.store(true, Ordering::SeqCst);
+        let start = std::time::Instant::now();
+        while f.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(1));
+            if start.elapsed() > Duration::from_millis(100) {
+                warn!("Audio buffer flush timed out after 100ms");
+                f.store(false, Ordering::SeqCst);
+                break;
+            }
+        }
+    }
+}
+
 fn handle_command(
     cmd: AudioCommand,
     status: &AudioStatus,
@@ -557,17 +571,15 @@ fn handle_command(
             info!("Loading audio file: {:?}", path);
             match load_track(&path, device_sample_rate, device_channels) {
                 Ok((track, duration_ms)) => {
+                    // Flush any stale audio from the previous track and wait for the consumer
+                    // callback to acknowledge it before loading the new track and decoding samples.
+                    flush_audio_buffer(flush_flag);
+
                     *loaded_track = Some(track);
                     status.set_duration_ms(duration_ms);
                     status.set_position_ms(0);
                     status.set_loaded(true);
                     status.set_ended(false);
-
-                    // Signal the CPAL callback to clear its consumer-side buffer.
-                    if let Some(ref f) = flush_flag {
-                        f.store(true, Ordering::SeqCst);
-                    }
-
                     status.set_playing(autoplay);
                     info!("Track loaded successfully. Autoplay: {}", autoplay);
                 }
@@ -598,26 +610,22 @@ fn handle_command(
                 let _ = track.input.seek(0, ..);
                 track.decoder.flush();
                 track.reached_eof = false;
+                track.samples_buf.clear();
             }
-            if let Some(ref f) = flush_flag {
-                f.store(true, Ordering::SeqCst);
-            }
+            flush_audio_buffer(flush_flag);
         }
         AudioCommand::Seek(duration) => {
             if let Some(track) = loaded_track.as_mut() {
+                // ffmpeg-next input.seek passes stream_index = -1 to avformat_seek_file,
+                // which expects timestamp in AV_TIME_BASE units (microseconds).
                 let seek_micros = duration.as_micros() as i64;
-                let seek_pts = (seek_micros as f64
-                    * (f64::from(track.time_base.denominator())
-                        / (f64::from(track.time_base.numerator()) * 1_000_000.0)))
-                    as i64;
 
-                match track.input.seek(seek_pts, ..) {
+                match track.input.seek(seek_micros, ..) {
                     Ok(_) => {
                         track.decoder.flush();
                         track.reached_eof = false;
-                        if let Some(ref f) = flush_flag {
-                            f.store(true, Ordering::SeqCst);
-                        }
+                        track.samples_buf.clear();
+                        flush_audio_buffer(flush_flag);
                         status.set_position_ms(duration.as_millis() as u64);
                         info!("Seeked to {:?}", duration);
                     }
@@ -696,7 +704,6 @@ fn load_track(
         input,
         decoder,
         stream_index,
-        time_base,
         resampler,
         reached_eof: false,
         decoded_frame: AudioFrame::empty(),

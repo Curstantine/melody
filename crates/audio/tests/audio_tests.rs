@@ -92,3 +92,55 @@ fn test_audio_converter_unaligned_packet_residuals() {
     converter.flush(&mut output_flush);
     assert!(!output_flush.is_empty());
 }
+
+#[test]
+fn test_ring_buffer_flush_synchronization() {
+    use ringbuf::traits::{Consumer, Producer, Split};
+    use ringbuf::HeapRb;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use std::thread;
+    use std::time::Duration;
+
+    let rb = HeapRb::<f32>::new(1024);
+    let (mut producer, mut consumer) = rb.split();
+    let flush_flag = Arc::new(AtomicBool::new(false));
+
+    // Simulate old track samples in the buffer
+    let old_samples = vec![1.0f32; 256];
+    producer.push_slice(&old_samples);
+
+    // Simulate worker requesting a flush
+    let flush_flag_worker = flush_flag.clone();
+    flush_flag_worker.store(true, Ordering::SeqCst);
+
+    // Simulate callback clearing when it sees the flush flag
+    let handle = thread::spawn(move || {
+        thread::sleep(Duration::from_millis(5));
+        if flush_flag.swap(false, Ordering::SeqCst) {
+            consumer.clear();
+        }
+        consumer
+    });
+
+    // Worker waits for flush acknowledgment
+    let start = std::time::Instant::now();
+    while flush_flag_worker.load(Ordering::SeqCst) {
+        thread::sleep(Duration::from_millis(1));
+        if start.elapsed() > Duration::from_millis(100) {
+            panic!("Flush timed out");
+        }
+    }
+
+    // Now worker pushes the new track's samples starting at 0:00
+    let new_samples = vec![0.5f32; 128];
+    producer.push_slice(&new_samples);
+
+    let mut consumer = handle.join().unwrap();
+    // Consumer callback reads the new track's samples from the very beginning
+    let mut read_buf = vec![0.0f32; 128];
+    let read = consumer.pop_slice(&mut read_buf);
+    assert_eq!(read, 128);
+    assert_eq!(read_buf, new_samples);
+}
+
