@@ -364,3 +364,64 @@ async fn test_library_folders_and_clear_tracks() {
     assert_eq!(cleared, 1);
     assert_eq!(db.get_total_track_count(None).await.unwrap(), 0);
 }
+
+#[tokio::test]
+async fn test_scan_directory_symlink_traversal() {
+    let base_temp = std::env::temp_dir().join(format!("vibecore_test_scan_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+    let real_dir = base_temp.join("real_music");
+    let scan_dir = base_temp.join("library_root");
+    let _ = std::fs::create_dir_all(&real_dir);
+    let _ = std::fs::create_dir_all(&scan_dir);
+
+    // Create a symlink to real_dir inside scan_dir
+    let symlinked_folder = scan_dir.join("symlinked_artists");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&real_dir, &symlinked_folder).expect("symlink creation failed");
+
+    // Put a dummy audio file in real_dir
+    let track_path = real_dir.join("song.mp3");
+    std::fs::write(&track_path, b"test audio content").expect("write failed");
+
+    let db = LibraryDatabase::in_memory()
+        .await
+        .expect("Failed to create in-memory db");
+
+    let summary = db
+        .scan_directory(&scan_dir, None::<fn(usize, usize)>)
+        .await
+        .expect("Scan directory failed");
+
+    // The file inside the symlinked directory was traversed and processed
+    assert!(summary.scanned_files >= 1);
+
+    let _ = std::fs::remove_dir_all(&base_temp);
+}
+
+#[tokio::test]
+async fn test_insert_track_with_non_utf8_and_null_bytes() {
+    let db = LibraryDatabase::in_memory()
+        .await
+        .expect("Failed to create in-memory db");
+
+    // Construct a title with CP1252 / invalid UTF-8 byte (0x92 = right single quote in CP1252) and null byte
+    let raw_bytes = b"the 8 o\x92clock\x00 news is going crazy";
+    let sanitized = player_core::metadata::sanitize_tag_bytes(raw_bytes);
+    assert_eq!(sanitized, "the 8 o’clock news is going crazy");
+
+    let track = NewTrack {
+        file_path: "/music/test_track\x00.wav".to_string(),
+        title: sanitized,
+        artist: "KRAL".to_string(),
+        album: "全部大コンピ, Vol.05".to_string(),
+        duration_ms: 180000,
+        ..Default::default()
+    };
+
+    // Both single insert and batch insert must succeed without "TEXT value contains invalid UTF-8"
+    let id = db.insert_or_update_track(&track).await.expect("Single insert failed");
+    assert!(id > 0);
+
+    let batch = vec![track.clone()];
+    let inserted = db.insert_tracks_batch(&batch).await.expect("Batch insert failed");
+    assert_eq!(inserted, 1);
+}

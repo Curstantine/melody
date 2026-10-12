@@ -189,21 +189,21 @@ impl LibraryDatabase {
                 musicbrainz_album_id = excluded.musicbrainz_album_id
             "#,
                 params![
-                    track.file_path.clone(),
-                    track.title.clone(),
-                    track.artist.clone(),
-                    track.album_artist.clone(),
-                    track.album.clone(),
-                    track.genre.clone(),
+                    sanitize_db_text(&track.file_path),
+                    sanitize_db_text(&track.title),
+                    sanitize_db_text(&track.artist),
+                    track.album_artist.as_deref().map(sanitize_db_text),
+                    sanitize_db_text(&track.album),
+                    track.genre.as_deref().map(sanitize_db_text),
                     track.duration_ms as i64,
                     track.track_num.map(|n| n as i64),
                     track.disc_num.map(|n| n as i64),
                     track.year.map(|n| n as i64),
-                    track.composer.clone(),
-                    track.label.clone(),
-                    track.musicbrainz_track_id.clone(),
-                    track.musicbrainz_artist_id.clone(),
-                    track.musicbrainz_album_id.clone(),
+                    track.composer.as_deref().map(sanitize_db_text),
+                    track.label.as_deref().map(sanitize_db_text),
+                    track.musicbrainz_track_id.as_deref().map(sanitize_db_text),
+                    track.musicbrainz_artist_id.as_deref().map(sanitize_db_text),
+                    track.musicbrainz_album_id.as_deref().map(sanitize_db_text),
                     now,
                 ],
             )
@@ -251,21 +251,21 @@ impl LibraryDatabase {
                     musicbrainz_album_id = excluded.musicbrainz_album_id
                 "#,
                 params![
-                    track.file_path.clone(),
-                    track.title.clone(),
-                    track.artist.clone(),
-                    track.album_artist.clone(),
-                    track.album.clone(),
-                    track.genre.clone(),
+                    sanitize_db_text(&track.file_path),
+                    sanitize_db_text(&track.title),
+                    sanitize_db_text(&track.artist),
+                    track.album_artist.as_deref().map(sanitize_db_text),
+                    sanitize_db_text(&track.album),
+                    track.genre.as_deref().map(sanitize_db_text),
                     track.duration_ms as i64,
                     track.track_num.map(|n| n as i64),
                     track.disc_num.map(|n| n as i64),
                     track.year.map(|n| n as i64),
-                    track.composer.clone(),
-                    track.label.clone(),
-                    track.musicbrainz_track_id.clone(),
-                    track.musicbrainz_artist_id.clone(),
-                    track.musicbrainz_album_id.clone(),
+                    track.composer.as_deref().map(sanitize_db_text),
+                    track.label.as_deref().map(sanitize_db_text),
+                    track.musicbrainz_track_id.as_deref().map(sanitize_db_text),
+                    track.musicbrainz_artist_id.as_deref().map(sanitize_db_text),
+                    track.musicbrainz_album_id.as_deref().map(sanitize_db_text),
                     now,
                 ],
             )
@@ -624,7 +624,7 @@ impl LibraryDatabase {
 
         let mut batch = Vec::with_capacity(100);
 
-        for entry in WalkDir::new(dir_path).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(dir_path).follow_links(true).into_iter().filter_map(|e| e.ok()) {
             let path = entry.path();
             if path.is_file() {
                 if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
@@ -635,8 +635,27 @@ impl LibraryDatabase {
                             Ok(track) => {
                                 batch.push(track);
                                 if batch.len() >= 100 {
-                                    let inserted = self.insert_tracks_batch(&batch).await?;
-                                    summary.inserted_tracks += inserted;
+                                    match self.insert_tracks_batch(&batch).await {
+                                        Ok(inserted) => {
+                                            summary.inserted_tracks += inserted;
+                                        }
+                                        Err(e) => {
+                                            warn!(
+                                                "Batch insertion failed for {} tracks: {}. Falling back to individual inserts...",
+                                                batch.len(),
+                                                e
+                                            );
+                                            for t in &batch {
+                                                match self.insert_or_update_track(t).await {
+                                                    Ok(_) => summary.inserted_tracks += 1,
+                                                    Err(err) => {
+                                                        warn!("Failed to insert track {:?}: {}", t.file_path, err);
+                                                        summary.failed_files += 1;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                     batch.clear();
                                     if let Some(ref cb) = progress_cb {
                                         cb(summary.scanned_files, summary.inserted_tracks);
@@ -654,8 +673,27 @@ impl LibraryDatabase {
         }
 
         if !batch.is_empty() {
-            let inserted = self.insert_tracks_batch(&batch).await?;
-            summary.inserted_tracks += inserted;
+            match self.insert_tracks_batch(&batch).await {
+                Ok(inserted) => {
+                    summary.inserted_tracks += inserted;
+                }
+                Err(e) => {
+                    warn!(
+                        "Final batch insertion failed for {} tracks: {}. Falling back to individual inserts...",
+                        batch.len(),
+                        e
+                    );
+                    for t in &batch {
+                        match self.insert_or_update_track(t).await {
+                            Ok(_) => summary.inserted_tracks += 1,
+                            Err(err) => {
+                                warn!("Failed to insert track {:?}: {}", t.file_path, err);
+                                summary.failed_files += 1;
+                            }
+                        }
+                    }
+                }
+            }
             if let Some(ref cb) = progress_cb {
                 cb(summary.scanned_files, summary.inserted_tracks);
             }
@@ -702,4 +740,14 @@ fn map_track_row(row: &Row) -> Result<Track, DbError> {
         musicbrainz_album_id: row.get(15)?,
         added_timestamp: row.get(16)?,
     })
+}
+
+fn sanitize_db_text(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let filtered: Vec<u8> = bytes.iter().copied().filter(|&b| b != 0).collect();
+    if let Ok(v) = std::str::from_utf8(&filtered) {
+        v.to_string()
+    } else {
+        String::from_utf8_lossy(&filtered).to_string()
+    }
 }

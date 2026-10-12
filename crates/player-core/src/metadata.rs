@@ -206,7 +206,7 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
     let mut musicbrainz_album_id: Option<String> = None;
 
     let mut parse_tag = |key: &str, val_str: &str| {
-        let val = val_str.trim().to_string();
+        let val = sanitize_tag_string(val_str);
         if val.is_empty() {
             return;
         }
@@ -291,16 +291,16 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
 
     let default_title = path
         .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("Unknown Title")
-        .to_string();
+        .map(|s| s.to_string_lossy().to_string())
+        .map(|s| s.replace('\0', ""))
+        .unwrap_or_else(|| "Unknown Title".to_string());
 
     let title = title.unwrap_or(default_title);
     let artist = artist.unwrap_or_else(|| "Unknown Artist".to_string());
     let album = album.unwrap_or_else(|| "Unknown Album".to_string());
 
     Ok(NewTrack {
-        file_path: path.to_string_lossy().to_string(),
+        file_path: path.to_string_lossy().replace('\0', ""),
         title,
         artist,
         album_artist,
@@ -316,6 +316,54 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
         musicbrainz_artist_id,
         musicbrainz_album_id,
     })
+}
+
+pub fn sanitize_tag_string(raw: &str) -> String {
+    sanitize_tag_bytes(raw.as_bytes())
+}
+
+pub fn sanitize_tag_bytes(bytes: &[u8]) -> String {
+    let filtered: Vec<u8> = bytes.iter().copied().filter(|&b| b != 0).collect();
+
+    if let Ok(valid) = std::str::from_utf8(&filtered) {
+        return valid.trim().to_string();
+    }
+
+    let has_consecutive_non_ascii = filtered.windows(2).any(|w| w[0] >= 0x80 && w[1] >= 0x80);
+
+    // If there are consecutive non-ASCII bytes, it's typically multibyte Asian text (GBK/Shift-JIS)
+    if has_consecutive_non_ascii {
+        let (cow_gbk, had_errors_gbk) =
+            encoding_rs::GB18030.decode_without_bom_handling(&filtered);
+        if !had_errors_gbk {
+            return cow_gbk.trim().to_string();
+        }
+
+        let (cow_sjis, had_errors_sjis) =
+            encoding_rs::SHIFT_JIS.decode_without_bom_handling(&filtered);
+        if !had_errors_sjis {
+            return cow_sjis.trim().to_string();
+        }
+    }
+
+    // Try Windows-1252 (CP1252 covers smart quotes like 0x92, dashes, accented Latin)
+    let (cow_1252, had_errors_1252) =
+        encoding_rs::WINDOWS_1252.decode_without_bom_handling(&filtered);
+    if !had_errors_1252 {
+        return cow_1252.trim().to_string();
+    }
+
+    // If not tried yet, try GB18030
+    if !has_consecutive_non_ascii {
+        let (cow_gbk, had_errors_gbk) =
+            encoding_rs::GB18030.decode_without_bom_handling(&filtered);
+        if !had_errors_gbk {
+            return cow_gbk.trim().to_string();
+        }
+    }
+
+    // Safe fallback: Lossy UTF-8
+    String::from_utf8_lossy(&filtered).trim().to_string()
 }
 
 fn parse_year(val: &str) -> Option<u32> {

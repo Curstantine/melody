@@ -10,8 +10,8 @@ use tracing::debug;
 use crate::metadata::extract_cover_art;
 use crate::paths;
 
-/// Default max dimension for cached album thumbnails
-pub const DEFAULT_THUMBNAIL_SIZE: u32 = 200;
+pub const THUMB_DIM_DEFAULT: u32 = 256;
+pub const THUMB_DIM_HIGH: u32 = 512;
 
 /// Returns the platform-specific directory where cover thumbnails are cached on disk
 pub fn thumbnail_cache_dir() -> PathBuf {

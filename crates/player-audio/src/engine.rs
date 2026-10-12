@@ -664,8 +664,21 @@ fn load_track(
     let decoder = context_decoder.decoder().audio()?;
 
     let src_format = decoder.format();
-    let src_channel_layout = decoder.channel_layout();
-    let src_rate = decoder.rate();
+    let src_channel_layout = if decoder.channel_layout().is_empty() {
+        let ch = if decoder.channels() > 0 {
+            decoder.channels() as usize
+        } else {
+            2
+        };
+        target_channel_layout(ch)
+    } else {
+        decoder.channel_layout()
+    };
+    let src_rate = if decoder.rate() > 0 {
+        decoder.rate()
+    } else {
+        44100
+    };
 
     let dst_format = Sample::F32(SampleType::Packed);
     let dst_channel_layout = target_channel_layout(dst_channels);

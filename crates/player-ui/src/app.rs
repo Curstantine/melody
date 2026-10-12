@@ -333,8 +333,9 @@ impl App {
                     info!("Playing track: {} (ID {})", track.title, track.id);
                     let path = PathBuf::from(&track.file_path);
 
-                    let cover_bytes = player_core::get_or_create_thumbnail(&path, 500)
-                        .or_else(|| player_core::extract_cover_art(&path));
+                    let cover_bytes =
+                        player_core::get_or_create_thumbnail(&path, player_core::THUMB_DIM_HIGH)
+                            .or_else(|| player_core::extract_cover_art(&path));
 
                     if let Some(ref bytes) = cover_bytes {
                         self.current_blurred_cover = player_core::generate_blurred_cover(bytes)
@@ -358,9 +359,12 @@ impl App {
                     let next_track_opt = self.get_next_track();
                     self.current_next_cover = next_track_opt.and_then(|nt| {
                         let nt_path = PathBuf::from(&nt.file_path);
-                        player_core::get_or_create_thumbnail(&nt_path, 200)
-                            .or_else(|| player_core::extract_cover_art(&nt_path))
-                            .map(image::Handle::from_bytes)
+                        player_core::get_or_create_thumbnail(
+                            &nt_path,
+                            player_core::THUMB_DIM_DEFAULT,
+                        )
+                        .or_else(|| player_core::extract_cover_art(&nt_path))
+                        .map(image::Handle::from_bytes)
                     });
 
                     let lyrics = self
@@ -1200,7 +1204,10 @@ impl App {
                 tokio::task::spawn_blocking(move || {
                     let mut results = Vec::with_capacity(chunk.len());
                     for (key, path) in chunk {
-                        if let Some(bytes) = player_core::get_or_create_thumbnail(&path, 200) {
+                        if let Some(bytes) = player_core::get_or_create_thumbnail(
+                            &path,
+                            player_core::THUMB_DIM_DEFAULT,
+                        ) {
                             results.push((key, bytes));
                         }
                     }

@@ -4658,6 +4658,7 @@ name = "player-core"
 version = "0.1.0"
 dependencies = [
  "directories",
+ "encoding_rs",
  "ffmpeg-next",
  "image",
  "serde",
