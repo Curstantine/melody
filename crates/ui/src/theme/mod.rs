@@ -240,6 +240,7 @@ pub struct ThemeManager {
     pub themes: HashMap<String, ThemeConfig>,
     pub active_theme_name: String,
     pub current_config: ThemeConfig,
+    cached_theme_names: Vec<String>,
 }
 
 impl Default for ThemeManager {
@@ -254,6 +255,7 @@ impl ThemeManager {
             themes: HashMap::new(),
             active_theme_name: "Default".to_string(),
             current_config: ThemeConfig::default(),
+            cached_theme_names: Vec::new(),
         };
 
         manager.load_all_themes();
@@ -284,6 +286,10 @@ impl ThemeManager {
                 self.current_config.font_family = saved_font;
             }
         }
+
+        let mut names: Vec<String> = self.themes.keys().cloned().collect();
+        names.sort();
+        self.cached_theme_names = names;
     }
 
     fn load_from_folder(&mut self, folder: &Path) {
@@ -334,9 +340,7 @@ impl ThemeManager {
         self.current_config.font_family = font_name;
     }
 
-    pub fn theme_names(&self) -> Vec<String> {
-        let mut names: Vec<String> = self.themes.keys().cloned().collect();
-        names.sort();
-        names
+    pub fn theme_names(&self) -> &[String] {
+        &self.cached_theme_names
     }
 }

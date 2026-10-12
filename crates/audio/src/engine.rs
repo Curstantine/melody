@@ -21,9 +21,9 @@ use tracing::{error, info, warn};
 use crate::commands::AudioCommand;
 use crate::status::AudioStatus;
 
-/// 3 seconds of stereo f32 at 48 kHz: 48_000 * 2 * 3 = 288_000 samples.
-/// Rounded up to the next power of two for ringbuf efficiency.
-const RING_BUFFER_CAPACITY: usize = 524_288;
+/// ~1.5 seconds of stereo f32 at 48 kHz: 48_000 * 2 * 1.5 = 144_000 samples.
+/// Rounded up to the next power of two for ringbuf efficiency (2^18).
+const RING_BUFFER_CAPACITY: usize = 262_144;
 
 #[derive(Error, Debug)]
 pub enum AudioEngineError {
@@ -387,36 +387,44 @@ fn setup_cpal_stream(
             err_fn,
             None,
         )?,
-        cpal::SampleFormat::I16 => device.build_output_stream(
-            &config.into(),
-            move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
-                audio_callback_i16(
-                    data,
-                    &mut consumer,
-                    &flush_cb,
-                    &status_cb,
-                    sample_rate,
-                    channels,
-                );
-            },
-            err_fn,
-            None,
-        )?,
-        cpal::SampleFormat::U16 => device.build_output_stream(
-            &config.into(),
-            move |data: &mut [u16], _: &cpal::OutputCallbackInfo| {
-                audio_callback_u16(
-                    data,
-                    &mut consumer,
-                    &flush_cb,
-                    &status_cb,
-                    sample_rate,
-                    channels,
-                );
-            },
-            err_fn,
-            None,
-        )?,
+        cpal::SampleFormat::I16 => {
+            let mut scratch = Vec::<f32>::new();
+            device.build_output_stream(
+                &config.into(),
+                move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
+                    audio_callback_i16(
+                        data,
+                        &mut consumer,
+                        &mut scratch,
+                        &flush_cb,
+                        &status_cb,
+                        sample_rate,
+                        channels,
+                    );
+                },
+                err_fn,
+                None,
+            )?
+        }
+        cpal::SampleFormat::U16 => {
+            let mut scratch = Vec::<f32>::new();
+            device.build_output_stream(
+                &config.into(),
+                move |data: &mut [u16], _: &cpal::OutputCallbackInfo| {
+                    audio_callback_u16(
+                        data,
+                        &mut consumer,
+                        &mut scratch,
+                        &flush_cb,
+                        &status_cb,
+                        sample_rate,
+                        channels,
+                    );
+                },
+                err_fn,
+                None,
+            )?
+        }
         _ => return Err(AudioEngineError::NoDevice),
     };
 
@@ -464,6 +472,7 @@ fn audio_callback_f32(
 fn audio_callback_i16(
     data: &mut [i16],
     consumer: &mut ringbuf::HeapCons<f32>,
+    scratch: &mut Vec<f32>,
     flush_flag: &AtomicBool,
     status: &AudioStatus,
     sample_rate: u32,
@@ -478,16 +487,18 @@ fn audio_callback_i16(
         return;
     }
 
-    // Bulk-read f32 samples into a scratch buffer, then convert in one pass
-    let mut scratch = vec![0.0f32; data.len()];
-    let read_count = consumer.pop_slice(&mut scratch);
+    if scratch.len() < data.len() {
+        scratch.resize(data.len(), 0.0);
+    }
+    let scratch_slice = &mut scratch[..data.len()];
+    let read_count = consumer.pop_slice(scratch_slice);
     if read_count < data.len() {
-        scratch[read_count..].fill(0.0);
+        scratch_slice[read_count..].fill(0.0);
     }
 
     let vol = status.volume();
     for (i, sample) in data.iter_mut().enumerate() {
-        let clamped = (scratch[i] * vol).clamp(-1.0, 1.0);
+        let clamped = (scratch_slice[i] * vol).clamp(-1.0, 1.0);
         *sample = (clamped * i16::MAX as f32) as i16;
     }
 
@@ -501,6 +512,7 @@ fn audio_callback_i16(
 fn audio_callback_u16(
     data: &mut [u16],
     consumer: &mut ringbuf::HeapCons<f32>,
+    scratch: &mut Vec<f32>,
     flush_flag: &AtomicBool,
     status: &AudioStatus,
     sample_rate: u32,
@@ -515,16 +527,18 @@ fn audio_callback_u16(
         return;
     }
 
-    // Bulk-read f32 samples into a scratch buffer, then convert in one pass.
-    let mut scratch = vec![0.0f32; data.len()];
-    let read_count = consumer.pop_slice(&mut scratch);
+    if scratch.len() < data.len() {
+        scratch.resize(data.len(), 0.0);
+    }
+    let scratch_slice = &mut scratch[..data.len()];
+    let read_count = consumer.pop_slice(scratch_slice);
     if read_count < data.len() {
-        scratch[read_count..].fill(0.0);
+        scratch_slice[read_count..].fill(0.0);
     }
 
     let vol = status.volume();
     for (i, sample) in data.iter_mut().enumerate() {
-        let clamped = (scratch[i] * vol).clamp(-1.0, 1.0);
+        let clamped = (scratch_slice[i] * vol).clamp(-1.0, 1.0);
         *sample = (((clamped + 1.0) * 0.5) * u16::MAX as f32) as u16;
     }
 
@@ -701,7 +715,7 @@ fn load_track(
         reached_eof: false,
         decoded_frame: AudioFrame::empty(),
         resampled_frame: AudioFrame::empty(),
-        samples_buf: Vec::new(),
+        samples_buf: Vec::with_capacity(4096),
     };
 
     Ok((loaded, duration_ms))

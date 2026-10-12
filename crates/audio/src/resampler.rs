@@ -89,6 +89,9 @@ pub struct AudioConverter {
     input_planes: Vec<Vec<f32>>,
     /// Planar channel buffers produced by rubato.
     output_planes: Vec<Vec<f32>>,
+    /// Pre-allocated scratch buffers to avoid allocations in audio processing loops
+    dst_frame_buf: Vec<f32>,
+    src_frame_buf: Vec<f32>,
 }
 
 /// Size of rubato's processing block in source frames.
@@ -143,6 +146,8 @@ impl AudioConverter {
             resampler,
             input_planes: vec![Vec::new(); src_channels],
             output_planes: vec![vec![0.0; output_len]; src_channels],
+            dst_frame_buf: vec![0.0; dst_channels],
+            src_frame_buf: vec![0.0; src_channels],
         }
     }
 
@@ -187,11 +192,19 @@ impl AudioConverter {
 
         // ── Channel-only conversion (same rate) ──────────────────────────────
         if self.resampler.is_none() {
-            let mut dst_frame = vec![0.0f32; self.dst_channels];
+            let dst_ch = self.dst_channels;
+            let src_ch = self.src_channels;
+            let mut dst_frame = [0.0f32; 8];
             for f in 0..input_frame_count {
-                let src_frame = &input[f * self.src_channels..(f + 1) * self.src_channels];
-                downmix_frame(src_frame, &mut dst_frame);
-                output.extend_from_slice(&dst_frame);
+                let src_frame = &input[f * src_ch..(f + 1) * src_ch];
+                if dst_ch <= 8 {
+                    downmix_frame(src_frame, &mut dst_frame[..dst_ch]);
+                    output.extend_from_slice(&dst_frame[..dst_ch]);
+                } else {
+                    self.dst_frame_buf.fill(0.0);
+                    downmix_frame(src_frame, &mut self.dst_frame_buf);
+                    output.extend_from_slice(&self.dst_frame_buf);
+                }
             }
             return;
         }
@@ -211,27 +224,44 @@ impl AudioConverter {
         let chunk = resampler.input_frames_next();
         let mut offset = 0;
         let total_buffered_frames = self.input_planes[0].len();
+        let src_channels = self.src_channels;
+        let dst_channels = self.dst_channels;
+
+        let mut slices: Vec<&[f32]> = Vec::with_capacity(src_channels);
 
         while offset + chunk <= total_buffered_frames {
             // Slice exactly `chunk` frames from each plane
-            let slices: Vec<&[f32]> = self
-                .input_planes
-                .iter()
-                .map(|p| &p[offset..offset + chunk])
-                .collect();
+            slices.clear();
+            for p in &self.input_planes {
+                slices.push(&p[offset..offset + chunk]);
+            }
 
             match resampler.process_into_buffer(&slices, &mut self.output_planes, None) {
                 Ok((_, out_frames)) => {
                     // Re-interleave src_channels planes → dst_channels output
-                    let mut dst_frame = vec![0.0f32; self.dst_channels];
+                    let mut src_frame_stack = [0.0f32; 8];
+                    let mut dst_frame_stack = [0.0f32; 8];
+
                     for f in 0..out_frames {
-                        let mut src_frame = vec![0.0f32; self.src_channels];
-                        for (c, sample) in src_frame.iter_mut().enumerate().take(self.src_channels)
-                        {
-                            *sample = self.output_planes[c][f];
+                        if src_channels <= 8 && dst_channels <= 8 {
+                            for (c, sample) in src_frame_stack[..src_channels].iter_mut().enumerate() {
+                                *sample = self.output_planes[c][f];
+                            }
+                            downmix_frame(&src_frame_stack[..src_channels], &mut dst_frame_stack[..dst_channels]);
+                            output.extend_from_slice(&dst_frame_stack[..dst_channels]);
+                        } else {
+                            if self.src_frame_buf.len() < src_channels {
+                                self.src_frame_buf.resize(src_channels, 0.0);
+                            }
+                            if self.dst_frame_buf.len() < dst_channels {
+                                self.dst_frame_buf.resize(dst_channels, 0.0);
+                            }
+                            for (c, sample) in self.src_frame_buf.iter_mut().enumerate().take(src_channels) {
+                                *sample = self.output_planes[c][f];
+                            }
+                            downmix_frame(&self.src_frame_buf, &mut self.dst_frame_buf);
+                            output.extend_from_slice(&self.dst_frame_buf);
                         }
-                        downmix_frame(&src_frame, &mut dst_frame);
-                        output.extend_from_slice(&dst_frame);
                     }
                 }
                 Err(e) => {
@@ -271,18 +301,39 @@ impl AudioConverter {
             }
         }
 
-        let slices: Vec<&[f32]> = self.input_planes.iter().map(|p| &p[0..chunk]).collect();
+        let mut slices: Vec<&[f32]> = Vec::with_capacity(self.src_channels);
+        for p in &self.input_planes {
+            slices.push(&p[0..chunk]);
+        }
+
+        let src_channels = self.src_channels;
+        let dst_channels = self.dst_channels;
 
         match resampler.process_into_buffer(&slices, &mut self.output_planes, None) {
             Ok((_, out_frames)) => {
-                let mut dst_frame = vec![0.0f32; self.dst_channels];
+                let mut src_frame_stack = [0.0f32; 8];
+                let mut dst_frame_stack = [0.0f32; 8];
+
                 for f in 0..out_frames {
-                    let mut src_frame = vec![0.0f32; self.src_channels];
-                    for (c, sample) in src_frame.iter_mut().enumerate().take(self.src_channels) {
-                        *sample = self.output_planes[c][f];
+                    if src_channels <= 8 && dst_channels <= 8 {
+                        for (c, sample) in src_frame_stack[..src_channels].iter_mut().enumerate() {
+                            *sample = self.output_planes[c][f];
+                        }
+                        downmix_frame(&src_frame_stack[..src_channels], &mut dst_frame_stack[..dst_channels]);
+                        output.extend_from_slice(&dst_frame_stack[..dst_channels]);
+                    } else {
+                        if self.src_frame_buf.len() < src_channels {
+                            self.src_frame_buf.resize(src_channels, 0.0);
+                        }
+                        if self.dst_frame_buf.len() < dst_channels {
+                            self.dst_frame_buf.resize(dst_channels, 0.0);
+                        }
+                        for (c, sample) in self.src_frame_buf.iter_mut().enumerate().take(src_channels) {
+                            *sample = self.output_planes[c][f];
+                        }
+                        downmix_frame(&self.src_frame_buf, &mut self.dst_frame_buf);
+                        output.extend_from_slice(&self.dst_frame_buf);
                     }
-                    downmix_frame(&src_frame, &mut dst_frame);
-                    output.extend_from_slice(&dst_frame);
                 }
             }
             Err(e) => {

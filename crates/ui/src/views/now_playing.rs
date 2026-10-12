@@ -59,7 +59,7 @@ impl NowPlayingView {
         current_track: Option<&'a Track>,
         current_cover: Option<&'a image::Handle>,
         blurred_cover: Option<&'a image::Handle>,
-        next_track: Option<Track>,
+        next_track: Option<&'a Track>,
         next_cover: Option<&'a image::Handle>,
         is_repeat: bool,
         is_shuffle: bool,
@@ -205,7 +205,7 @@ impl NowPlayingView {
                     Some(next) => {
                         let next_id = next.id;
                         let next_duration = next.formatted_duration();
-                        let next_title = next.title;
+                        let next_title = &next.title;
                         let next_subtitle = format!("{} • {}", next.artist, next.album);
 
                         let next_cover_widget = components::cover_art(

@@ -23,7 +23,7 @@ fn test_now_playing_empty_state_renders() {
     assert_eq!(now_playing_view.cover_size, 300);
 
     let _element = now_playing_view.view(
-        &theme_cfg, None, None, None, None, None, false, false, false, None,
+        &theme_cfg, None, None, None, None, None, false, false, None,
     );
 }
 
@@ -91,9 +91,8 @@ fn test_now_playing_with_track_and_next_track() {
         Some(&track),
         None,
         None,
-        Some(next_track),
+        Some(&next_track),
         None,
-        true,
         true,
         true,
         Some(&tech_info),

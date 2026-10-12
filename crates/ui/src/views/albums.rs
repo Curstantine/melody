@@ -69,30 +69,33 @@ impl AlbumsView {
     }
 
     pub fn sort_albums(albums: &mut [AlbumSummary], field: AlbumSortField, dir: SortDirection) {
+        fn cmp_case_insensitive(a: &str, b: &str) -> std::cmp::Ordering {
+            let a_chars = a.chars().flat_map(|c| c.to_lowercase());
+            let b_chars = b.chars().flat_map(|c| c.to_lowercase());
+            a_chars.cmp(b_chars)
+        }
+
         albums.sort_by(|a, b| {
             let ord = match field {
-                AlbumSortField::Title => a.album.to_lowercase().cmp(&b.album.to_lowercase()),
-                AlbumSortField::Artist => a
-                    .artist
-                    .to_lowercase()
-                    .cmp(&b.artist.to_lowercase())
-                    .then_with(|| a.album.to_lowercase().cmp(&b.album.to_lowercase())),
+                AlbumSortField::Title => cmp_case_insensitive(&a.album, &b.album),
+                AlbumSortField::Artist => cmp_case_insensitive(&a.artist, &b.artist)
+                    .then_with(|| cmp_case_insensitive(&a.album, &b.album)),
                 AlbumSortField::Year => a
                     .year
                     .cmp(&b.year)
-                    .then_with(|| a.album.to_lowercase().cmp(&b.album.to_lowercase())),
+                    .then_with(|| cmp_case_insensitive(&a.album, &b.album)),
                 AlbumSortField::TrackCount => a
                     .track_count
                     .cmp(&b.track_count)
-                    .then_with(|| a.album.to_lowercase().cmp(&b.album.to_lowercase())),
+                    .then_with(|| cmp_case_insensitive(&a.album, &b.album)),
                 AlbumSortField::Duration => a
                     .total_duration_ms
                     .cmp(&b.total_duration_ms)
-                    .then_with(|| a.album.to_lowercase().cmp(&b.album.to_lowercase())),
+                    .then_with(|| cmp_case_insensitive(&a.album, &b.album)),
                 AlbumSortField::DateAdded => a
                     .added_timestamp
                     .cmp(&b.added_timestamp)
-                    .then_with(|| a.album.to_lowercase().cmp(&b.album.to_lowercase())),
+                    .then_with(|| cmp_case_insensitive(&a.album, &b.album)),
             };
             match dir {
                 SortDirection::Ascending => ord,

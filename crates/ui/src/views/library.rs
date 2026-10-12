@@ -117,44 +117,44 @@ impl LibraryView {
         self.visible_tracks.iter().find(|t| t.id == id)
     }
 
-    pub fn get_next_track(
-        &self,
+    pub fn get_next_track<'a>(
+        &'a self,
         current_id: Option<i64>,
         is_repeat: bool,
         is_shuffle: bool,
         position_seed: u64,
-        current_track: Option<&Track>,
-    ) -> Option<Track> {
+        current_track: Option<&'a Track>,
+    ) -> Option<&'a Track> {
         if is_repeat {
-            return current_track.cloned();
+            return current_track;
         }
 
         if is_shuffle && !self.visible_tracks.is_empty() {
             let rand_idx = (position_seed as usize ^ 0x9e3779b9) % self.visible_tracks.len();
-            return Some(self.visible_tracks[rand_idx].clone());
+            return self.visible_tracks.get(rand_idx);
         }
 
         if let Some(cur_id) = current_id {
             if let Some(pos) = self.visible_tracks.iter().position(|t| t.id == cur_id) {
                 if pos + 1 < self.visible_tracks.len() {
-                    return Some(self.visible_tracks[pos + 1].clone());
+                    return self.visible_tracks.get(pos + 1);
                 }
             }
         }
 
         if let Some(first) = self.visible_tracks.first() {
             if Some(first.id) != current_id {
-                return Some(first.clone());
+                return Some(first);
             }
         }
 
         None
     }
 
-    pub fn get_previous_track(&self, current_id: i64) -> Option<Track> {
+    pub fn get_previous_track(&self, current_id: i64) -> Option<&Track> {
         if let Some(pos) = self.visible_tracks.iter().position(|t| t.id == current_id) {
             if pos > 0 {
-                return Some(self.visible_tracks[pos - 1].clone());
+                return self.visible_tracks.get(pos - 1);
             }
         }
         None

@@ -747,6 +747,9 @@ fn map_track_row(row: &Row) -> Result<Track, DbError> {
 
 fn sanitize_db_text(s: &str) -> String {
     let bytes = s.as_bytes();
+    if !bytes.contains(&0) {
+        return s.to_string();
+    }
     let filtered: Vec<u8> = bytes.iter().copied().filter(|&b| b != 0).collect();
     if let Ok(v) = std::str::from_utf8(&filtered) {
         v.to_string()

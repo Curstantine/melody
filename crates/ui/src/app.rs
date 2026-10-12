@@ -997,6 +997,11 @@ impl App {
                 Task::none()
             }
 
+            Message::ArtistsLoaded(artists) => {
+                self.artists.set_artists(artists);
+                Task::none()
+            }
+
             Message::ArtistsScrolled(viewport) => {
                 self.artists.on_scroll(&viewport);
                 Task::none()
@@ -1015,10 +1020,6 @@ impl App {
                 }
             }
 
-            Message::ArtistsLoaded(artists) => {
-                self.artists.set_artists(artists);
-                Task::none()
-            }
 
             Message::SaveConfig => {
                 self.config_save_seq = self.config_save_seq.wrapping_add(1);
@@ -1037,7 +1038,7 @@ impl App {
         }
     }
 
-    pub fn get_next_track(&self) -> Option<Track> {
+    pub fn get_next_track(&self) -> Option<&Track> {
         self.library.get_next_track(
             self.current_track_id,
             self.is_repeat,

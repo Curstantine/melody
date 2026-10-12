@@ -51,6 +51,7 @@ fn test_settings_views_render_without_panicking() {
             scrobble_test_status: None,
         };
 
+        let theme_names_vec = vec!["Default".to_string(), "Nord".to_string()];
         let ctx = settings::SettingsContext {
             tab_order: &[
                 ViewTab::Tracks,
@@ -58,7 +59,7 @@ fn test_settings_views_render_without_panicking() {
                 ViewTab::Albums,
                 ViewTab::Artists,
             ],
-            theme_names: vec!["Default".to_string(), "Nord".to_string()],
+            theme_names: &theme_names_vec,
             active_theme_name: "Default",
             library_view_mode: ViewMode::List,
             albums_view_mode: ViewMode::Tile,

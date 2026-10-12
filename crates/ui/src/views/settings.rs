@@ -14,7 +14,7 @@ use crate::theme::{styles, ThemeConfig};
 #[allow(dead_code)]
 pub struct SettingsContext<'a> {
     pub tab_order: &'a [ViewTab],
-    pub theme_names: Vec<String>,
+    pub theme_names: &'a [String],
     pub active_theme_name: &'a str,
     pub library_view_mode: ViewMode,
     pub albums_view_mode: ViewMode,
@@ -217,7 +217,7 @@ impl SettingsView {
         // Theme chips
         let theme_buttons = {
             let mut row_wrap = row![].spacing(6);
-            for name in &ctx.theme_names {
+            for name in ctx.theme_names {
                 let is_active = name == ctx.active_theme_name;
                 let icon_svg = if is_active {
                     icons::CHECK_SVG

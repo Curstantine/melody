@@ -48,17 +48,23 @@ impl ArtistsView {
     }
 
     pub fn sort_artists(artists: &mut [ArtistSummary], field: ArtistSortField, dir: SortDirection) {
+        fn cmp_case_insensitive(a: &str, b: &str) -> std::cmp::Ordering {
+            let a_chars = a.chars().flat_map(|c| c.to_lowercase());
+            let b_chars = b.chars().flat_map(|c| c.to_lowercase());
+            a_chars.cmp(b_chars)
+        }
+
         artists.sort_by(|a, b| {
             let ord = match field {
-                ArtistSortField::Artist => a.artist.to_lowercase().cmp(&b.artist.to_lowercase()),
+                ArtistSortField::Artist => cmp_case_insensitive(&a.artist, &b.artist),
                 ArtistSortField::TrackCount => a
                     .track_count
                     .cmp(&b.track_count)
-                    .then_with(|| a.artist.to_lowercase().cmp(&b.artist.to_lowercase())),
+                    .then_with(|| cmp_case_insensitive(&a.artist, &b.artist)),
                 ArtistSortField::AlbumCount => a
                     .album_count
                     .cmp(&b.album_count)
-                    .then_with(|| a.artist.to_lowercase().cmp(&b.artist.to_lowercase())),
+                    .then_with(|| cmp_case_insensitive(&a.artist, &b.artist)),
             };
             match dir {
                 SortDirection::Ascending => ord,
