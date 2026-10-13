@@ -833,11 +833,11 @@ impl SettingsView {
 
                 let remove_btn = button(
                     row![
-                        icons::icon(icons::TRASH_SVG, 12.0, theme_cfg.accent_color()),
+                        icons::icon(icons::TRASH_SVG, 12.0, theme_cfg.danger_color()),
                         Space::with_width(4),
                         text(theme_cfg, "Remove")
                             .size(11)
-                            .color(theme_cfg.accent_color()),
+                            .color(theme_cfg.danger_color()),
                     ]
                     .align_y(Alignment::Center),
                 )
@@ -943,15 +943,11 @@ impl SettingsView {
 
         let clear_db_btn = button(
             row![
-                icons::icon(
-                    icons::TRASH_SVG,
-                    13.0,
-                    iced::Color::from_rgb(0.95, 0.35, 0.35)
-                ),
+                icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.danger_color()),
                 Space::with_width(6),
                 text(theme_cfg, "Delete Library Database")
                     .size(12)
-                    .color(iced::Color::from_rgb(0.95, 0.35, 0.35)),
+                    .color(theme_cfg.danger_color()),
             ]
             .align_y(Alignment::Center),
         )
@@ -1006,7 +1002,7 @@ impl SettingsView {
                     column![
                         text(theme_cfg, "Reset Library Database")
                             .size(13)
-                            .color(iced::Color::from_rgb(0.95, 0.35, 0.35)),
+                            .color(theme_cfg.danger_color()),
                         text(theme_cfg, "Clears all indexed tracks, albums, and artist metadata from database. Your audio files on disk remain untouched.")
                             .size(11)
                             .color(theme_cfg.text_muted_color()),
@@ -1120,8 +1116,8 @@ impl SettingsView {
             self.scrobble_test_status.as_ref()
         {
             let (color, msg) = match res {
-                Ok(ref m) => (Color::from_rgb(0.2, 0.8, 0.4), m.as_str()),
-                Err(ref e) => (Color::from_rgb(0.9, 0.3, 0.3), e.as_str()),
+                Ok(ref m) => (theme_cfg.success_color(), m.as_str()),
+                Err(ref e) => (theme_cfg.danger_color(), e.as_str()),
             };
             Some(
                 container(text(theme_cfg, msg).size(12).color(color))
@@ -1243,8 +1239,8 @@ impl SettingsView {
             self.scrobble_test_status.as_ref()
         {
             let (color, msg) = match res {
-                Ok(ref m) => (Color::from_rgb(0.2, 0.8, 0.4), m.as_str()),
-                Err(ref e) => (Color::from_rgb(0.9, 0.3, 0.3), e.as_str()),
+                Ok(ref m) => (theme_cfg.success_color(), m.as_str()),
+                Err(ref e) => (theme_cfg.danger_color(), e.as_str()),
             };
             Some(
                 container(text(theme_cfg, msg).size(12).color(color))
@@ -1400,19 +1396,20 @@ fn swatch_card<'a>(
     label: &'static str,
     color: iced::Color,
 ) -> Element<'a, Message> {
+    let border = theme_cfg.border_color();
     column![
         container(Space::with_width(52).height(22)).style(move |_theme| container::Style {
             background: Some(iced::Background::Color(color)),
             border: Border {
                 radius: Radius::from(4.0),
-                color: iced::Color::from_rgba(1.0, 1.0, 1.0, 0.1),
+                color: border,
                 width: 1.0,
             },
             ..Default::default()
         }),
         text(theme_cfg, label)
             .size(10)
-            .color(iced::Color::from_rgb(0.6, 0.6, 0.6)),
+            .color(theme_cfg.text_muted_color()),
     ]
     .spacing(4)
     .align_x(Alignment::Center)

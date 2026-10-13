@@ -147,8 +147,10 @@ pub fn player_bar_button(
     is_active: bool,
 ) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
-        let hover_bg = blend_color(cfg.player_bar_bg_color(), Color::WHITE, 0.15);
-        let active_bg = blend_color(cfg.player_bar_bg_color(), Color::WHITE, 0.25);
+        let bar_bg = cfg.player_bar_bg_color();
+        let bar_fg = cfg.player_bar_text_color();
+        let hover_bg = blend_color(bar_bg, bar_fg, 0.12);
+        let active_bg = blend_color(bar_bg, bar_fg, 0.22);
         let normal_fg = cfg.player_bar_text_color();
         let highlight_fg = if is_active {
             cfg.primary_color()
@@ -188,13 +190,15 @@ pub fn player_bar_play_button(
     cfg: &ThemeConfig,
 ) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
+        let primary = cfg.primary_color();
+        let bar_bg = cfg.player_bar_bg_color();
         let bg = match status {
-            button::Status::Active => Color::WHITE,
-            button::Status::Hovered => Color::from_rgb(0.92, 0.92, 0.92),
-            button::Status::Pressed => Color::from_rgb(0.80, 0.80, 0.80),
-            button::Status::Disabled => Color::from_rgb(0.5, 0.5, 0.5),
+            button::Status::Active => primary,
+            button::Status::Hovered => blend_color(primary, bar_bg, 0.15),
+            button::Status::Pressed => blend_color(primary, bar_bg, 0.35),
+            button::Status::Disabled => blend_color(primary, Color::TRANSPARENT, 0.5),
         };
-        let fg = cfg.player_bar_bg_color();
+        let fg = bar_bg;
 
         button::Style {
             background: Some(Background::Color(bg)),
@@ -411,21 +415,24 @@ pub fn settings_nav_button(
 
 pub fn danger_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
+        let danger = cfg.danger_color();
+        let with_alpha = |a: f32| Color {
+            r: danger.r,
+            g: danger.g,
+            b: danger.b,
+            a,
+        };
         let (bg, text, border_color) = match status {
-            button::Status::Active => (
-                Color::from_rgba(0.9, 0.2, 0.2, 0.1),
-                Color::from_rgb(0.95, 0.35, 0.35),
-                Color::from_rgba(0.9, 0.2, 0.2, 0.4),
-            ),
+            button::Status::Active => (with_alpha(0.1), danger, with_alpha(0.4)),
             button::Status::Hovered => (
-                Color::from_rgba(0.9, 0.2, 0.2, 0.2),
-                Color::from_rgb(1.0, 0.4, 0.4),
-                Color::from_rgba(0.9, 0.2, 0.2, 0.7),
+                with_alpha(0.2),
+                blend_color(danger, Color::WHITE, 0.15),
+                with_alpha(0.7),
             ),
             button::Status::Pressed => (
-                Color::from_rgba(0.9, 0.2, 0.2, 0.3),
-                Color::from_rgb(1.0, 0.3, 0.3),
-                Color::from_rgba(0.9, 0.2, 0.2, 1.0),
+                with_alpha(0.3),
+                blend_color(danger, Color::WHITE, 0.08),
+                with_alpha(1.0),
             ),
             button::Status::Disabled => (
                 Color::TRANSPARENT,
@@ -482,11 +489,7 @@ pub fn seek_slider_style(
             rail: slider::Rail {
                 backgrounds: (
                     Background::Color(cfg.slider_active_color()),
-                    Background::Color(if is_hovered {
-                        cfg.slider_rail_color()
-                    } else {
-                        cfg.border_color()
-                    }),
+                    Background::Color(cfg.slider_rail_color()),
                 ),
                 width: if is_hovered { 3.0 } else { 2.0 },
                 border: Border::default(),
@@ -546,8 +549,8 @@ pub fn settings_slider_style(
         slider::Style {
             rail: slider::Rail {
                 backgrounds: (
-                    Background::Color(cfg.primary_color()),
-                    Background::Color(cfg.surface_color()),
+                    Background::Color(cfg.slider_active_color()),
+                    Background::Color(cfg.slider_rail_color()),
                 ),
                 width: 4.0,
                 border: Border {
@@ -559,7 +562,7 @@ pub fn settings_slider_style(
                 shape: slider::HandleShape::Circle {
                     radius: handle_radius,
                 },
-                background: Background::Color(cfg.primary_color()),
+                background: Background::Color(cfg.slider_active_color()),
                 border_width: 1.0,
                 border_color: cfg.border_color(),
             },

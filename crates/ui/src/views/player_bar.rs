@@ -44,6 +44,7 @@ impl PlayerBar {
         is_repeat: bool,
     ) -> Element<'a, Message> {
         let bar_fg = theme_cfg.player_bar_text_color();
+        let bar_muted = iced::Color { a: 0.6, ..bar_fg };
 
         // 1. Left: Track Info & Cover Thumbnail
         let cover_art = components::cover_art(
@@ -64,14 +65,12 @@ impl PlayerBar {
                     .font(theme_cfg.font()),
                 components::Marquee::new(format!("{} • {}", track.artist, track.album))
                     .size(11.0)
-                    .color(theme_cfg.text_muted_color())
+                    .color(bar_muted)
                     .font(theme_cfg.font()),
             ],
             None => column![
                 text(theme_cfg, "No track playing").size(13).color(bar_fg),
-                text(theme_cfg, "Melody")
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
+                text(theme_cfg, "Melody").size(11).color(bar_muted),
             ],
         }
         .spacing(2)
@@ -126,7 +125,7 @@ impl PlayerBar {
         let time_info = text(theme_cfg, format!("{cur_time_str} / {total_time_str}"))
             .size(10)
             .align_x(Alignment::End)
-            .color(theme_cfg.text_muted_color());
+            .color(bar_muted);
 
         let buttons_width = 176.0;
 
@@ -183,7 +182,7 @@ impl PlayerBar {
             vol_slider,
             text(theme_cfg, format!("{}%", (volume * 100.0).round() as u32))
                 .size(11)
-                .color(theme_cfg.text_muted_color())
+                .color(bar_muted)
                 .width(32),
         ]
         .spacing(6)
