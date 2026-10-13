@@ -34,11 +34,11 @@ pub enum AudioEngineError {
     #[error("No audio output device available")]
     NoDevice,
     #[error("CPAL device error: {0}")]
-    CpalDevice(#[from] cpal::DefaultStreamConfigError),
+    CpalDevice(#[from] cpal::Error),
     #[error("CPAL stream error: {0}")]
-    CpalStream(#[from] cpal::BuildStreamError),
+    CpalStream(cpal::Error),
     #[error("CPAL play error: {0}")]
-    CpalPlay(#[from] cpal::PlayStreamError),
+    CpalPlay(cpal::Error),
 }
 
 #[derive(Clone)]
@@ -388,9 +388,8 @@ static WORKER_PRODUCER: std::sync::Mutex<Option<ringbuf::HeapProd<f32>>> =
 /// be heard (playback timestamp minus callback timestamp).
 fn record_output_latency(info: &cpal::OutputCallbackInfo, latency_us: &AtomicU64) {
     let ts = info.timestamp();
-    if let Some(latency) = ts.playback.duration_since(&ts.callback) {
-        latency_us.store(latency.as_micros() as u64, Ordering::Relaxed);
-    }
+    let latency = ts.playback.duration_since(ts.callback);
+    latency_us.store(latency.as_micros() as u64, Ordering::Relaxed);
 }
 
 /// Advances the playback position by the number of frames just consumed.
@@ -435,7 +434,7 @@ fn setup_cpal_stream(
     status: AudioStatus,
 ) -> Result<CpalStreamSetup, AudioEngineError> {
     let config = device.default_output_config()?;
-    let sample_rate = config.sample_rate().0;
+    let sample_rate = config.sample_rate();
     let channels = config.channels() as usize;
 
     let rb = HeapRb::<f32>::new(RING_BUFFER_CAPACITY);
@@ -456,28 +455,10 @@ fn setup_cpal_stream(
     let err_fn = |err| error!("CPAL output stream error: {}", err);
 
     let stream = match config.sample_format() {
-        cpal::SampleFormat::F32 => device.build_output_stream(
-            &config.into(),
-            move |data: &mut [f32], info: &cpal::OutputCallbackInfo| {
-                record_output_latency(info, &latency_cb);
-                let mut state = CallbackState {
-                    consumer: &mut consumer,
-                    flush_flag: &flush_cb,
-                    status: &status_cb,
-                    sample_rate,
-                    channels,
-                    pos_rem: &mut pos_rem,
-                };
-                audio_callback_f32(data, &mut state);
-            },
-            err_fn,
-            None,
-        )?,
-        cpal::SampleFormat::I16 => {
-            let mut scratch = Vec::<f32>::new();
-            device.build_output_stream(
-                &config.into(),
-                move |data: &mut [i16], info: &cpal::OutputCallbackInfo| {
+        cpal::SampleFormat::F32 => device
+            .build_output_stream(
+                config.into(),
+                move |data: &mut [f32], info: &cpal::OutputCallbackInfo| {
                     record_output_latency(info, &latency_cb);
                     let mut state = CallbackState {
                         consumer: &mut consumer,
@@ -487,36 +468,60 @@ fn setup_cpal_stream(
                         channels,
                         pos_rem: &mut pos_rem,
                     };
-                    audio_callback_i16(data, &mut scratch, &mut state);
+                    audio_callback_f32(data, &mut state);
                 },
                 err_fn,
                 None,
-            )?
+            )
+            .map_err(AudioEngineError::CpalStream)?,
+        cpal::SampleFormat::I16 => {
+            let mut scratch = Vec::<f32>::new();
+            device
+                .build_output_stream(
+                    config.into(),
+                    move |data: &mut [i16], info: &cpal::OutputCallbackInfo| {
+                        record_output_latency(info, &latency_cb);
+                        let mut state = CallbackState {
+                            consumer: &mut consumer,
+                            flush_flag: &flush_cb,
+                            status: &status_cb,
+                            sample_rate,
+                            channels,
+                            pos_rem: &mut pos_rem,
+                        };
+                        audio_callback_i16(data, &mut scratch, &mut state);
+                    },
+                    err_fn,
+                    None,
+                )
+                .map_err(AudioEngineError::CpalStream)?
         }
         cpal::SampleFormat::U16 => {
             let mut scratch = Vec::<f32>::new();
-            device.build_output_stream(
-                &config.into(),
-                move |data: &mut [u16], info: &cpal::OutputCallbackInfo| {
-                    record_output_latency(info, &latency_cb);
-                    let mut state = CallbackState {
-                        consumer: &mut consumer,
-                        flush_flag: &flush_cb,
-                        status: &status_cb,
-                        sample_rate,
-                        channels,
-                        pos_rem: &mut pos_rem,
-                    };
-                    audio_callback_u16(data, &mut scratch, &mut state);
-                },
-                err_fn,
-                None,
-            )?
+            device
+                .build_output_stream(
+                    config.into(),
+                    move |data: &mut [u16], info: &cpal::OutputCallbackInfo| {
+                        record_output_latency(info, &latency_cb);
+                        let mut state = CallbackState {
+                            consumer: &mut consumer,
+                            flush_flag: &flush_cb,
+                            status: &status_cb,
+                            sample_rate,
+                            channels,
+                            pos_rem: &mut pos_rem,
+                        };
+                        audio_callback_u16(data, &mut scratch, &mut state);
+                    },
+                    err_fn,
+                    None,
+                )
+                .map_err(AudioEngineError::CpalStream)?
         }
         _ => return Err(AudioEngineError::NoDevice),
     };
 
-    stream.play()?;
+    stream.play().map_err(AudioEngineError::CpalPlay)?;
 
     Ok((stream, sample_rate, channels, flush_flag, latency_us))
 }
