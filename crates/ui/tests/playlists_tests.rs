@@ -138,14 +138,14 @@ fn reordered_entries_round_trip_through_m3u_file() {
 
 #[test]
 fn shared_track_row_renders_without_panicking() {
-    use components::track_row::{track_row, TrackRowProps};
+    use components::TrackRow;
     use message::Message;
     use theme::ThemeConfig;
 
     let theme_cfg = ThemeConfig::default();
 
     // Open-playlist context: clickable row.
-    let _ = track_row(TrackRowProps {
+    let _ = TrackRow {
         theme: &theme_cfg,
         index: 0,
         title: "One",
@@ -169,10 +169,11 @@ fn shared_track_row_renders_without_panicking() {
             playlist_id: 7,
             index: 0,
         },
-    });
+    }
+    .view();
 
     // Open-playlist context: unmatched (unclickable) entry.
-    let _ = track_row(TrackRowProps {
+    let _ = TrackRow {
         theme: &theme_cfg,
         index: 1,
         title: "Missing",
@@ -193,10 +194,11 @@ fn shared_track_row_renders_without_panicking() {
             playlist_id: 7,
             index: 1,
         },
-    });
+    }
+    .view();
 
     // Queue context.
-    let _ = track_row(TrackRowProps {
+    let _ = TrackRow {
         theme: &theme_cfg,
         index: 2,
         title: "Three",
@@ -220,7 +222,8 @@ fn shared_track_row_renders_without_panicking() {
             queue_id: 1,
             index: 2,
         },
-    });
+    }
+    .view();
 }
 
 #[test]

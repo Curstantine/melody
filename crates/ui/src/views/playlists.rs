@@ -4,7 +4,6 @@ use iced::widget::{button, column, container, row, scrollable, text_input, Space
 use iced::{Alignment, Element, Length};
 use std::time::Instant;
 
-use crate::components::track_row::{track_row, TrackRowProps};
 use crate::components::{self, text};
 use crate::icons;
 use crate::message::{Message, PlaylistItem, PlaylistSection, PlaylistSortField, ViewMode};
@@ -842,24 +841,27 @@ impl PlaylistsView {
             };
             for (index, item) in self.detail_items.iter().enumerate() {
                 let available = item.is_available();
-                list = list.push(track_row(TrackRowProps {
-                    theme: theme_cfg,
-                    index,
-                    title: item.title.as_str(),
-                    artist: item.artist.as_str(),
-                    duration: item.duration_label.as_str(),
-                    highlighted: self.selected_detail_track == Some((playlist_id, index)),
-                    dragging: dragging_detail == Some((playlist_id, index)),
-                    show_handle: dragging_detail == Some((playlist_id, index))
-                        || self.hovered_detail_row == Some((playlist_id, index)),
-                    on_press: available
-                        .then_some(Message::PlaylistDetailClicked { playlist_id, index }),
-                    drag_start: Message::PlaylistDetailDragStarted { playlist_id, index },
-                    drag_release: Message::PlaylistDetailDragReleased,
-                    hover_enter: row_hover_enter(index),
-                    hover_exit: Message::PlaylistDetailHovered(None),
-                    on_remove: Message::PlaylistRemoveTrack { playlist_id, index },
-                }));
+                list = list.push(
+                    components::TrackRow {
+                        theme: theme_cfg,
+                        index,
+                        title: item.title.as_str(),
+                        artist: item.artist.as_str(),
+                        duration: item.duration_label.as_str(),
+                        highlighted: self.selected_detail_track == Some((playlist_id, index)),
+                        dragging: dragging_detail == Some((playlist_id, index)),
+                        show_handle: dragging_detail == Some((playlist_id, index))
+                            || self.hovered_detail_row == Some((playlist_id, index)),
+                        on_press: available
+                            .then_some(Message::PlaylistDetailClicked { playlist_id, index }),
+                        drag_start: Message::PlaylistDetailDragStarted { playlist_id, index },
+                        drag_release: Message::PlaylistDetailDragReleased,
+                        hover_enter: row_hover_enter(index),
+                        hover_exit: Message::PlaylistDetailHovered(None),
+                        on_remove: Message::PlaylistRemoveTrack { playlist_id, index },
+                    }
+                    .view(),
+                );
             }
         }
 
@@ -982,33 +984,36 @@ impl PlaylistsView {
             for (offset, track) in active.tracks[start..end].iter().enumerate() {
                 let index = start + offset;
                 let is_current = current == Some(index);
-                list = list.push(track_row(TrackRowProps {
-                    theme: theme_cfg,
-                    index,
-                    title: track.title.as_str(),
-                    artist: track.display_artist(),
-                    duration: track.formatted_duration(),
-                    highlighted: is_current
-                        || self.selected_queue_track == Some((active_id, index)),
-                    dragging: dragging_track == Some((active_id, index)),
-                    show_handle: dragging_track == Some((active_id, index))
-                        || self.hovered_queue_row == Some((active_id, index)),
-                    on_press: Some(Message::QueueClicked {
-                        queue_id: active_id,
+                list = list.push(
+                    components::TrackRow {
+                        theme: theme_cfg,
                         index,
-                    }),
-                    drag_start: Message::QueueDragStarted {
-                        queue_id: active_id,
-                        index,
-                    },
-                    drag_release: Message::QueueDragReleased,
-                    hover_enter: row_hover_enter(index),
-                    hover_exit: Message::QueueRowHovered(None),
-                    on_remove: Message::QueueRemoveTrack {
-                        queue_id: active_id,
-                        index,
-                    },
-                }));
+                        title: track.title.as_str(),
+                        artist: track.display_artist(),
+                        duration: track.formatted_duration(),
+                        highlighted: is_current
+                            || self.selected_queue_track == Some((active_id, index)),
+                        dragging: dragging_track == Some((active_id, index)),
+                        show_handle: dragging_track == Some((active_id, index))
+                            || self.hovered_queue_row == Some((active_id, index)),
+                        on_press: Some(Message::QueueClicked {
+                            queue_id: active_id,
+                            index,
+                        }),
+                        drag_start: Message::QueueDragStarted {
+                            queue_id: active_id,
+                            index,
+                        },
+                        drag_release: Message::QueueDragReleased,
+                        hover_enter: row_hover_enter(index),
+                        hover_exit: Message::QueueRowHovered(None),
+                        on_remove: Message::QueueRemoveTrack {
+                            queue_id: active_id,
+                            index,
+                        },
+                    }
+                    .view(),
+                );
             }
             let bottom_spacer = total.saturating_sub(end) as f32 * QUEUE_ROW_HEIGHT;
             if bottom_spacer > 0.0 {

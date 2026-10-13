@@ -9,9 +9,14 @@ use crate::theme::{styles, ThemeConfig};
 
 use std::borrow::Cow;
 
+pub mod catalog;
 pub mod marquee;
 pub mod spinner;
-pub mod track_row;
+#[allow(unused_imports)]
+pub use catalog::{
+    CatalogRow, CatalogTile, TrackRow, CATALOG_LIST_ART_SIZE, CATALOG_LIST_ROW_HEIGHT,
+    CATALOG_ROW_SPACING, CATALOG_TILE_META_HEIGHT, TRACK_ROW_HEIGHT,
+};
 #[allow(unused_imports)]
 pub use marquee::Marquee;
 pub use spinner::Spinner;
