@@ -8,9 +8,9 @@ use core_engine::{
     SortField, Track, TrackFilter, TrackRow,
 };
 use crossbeam_channel::Receiver;
-use iced::widget::operation::snap_to;
-use iced::widget::operation::RelativeOffset;
-use iced::widget::{button, column, container, image, mouse_area, row, Space};
+use iced::widget::operation::scrollable::{snap_to, RelativeOffset};
+use iced::widget::operation::Animation;
+use iced::widget::{button, column, container, image, mouse_area, row, Space, Widget};
 use iced::{Element, Length, Subscription, Task, Theme};
 use plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 #[cfg(target_os = "linux")]
@@ -1829,6 +1829,7 @@ impl App {
                 let snap = snap_to(
                     iced::widget::Id::new("albums_scroll"),
                     RelativeOffset::START,
+                    Animation::Instant,
                 );
                 if self.active_tab == ViewTab::Albums {
                     Task::batch([self.load_visible_album_covers_task(), snap])
@@ -2060,6 +2061,7 @@ impl App {
         snap_to(
             iced::widget::Id::new("queue_scroll"),
             RelativeOffset { x: 0.0, y },
+            Animation::Instant,
         )
     }
 
@@ -2421,7 +2423,7 @@ impl App {
                 })
                 .on_exit(Message::TabHovered(None))
                 .interaction(iced::mouse::Interaction::Pointer)
-                .into()
+                .boxed()
         });
 
         let settings_btn = button(icons::icon(
@@ -2441,8 +2443,8 @@ impl App {
         for btn in tab_buttons {
             nav_row = nav_row.push(btn);
         }
-        nav_row = nav_row.push(Space::new().width(Length::Fill));
-        nav_row = nav_row.push(settings_btn);
+        nav_row = nav_row.push(Space::new().width(Length::Fill).boxed());
+        nav_row = nav_row.push(settings_btn.boxed());
 
         let top_bar = container(column![
             nav_row.padding([4, 12]).height(32),
@@ -2572,7 +2574,7 @@ impl App {
             .style(styles::main_background(theme_cfg))
             .width(Length::Fill)
             .height(Length::Fill)
-            .into()
+            .boxed()
     }
 }
 
@@ -2670,7 +2672,11 @@ fn queue_source_for_filter(filter: &TrackFilter) -> QueueSource {
 
 /// Snaps the queue detail list back to the top (used on page changes).
 fn snap_queue_scroll_top() -> Task<Message> {
-    snap_to(iced::widget::Id::new("queue_scroll"), RelativeOffset::START)
+    snap_to(
+        iced::widget::Id::new("queue_scroll"),
+        RelativeOffset::START,
+        Animation::Instant,
+    )
 }
 
 /// Fisher–Yates shuffle seeded from the system clock (no `rand` dependency).

@@ -1,6 +1,6 @@
 use core_engine::{AudioTechnicalInfo, Track, TrackRow};
 use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, scrollable, stack, Space};
+use iced::widget::{button, column, container, image, row, scrollable, stack, Space, Widget};
 use iced::{Alignment, ContentFit, Element, Length};
 
 use crate::components::{self, text};
@@ -83,7 +83,7 @@ impl NowPlayingView {
                     text(theme_cfg, lyr)
                         .size(15)
                         .color(theme_cfg.text_color())
-                        .into()
+                        .boxed()
                 } else {
                     column![
                         text(theme_cfg, "No lyrics found for this track.")
@@ -97,7 +97,7 @@ impl NowPlayingView {
                         .size(12)
                         .color(theme_cfg.text_muted_color()),
                     ]
-                    .into()
+                    .boxed()
                 };
 
                 let lyrics_panel = scrollable(lyrics_body)
@@ -240,12 +240,12 @@ impl NowPlayingView {
                         .style(styles::tile(theme_cfg))
                         .on_press(Message::PlayTrack(next_id))
                         .width(Length::Fill)
-                        .into()
+                        .boxed()
                     }
                     None => text(theme_cfg, "No upcoming tracks")
                         .size(11)
                         .color(theme_cfg.text_muted_color())
-                        .into(),
+                        .boxed(),
                 };
 
                 // Technical Details Section ("Properties", size 11, without icon)
@@ -278,18 +278,18 @@ impl NowPlayingView {
                     .spacing(4);
 
                     if let Some(kbps) = tech.bitrate_kbps {
-                        prop_col =
-                            prop_col.push(make_prop_row("Bitrate", format!("{} kbps", kbps)));
+                        prop_col = prop_col
+                            .push(make_prop_row("Bitrate", format!("{} kbps", kbps)).boxed());
                     }
 
                     if tech.file_size_bytes > 0 {
-                        prop_col =
-                            prop_col.push(make_prop_row("File Size", tech.formatted_file_size()));
+                        prop_col = prop_col
+                            .push(make_prop_row("File Size", tech.formatted_file_size()).boxed());
                     }
 
-                    prop_col.into()
+                    prop_col.boxed()
                 } else {
-                    column![].into()
+                    Space::new().boxed()
                 };
 
                 // Card container matching the general app UI with balanced bottom padding
@@ -334,7 +334,7 @@ impl NowPlayingView {
                 row![left_section, Space::new().width(20), right_section,]
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .into()
+                    .boxed()
             }
             None => components::empty_state(
                 theme_cfg,
@@ -369,13 +369,13 @@ impl NowPlayingView {
                 stack![bg_img, dark_tint, foreground]
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .into()
+                    .boxed()
             }
             None => container(foreground)
                 .style(styles::main_background(theme_cfg))
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .into(),
+                .boxed(),
         }
     }
 }

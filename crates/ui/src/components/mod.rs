@@ -1,6 +1,6 @@
 use core_engine::SortDirection;
 use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, Space};
+use iced::widget::{button, column, container, image, row, Space, Widget};
 use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length};
 
 use crate::icons;
@@ -40,7 +40,7 @@ pub fn border_vert<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
             background: Some(Background::Color(color)),
             ..Default::default()
         })
-        .into()
+        .boxed()
 }
 
 pub fn border_hori<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
@@ -51,7 +51,7 @@ pub fn border_hori<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
             background: Some(Background::Color(color)),
             ..Default::default()
         })
-        .into()
+        .boxed()
 }
 
 /// A reusable chip button with active state styling.
@@ -69,7 +69,7 @@ pub fn chip<'a>(
     .padding([3, 6])
     .style(styles::ghost_button(theme_cfg, is_active))
     .on_press(on_press)
-    .into()
+    .boxed()
 }
 
 /// A reusable chip button with an icon and label.
@@ -97,7 +97,7 @@ pub fn chip_with_icon<'a>(
     .padding([3, 6])
     .style(styles::ghost_button(theme_cfg, is_active))
     .on_press(on_press)
-    .into()
+    .boxed()
 }
 
 /// A chip button representing a view mode (List or Tiles).
@@ -136,7 +136,7 @@ pub fn view_mode_toggle<'a>(
     ]
     .spacing(4)
     .align_y(Alignment::Center)
-    .into()
+    .boxed()
 }
 
 /// A sort chip displaying the field label and an active sort direction indicator arrow.
@@ -166,16 +166,16 @@ pub fn sort_chip<'a, T: Copy + PartialEq>(
             icons::icon(sort_icon_svg, 11.0, text_color),
         ]
         .align_y(Alignment::Center)
-        .into()
+        .boxed()
     } else {
-        text(theme_cfg, label).size(11).color(text_color).into()
+        text(theme_cfg, label).size(11).color(text_color).boxed()
     };
 
     button(content)
         .padding([3, 6])
         .style(styles::ghost_button(theme_cfg, is_active))
         .on_press(on_press)
-        .into()
+        .boxed()
 }
 
 /// A unified sort chip list with a "Sort:" label and multiple sort chips.
@@ -206,7 +206,7 @@ pub fn sort_chip_list<'a, T: Copy + PartialEq>(
         ));
     }
 
-    sort_row.into()
+    sort_row.boxed()
 }
 
 /// A centered empty state view with a title and muted description.
@@ -230,7 +230,7 @@ pub fn empty_state<'a>(
     .padding(40)
     .width(Length::Fill)
     .align_x(Alignment::Center)
-    .into()
+    .boxed()
 }
 
 /// A container displaying cover art image or a fallback vector icon placeholder.
@@ -267,7 +267,7 @@ pub fn cover_art<'a>(
             },
             ..Default::default()
         })
-        .into(),
+        .boxed(),
         None => container(icons::icon(
             fallback_icon_svg,
             fallback_icon_size,
@@ -286,7 +286,7 @@ pub fn cover_art<'a>(
             },
             ..Default::default()
         })
-        .into(),
+        .boxed(),
     }
 }
 
@@ -302,24 +302,25 @@ pub fn settings_header<'a>(
         header = header.push(
             text(theme_cfg, x)
                 .size(12)
-                .color(theme_cfg.text_muted_color()),
+                .color(theme_cfg.text_muted_color())
+                .boxed(),
         );
     }
-    header.spacing(4).into()
+    header.spacing(4).boxed()
 }
 
 /// A card container with a primary colored title header.
 pub fn settings_card<'a>(
     theme_cfg: &'a ThemeConfig,
     title: &'static str,
-    content: impl Into<Element<'a, Message>>,
+    content: Element<'a, Message>,
 ) -> Element<'a, Message> {
     container(
         column![
             text(theme_cfg, title)
                 .size(11)
                 .color(theme_cfg.primary_color()),
-            content.into(),
+            content,
         ]
         .spacing(12)
         .padding(16),
@@ -334,7 +335,7 @@ pub fn settings_card<'a>(
         ..Default::default()
     })
     .width(Length::Fill)
-    .into()
+    .boxed()
 }
 
 /// A metric card displaying a prominent value and muted label.
@@ -365,7 +366,7 @@ pub fn metric_box<'a>(
         ..Default::default()
     })
     .width(Length::FillPortion(1))
-    .into()
+    .boxed()
 }
 
 /// A self-contained scanning indicator component powered by the `Spinner` widget.
@@ -383,5 +384,5 @@ pub fn scanning_indicator<'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, Message
     ]
     .spacing(4)
     .align_y(Alignment::Center)
-    .into()
+    .boxed()
 }

@@ -1,6 +1,6 @@
 use core_engine::{PlaylistEntry, PlaylistSummary, SortDirection};
 use iced::border::Radius;
-use iced::widget::{button, column, container, row, scrollable, text_input, Space};
+use iced::widget::{button, column, container, row, scrollable, text_input, Space, Widget};
 use iced::{Alignment, Element, Length};
 use std::time::Instant;
 
@@ -344,7 +344,7 @@ impl PlaylistsView {
             })
             .height(Length::Fill)
             .width(Length::Fill)
-            .into()
+            .boxed()
     }
 
     fn view_toolbar<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -413,7 +413,7 @@ impl PlaylistsView {
                 bottom: 6.0,
                 left: 16.0,
             })
-            .into()
+            .boxed()
     }
 
     // ── Playlist catalog ────────────────────────────────────────────────────
@@ -464,7 +464,7 @@ impl PlaylistsView {
             .spacing(2)
             .height(Length::Fill)
             .width(Length::Fill)
-            .into()
+            .boxed()
     }
 
     fn view_catalog_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -556,7 +556,8 @@ impl PlaylistsView {
                         }),
                 )
                 .style(styles::table_row_container(theme_cfg, is_selected))
-                .width(Length::Fill),
+                .width(Length::Fill)
+                .boxed(),
             );
         }
 
@@ -564,7 +565,7 @@ impl PlaylistsView {
             .id(iced::widget::Id::new("playlists_scroll"))
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
-            .into()
+            .boxed()
     }
 
     fn view_catalog_tiles<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -603,9 +604,10 @@ impl PlaylistsView {
             .width(PLAYLIST_TILE_SIZE)
             .height(48);
 
-            let card_content = container(column![icon, meta])
+            let card_content: Element<'_, Message> = container(column![icon, meta])
                 .width(PLAYLIST_TILE_SIZE)
-                .clip(true);
+                .clip(true)
+                .boxed();
 
             let select_btn = button(card_content)
                 .style(styles::tile(theme_cfg))
@@ -632,7 +634,7 @@ impl PlaylistsView {
                 .align_y(Alignment::End)
                 .padding(6);
 
-            let tile = iced::widget::stack([select_btn.into(), actions.into()]);
+            let tile = iced::widget::stack([select_btn.boxed(), actions.boxed()]);
 
             tile_row = tile_row.push(tile);
             columns += 1;
@@ -654,7 +656,7 @@ impl PlaylistsView {
         .id(iced::widget::Id::new("playlists_scroll"))
         .height(Length::Fill)
         .style(styles::scrollable_style(theme_cfg))
-        .into()
+        .boxed()
     }
 
     fn view_new_playlist_form<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -713,7 +715,7 @@ impl PlaylistsView {
         )
         .padding(24)
         .width(Length::Fill)
-        .into()
+        .boxed()
     }
 
     // ── Playlist detail ─────────────────────────────────────────────────────
@@ -760,7 +762,7 @@ impl PlaylistsView {
                 .on_press(Message::RenamePlaylistCancelled),
             ]
             .align_y(Alignment::Center)
-            .into()
+            .boxed()
         } else {
             column![
                 text(theme_cfg, self.detail_name.as_str())
@@ -771,7 +773,7 @@ impl PlaylistsView {
                     .color(theme_cfg.text_muted_color()),
             ]
             .spacing(2)
-            .into()
+            .boxed()
         };
 
         let actions = row![
@@ -874,7 +876,7 @@ impl PlaylistsView {
         ]
         .height(Length::Fill)
         .width(Length::Fill)
-        .into()
+        .boxed()
     }
 
     // ── Queues ──────────────────────────────────────────────────────────────
@@ -923,7 +925,7 @@ impl PlaylistsView {
                     )
                 ]
                 .spacing(8)
-                .into();
+                .boxed();
             };
             // A selection exists but its tracks are still loading (queue
             // switch or delete fallback). The summary already knows the name
@@ -941,7 +943,7 @@ impl PlaylistsView {
             ]
             .height(Length::Fill)
             .width(Length::Fill)
-            .into();
+            .boxed();
         };
 
         let active_id = active.id;
@@ -965,7 +967,7 @@ impl PlaylistsView {
             let (start, end) = queue_window_for_start(total, self.queue_window_start);
             let top_spacer = start as f32 * QUEUE_ROW_HEIGHT;
             if top_spacer > 0.0 {
-                list = list.push(Space::new().height(top_spacer));
+                list = list.push(Space::new().height(top_spacer).boxed());
             }
             let current = active.current_index();
             // While a handle-drag is held, hovering a row live-reorders (like
@@ -1017,7 +1019,7 @@ impl PlaylistsView {
             }
             let bottom_spacer = total.saturating_sub(end) as f32 * QUEUE_ROW_HEIGHT;
             if bottom_spacer > 0.0 {
-                list = list.push(Space::new().height(bottom_spacer));
+                list = list.push(Space::new().height(bottom_spacer).boxed());
             }
         }
 
@@ -1032,13 +1034,13 @@ impl PlaylistsView {
             save_form,
             scrollable(list)
                 .id(iced::widget::Id::new("queue_scroll"))
-                .on_scroll(Message::QueueScrolled)
+                .on_scroll(|scroll| Message::QueueScrolled(scroll.viewport))
                 .height(Length::Fill)
                 .style(styles::scrollable_style(theme_cfg)),
         ]
         .height(Length::Fill)
         .width(Length::Fill)
-        .into()
+        .boxed()
     }
 
     /// Queue title header (name, track count, actions). Rendered from either
@@ -1082,7 +1084,7 @@ impl PlaylistsView {
             bottom: 8.0,
             left: 16.0,
         })
-        .into()
+        .boxed()
     }
 
     /// "Save queue as playlist" inline form, shown when `saving_queue` is set.
@@ -1122,9 +1124,9 @@ impl PlaylistsView {
                 bottom: 8.0,
                 left: 16.0,
             })
-            .into()
+            .boxed()
         } else {
-            Space::new().height(0).into()
+            Space::new().height(0).boxed()
         }
     }
 }

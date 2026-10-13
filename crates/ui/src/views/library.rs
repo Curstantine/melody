@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
 
 use core_engine::{SortDirection, SortField, TrackFilter, TrackRow};
-use iced::widget::{button, column, container, mouse_area, row, scrollable, text_input, Space};
+use iced::widget::{
+    button, column, container, mouse_area, row, scrollable, text_input, Space, Widget,
+};
 use iced::{Alignment, Element, Length};
 
 use crate::components::{self, text};
@@ -275,9 +277,9 @@ impl LibraryView {
                     icons::icon(sort_icon_svg, 12.0, theme_cfg.primary_color()),
                 ]
                 .align_y(Alignment::Center)
-                .into()
+                .boxed()
             } else {
-                text(theme_cfg, label).size(12).into()
+                text(theme_cfg, label).size(12).boxed()
             };
 
             button(content)
@@ -321,7 +323,7 @@ impl LibraryView {
 
             let top_spacer = self.window_start as f32 * self.row_height;
             if top_spacer > 0.0 {
-                items = items.push(Space::new().height(top_spacer));
+                items = items.push(Space::new().height(top_spacer).boxed());
             }
 
             for (idx, track) in self.rows.iter().enumerate() {
@@ -351,7 +353,7 @@ impl LibraryView {
                     .width(36)
                     .height(24)
                     .on_press(Message::TogglePlayPause)
-                    .into()
+                    .boxed()
                 } else {
                     container(
                         text(theme_cfg, format!("{}", display_index))
@@ -362,7 +364,7 @@ impl LibraryView {
                     .height(24)
                     .center_x(36)
                     .center_y(24)
-                    .into()
+                    .boxed()
                 };
 
                 let track_row = row![
@@ -409,23 +411,23 @@ impl LibraryView {
                 let interactive_row =
                     mouse_area(row_container).on_press(Message::TrackClicked(track.id));
 
-                items = items.push(interactive_row);
+                items = items.push(interactive_row.boxed());
             }
 
             let window_end = self.window_start + self.rows.len();
             let bottom_spacer =
                 self.total_tracks.saturating_sub(window_end) as f32 * self.row_height;
             if bottom_spacer > 0.0 {
-                items = items.push(Space::new().height(bottom_spacer));
+                items = items.push(Space::new().height(bottom_spacer).boxed());
             }
 
             scrollable(items)
                 .id(iced::widget::Id::new("library_tracks"))
-                .on_scroll(Message::LibraryScrolled)
+                .on_scroll(|scroll| Message::LibraryScrolled(scroll.viewport))
                 .height(Length::Fill)
                 .width(Length::Fill)
                 .style(styles::scrollable_style(theme_cfg))
-                .into()
+                .boxed()
         };
 
         column![toolbar, table_header, content]
@@ -438,6 +440,6 @@ impl LibraryView {
             })
             .height(Length::Fill)
             .width(Length::Fill)
-            .into()
+            .boxed()
     }
 }

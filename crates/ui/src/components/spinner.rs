@@ -1,7 +1,9 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use iced::advanced::{
-    layout, mouse, renderer, svg, widget::Tree, Clipboard, Layout, Shell, Widget,
+    layout, mouse, renderer, svg,
+    widget::{Meta, Tree},
+    Layout, Shell, Widget,
 };
 use iced::{window, Color, Element, Event, Length, Radians, Rectangle, Size};
 
@@ -31,6 +33,8 @@ impl Spinner {
     }
 }
 
+impl Meta for Spinner {}
+
 impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer> for Spinner
 where
     Renderer: svg::Renderer,
@@ -39,18 +43,17 @@ where
         Size::new(Length::Fixed(self.size), Length::Fixed(self.size))
     }
 
-    fn layout(&mut self, _tree: &mut Tree, _r: &Renderer, limits: &layout::Limits) -> layout::Node {
-        layout::atomic(limits, self.size, self.size)
+    fn layout(&mut self, tree: &mut Tree, _r: &Renderer, limits: &layout::Limits) {
+        tree.size = layout::atomic(limits, self.size, self.size);
     }
 
     fn update(
         &mut self,
         _tree: &mut Tree,
         event: &Event,
-        _layout: Layout<'_>,
+        _layout: Layout,
         _cursor: mouse::Cursor,
         _renderer: &Renderer,
-        _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
     ) {
@@ -65,7 +68,7 @@ where
         renderer: &mut Renderer,
         _theme: &Theme,
         _style: &renderer::Style,
-        layout: Layout<'_>,
+        layout: Layout,
         _cursor: mouse::Cursor,
         _viewport: &Rectangle,
     ) {
@@ -90,6 +93,6 @@ impl<'a, Message: 'a, Theme: 'a, Renderer: svg::Renderer + 'a> From<Spinner>
     for Element<'a, Message, Theme, Renderer>
 {
     fn from(s: Spinner) -> Self {
-        Self::new(s)
+        iced::widget::Widget::boxed(s)
     }
 }

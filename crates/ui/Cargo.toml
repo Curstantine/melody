@@ -26,6 +26,8 @@ iced = { workspace = true, features = [
   "linux-theme-detection",
   "x11",
   "wayland",
+  "wayland-dlopen",
+  "wayland-decorations",
   "tokio",
   "svg",
   "image",

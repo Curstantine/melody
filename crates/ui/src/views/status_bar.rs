@@ -1,5 +1,5 @@
 use core_engine::{format_duration, AlbumSummary, ArtistSummary, Track};
-use iced::widget::{column, container, row, Space};
+use iced::widget::{column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use crate::components::{border_vert, scanning_indicator, text};
@@ -54,9 +54,9 @@ impl StatusBar {
                     text(theme_cfg, format!("·  Filter: {}", ctx.search_query.trim()))
                         .size(11)
                         .color(muted)
-                        .into()
+                        .boxed()
                 } else {
-                    Space::new().width(0).into()
+                    Space::new().width(0).boxed()
                 };
 
                 row![
@@ -66,7 +66,7 @@ impl StatusBar {
                 ]
                 .spacing(6)
                 .align_y(Alignment::Center)
-                .into()
+                .boxed()
             }
 
             ViewTab::Albums => {
@@ -90,7 +90,7 @@ impl StatusBar {
                 ]
                 .spacing(6)
                 .align_y(Alignment::Center)
-                .into()
+                .boxed()
             }
 
             ViewTab::Artists => {
@@ -114,7 +114,7 @@ impl StatusBar {
                 ]
                 .spacing(6)
                 .align_y(Alignment::Center)
-                .into()
+                .boxed()
             }
 
             ViewTab::Lyrics => {
@@ -144,7 +144,7 @@ impl StatusBar {
                     ]
                     .spacing(6)
                     .align_y(Alignment::Center)
-                    .into()
+                    .boxed()
                 } else {
                     row![
                         icons::icon(icons::DISC_SVG, 11.0, muted),
@@ -152,7 +152,7 @@ impl StatusBar {
                     ]
                     .spacing(6)
                     .align_y(Alignment::Center)
-                    .into()
+                    .boxed()
                 }
             }
 
@@ -174,7 +174,7 @@ impl StatusBar {
                     ]
                     .spacing(6)
                     .align_y(Alignment::Center)
-                    .into()
+                    .boxed()
                 } else {
                     row![
                         icons::icon(icons::PLAYLIST_SVG, 11.0, muted),
@@ -188,7 +188,7 @@ impl StatusBar {
                     ]
                     .spacing(6)
                     .align_y(Alignment::Center)
-                    .into()
+                    .boxed()
                 }
             }
 
@@ -202,7 +202,7 @@ impl StatusBar {
             ]
             .spacing(6)
             .align_y(Alignment::Center)
-            .into(),
+            .boxed(),
         };
 
         // 2. Global Right Section
@@ -223,6 +223,6 @@ impl StatusBar {
         .style(styles::status_bar_container(theme_cfg))
         .width(Length::Fill)
         .height(25)
-        .into()
+        .boxed()
     }
 }

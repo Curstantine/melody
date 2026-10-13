@@ -2,7 +2,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use iced::advanced::text::Paragraph;
 use iced::advanced::widget::tree::{self, Tree};
-use iced::advanced::{layout, mouse, renderer, text, Clipboard, Layout, Shell, Widget};
+use iced::advanced::widget::Meta;
+use iced::advanced::{layout, mouse, renderer, text, Layout, Shell, Widget};
 use iced::{
     alignment, window, Color, Element, Event, Font, Length, Pixels, Point, Rectangle, Size,
 };
@@ -89,9 +90,11 @@ impl<P: Paragraph> Default for State<P> {
     }
 }
 
+impl Meta for Marquee {}
+
 impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer> for Marquee
 where
-    Renderer: text::Renderer<Font = Font>,
+    Renderer: text::Renderer,
 {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State<Renderer::Paragraph>>()
@@ -105,12 +108,7 @@ where
         Size::new(Length::Fill, Length::Shrink)
     }
 
-    fn layout(
-        &mut self,
-        tree: &mut Tree,
-        _renderer: &Renderer,
-        limits: &layout::Limits,
-    ) -> layout::Node {
+    fn layout(&mut self, tree: &mut Tree, _renderer: &Renderer, limits: &layout::Limits) {
         let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
 
         let shaping = if self.content.is_ascii() {
@@ -129,27 +127,26 @@ where
             align_y: alignment::Vertical::Top,
             shaping,
             wrapping: iced::widget::text::Wrapping::None,
+            ellipsis: iced::advanced::text::Ellipsis::None,
+            hint_factor: None,
         });
 
         let height = state.paragraph.raw().min_height().max(self.size.0);
 
-        let node_size = limits.width(Length::Fill).height(Length::Shrink).resolve(
+        tree.size = limits.width(Length::Fill).height(Length::Shrink).resolve(
             Length::Fill,
             Length::Shrink,
             Size::new(0.0, height),
         );
-
-        layout::Node::new(node_size)
     }
 
     fn update(
         &mut self,
         tree: &mut Tree,
         event: &Event,
-        layout: Layout<'_>,
+        layout: Layout,
         _cursor: mouse::Cursor,
         _renderer: &Renderer,
-        _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
     ) {
@@ -172,7 +169,7 @@ where
         renderer: &mut Renderer,
         _theme: &Theme,
         _style: &renderer::Style,
-        layout: Layout<'_>,
+        layout: Layout,
         _cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
@@ -235,10 +232,10 @@ where
     }
 }
 
-impl<'a, Message: 'a, Theme: 'a, Renderer: text::Renderer<Font = Font> + 'a> From<Marquee>
+impl<'a, Message: 'a, Theme: 'a, Renderer: text::Renderer + 'a> From<Marquee>
     for Element<'a, Message, Theme, Renderer>
 {
     fn from(m: Marquee) -> Self {
-        Self::new(m)
+        iced::widget::Widget::boxed(m)
     }
 }

@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use core_engine::{AlbumSummary, SortDirection, TrackFilter};
 use iced::border::Radius;
-use iced::widget::{column, container, image, row, scrollable, Space};
+use iced::widget::{column, container, image, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use crate::components;
@@ -316,8 +316,8 @@ impl AlbumsView {
 
     pub fn on_scroll(&mut self, viewport: &iced::widget::scrollable::Viewport) -> bool {
         let y = viewport.absolute_offset().y;
-        let width = viewport.bounds().width;
-        let height = viewport.bounds().height;
+        let width = viewport.bounds.width;
+        let height = viewport.bounds.height;
         self.recompute_window(y, width, height)
     }
 
@@ -530,7 +530,7 @@ impl AlbumsView {
             })
             .height(Length::Fill)
             .width(Length::Fill)
-            .into()
+            .boxed()
     }
 
     fn view_tiles<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -546,7 +546,7 @@ impl AlbumsView {
 
         let top = start_row as f32 * row_h;
         if top > 0.0 {
-            content = content.push(Space::new().height(top));
+            content = content.push(Space::new().height(top).boxed());
         }
 
         for chunk in self.visible_albums().chunks(per_row) {
@@ -596,21 +596,22 @@ impl AlbumsView {
                 container(tile_row)
                     .height(row_h)
                     .width(Length::Fill)
-                    .align_y(Alignment::Start),
+                    .align_y(Alignment::Start)
+                    .boxed(),
             );
         }
 
         let bottom = total_rows.saturating_sub(end_row) as f32 * row_h;
         if bottom > 0.0 {
-            content = content.push(Space::new().height(bottom));
+            content = content.push(Space::new().height(bottom).boxed());
         }
 
         scrollable(container(content).width(Length::Fill).padding([0, 16]))
             .id(iced::widget::Id::new("albums_scroll"))
-            .on_scroll(Message::AlbumsScrolled)
+            .on_scroll(|scroll| Message::AlbumsScrolled(scroll.viewport))
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
-            .into()
+            .boxed()
     }
 
     fn view_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -621,7 +622,7 @@ impl AlbumsView {
 
         let top = self.window_start as f32 * row_h;
         if top > 0.0 {
-            content = content.push(Space::new().height(top));
+            content = content.push(Space::new().height(top).boxed());
         }
 
         for album in self.visible_albums() {
@@ -662,14 +663,14 @@ impl AlbumsView {
 
         let bottom = total_rows.saturating_sub(self.window_end) as f32 * row_h;
         if bottom > 0.0 {
-            content = content.push(Space::new().height(bottom));
+            content = content.push(Space::new().height(bottom).boxed());
         }
 
         scrollable(content)
             .id(iced::widget::Id::new("albums_scroll"))
-            .on_scroll(Message::AlbumsScrolled)
+            .on_scroll(|scroll| Message::AlbumsScrolled(scroll.viewport))
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
-            .into()
+            .boxed()
     }
 }

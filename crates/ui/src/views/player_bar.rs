@@ -1,6 +1,6 @@
 use core_engine::{format_duration, Track};
 use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, slider, stack, Space};
+use iced::widget::{button, column, container, image, row, slider, stack, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use crate::components::{self, text};
@@ -238,6 +238,6 @@ impl PlayerBar {
             .style(styles::player_bar_container(theme_cfg))
             .width(Length::Fill)
             .height(72)
-            .into()
+            .boxed()
     }
 }

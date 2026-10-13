@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use iced::{theme::Palette, Color, Theme};
+use iced::{theme::palette::Seed, Color, Theme};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
@@ -191,8 +191,8 @@ impl ThemeConfig {
         self.slider_rail.unwrap_or(self.surface)
     }
 
-    pub fn to_palette(&self) -> Palette {
-        Palette {
+    pub fn to_seed(&self) -> Seed {
+        Seed {
             background: self.bg_color(),
             text: self.text_color(),
             primary: self.primary_color(),
@@ -203,7 +203,7 @@ impl ThemeConfig {
     }
 
     pub fn to_iced_theme(&self) -> Theme {
-        Theme::custom(self.name.clone(), self.to_palette())
+        Theme::custom(self.name.clone(), self.to_seed())
     }
 
     pub fn font(&self) -> iced::Font {
@@ -236,7 +236,7 @@ fn intern_str(s: &str) -> &'static str {
 pub fn font_from_family_name(name: Option<&str>) -> iced::Font {
     if let Some(name) = name {
         let family_static = intern_str(name);
-        iced::Font::with_name(family_static)
+        iced::Font::new(family_static)
     } else {
         iced::Font::DEFAULT
     }

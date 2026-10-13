@@ -112,7 +112,7 @@ pub fn pick_list_style(
 ) -> impl Fn(&Theme, pick_list::Status) -> pick_list::Style + '_ {
     move |_theme, status| {
         let border_color = match status {
-            pick_list::Status::Active => cfg.border_color(),
+            pick_list::Status::Active | pick_list::Status::Disabled => cfg.border_color(),
             pick_list::Status::Hovered | pick_list::Status::Opened { .. } => cfg.primary_color(),
         };
 
@@ -484,7 +484,6 @@ pub fn search_input_style(
                 width: 1.0,
                 radius: Radius::from(4.0),
             },
-            icon: cfg.text_muted_color(),
             placeholder: cfg.text_muted_color(),
             value: cfg.text_color(),
             selection: cfg.accent_color(),

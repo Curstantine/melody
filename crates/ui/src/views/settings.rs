@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use iced::border::Radius;
 use iced::widget::{
-    button, column, container, pick_list, row, scrollable, slider, text_input, Space,
+    button, column, container, pick_list, row, scrollable, slider, text_input, Space, Widget,
 };
 use iced::{Alignment, Border, Color, Element, Length};
 
@@ -114,7 +114,7 @@ impl SettingsView {
         row![sidebar, main_panel]
             .width(Length::Fill)
             .height(Length::Fill)
-            .into()
+            .boxed()
     }
 
     fn view_sidebar<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -189,7 +189,7 @@ impl SettingsView {
         .width(Length::Fixed(221.0))
         .height(Length::Fill)
         .style(styles::sidebar_container(theme_cfg))
-        .into()
+        .boxed()
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -278,7 +278,8 @@ impl SettingsView {
                 Space::new().height(4),
                 reload_themes_btn,
             ]
-            .spacing(8),
+            .spacing(8)
+            .boxed(),
         );
 
         // Typography & Font Configuration Card
@@ -306,10 +307,11 @@ impl SettingsView {
         }
 
         let font_selector = pick_list(
-            font_options,
             Some(active_font_family.clone()),
-            Message::SelectFont,
+            font_options,
+            |option: &String| option.clone(),
         )
+        .on_select(Message::SelectFont)
         .placeholder("Select a system font...")
         .padding([8, 12])
         .text_size(12)
@@ -441,7 +443,8 @@ impl SettingsView {
                 Space::new().height(6),
                 sample_text_box,
             ]
-            .spacing(8),
+            .spacing(8)
+            .boxed(),
         );
 
         // 1. Library Tab Section
@@ -480,7 +483,8 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
             ]
-            .spacing(10),
+            .spacing(10)
+            .boxed(),
         );
 
         // 2. Albums Tab Section
@@ -545,7 +549,8 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
             ]
-            .spacing(10),
+            .spacing(10)
+            .boxed(),
         );
 
         // 3. Artists Tab Section
@@ -610,7 +615,8 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
             ]
-            .spacing(10),
+            .spacing(10)
+            .boxed(),
         );
 
         // 4. Now Playing Section
@@ -682,7 +688,8 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
             ]
-            .spacing(10),
+            .spacing(10)
+            .boxed(),
         );
 
         column![
@@ -698,7 +705,7 @@ impl SettingsView {
         .spacing(18)
         .padding(24)
         .width(Length::Fill)
-        .into()
+        .boxed()
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -749,7 +756,9 @@ impl SettingsView {
         let stats_card = components::settings_card(
             theme_cfg,
             "Storage & Index Metrics",
-            column![storage_stats_row1, storage_stats_row2].spacing(10),
+            column![storage_stats_row1, storage_stats_row2]
+                .spacing(10)
+                .boxed(),
         );
 
         // Scanned Folders List
@@ -806,7 +815,7 @@ impl SettingsView {
                 },
                 ..Default::default()
             })
-            .into()
+            .boxed()
         } else {
             let mut col = column![].spacing(6);
             for folder_path in &self.library_folders {
@@ -875,9 +884,9 @@ impl SettingsView {
                     ..Default::default()
                 });
 
-                col = col.push(item_row);
+                col = col.push(item_row.boxed());
             }
-            col.into()
+            col.boxed()
         };
 
         let folders_card = components::settings_card(
@@ -898,7 +907,8 @@ impl SettingsView {
                 Space::new().height(4),
                 folders_content,
             ]
-            .spacing(8),
+            .spacing(8)
+            .boxed(),
         );
 
         // Maintenance & Actions Card
@@ -1012,7 +1022,7 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
             ]
-            .spacing(10),
+            .spacing(10).boxed(),
         );
 
         column![
@@ -1025,7 +1035,7 @@ impl SettingsView {
         .spacing(18)
         .padding(24)
         .width(Length::Fill)
-        .into()
+        .boxed()
     }
 
     fn view_scrobbling<'a>(
@@ -1108,7 +1118,8 @@ impl SettingsView {
             ]
             .spacing(6),
         ]
-        .spacing(12),
+        .spacing(12)
+        .boxed(),
     );
 
         // 2. ListenBrainz Card
@@ -1228,11 +1239,11 @@ impl SettingsView {
         .spacing(12);
 
         if let Some(banner) = lb_test_banner {
-            lb_column = lb_column.push(banner);
+            lb_column = lb_column.push(banner.boxed());
         }
 
         let listenbrainz_card =
-            components::settings_card(theme_cfg, "ListenBrainz Plugin", lb_column);
+            components::settings_card(theme_cfg, "ListenBrainz Plugin", lb_column.boxed());
 
         // 3. Last.fm Card
         let lastfm_test_banner = if let Some((plugins::scrobbler::ScrobbleService::LastFm, res)) =
@@ -1368,10 +1379,11 @@ impl SettingsView {
         .spacing(12);
 
         if let Some(banner) = lastfm_test_banner {
-            lastfm_column = lastfm_column.push(banner);
+            lastfm_column = lastfm_column.push(banner.boxed());
         }
 
-        let lastfm_card = components::settings_card(theme_cfg, "Last.fm Plugin", lastfm_column);
+        let lastfm_card =
+            components::settings_card(theme_cfg, "Last.fm Plugin", lastfm_column.boxed());
 
         column![
             header,
@@ -1383,7 +1395,7 @@ impl SettingsView {
         .spacing(18)
         .padding(24)
         .width(Length::Fill)
-        .into()
+        .boxed()
     }
 }
 
@@ -1413,7 +1425,7 @@ fn swatch_card<'a>(
     ]
     .spacing(4)
     .align_x(Alignment::Center)
-    .into()
+    .boxed()
 }
 
 fn format_file_size(bytes: u64) -> String {

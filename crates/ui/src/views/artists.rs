@@ -1,6 +1,6 @@
 use core_engine::{ArtistSummary, SortDirection, TrackFilter};
 use iced::border::Radius;
-use iced::widget::{column, container, row, scrollable, Space};
+use iced::widget::{column, container, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length, Padding};
 
 use crate::components;
@@ -164,8 +164,8 @@ impl ArtistsView {
 
     pub fn on_scroll(&mut self, viewport: &iced::widget::scrollable::Viewport) -> bool {
         let y = viewport.absolute_offset().y;
-        let width = viewport.bounds().width;
-        let height = viewport.bounds().height;
+        let width = viewport.bounds.width;
+        let height = viewport.bounds.height;
         self.recompute_window(y, width, height)
     }
 
@@ -344,7 +344,7 @@ impl ArtistsView {
             })
             .height(Length::Fill)
             .width(Length::Fill)
-            .into()
+            .boxed()
     }
 
     fn view_tiles<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -360,7 +360,7 @@ impl ArtistsView {
 
         let top = start_row as f32 * row_h;
         if top > 0.0 {
-            content = content.push(Space::new().height(top));
+            content = content.push(Space::new().height(top).boxed());
         }
 
         for chunk in self.visible_artists().chunks(per_row) {
@@ -409,13 +409,14 @@ impl ArtistsView {
                 container(tile_row)
                     .height(row_h)
                     .width(Length::Fill)
-                    .align_y(Alignment::Start),
+                    .align_y(Alignment::Start)
+                    .boxed(),
             );
         }
 
         let bottom = total_rows.saturating_sub(end_row) as f32 * row_h;
         if bottom > 0.0 {
-            content = content.push(Space::new().height(bottom));
+            content = content.push(Space::new().height(bottom).boxed());
         }
 
         scrollable(container(content).width(Length::Fill).padding(Padding {
@@ -424,10 +425,10 @@ impl ArtistsView {
             ..Default::default()
         }))
         .id(iced::widget::Id::new("artists_scroll"))
-        .on_scroll(Message::ArtistsScrolled)
+        .on_scroll(|scroll| Message::ArtistsScrolled(scroll.viewport))
         .height(Length::Fill)
         .style(styles::scrollable_style(theme_cfg))
-        .into()
+        .boxed()
     }
 
     fn view_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -438,7 +439,7 @@ impl ArtistsView {
 
         let top = self.window_start as f32 * row_h;
         if top > 0.0 {
-            content = content.push(Space::new().height(top));
+            content = content.push(Space::new().height(top).boxed());
         }
 
         for artist in self.visible_artists() {
@@ -478,14 +479,14 @@ impl ArtistsView {
 
         let bottom = total_rows.saturating_sub(self.window_end) as f32 * row_h;
         if bottom > 0.0 {
-            content = content.push(Space::new().height(bottom));
+            content = content.push(Space::new().height(bottom).boxed());
         }
 
         scrollable(content)
             .id(iced::widget::Id::new("artists_scroll"))
-            .on_scroll(Message::ArtistsScrolled)
+            .on_scroll(|scroll| Message::ArtistsScrolled(scroll.viewport))
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
-            .into()
+            .boxed()
     }
 }

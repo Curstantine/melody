@@ -36,7 +36,7 @@ fn main() -> iced::Result {
 
     if let Some(ref font_name) = config.primary_font {
         info!("Setting default font from saved config to: {font_name}");
-        builder = builder.default_font(theme::font_from_family_name(Some(font_name)));
+        builder = builder.font(theme::font_from_family_name(Some(font_name)));
     }
 
     builder.run()

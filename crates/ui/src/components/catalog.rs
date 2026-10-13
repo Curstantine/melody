@@ -1,5 +1,5 @@
 use iced::widget::text::Wrapping;
-use iced::widget::{button, column, container, row, Space};
+use iced::widget::{button, column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length, Padding};
 
 use crate::icons;
@@ -72,12 +72,14 @@ impl<'a> CatalogRow<'a> {
                 .push(
                     text(theme_cfg, " • ")
                         .size(11)
-                        .color(theme_cfg.text_muted_color()),
+                        .color(theme_cfg.text_muted_color())
+                        .boxed(),
                 )
                 .push(
                     text(theme_cfg, subtitle_right)
                         .size(11)
-                        .color(theme_cfg.text_muted_color()),
+                        .color(theme_cfg.text_muted_color())
+                        .boxed(),
                 );
         }
 
@@ -104,7 +106,7 @@ impl<'a> CatalogRow<'a> {
             .spacing(2)
             .align_x(Alignment::End)
             .width(DETAILS_WIDTH);
-            row_content = row_content.push(details_col);
+            row_content = row_content.push(details_col.boxed());
         }
 
         let row_content = row_content
@@ -149,7 +151,7 @@ impl<'a> CatalogRow<'a> {
                 right: 20.0,
                 ..Default::default()
             })
-            .into()
+            .boxed()
     }
 }
 
@@ -258,7 +260,7 @@ impl<'a> CatalogTile<'a> {
             .align_y(Alignment::End)
             .padding(6);
 
-        iced::widget::stack([select_btn.into(), actions.into()]).into()
+        iced::widget::stack([select_btn.boxed(), actions.boxed()]).boxed()
     }
 }
 
@@ -343,7 +345,7 @@ impl<'a> TrackRow<'a> {
             .height(TRACK_ROW_HEIGHT)
             .center_x(TRACK_ROW_SLOT_WIDTH)
             .center_y(TRACK_ROW_HEIGHT)
-            .into()
+            .boxed()
         } else {
             container(
                 text(theme_cfg, format!("{}", index + 1))
@@ -354,7 +356,7 @@ impl<'a> TrackRow<'a> {
             .height(TRACK_ROW_HEIGHT)
             .center_x(TRACK_ROW_SLOT_WIDTH)
             .center_y(TRACK_ROW_HEIGHT)
-            .into()
+            .boxed()
         };
         let mut slot = iced::widget::mouse_area(slot_content)
             .on_enter(hover_enter.clone())
@@ -398,11 +400,11 @@ impl<'a> TrackRow<'a> {
                 .on_enter(hover_enter)
                 .on_exit(hover_exit)
                 .interaction(iced::mouse::Interaction::Pointer)
-                .into(),
+                .boxed(),
             None => iced::widget::mouse_area(row_container)
                 .on_enter(hover_enter)
                 .on_exit(hover_exit)
-                .into(),
+                .boxed(),
         };
 
         let remove_btn = button(icons::icon(
@@ -434,6 +436,6 @@ impl<'a> TrackRow<'a> {
         ))
         .width(Length::Fill)
         .height(TRACK_ROW_HEIGHT)
-        .into()
+        .boxed()
     }
 }
