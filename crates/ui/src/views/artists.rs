@@ -451,36 +451,7 @@ impl ArtistsView {
             .padding(0)
             .on_press(Message::SelectArtist(artist.artist.to_string()));
 
-        let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text_color()))
-            .style(styles::icon_control_button(theme_cfg))
-            .padding(4)
-            .on_press(Message::PlayScope {
-                filter: TrackFilter::artist(artist.artist.as_ref()),
-                name: artist.artist.as_ref().to_string(),
-                shuffle: false,
-            });
-
-        let shuffle_btn = button(icons::icon(
-            icons::SHUFFLE_SVG,
-            14.0,
-            theme_cfg.text_color(),
-        ))
-        .style(styles::icon_control_button(theme_cfg))
-        .padding(4)
-        .on_press(Message::PlayScope {
-            filter: TrackFilter::artist(artist.artist.as_ref()),
-            name: artist.artist.as_ref().to_string(),
-            shuffle: true,
-        });
-
-        let actions = container(row![play_btn, shuffle_btn].spacing(4))
-            .width(tile_w)
-            .height(avatar_size)
-            .align_x(Alignment::Center)
-            .align_y(Alignment::End)
-            .padding(6);
-
-        iced::widget::stack([select_btn.into(), actions.into()]).into()
+        select_btn.into()
     }
 
     fn view_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
