@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use core_engine::{
-    AlbumSummary, ArtistSummary, AudioTechnicalInfo, CacheStats, PlaylistSummary, ScanSummary,
-    SortField, Track, TrackFilter, TrackRow,
+    AlbumSummary, ArtistSummary, AudioTechnicalInfo, CacheStats, PlaylistEntry, PlaylistSummary,
+    ScanSummary, SortField, Track, TrackFilter, TrackRow,
 };
 
 use serde::{Deserialize, Serialize};
@@ -28,6 +28,9 @@ impl PlaylistItem {
 pub struct PlaylistResolution {
     /// One entry per line of the playlist, in file order (including missing).
     pub items: Vec<PlaylistItem>,
+    /// Raw file entries 1:1 with `items`, kept so reordered playlists can be
+    /// written back without losing unmatched lines or relative paths.
+    pub entries: Vec<PlaylistEntry>,
     /// Indexed tracks that were successfully matched, in playlist order.
     pub tracks: Vec<TrackRow>,
 }
@@ -208,6 +211,24 @@ pub enum Message {
     PlayPlaylist(i64),
     PlayPlaylistItem(i64, usize),
     PlaylistToQueue(i64),
+    PlaylistDetailClicked {
+        playlist_id: i64,
+        index: usize,
+    },
+    PlaylistDetailDragStarted {
+        playlist_id: i64,
+        index: usize,
+    },
+    PlaylistDetailDraggedOver {
+        playlist_id: i64,
+        index: usize,
+    },
+    PlaylistDetailDragReleased,
+    PlaylistDetailHovered(Option<(i64, usize)>),
+    PlaylistDetailPersisted {
+        playlist_id: i64,
+        success: bool,
+    },
     RenamePlaylist(i64),
     RenamePlaylistNameChanged(String),
     RenamePlaylistSubmitted(i64, String),
@@ -236,8 +257,6 @@ pub enum Message {
         name: String,
         shuffle: bool,
     },
-    QueueAddTrack(i64),
-    QueueAppendLoaded(Vec<TrackRow>),
     QueueRemoveTrack {
         queue_id: u64,
         index: usize,

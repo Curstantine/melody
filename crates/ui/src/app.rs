@@ -53,6 +53,9 @@ pub struct App {
     /// Queue track being drag-reordered: `(queue_id, current_index)`.
     dragging_queue_track: Option<(u64, usize)>,
     drag_queue_order_changed: bool,
+    /// Open-playlist row being drag-reordered: `(playlist_id, index)`.
+    dragging_detail: Option<(i64, usize)>,
+    drag_detail_order_changed: bool,
 
     // Screen-specific state components
     library: LibraryView,
@@ -190,6 +193,8 @@ impl App {
             drag_order_changed: false,
             dragging_queue_track: None,
             drag_queue_order_changed: false,
+            dragging_detail: None,
+            drag_detail_order_changed: false,
 
             library,
             albums,
@@ -296,7 +301,10 @@ impl App {
         let covers =
             iced::time::every(Duration::from_millis(400)).map(|_| Message::EnsureAlbumCovers);
         let mut subscriptions = vec![ticker, covers];
-        if self.dragging_tab.is_some() || self.dragging_queue_track.is_some() {
+        if self.dragging_tab.is_some()
+            || self.dragging_queue_track.is_some()
+            || self.dragging_detail.is_some()
+        {
             subscriptions.push(iced::event::listen_with(handle_drag_event));
         }
         Subscription::batch(subscriptions)
@@ -706,14 +714,15 @@ impl App {
 
             Message::TabDragReleased => {
                 let queue_task = self.finish_queue_drag_task();
+                let detail_task = self.finish_detail_drag_task();
                 let had_drag = self.dragging_tab.is_some();
                 let order_changed = self.drag_order_changed;
                 self.dragging_tab = None;
                 self.drag_order_changed = false;
                 if had_drag && order_changed {
-                    Task::batch([self.save_config_task(), queue_task])
+                    Task::batch([self.save_config_task(), queue_task, detail_task])
                 } else {
-                    queue_task
+                    Task::batch([queue_task, detail_task])
                 }
             }
 
@@ -997,6 +1006,8 @@ impl App {
             }
 
             Message::SelectPlaylist(id) => {
+                self.dragging_detail = None;
+                self.drag_detail_order_changed = false;
                 if id < 0 {
                     self.playlists.clear_detail();
                     return Task::none();
@@ -1028,6 +1039,7 @@ impl App {
                             playlist.name,
                             playlist.file_path,
                             resolution.items,
+                            resolution.entries,
                         );
                     }
                     Task::none()
@@ -1093,6 +1105,71 @@ impl App {
             Message::PlayPlaylistItem(id, index) => self.open_playlist(id, index),
             Message::PlaylistToQueue(id) => {
                 self.resolve_playlist_intent(id, PlaylistOpenIntent::AddToQueue)
+            }
+            Message::PlaylistDetailClicked { playlist_id, index } => {
+                if self.playlists.selected_id != Some(playlist_id) {
+                    return Task::none();
+                }
+                let available = self
+                    .playlists
+                    .detail_items
+                    .get(index)
+                    .is_some_and(|item| item.is_available());
+                if !self.playlists.on_detail_click(playlist_id, index) {
+                    return Task::none();
+                }
+                // Double-click plays; cancel any handle-drag in progress.
+                self.dragging_detail = None;
+                self.drag_detail_order_changed = false;
+                if available {
+                    self.update(Message::PlayPlaylistItem(playlist_id, index))
+                } else {
+                    Task::none()
+                }
+            }
+            Message::PlaylistDetailDragStarted { playlist_id, index } => {
+                self.playlists.last_detail_click = None;
+                self.playlists.hovered_detail_row = None;
+                let in_range = self.playlists.selected_id == Some(playlist_id)
+                    && index < self.playlists.detail_items.len();
+                if in_range {
+                    self.dragging_detail = Some((playlist_id, index));
+                    self.drag_detail_order_changed = false;
+                } else {
+                    self.dragging_detail = None;
+                    self.drag_detail_order_changed = false;
+                }
+                Task::none()
+            }
+            Message::PlaylistDetailDraggedOver { playlist_id, index } => {
+                if let Some((drag_id, drag_index)) = self.dragging_detail {
+                    if drag_id == playlist_id
+                        && drag_index != index
+                        && self.playlists.selected_id == Some(playlist_id)
+                        && self.playlists.move_detail_entry(drag_index, index)
+                    {
+                        self.dragging_detail = Some((playlist_id, index));
+                        self.drag_detail_order_changed = true;
+                        self.playlists.selected_detail_track = Some((playlist_id, index));
+                    }
+                }
+                Task::none()
+            }
+            Message::PlaylistDetailDragReleased => self.finish_detail_drag_task(),
+            Message::PlaylistDetailHovered(target) => {
+                self.playlists.hovered_detail_row = target;
+                Task::none()
+            }
+            Message::PlaylistDetailPersisted {
+                playlist_id,
+                success,
+            } => {
+                if !success && self.playlists.selected_id == Some(playlist_id) {
+                    // Disk write failed: reload from the file to undo the
+                    // optimistic in-memory reorder.
+                    return self.resolve_playlist_intent(playlist_id, PlaylistOpenIntent::View);
+                }
+                Task::none()
             }
 
             Message::NewPlaylistClicked => {
@@ -1195,6 +1272,8 @@ impl App {
             }
 
             Message::DeletePlaylist(id) => {
+                self.dragging_detail = None;
+                self.drag_detail_order_changed = false;
                 self.playlists.clear_detail();
                 let playlist = self.playlist_by_id(id);
                 let db = self.db.clone();
@@ -1419,33 +1498,6 @@ impl App {
                     },
                     |message| message,
                 )
-            }
-            Message::QueueAddTrack(id) => {
-                let db = self.db.clone();
-                Task::perform(
-                    async move {
-                        db.get_track_rows_by_ids(&[id])
-                            .await
-                            .unwrap_or_default()
-                            .remove(&id)
-                            .into_iter()
-                            .collect::<Vec<_>>()
-                    },
-                    Message::QueueAppendLoaded,
-                )
-            }
-            Message::QueueAppendLoaded(tracks) => {
-                if tracks.is_empty() {
-                    return Task::none();
-                }
-                if self.queues.active.is_none() {
-                    self.queues.create(DEFAULT_QUEUE_NAME);
-                }
-                if let Some(queue) = self.queues.active_queue_mut() {
-                    queue.append_many(tracks);
-                }
-                self.queues.touch_active_summary();
-                self.persist_active_queue_task()
             }
             Message::QueueRemoveTrack { queue_id, index } => {
                 if self.queues.active == Some(queue_id) {
@@ -1907,6 +1959,39 @@ impl App {
         }
     }
 
+    /// Writes the open playlist's reordered entries back to its M3U file.
+    /// Fires exactly once on drag-release (never per hover), off the UI
+    /// thread since the write is synchronous filesystem I/O.
+    fn finish_detail_drag_task(&mut self) -> Task<Message> {
+        let released = self.dragging_detail.take();
+        let order_changed = std::mem::take(&mut self.drag_detail_order_changed);
+        // The cursor stays over the dropped row but no new hover event will
+        // fire, so restore the reveal directly.
+        if let Some(pos) = released {
+            self.playlists.hovered_detail_row = Some(pos);
+        }
+        let (Some((playlist_id, _)), true) = (released, order_changed) else {
+            return Task::none();
+        };
+        if self.playlists.selected_id != Some(playlist_id) {
+            return Task::none();
+        }
+        let path = self.playlists.detail_path.clone();
+        let entries = self.playlists.detail_entries.clone();
+        Task::perform(
+            async move {
+                let wrote = tokio::task::spawn_blocking(move || write_m3u(&path, &entries))
+                    .await
+                    .is_ok_and(|result| result.is_ok());
+                (playlist_id, wrote)
+            },
+            |(playlist_id, success)| Message::PlaylistDetailPersisted {
+                playlist_id,
+                success,
+            },
+        )
+    }
+
     /// Snaps the queue detail list so the playing cursor is visible. Skips
     /// when the cursor already sits inside the rendered window.
     fn snap_queue_to_current(&self) -> Task<Message> {
@@ -2326,10 +2411,12 @@ impl App {
                 .view(theme_cfg, self.current_track_id, self.is_playing),
             ViewTab::Albums => self.albums.view(theme_cfg),
             ViewTab::Artists => self.artists.view(theme_cfg),
-            ViewTab::Playlists => {
-                self.playlists
-                    .view(theme_cfg, &self.queues, self.dragging_queue_track)
-            }
+            ViewTab::Playlists => self.playlists.view(
+                theme_cfg,
+                &self.queues,
+                self.dragging_queue_track,
+                self.dragging_detail,
+            ),
             ViewTab::Lyrics => {
                 let next_track = self.get_next_track();
 
@@ -2454,6 +2541,7 @@ async fn resolve_playlist(db: LibraryDatabase, file_path: String) -> PlaylistRes
             warn!("Failed to parse playlist {}: {}", file_path, e);
             return PlaylistResolution {
                 items: Vec::new(),
+                entries: Vec::new(),
                 tracks: Vec::new(),
             };
         }
@@ -2513,7 +2601,11 @@ async fn resolve_playlist(db: LibraryDatabase, file_path: String) -> PlaylistRes
         });
     }
 
-    PlaylistResolution { items, tracks }
+    PlaylistResolution {
+        items,
+        entries: parsed.entries,
+        tracks,
+    }
 }
 
 /// Maps the dominant scope of a filter to a queue source kind.
