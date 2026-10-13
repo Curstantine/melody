@@ -553,6 +553,15 @@ async fn test_playback_queue_persistence() {
     let tracks = db.load_queue_tracks(1).await.unwrap();
     assert_eq!(tracks[0].id, ids[2]);
 
+    // Large memberships span multiple insert chunks without losing order.
+    let big: Vec<i64> = (0..650).map(|i| ids[i % ids.len()]).collect();
+    db.replace_queue_tracks(1, &big).await.unwrap();
+    let tracks = db.load_queue_tracks(1).await.unwrap();
+    assert_eq!(tracks.len(), big.len());
+    for (pos, track) in tracks.iter().enumerate() {
+        assert_eq!(track.id, big[pos], "order preserved at position {pos}");
+    }
+
     // Deletion clears the queue and can clear the active selection.
     db.delete_queue(1).await.unwrap();
     db.set_active_queue_id(None).await.unwrap();

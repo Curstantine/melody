@@ -10,6 +10,41 @@ use core_engine::{QueueRecord, TrackRow};
 
 pub const DEFAULT_QUEUE_NAME: &str = "Queue";
 
+/// Fixed pixel height of a single queue detail row. The virtualization math
+/// depends on every row rendering at exactly this height.
+pub const QUEUE_ROW_HEIGHT: f32 = 26.0;
+
+/// Approximate visible rows used to size the materialized window (mirrors how
+/// the library view uses `page_size` as its visible-row proxy).
+pub const QUEUE_WINDOW_ROWS: usize = 100;
+
+/// Buffered rows kept above and below the visible range. The window reloads
+/// only when scrolling leaves it, which prevents thrashing while keeping
+/// per-frame widget work bounded no matter how large the queue is.
+pub const QUEUE_WINDOW_BUFFER_ROWS: usize = 100;
+
+/// Maximum tracks materialized for rendering at once.
+pub fn queue_window_capacity() -> usize {
+    QUEUE_WINDOW_ROWS + 2 * QUEUE_WINDOW_BUFFER_ROWS
+}
+
+/// Clamped window start for `first_visible_row`: pulls back by the buffer so
+/// scrolling stays inside already-rendered rows, and clamps to the tail when
+/// `total` is smaller than the capacity.
+pub fn queue_window_start(total: usize, first_visible_row: usize) -> usize {
+    let max_start = total.saturating_sub(queue_window_capacity());
+    first_visible_row
+        .saturating_sub(QUEUE_WINDOW_BUFFER_ROWS)
+        .min(max_start)
+}
+
+/// Clamped `(start, end)` render window covering `window_start`.
+pub fn queue_window_for_start(total: usize, window_start: usize) -> (usize, usize) {
+    let max_start = total.saturating_sub(queue_window_capacity());
+    let start = window_start.min(max_start);
+    (start, (start + queue_window_capacity()).min(total))
+}
+
 /// Where a queue's contents came from. Used for display and queue reuse.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueueSource {
@@ -141,6 +176,7 @@ impl Queue {
     }
 
     /// Inserts `track` immediately after the current track (Musicolet "play next").
+    #[allow(dead_code)]
     pub fn insert_next(&mut self, track: TrackRow) {
         let index = self.current_index().map(|i| i + 1).unwrap_or(0);
         let index = index.min(self.tracks.len());
@@ -232,7 +268,6 @@ impl QueueStore {
         self.active_queue.as_mut()
     }
 
-    #[allow(dead_code)]
     pub fn summary(&self, id: u64) -> Option<&QueueSummary> {
         self.summaries.iter().find(|q| q.id == id)
     }
@@ -401,24 +436,5 @@ impl QueueStore {
             summary.track_count = len;
             summary.current = current;
         }
-    }
-
-    /// Returns the persistence record for a queue id, if it is known.
-    #[allow(dead_code)]
-    pub fn record(&self, id: u64) -> Option<QueueRecord> {
-        if self.active == Some(id) {
-            if let Some(queue) = self.active_queue.as_ref() {
-                return Some(queue.to_record());
-            }
-        }
-        self.summary(id).map(|q| QueueRecord {
-            id: q.id as i64,
-            name: q.name.clone(),
-            current: q.current as i64,
-            source_kind: q.source.as_str().to_string(),
-            source_value: q.source_value.clone(),
-            source_playlist: q.source_playlist.clone(),
-            track_count: q.track_count,
-        })
     }
 }

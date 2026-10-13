@@ -7,7 +7,6 @@ use crate::icons;
 use crate::message::{Message, ViewTab};
 use crate::theme::{styles, ThemeConfig};
 
-#[allow(dead_code)]
 pub struct StatusBarContext<'a> {
     pub active_tab: ViewTab,
     // Tracks (Music) context

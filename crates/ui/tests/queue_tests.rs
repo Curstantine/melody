@@ -6,7 +6,10 @@ use std::sync::Arc;
 mod queue;
 
 use core_engine::{QueueRecord, TrackRow};
-use queue::{Queue, QueueSource, QueueStore, DEFAULT_QUEUE_NAME};
+use queue::{
+    queue_window_capacity, queue_window_for_start, queue_window_start, Queue, QueueSource,
+    QueueStore, DEFAULT_QUEUE_NAME, QUEUE_WINDOW_BUFFER_ROWS, QUEUE_WINDOW_ROWS,
+};
 
 fn track(id: i64) -> TrackRow {
     TrackRow {
@@ -126,6 +129,37 @@ fn queue_store_remove_active_selects_neighbor() {
     // Deleting an unknown id is a no-op with no fallback.
     assert_eq!(store.remove(999), None);
     assert_eq!(store.active, Some(a));
+}
+
+#[test]
+fn queue_window_math_covers_large_queues() {
+    let capacity = queue_window_capacity();
+    assert_eq!(capacity, QUEUE_WINDOW_ROWS + 2 * QUEUE_WINDOW_BUFFER_ROWS);
+
+    // Small queues render whole.
+    assert_eq!(queue_window_for_start(0, 0), (0, 0));
+    assert_eq!(queue_window_for_start(50, 0), (0, 50));
+    assert_eq!(queue_window_for_start(capacity, 0), (0, capacity));
+
+    // Scrolling pulls the window back by the buffer and clamps to the tail.
+    assert_eq!(queue_window_start(100_000, 0), 0);
+    assert_eq!(
+        queue_window_start(100_000, 500),
+        500 - QUEUE_WINDOW_BUFFER_ROWS
+    );
+    assert_eq!(
+        queue_window_start(100_000, 99_999),
+        100_000 - capacity,
+        "window start clamps to the tail"
+    );
+    assert_eq!(
+        queue_window_for_start(100_000, usize::MAX),
+        (100_000 - capacity, 100_000),
+        "out-of-range starts clamp to the tail"
+    );
+    let (start, end) = queue_window_for_start(100_000, 9_900);
+    assert_eq!(start, 9_900);
+    assert_eq!(end - start, capacity);
 }
 
 #[test]

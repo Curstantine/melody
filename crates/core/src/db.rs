@@ -17,6 +17,15 @@ use crate::model::{
 use crate::paths;
 use crate::search::TrackFilter;
 
+/// Maximum bound variables per `WHERE ... IN (...)` lookup. Chunked lookups
+/// stay clear of SQLite's variable limit for very large id/path sets.
+pub const SQL_IN_CLAUSE_CHUNK_SIZE: usize = 500;
+
+/// Rows per multi-row `INSERT` when replacing a queue's membership (3 bound
+/// variables per row). Keeps huge queues such as "All Songs" to a few round
+/// trips while staying clear of SQLite's variable limit.
+pub const QUEUE_TRACKS_INSERT_CHUNK_ROWS: usize = 300;
+
 #[derive(Error, Debug)]
 pub enum DbError {
     #[error("Turso error: {0}")]
@@ -596,8 +605,7 @@ impl LibraryDatabase {
             return Ok(out);
         }
 
-        const CHUNK: usize = 500;
-        for chunk in ids.chunks(CHUNK) {
+        for chunk in ids.chunks(SQL_IN_CLAUSE_CHUNK_SIZE) {
             let placeholders = std::iter::repeat_n("?", chunk.len())
                 .collect::<Vec<_>>()
                 .join(", ");
@@ -922,9 +930,7 @@ impl LibraryDatabase {
             return Ok(out);
         }
 
-        // Chunk to stay clear of SQLite's variable limit for very large playlists.
-        const CHUNK: usize = 500;
-        for chunk in paths.chunks(CHUNK) {
+        for chunk in paths.chunks(SQL_IN_CLAUSE_CHUNK_SIZE) {
             let placeholders = std::iter::repeat_n("?", chunk.len())
                 .collect::<Vec<_>>()
                 .join(", ");
@@ -1142,6 +1148,10 @@ impl LibraryDatabase {
     }
 
     /// Replaces a queue's ordered membership with the given track ids.
+    ///
+    /// Membership is written with chunked multi-row `INSERT`s (one statement
+    /// per chunk instead of one per track) so persisting huge queues such as
+    /// "All Songs" stays proportional to a few round trips.
     pub async fn replace_queue_tracks(&self, queue_id: i64, ids: &[i64]) -> Result<(), DbError> {
         let tx = self.conn.unchecked_transaction().await?;
         tx.execute(
@@ -1149,12 +1159,24 @@ impl LibraryDatabase {
             params![queue_id],
         )
         .await?;
-        for (position, id) in ids.iter().enumerate() {
-            tx.execute(
-                "INSERT INTO playback_queue_tracks (queue_id, position, track_id) VALUES (?1, ?2, ?3)",
-                params![queue_id, position as i64, *id],
-            )
-            .await?;
+        let mut position: i64 = 0;
+        for chunk in ids.chunks(QUEUE_TRACKS_INSERT_CHUNK_ROWS) {
+            let mut sql = String::from(
+                "INSERT INTO playback_queue_tracks (queue_id, position, track_id) VALUES ",
+            );
+            let mut binds: Vec<turso::Value> = Vec::with_capacity(chunk.len() * 3);
+            for (i, id) in chunk.iter().enumerate() {
+                if i > 0 {
+                    sql.push_str(", ");
+                }
+                sql.push_str("(?, ?, ?)");
+                binds.push(turso::Value::from(queue_id));
+                binds.push(turso::Value::from(position));
+                binds.push(turso::Value::from(*id));
+                position += 1;
+            }
+            tx.execute(sql.as_str(), turso::params_from_iter(binds))
+                .await?;
         }
         tx.execute(
             "UPDATE playback_queues SET modified_timestamp = ?2 WHERE id = ?1",

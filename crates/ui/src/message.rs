@@ -131,7 +131,6 @@ pub enum SettingsMessage {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub enum Message {
     // Playback Controls
     PlayTrack(i64),
@@ -153,12 +152,9 @@ pub enum Message {
     TabDraggedOver(ViewTab),
     TabDragReleased,
     TabHovered(Option<ViewTab>),
-    MoveTab(ViewTab, bool),
-    ResetTabOrder,
     SetAlbumsViewMode(ViewMode),
     SetArtistsViewMode(ViewMode),
     SetPlaylistsViewMode(ViewMode),
-    SetTileWidth(u32),
     SetAlbumTileWidth(u32),
     SetArtistTileWidth(u32),
     SetNowPlayingCoverSize(u32),
@@ -178,8 +174,6 @@ pub enum Message {
     SetPageSize(usize),
 
     // Scanning & File Picking
-    ScanFolderClicked,
-    FolderSelected(Option<PathBuf>),
     ScanFinished(ScanSummary),
 
     // Album / Artist Selection & Sorting
@@ -199,7 +193,6 @@ pub enum Message {
     // Playlists
     PlaylistSectionChanged(PlaylistSection),
     PlaylistsLoaded(Vec<PlaylistSummary>),
-    RefreshPlaylists,
     ImportPlaylistsClicked,
     PlaylistsImported(Option<Vec<PathBuf>>),
     NewPlaylistClicked,
@@ -226,13 +219,10 @@ pub enum Message {
     QueueNew,
     QueueSelect(u64),
     QueueDelete(u64),
-    /// The active queue's tracks finished loading from the database.
     QueueActivated {
         id: u64,
         tracks: Vec<TrackRow>,
     },
-    /// A queue built from the current library scope finished loading. Drives
-    /// playback from the clicked track (or the first track for Play/Shuffle All).
     LibraryQueueBuilt {
         track_id: i64,
         name: String,
@@ -241,17 +231,13 @@ pub enum Message {
         source_kind: String,
         tracks: Vec<TrackRow>,
     },
-    /// Plays a whole scope (album/artist) immediately, optionally shuffled.
     PlayScope {
         filter: TrackFilter,
         name: String,
         shuffle: bool,
     },
     QueueAddTrack(i64),
-    QueueAddMany(Vec<i64>),
-    QueuePlayNext(i64),
     QueueAppendLoaded(Vec<TrackRow>),
-    QueuePlayNextLoaded(Vec<TrackRow>),
     QueuePlayIndex(usize),
     QueueRemoveTrack {
         queue_id: u64,
@@ -267,6 +253,7 @@ pub enum Message {
     QueueSaveSubmitted(String),
     QueueSaveCancelled,
     QueuesPersisted,
+    QueueScrolled(iced::widget::scrollable::Viewport),
 
     // Themes & Settings
     Settings(SettingsMessage),

@@ -11,7 +11,6 @@ use crate::icons;
 use crate::message::{AlbumSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
-#[allow(dead_code)]
 pub const DEFAULT_ALBUM_TILE_WIDTH: u32 = 140;
 /// Minimum number of decoded album cover textures retained in RAM/VRAM.
 /// The effective cap is `max(MAX_ALBUM_COVERS, window_len)` so covers currently

@@ -6,8 +6,11 @@ use iced::{Alignment, Border, Element, Length};
 use crate::components::{self, text};
 use crate::icons;
 use crate::message::{Message, PlaylistItem, PlaylistSection, PlaylistSortField, ViewMode};
-use crate::queue::QueueStore;
+use crate::queue::{queue_window_for_start, queue_window_start, QueueStore, QUEUE_ROW_HEIGHT};
 use crate::theme::{styles, ThemeConfig};
+
+/// Square playlist tile size in the Playlists catalog grid.
+pub const PLAYLIST_TILE_SIZE: f32 = 150.0;
 
 /// Self-contained state and view component for the Playlists tab.
 ///
@@ -31,6 +34,10 @@ pub struct PlaylistsView {
     pub rename_input: String,
     pub saving_queue: bool,
     pub queue_save_input: String,
+    /// First rendered track of the virtualized queue detail window. Only the
+    /// window around the visible scroll range is built each frame, mirroring
+    /// the library view; spacers keep the scrollbar proportional.
+    pub queue_window_start: usize,
 }
 
 impl PlaylistsView {
@@ -51,11 +58,36 @@ impl PlaylistsView {
             rename_input: String::new(),
             saving_queue: false,
             queue_save_input: String::new(),
+            queue_window_start: 0,
         }
     }
 
     pub fn set_section(&mut self, section: PlaylistSection) {
         self.section = section;
+    }
+
+    /// Resets the queue detail window to the top (queue switch, delete
+    /// fallback, rebuild). Callers also snap the scrollable to the top since
+    /// iced preserves scroll offsets across content swaps.
+    pub fn reset_queue_window(&mut self) {
+        self.queue_window_start = 0;
+    }
+
+    /// Moves the queue detail window from an absolute scroll offset in pixels.
+    /// Returns `true` when the window moved. Mirrors
+    /// [`crate::views::library::LibraryView::on_scroll_offset`], but the data
+    /// is already in memory so no follow-up load is needed.
+    pub fn on_queue_scroll_offset(&mut self, scroll_y: f32, total: usize) -> bool {
+        if total == 0 || QUEUE_ROW_HEIGHT <= 0.0 {
+            return false;
+        }
+        let first_visible = (scroll_y.max(0.0) / QUEUE_ROW_HEIGHT).floor() as usize;
+        let desired = queue_window_start(total, first_visible);
+        if desired == self.queue_window_start {
+            return false;
+        }
+        self.queue_window_start = desired;
+        true
     }
 
     pub fn set_view_mode(&mut self, mode: ViewMode) {
@@ -404,7 +436,6 @@ impl PlaylistsView {
     }
 
     fn view_catalog_tiles<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
-        const TILE: f32 = 150.0;
         let mut grid = column![].spacing(12).width(Length::Fill);
         let mut tile_row = row![].spacing(12).align_y(Alignment::Start);
         let mut columns = 0;
@@ -414,13 +445,13 @@ impl PlaylistsView {
 
             let icon = container(icons::icon(
                 icons::PLAYLIST_SVG,
-                TILE * 0.34,
+                PLAYLIST_TILE_SIZE * 0.34,
                 theme_cfg.primary_color(),
             ))
-            .width(TILE)
-            .height(TILE)
-            .center_x(TILE)
-            .center_y(TILE)
+            .width(PLAYLIST_TILE_SIZE)
+            .height(PLAYLIST_TILE_SIZE)
+            .center_x(PLAYLIST_TILE_SIZE)
+            .center_y(PLAYLIST_TILE_SIZE)
             .style(move |_theme| container::Style {
                 background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
                 border: Border {
@@ -443,13 +474,17 @@ impl PlaylistsView {
                 .spacing(3)
                 .padding(6),
             )
-            .width(TILE)
+            .width(PLAYLIST_TILE_SIZE)
             .height(48);
 
-            let card = button(container(column![icon, meta]).width(TILE).clip(true))
-                .style(styles::tile(theme_cfg))
-                .padding(0)
-                .on_press(Message::SelectPlaylist(playlist.id));
+            let card = button(
+                container(column![icon, meta])
+                    .width(PLAYLIST_TILE_SIZE)
+                    .clip(true),
+            )
+            .style(styles::tile(theme_cfg))
+            .padding(0)
+            .on_press(Message::SelectPlaylist(playlist.id));
 
             tile_row = tile_row.push(card);
             columns += 1;
@@ -772,91 +807,53 @@ impl PlaylistsView {
         let chips = chips.wrap();
 
         let Some(active) = store.active_queue() else {
-            return components::empty_state(
-                theme_cfg,
-                "No active queue",
-                "Select a queue to view it",
-            );
+            let chips = container(chips).padding(iced::Padding {
+                top: 0.0,
+                right: 16.0,
+                bottom: 4.0,
+                left: 16.0,
+            });
+            let Some(id) = store.active else {
+                return column![
+                    chips,
+                    components::empty_state(
+                        theme_cfg,
+                        "No active queue",
+                        "Select a queue to view it",
+                    )
+                ]
+                .spacing(8)
+                .into();
+            };
+            // A selection exists but its tracks are still loading (queue
+            // switch or delete fallback). The summary already knows the name
+            // and track count, so render the real header and only the track
+            // list area resolves once loading finishes.
+            let (name, track_count) = store
+                .summary(id)
+                .map(|s| (s.name.as_str(), s.track_count))
+                .unwrap_or(("Queue", 0));
+            return column![
+                chips,
+                Self::queue_header(theme_cfg, name, track_count, id),
+                self.queue_save_form(theme_cfg),
+                components::empty_state(theme_cfg, "Loading queue…", "Fetching tracks"),
+            ]
+            .height(Length::Fill)
+            .width(Length::Fill)
+            .into();
         };
 
         let active_id = active.id;
 
-        let header = row![
-            column![
-                text(theme_cfg, active.name.as_str())
-                    .size(15)
-                    .color(theme_cfg.text_color()),
-                text(theme_cfg, format!("{} tracks in queue", active.len()))
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
-            ]
-            .spacing(2)
-            .width(Length::Fill),
-            components::chip_with_icon(
-                theme_cfg,
-                icons::PLAYLIST_SVG,
-                "Save as Playlist",
-                false,
-                Message::QueueSaveClicked,
-            ),
-            components::chip_with_icon(
-                theme_cfg,
-                icons::TRASH_SVG,
-                "Delete Queue",
-                false,
-                Message::QueueDelete(active_id),
-            ),
-        ]
-        .spacing(6)
-        .align_y(Alignment::Center)
-        .padding(iced::Padding {
-            top: 4.0,
-            right: 16.0,
-            bottom: 6.0,
-            left: 16.0,
-        });
+        let header = Self::queue_header(theme_cfg, &active.name, active.len(), active_id);
 
-        let save_form: Element<'a, Message> = if self.saving_queue {
-            row![
-                text_input("Save queue as playlist...", &self.queue_save_input)
-                    .size(12)
-                    .padding([6, 10])
-                    .style(styles::search_input_style(theme_cfg))
-                    .on_input(Message::QueueSaveNameChanged)
-                    .on_submit(Message::QueueSaveSubmitted(self.queue_save_input.clone()))
-                    .width(Length::Fixed(280.0)),
-                Space::with_width(8),
-                button(
-                    text(theme_cfg, "Save")
-                        .size(12)
-                        .color(theme_cfg.text_color())
-                )
-                .padding([6, 12])
-                .style(styles::ghost_button(theme_cfg, false))
-                .on_press(Message::QueueSaveSubmitted(self.queue_save_input.clone())),
-                Space::with_width(4),
-                button(
-                    text(theme_cfg, "Cancel")
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                )
-                .padding([6, 12])
-                .style(styles::ghost_button(theme_cfg, false))
-                .on_press(Message::QueueSaveCancelled),
-            ]
-            .align_y(Alignment::Center)
-            .padding(iced::Padding {
-                top: 0.0,
-                right: 16.0,
-                bottom: 8.0,
-                left: 16.0,
-            })
-            .into()
-        } else {
-            Space::with_height(0).into()
-        };
+        let save_form: Element<'a, Message> = self.queue_save_form(theme_cfg);
 
-        let mut list = column![].spacing(1).width(Length::Fill);
+        // Virtualized track list: only the window around the visible scroll
+        // range is built each frame; spacers keep the scrollbar proportional
+        // to the whole queue (same approach as the library view).
+        let mut list = column![].spacing(0).width(Length::Fill);
         if active.is_empty() {
             list = list.push(components::empty_state(
                 theme_cfg,
@@ -864,8 +861,15 @@ impl PlaylistsView {
                 "Add tracks from the library or a playlist",
             ));
         } else {
+            let total = active.len();
+            let (start, end) = queue_window_for_start(total, self.queue_window_start);
+            let top_spacer = start as f32 * QUEUE_ROW_HEIGHT;
+            if top_spacer > 0.0 {
+                list = list.push(Space::with_height(top_spacer));
+            }
             let current = active.current_index();
-            for (index, track) in active.tracks.iter().enumerate() {
+            for (offset, track) in active.tracks[start..end].iter().enumerate() {
+                let index = start + offset;
                 let is_current = current == Some(index);
                 let index_label =
                     container(text(theme_cfg, format!("{}", index + 1)).size(12).color(
@@ -954,6 +958,10 @@ impl PlaylistsView {
                     }),
                 );
             }
+            let bottom_spacer = total.saturating_sub(end) as f32 * QUEUE_ROW_HEIGHT;
+            if bottom_spacer > 0.0 {
+                list = list.push(Space::with_height(bottom_spacer));
+            }
         }
 
         column![
@@ -967,12 +975,100 @@ impl PlaylistsView {
             save_form,
             scrollable(list)
                 .id(scrollable::Id::new("queue_scroll"))
+                .on_scroll(Message::QueueScrolled)
                 .height(Length::Fill)
                 .style(styles::scrollable_style(theme_cfg)),
         ]
         .height(Length::Fill)
         .width(Length::Fill)
         .into()
+    }
+
+    /// Queue title header (name, track count, actions). Rendered from either
+    /// the materialized queue or, while tracks are loading, its summary so
+    /// the header stays stable across the load.
+    fn queue_header<'a>(
+        theme_cfg: &'a ThemeConfig,
+        name: &'a str,
+        track_count: usize,
+        active_id: u64,
+    ) -> Element<'a, Message> {
+        row![
+            column![
+                text(theme_cfg, name).size(15).color(theme_cfg.text_color()),
+                text(theme_cfg, format!("{} tracks in queue", track_count))
+                    .size(11)
+                    .color(theme_cfg.text_muted_color()),
+            ]
+            .spacing(2)
+            .width(Length::Fill),
+            components::chip_with_icon(
+                theme_cfg,
+                icons::PLAYLIST_SVG,
+                "Save as Playlist",
+                false,
+                Message::QueueSaveClicked,
+            ),
+            components::chip_with_icon(
+                theme_cfg,
+                icons::TRASH_SVG,
+                "Delete Queue",
+                false,
+                Message::QueueDelete(active_id),
+            ),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center)
+        .padding(iced::Padding {
+            top: 4.0,
+            right: 16.0,
+            bottom: 6.0,
+            left: 16.0,
+        })
+        .into()
+    }
+
+    /// "Save queue as playlist" inline form, shown when `saving_queue` is set.
+    fn queue_save_form<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+        if self.saving_queue {
+            row![
+                text_input("Save queue as playlist...", &self.queue_save_input)
+                    .size(12)
+                    .padding([6, 10])
+                    .style(styles::search_input_style(theme_cfg))
+                    .on_input(Message::QueueSaveNameChanged)
+                    .on_submit(Message::QueueSaveSubmitted(self.queue_save_input.clone()))
+                    .width(Length::Fixed(280.0)),
+                Space::with_width(8),
+                button(
+                    text(theme_cfg, "Save")
+                        .size(12)
+                        .color(theme_cfg.text_color())
+                )
+                .padding([6, 12])
+                .style(styles::ghost_button(theme_cfg, false))
+                .on_press(Message::QueueSaveSubmitted(self.queue_save_input.clone())),
+                Space::with_width(4),
+                button(
+                    text(theme_cfg, "Cancel")
+                        .size(12)
+                        .color(theme_cfg.text_muted_color())
+                )
+                .padding([6, 12])
+                .style(styles::ghost_button(theme_cfg, false))
+                .on_press(Message::QueueSaveCancelled),
+            ]
+            .align_y(Alignment::Center)
+            .padding(iced::Padding {
+                top: 0.0,
+                right: 16.0,
+                bottom: 8.0,
+                left: 16.0,
+            })
+            .into()
+        } else {
+            Space::with_height(0).into()
+        }
     }
 }
 

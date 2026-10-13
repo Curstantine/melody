@@ -8,7 +8,6 @@ use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
 
-#[allow(dead_code)]
 pub const DEFAULT_NOW_PLAYING_COVER_SIZE: u32 = 260;
 
 /// Self-contained state and view component for the Now Playing / Lyrics screen.

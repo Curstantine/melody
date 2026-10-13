@@ -47,37 +47,6 @@ pub fn status_bar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::
     }
 }
 
-#[allow(dead_code)]
-pub fn header_tab_button(
-    cfg: &ThemeConfig,
-    is_active: bool,
-) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
-    move |_theme, status| {
-        let (bg, text) = match status {
-            button::Status::Active => {
-                if is_active {
-                    (cfg.surface_hover_color(), cfg.primary_color())
-                } else {
-                    (Color::TRANSPARENT, cfg.text_muted_color())
-                }
-            }
-            button::Status::Hovered => (cfg.surface_hover_color(), cfg.text_color()),
-            button::Status::Pressed => (cfg.surface_hover_color(), cfg.primary_color()),
-            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted_color()),
-        };
-
-        button::Style {
-            background: Some(Background::Color(bg)),
-            text_color: text,
-            border: Border {
-                radius: Radius::from(4.0),
-                ..Border::default()
-            },
-            shadow: Shadow::default(),
-        }
-    }
-}
-
 pub fn header_tab_container(
     cfg: &ThemeConfig,
     is_active: bool,

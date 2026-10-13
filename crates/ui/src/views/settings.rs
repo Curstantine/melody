@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use iced::border::Radius;
 use iced::widget::{
@@ -8,19 +8,15 @@ use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::components::{self, border_hori, text};
 use crate::icons;
-use crate::message::{Message, SettingsMessage, SettingsTab, ViewMode, ViewTab};
+use crate::message::{Message, SettingsMessage, SettingsTab, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
-#[allow(dead_code)]
 pub struct SettingsContext<'a> {
-    pub tab_order: &'a [ViewTab],
     pub theme_names: &'a [String],
     pub active_theme_name: &'a str,
-    pub library_view_mode: ViewMode,
     pub albums_view_mode: ViewMode,
     pub artists_view_mode: ViewMode,
     pub page_size: usize,
-    pub tile_width: u32,
     pub album_tile_width: u32,
     pub artist_tile_width: u32,
     pub now_playing_cover_size: u32,
@@ -28,8 +24,6 @@ pub struct SettingsContext<'a> {
     pub total_tracks: usize,
     pub total_albums: usize,
     pub total_artists: usize,
-    pub db_path: &'a Path,
-    pub config_path: &'a Path,
     pub db_size_bytes: u64,
     pub cache_file_count: usize,
     pub cache_size_bytes: u64,
@@ -86,11 +80,6 @@ impl SettingsView {
 
     pub fn select_tab(&mut self, tab: SettingsTab) {
         self.active_tab = tab;
-    }
-
-    #[allow(dead_code)]
-    pub fn set_custom_font_input(&mut self, input: String) {
-        self.custom_font_input = input;
     }
 
     pub fn set_library_folders(&mut self, folders: Vec<String>) {
