@@ -86,15 +86,46 @@ fn queue_store_activation_and_removal() {
     assert_eq!(store.active, Some(a));
     assert!(store.active_queue().is_none());
 
-    assert!(store.remove(b));
-    assert!(!store.remove(b), "removing an unknown queue is a no-op");
-    store.remove(a);
+    // Removing a non-active queue leaves the active selection untouched.
+    assert_eq!(store.remove(b), None);
+    assert_eq!(store.active, Some(a));
+    assert_eq!(
+        store.remove(b),
+        None,
+        "removing an unknown queue is a no-op"
+    );
+    assert_eq!(store.remove(a), None);
     assert_eq!(store.active, None, "removing the last queue clears active");
 
     // Default name is used when no explicit name is provided
     let mut store = QueueStore::default();
     store.create(DEFAULT_QUEUE_NAME);
     assert_eq!(store.summaries[0].name, "Queue");
+}
+
+#[test]
+fn queue_store_remove_active_selects_neighbor() {
+    let mut store = QueueStore::default();
+    let a = store.create("A");
+    let b = store.create("B");
+    let c = store.create("C");
+
+    // Active is C; switch to middle (B) and delete it -> falls back to C
+    // (same-index neighbor), clearing the stale materialized queue.
+    store.set_active(b);
+    assert_eq!(store.remove(b), Some(c));
+    assert_eq!(store.active, Some(c));
+    assert!(store.active_queue().is_none());
+    assert_eq!(store.summaries.len(), 2);
+
+    // Delete the last active (C) -> falls back to previous (A's neighbor).
+    store.set_active(c);
+    assert_eq!(store.remove(c), Some(a));
+    assert_eq!(store.active, Some(a));
+
+    // Deleting an unknown id is a no-op with no fallback.
+    assert_eq!(store.remove(999), None);
+    assert_eq!(store.active, Some(a));
 }
 
 #[test]

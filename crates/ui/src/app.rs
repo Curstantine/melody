@@ -1362,16 +1362,43 @@ impl App {
                 Task::batch([persist, load])
             }
             Message::QueueDelete(id) => {
-                self.queues.remove(id);
+                let was_active = self.queues.active == Some(id);
+                let was_playing_deleted = was_active && self.current_track_id.is_some();
+                let fallback = self.queues.remove(id);
+                if was_active && was_playing_deleted {
+                    self.current_track = None;
+                    self.current_track_id = None;
+                    self.current_cover = None;
+                    self.current_blurred_cover = None;
+                    self.current_next_cover = None;
+                    self.current_tech_info = None;
+                    self.is_playing = false;
+                    self.position_ms = 0;
+                    self.audio_controller.stop();
+                }
                 let active = self.queues.active.map(|a| a as i64);
                 let db = self.db.clone();
-                Task::perform(
+                let persist_db = db.clone();
+                let persist = Task::perform(
                     async move {
-                        let _ = db.delete_queue(id as i64).await;
-                        let _ = db.set_active_queue_id(active).await;
+                        let _ = persist_db.delete_queue(id as i64).await;
+                        let _ = persist_db.set_active_queue_id(active).await;
                     },
                     |_| Message::QueuesPersisted,
-                )
+                );
+                if let Some(next) = fallback {
+                    let load = Task::perform(
+                        async move {
+                            let tracks =
+                                db.load_queue_tracks(next as i64).await.unwrap_or_default();
+                            (next, tracks)
+                        },
+                        |(id, tracks)| Message::QueueActivated { id, tracks },
+                    );
+                    Task::batch([persist, load])
+                } else {
+                    persist
+                }
             }
             Message::QueueActivated { id, tracks } => {
                 self.queues.activate_with_tracks(id, tracks);

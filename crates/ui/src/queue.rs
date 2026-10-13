@@ -347,18 +347,27 @@ impl QueueStore {
         true
     }
 
-    /// Removes a queue. Returns `true` when a queue was removed.
-    pub fn remove(&mut self, id: u64) -> bool {
-        let before = self.summaries.len();
-        self.summaries.retain(|q| q.id != id);
-        if self.summaries.len() == before {
-            return false;
+    /// Removes a queue.
+    ///
+    /// Returns `None` when no queue was removed. Otherwise returns the new
+    /// active queue id: `Some(fallback)` when the removed queue was active
+    /// and a sibling was auto-selected, or `None` when the removed queue was
+    /// not active (active selection unchanged) or no queues remain.
+    pub fn remove(&mut self, id: u64) -> Option<u64> {
+        let index = self.summaries.iter().position(|q| q.id == id)?;
+        self.summaries.remove(index);
+        if self.active != Some(id) {
+            return None;
         }
-        if self.active == Some(id) {
+        if self.summaries.is_empty() {
             self.active = None;
             self.active_queue = None;
+            return None;
         }
-        true
+        let fallback_index = index.min(self.summaries.len() - 1);
+        let fallback = self.summaries[fallback_index].id;
+        self.set_active(fallback);
+        Some(fallback)
     }
 
     /// Marks a queue as active without loading its tracks. Clears the stale
