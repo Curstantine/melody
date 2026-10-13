@@ -442,38 +442,38 @@ impl ArtistsView {
         }
 
         for artist in self.visible_artists() {
-            let leading = components::cover_art(
-                theme_cfg,
-                None,
-                components::CATALOG_LIST_ART_SIZE,
-                Radius::from(4.0),
-                icons::USER_AVATAR_SVG,
-                20.0,
-                theme_cfg.primary_color(),
+            content = content.push(
+                components::CatalogRow {
+                    theme: theme_cfg,
+                    leading: components::cover_art(
+                        theme_cfg,
+                        None,
+                        components::CATALOG_LIST_ART_SIZE,
+                        Radius::from(4.0),
+                        icons::USER_AVATAR_SVG,
+                        20.0,
+                        theme_cfg.primary_color(),
+                    ),
+                    title: artist.artist.as_ref(),
+                    subtitle_left: artist.stats_label.as_str(),
+                    subtitle_right: "",
+                    details: None,
+                    on_select: Message::SelectArtist(artist.artist.to_string()),
+                    on_play: Message::PlayScope {
+                        filter: TrackFilter::artist(artist.artist.as_ref()),
+                        name: artist.artist.as_ref().to_string(),
+                        shuffle: false,
+                    },
+                    on_shuffle: Message::PlayScope {
+                        filter: TrackFilter::artist(artist.artist.as_ref()),
+                        name: artist.artist.as_ref().to_string(),
+                        shuffle: true,
+                    },
+                    width: Length::Fill,
+                    height: Length::Fixed(row_h),
+                }
+                .view(),
             );
-
-            let full_row = components::CatalogRow {
-                theme: theme_cfg,
-                leading,
-                title: artist.artist.as_ref(),
-                subtitle_left: artist.stats_label.as_str(),
-                subtitle_right: "",
-                details: None,
-                on_select: Message::SelectArtist(artist.artist.to_string()),
-                on_play: Message::PlayScope {
-                    filter: TrackFilter::artist(artist.artist.as_ref()),
-                    name: artist.artist.as_ref().to_string(),
-                    shuffle: false,
-                },
-                on_shuffle: Message::PlayScope {
-                    filter: TrackFilter::artist(artist.artist.as_ref()),
-                    name: artist.artist.as_ref().to_string(),
-                    shuffle: true,
-                },
-            }
-            .view();
-
-            content = content.push(container(full_row).height(row_h).width(Length::Fill));
         }
 
         let bottom = total_rows.saturating_sub(self.window_end) as f32 * row_h;

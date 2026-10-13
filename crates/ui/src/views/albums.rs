@@ -626,38 +626,38 @@ impl AlbumsView {
 
         for album in self.visible_albums() {
             let key = cover_key(album);
-            let leading = components::cover_art(
-                theme_cfg,
-                self.album_covers.get(&key),
-                components::CATALOG_LIST_ART_SIZE,
-                Radius::from(4.0),
-                icons::DISC_SVG,
-                20.0,
-                theme_cfg.primary_color(),
+            content = content.push(
+                components::CatalogRow {
+                    theme: theme_cfg,
+                    leading: components::cover_art(
+                        theme_cfg,
+                        self.album_covers.get(&key),
+                        components::CATALOG_LIST_ART_SIZE,
+                        Radius::from(4.0),
+                        icons::DISC_SVG,
+                        20.0,
+                        theme_cfg.primary_color(),
+                    ),
+                    title: album.album.as_ref(),
+                    subtitle_left: album.artist.as_ref(),
+                    subtitle_right: album.year_label.as_str(),
+                    details: Some((album.tracks_label.as_str(), album.duration_label.as_str())),
+                    on_select: Message::SelectAlbum(album.album.to_string()),
+                    on_play: Message::PlayScope {
+                        filter: TrackFilter::album(album.album.as_ref()),
+                        name: album.album.as_ref().to_string(),
+                        shuffle: false,
+                    },
+                    on_shuffle: Message::PlayScope {
+                        filter: TrackFilter::album(album.album.as_ref()),
+                        name: album.album.as_ref().to_string(),
+                        shuffle: true,
+                    },
+                    width: Length::Fill,
+                    height: Length::Fixed(row_h),
+                }
+                .view(),
             );
-
-            let full_row = components::CatalogRow {
-                theme: theme_cfg,
-                leading,
-                title: album.album.as_ref(),
-                subtitle_left: album.artist.as_ref(),
-                subtitle_right: album.year_label.as_str(),
-                details: Some((album.tracks_label.as_str(), album.duration_label.as_str())),
-                on_select: Message::SelectAlbum(album.album.to_string()),
-                on_play: Message::PlayScope {
-                    filter: TrackFilter::album(album.album.as_ref()),
-                    name: album.album.as_ref().to_string(),
-                    shuffle: false,
-                },
-                on_shuffle: Message::PlayScope {
-                    filter: TrackFilter::album(album.album.as_ref()),
-                    name: album.album.as_ref().to_string(),
-                    shuffle: true,
-                },
-            }
-            .view();
-
-            content = content.push(container(full_row).height(row_h).width(Length::Fill));
         }
 
         let bottom = total_rows.saturating_sub(self.window_end) as f32 * row_h;

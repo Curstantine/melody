@@ -41,11 +41,13 @@ pub struct CatalogRow<'a> {
     pub on_select: Message,
     pub on_play: Message,
     pub on_shuffle: Message,
+    pub width: Length,
+    pub height: Length,
 }
 
 impl<'a> CatalogRow<'a> {
-    /// Builds the shared catalog list row element (without the outer fixed-height
-    /// container; the caller wraps it so virtualization spacers stay exact).
+    /// Builds the shared catalog list row element with the caller-provided
+    /// outer sizing, so callers don't wrap it for virtualization.
     pub fn view(self) -> Element<'a, Message> {
         let Self {
             theme: theme_cfg,
@@ -57,6 +59,8 @@ impl<'a> CatalogRow<'a> {
             on_select,
             on_play,
             on_shuffle,
+            width,
+            height,
         } = self;
 
         let mut subtitle = row![text(theme_cfg, subtitle_left)
@@ -138,8 +142,8 @@ impl<'a> CatalogRow<'a> {
         row![select_btn, actions]
             .spacing(4)
             .align_y(Alignment::Center)
-            .width(Length::Fill)
-            .height(Length::Fill)
+            .width(width)
+            .height(height)
             .padding(Padding {
                 right: 20.0,
                 ..Default::default()
@@ -254,11 +258,13 @@ impl<'a> CatalogTile<'a> {
 
 /// Height of a track row in the open-playlist and queue lists.
 pub const TRACK_ROW_HEIGHT: f32 = 26.0;
+
 /// Width of the leading track-number / drag-handle slot. Fixed in both
 /// states so the number/handle swap never shifts layout or re-fires hover.
-const SLOT_WIDTH: f32 = 36.0;
+const TRACK_ROW_SLOT_WIDTH: f32 = 36.0;
+
 /// Width of the duration label column.
-const DURATION_WIDTH: f32 = 64.0;
+const TRACK_ROW_DURATION_WIDTH: f32 = 64.0;
 
 /// A single track row shared by the open-playlist detail list and the queue
 /// detail list so both render exactly the same.
@@ -327,9 +333,9 @@ impl<'a> TrackRow<'a> {
                 12.0,
                 theme_cfg.text_muted_color(),
             ))
-            .width(SLOT_WIDTH)
+            .width(TRACK_ROW_SLOT_WIDTH)
             .height(TRACK_ROW_HEIGHT)
-            .center_x(SLOT_WIDTH)
+            .center_x(TRACK_ROW_SLOT_WIDTH)
             .center_y(TRACK_ROW_HEIGHT)
             .into()
         } else {
@@ -338,9 +344,9 @@ impl<'a> TrackRow<'a> {
                     .size(12)
                     .color(number_color),
             )
-            .width(SLOT_WIDTH)
+            .width(TRACK_ROW_SLOT_WIDTH)
             .height(TRACK_ROW_HEIGHT)
-            .center_x(SLOT_WIDTH)
+            .center_x(TRACK_ROW_SLOT_WIDTH)
             .center_y(TRACK_ROW_HEIGHT)
             .into()
         };
@@ -368,7 +374,7 @@ impl<'a> TrackRow<'a> {
             text(theme_cfg, duration)
                 .size(12)
                 .color(theme_cfg.text_muted_color())
-                .width(DURATION_WIDTH),
+                .width(TRACK_ROW_DURATION_WIDTH),
         ]
         .spacing(8)
         .align_y(Alignment::Center)
