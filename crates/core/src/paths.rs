@@ -84,8 +84,3 @@ pub fn playlists_dir() -> PathBuf {
     let _ = std::fs::create_dir_all(&dir);
     dir
 }
-
-/// Path to the JSON file persisting the open playback queues across sessions.
-pub fn queues_file() -> PathBuf {
-    data_dir().join("queues.json")
-}

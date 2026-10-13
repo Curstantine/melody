@@ -1,37 +1,103 @@
 //! In-memory playback queues.
 //!
 //! Unlike playlists (which live on disk as M3U files), queues are transient,
-//! ordered play lists that drive playback. Multiple queues can be open at once
-//! and the whole set is persisted to `queues.json` so a session can be resumed.
+//! ordered play lists that drive playback. Multiple queues can be kept around,
+//! but only the active queue's tracks are materialized in memory; the metadata
+//! for the rest and the persisted membership itself live in the database
+//! (`playback_queues` / `playback_queue_tracks`).
 
-use std::path::Path;
-
-use core_engine::TrackRow;
-use serde::{Deserialize, Serialize};
+use core_engine::{QueueRecord, TrackRow};
 
 pub const DEFAULT_QUEUE_NAME: &str = "Queue";
 
-/// A single ordered playback queue with a cursor.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Where a queue's contents came from. Used for display and queue reuse.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QueueSource {
+    Manual,
+    Album,
+    Artist,
+    Search,
+    Playlist,
+    AllSongs,
+}
+
+impl QueueSource {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            QueueSource::Manual => "manual",
+            QueueSource::Album => "album",
+            QueueSource::Artist => "artist",
+            QueueSource::Search => "search",
+            QueueSource::Playlist => "playlist",
+            QueueSource::AllSongs => "all",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "album" => QueueSource::Album,
+            "artist" => QueueSource::Artist,
+            "search" => QueueSource::Search,
+            "playlist" => QueueSource::Playlist,
+            "all" => QueueSource::AllSongs,
+            _ => QueueSource::Manual,
+        }
+    }
+}
+
+/// Lightweight description of a queue that is not currently loaded.
+#[derive(Debug, Clone)]
+pub struct QueueSummary {
+    pub id: u64,
+    pub name: String,
+    pub track_count: usize,
+    pub current: usize,
+    pub source: QueueSource,
+    pub source_value: Option<String>,
+    pub source_playlist: Option<String>,
+}
+
+/// A fully loaded, ordered playback queue with a cursor.
+#[derive(Debug, Clone)]
 pub struct Queue {
     pub id: u64,
     pub name: String,
     pub tracks: Vec<TrackRow>,
-    #[serde(default)]
     pub current: usize,
-    /// Path of the playlist file this queue was created from, when applicable.
-    #[serde(default)]
+    pub source: QueueSource,
+    pub source_value: Option<String>,
     pub source_playlist: Option<String>,
 }
 
 impl Queue {
+    #[allow(dead_code)]
     pub fn new(id: u64, name: impl Into<String>) -> Self {
         Self {
             id,
             name: name.into(),
             tracks: Vec::new(),
             current: 0,
+            source: QueueSource::Manual,
+            source_value: None,
             source_playlist: None,
+        }
+    }
+
+    pub fn with_source(
+        id: u64,
+        name: impl Into<String>,
+        source: QueueSource,
+        source_value: Option<String>,
+        source_playlist: Option<String>,
+    ) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            tracks: Vec::new(),
+            current: 0,
+            source,
+            source_value,
+            source_playlist,
         }
     }
 
@@ -123,96 +189,227 @@ impl Queue {
             self.current = index.min(self.tracks.len() - 1);
         }
     }
+
+    pub fn track_ids(&self) -> Vec<i64> {
+        self.tracks.iter().map(|t| t.id).collect()
+    }
+
+    pub fn to_record(&self) -> QueueRecord {
+        QueueRecord {
+            id: self.id as i64,
+            name: self.name.clone(),
+            current: self.current as i64,
+            source_kind: self.source.as_str().to_string(),
+            source_value: self.source_value.clone(),
+            source_playlist: self.source_playlist.clone(),
+            track_count: self.tracks.len(),
+        }
+    }
 }
 
-/// Serializable container for every open queue.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+/// In-memory view over the persisted queue set.
+///
+/// `summaries` describes every open queue (cheap) while `active_queue` holds
+/// the fully materialized tracks of the currently selected queue only.
+#[derive(Debug, Clone, Default)]
 pub struct QueueStore {
-    #[serde(default)]
-    pub queues: Vec<Queue>,
-    #[serde(default)]
+    pub summaries: Vec<QueueSummary>,
     pub active: Option<u64>,
-    #[serde(default)]
+    pub active_queue: Option<Queue>,
     pub next_id: u64,
 }
 
 impl QueueStore {
-    /// Loads the persisted queue store, falling back to an empty store.
-    pub fn load(path: &Path) -> Self {
-        let Ok(content) = std::fs::read_to_string(path) else {
-            return Self::default();
-        };
-        let mut store: Self = serde_json::from_str(&content).unwrap_or_default();
-        store.normalize();
-        store
-    }
-
-    /// Persists the queue store, creating parent directories as needed.
-    pub fn save(&self, path: &Path) {
-        if let Some(parent) = path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        if let Ok(content) = serde_json::to_string_pretty(self) {
-            let _ = std::fs::write(path, content);
-        }
-    }
-
-    fn normalize(&mut self) {
-        let max_id = self.queues.iter().map(|q| q.id).max().unwrap_or(0);
-        self.next_id = self.next_id.max(max_id + 1);
-        if self
-            .active
-            .is_some_and(|id| !self.queues.iter().any(|q| q.id == id))
-        {
-            self.active = self.queues.first().map(|q| q.id);
-        }
-    }
-
     pub fn is_empty(&self) -> bool {
-        self.queues.is_empty()
+        self.summaries.is_empty()
     }
 
     pub fn active_queue(&self) -> Option<&Queue> {
-        let id = self.active?;
-        self.queues.iter().find(|q| q.id == id)
+        self.active_queue.as_ref()
     }
 
     pub fn active_queue_mut(&mut self) -> Option<&mut Queue> {
-        let id = self.active?;
-        self.queues.iter_mut().find(|q| q.id == id)
+        self.active_queue.as_mut()
+    }
+
+    #[allow(dead_code)]
+    pub fn summary(&self, id: u64) -> Option<&QueueSummary> {
+        self.summaries.iter().find(|q| q.id == id)
+    }
+
+    pub fn find_id_by_name(&self, name: &str) -> Option<u64> {
+        self.summaries
+            .iter()
+            .find(|q| q.name.eq_ignore_ascii_case(name))
+            .map(|q| q.id)
+    }
+
+    /// Replaces the summary list from persisted records.
+    pub fn load_summaries(&mut self, records: Vec<QueueRecord>) {
+        self.summaries = records
+            .into_iter()
+            .map(|r| QueueSummary {
+                id: r.id as u64,
+                name: r.name,
+                track_count: r.track_count,
+                current: r.current.max(0) as usize,
+                source: QueueSource::from_str(&r.source_kind),
+                source_value: r.source_value,
+                source_playlist: r.source_playlist,
+            })
+            .collect();
+        let max_id = self.summaries.iter().map(|q| q.id).max().unwrap_or(0);
+        self.next_id = self.next_id.max(max_id + 1);
     }
 
     /// Creates a fresh queue, makes it active, and returns its id.
     pub fn create(&mut self, name: impl Into<String>) -> u64 {
+        self.create_with_source(name, QueueSource::Manual, None, None)
+    }
+
+    /// Creates a fresh queue with an explicit source and makes it active.
+    pub fn create_with_source(
+        &mut self,
+        name: impl Into<String>,
+        source: QueueSource,
+        source_value: Option<String>,
+        source_playlist: Option<String>,
+    ) -> u64 {
+        let name = name.into();
         let id = self.next_id.max(1);
         self.next_id = id + 1;
-        self.queues.push(Queue::new(id, name));
+        self.summaries.push(QueueSummary {
+            id,
+            name: name.clone(),
+            track_count: 0,
+            current: 0,
+            source,
+            source_value: source_value.clone(),
+            source_playlist: source_playlist.clone(),
+        });
         self.active = Some(id);
+        self.active_queue = Some(Queue::with_source(
+            id,
+            name,
+            source,
+            source_value,
+            source_playlist,
+        ));
         id
+    }
+
+    /// Materializes a queue loaded from the database and marks it active.
+    pub fn apply_loaded(&mut self, queue: Queue) {
+        let id = queue.id;
+        if let Some(summary) = self.summaries.iter_mut().find(|q| q.id == id) {
+            summary.track_count = queue.tracks.len();
+            summary.current = queue.current;
+            summary.name = queue.name.clone();
+        }
+        self.active = Some(id);
+        self.active_queue = Some(queue);
+    }
+
+    /// Activates a queue given freshly loaded tracks, reusing its summary metadata.
+    pub fn activate_with_tracks(&mut self, id: u64, tracks: Vec<TrackRow>) {
+        let Some(summary) = self.summaries.iter().find(|q| q.id == id).cloned() else {
+            return;
+        };
+        let mut queue = Queue::with_source(
+            summary.id,
+            summary.name,
+            summary.source,
+            summary.source_value,
+            summary.source_playlist,
+        );
+        queue.current = summary.current.min(tracks.len().saturating_sub(1));
+        queue.tracks = tracks;
+        self.apply_loaded(queue);
+    }
+
+    /// Replaces the tracks of an existing queue and makes it active.
+    pub fn replace_with_tracks(&mut self, id: u64, tracks: Vec<TrackRow>) -> bool {
+        let Some(summary) = self.summaries.iter_mut().find(|q| q.id == id) else {
+            return false;
+        };
+        summary.track_count = tracks.len();
+        summary.current = 0;
+        let mut queue = Queue::with_source(
+            id,
+            summary.name.clone(),
+            summary.source,
+            summary.source_value.clone(),
+            summary.source_playlist.clone(),
+        );
+        queue.tracks = tracks;
+        self.active = Some(id);
+        self.active_queue = Some(queue);
+        true
     }
 
     /// Removes a queue. Returns `true` when a queue was removed.
     pub fn remove(&mut self, id: u64) -> bool {
-        let before = self.queues.len();
-        self.queues.retain(|q| q.id != id);
-        if self.queues.len() == before {
+        let before = self.summaries.len();
+        self.summaries.retain(|q| q.id != id);
+        if self.summaries.len() == before {
             return false;
         }
         if self.active == Some(id) {
-            self.active = self.queues.first().map(|q| q.id);
+            self.active = None;
+            self.active_queue = None;
         }
         true
     }
 
+    /// Marks a queue as active without loading its tracks. Clears the stale
+    /// materialized queue when switching so callers never observe a mismatch.
     pub fn set_active(&mut self, id: u64) {
-        if self.queues.iter().any(|q| q.id == id) {
+        if self.summaries.iter().any(|q| q.id == id) {
+            if self.active != Some(id) {
+                self.active_queue = None;
+            }
             self.active = Some(id);
         }
     }
 
-    /// Clears the active selection, returning playback to the library flow.
-    /// Open queues are retained so the user can resume them later.
-    pub fn deactivate(&mut self) {
-        self.active = None;
+    pub fn set_active_id(&mut self, id: Option<u64>) {
+        self.active = id;
+        if id.is_none() {
+            self.active_queue = None;
+        }
+    }
+
+    /// Refreshes the summary of the active queue after in-memory edits.
+    pub fn touch_active_summary(&mut self) {
+        let Some(id) = self.active else {
+            return;
+        };
+        let Some(queue) = self.active_queue.as_ref() else {
+            return;
+        };
+        let (len, current) = (queue.tracks.len(), queue.current);
+        if let Some(summary) = self.summaries.iter_mut().find(|q| q.id == id) {
+            summary.track_count = len;
+            summary.current = current;
+        }
+    }
+
+    /// Returns the persistence record for a queue id, if it is known.
+    #[allow(dead_code)]
+    pub fn record(&self, id: u64) -> Option<QueueRecord> {
+        if self.active == Some(id) {
+            if let Some(queue) = self.active_queue.as_ref() {
+                return Some(queue.to_record());
+            }
+        }
+        self.summary(id).map(|q| QueueRecord {
+            id: q.id as i64,
+            name: q.name.clone(),
+            current: q.current as i64,
+            source_kind: q.source.as_str().to_string(),
+            source_value: q.source_value.clone(),
+            source_playlist: q.source_playlist.clone(),
+            track_count: q.track_count,
+        })
     }
 }

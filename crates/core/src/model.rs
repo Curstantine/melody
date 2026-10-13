@@ -152,6 +152,24 @@ pub struct PlaylistSummary {
     pub tracks_label: String,
 }
 
+/// Persisted metadata for a single playback queue.
+///
+/// Queue membership itself lives in `playback_queue_tracks` (ordered track
+/// ids); this record only carries the descriptive/state fields.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QueueRecord {
+    pub id: i64,
+    pub name: String,
+    pub current: i64,
+    /// One of `manual`, `album`, `artist`, `search`, `playlist`, `all`.
+    pub source_kind: String,
+    /// Scope value the queue was built from (album name, query, …).
+    pub source_value: Option<String>,
+    /// Path of the playlist file this queue was created from, when applicable.
+    pub source_playlist: Option<String>,
+    pub track_count: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtistSummary {
     pub artist: InternedStr,

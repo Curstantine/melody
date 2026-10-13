@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use core_engine::{
     AlbumSummary, ArtistSummary, AudioTechnicalInfo, CacheStats, PlaylistSummary, ScanSummary,
-    SortField, Track, TrackRow,
+    SortField, Track, TrackFilter, TrackRow,
 };
 
 use serde::{Deserialize, Serialize};
@@ -226,6 +226,27 @@ pub enum Message {
     QueueNew,
     QueueSelect(u64),
     QueueDelete(u64),
+    /// The active queue's tracks finished loading from the database.
+    QueueActivated {
+        id: u64,
+        tracks: Vec<TrackRow>,
+    },
+    /// A queue built from the current library scope finished loading. Drives
+    /// playback from the clicked track (or the first track for Play/Shuffle All).
+    LibraryQueueBuilt {
+        track_id: i64,
+        name: String,
+        /// Serialized [`crate::queue::QueueSource`], kept as a string so this
+        /// module stays decoupled from the queue module.
+        source_kind: String,
+        tracks: Vec<TrackRow>,
+    },
+    /// Plays a whole scope (album/artist) immediately, optionally shuffled.
+    PlayScope {
+        filter: TrackFilter,
+        name: String,
+        shuffle: bool,
+    },
     QueueAddTrack(i64),
     QueueAddMany(Vec<i64>),
     QueuePlayNext(i64),

@@ -1,5 +1,6 @@
 use core_engine::{
-    format_duration, AudioTechnicalInfo, LibraryDatabase, NewTrack, SortDirection, SortField,
+    format_duration, AudioTechnicalInfo, LibraryDatabase, NewTrack, QueueRecord, SortDirection,
+    SortField, TrackFilter,
 };
 
 #[test]
@@ -59,6 +60,7 @@ async fn test_database_lifecycle_and_pagination() {
             genre: Some("Electronic".to_string()),
             duration_ms: (i as u64) * 2000,
             track_num: Some(i as u32),
+            year: Some(2000),
             ..Default::default()
         };
         db.insert_or_update_track(&track)
@@ -71,11 +73,38 @@ async fn test_database_lifecycle_and_pagination() {
     assert_eq!(total, 105);
 
     // Test filtered count
+    let alpha_filter = TrackFilter::parse("Alpha");
     let alpha_count = db
-        .get_total_track_count(Some("Alpha"))
+        .get_total_track_count(Some(&alpha_filter))
         .await
         .expect("Filter count failed");
     assert_eq!(alpha_count, 53); // odd numbers from 1 to 105
+
+    // Scoped album filter is exact (not a substring of title/artist)
+    let album_one = TrackFilter::parse("album:\"Album One\"");
+    let album_one_count = db
+        .get_total_track_count(Some(&album_one))
+        .await
+        .expect("Album filter count failed");
+    assert_eq!(album_one_count, 50);
+
+    let album_rows = db
+        .get_all_track_rows_filtered(
+            Some(&album_one),
+            SortField::TrackNum,
+            SortDirection::Ascending,
+        )
+        .await
+        .expect("Album rows failed");
+    assert_eq!(album_rows.len(), 50);
+    assert!(album_rows.iter().all(|t| t.album.as_ref() == "Album One"));
+
+    // Year filter binds an integer column through a text placeholder.
+    let year_filter = TrackFilter::parse("year:2000");
+    assert_eq!(
+        db.get_total_track_count(Some(&year_filter)).await.unwrap(),
+        105
+    );
 
     // Test window pagination (limit 20, offset 0)
     let page1 = db
@@ -466,6 +495,69 @@ async fn test_playlist_file_references() {
         .unwrap();
     db.clear_all_tracks().await.unwrap();
     assert_eq!(db.get_playlists().await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn test_playback_queue_persistence() {
+    let db = LibraryDatabase::in_memory()
+        .await
+        .expect("Failed to create in-memory db");
+
+    let mut ids = Vec::new();
+    for i in 1..=3 {
+        let track = NewTrack {
+            file_path: format!("/music/queue_{}.flac", i),
+            title: format!("Queue Song {}", i),
+            artist: "Artist".to_string(),
+            album: "Album".to_string(),
+            duration_ms: 1000 * i as u64,
+            ..Default::default()
+        };
+        ids.push(db.insert_or_update_track(&track).await.unwrap());
+    }
+
+    let record = QueueRecord {
+        id: 1,
+        name: "My Queue".to_string(),
+        current: 0,
+        source_kind: "manual".to_string(),
+        source_value: None,
+        source_playlist: None,
+        track_count: 0,
+    };
+    db.upsert_queue(&record).await.unwrap();
+    db.replace_queue_tracks(1, &ids).await.unwrap();
+    db.set_active_queue_id(Some(1)).await.unwrap();
+
+    let queues = db.list_queues().await.unwrap();
+    assert_eq!(queues.len(), 1);
+    assert_eq!(queues[0].name, "My Queue");
+    assert_eq!(queues[0].track_count, 3);
+
+    let tracks = db.load_queue_tracks(1).await.unwrap();
+    assert_eq!(tracks.len(), 3);
+    assert_eq!(tracks[0].id, ids[0]);
+    assert_eq!(tracks[2].id, ids[2]);
+
+    assert_eq!(db.get_active_queue_id().await.unwrap(), Some(1));
+
+    // Cursor updates persist.
+    db.set_queue_current(1, 2).await.unwrap();
+    let queues = db.list_queues().await.unwrap();
+    assert_eq!(queues[0].current, 2);
+
+    // Replacing membership rewrites ordering.
+    db.replace_queue_tracks(1, &[ids[2], ids[1], ids[0]])
+        .await
+        .unwrap();
+    let tracks = db.load_queue_tracks(1).await.unwrap();
+    assert_eq!(tracks[0].id, ids[2]);
+
+    // Deletion clears the queue and can clear the active selection.
+    db.delete_queue(1).await.unwrap();
+    db.set_active_queue_id(None).await.unwrap();
+    assert!(db.list_queues().await.unwrap().is_empty());
+    assert_eq!(db.get_active_queue_id().await.unwrap(), None);
 }
 
 #[tokio::test]

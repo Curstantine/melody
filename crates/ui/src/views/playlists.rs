@@ -760,11 +760,11 @@ impl PlaylistsView {
 
         // Queue selector chips.
         let mut chips = row![].spacing(6).align_y(Alignment::Center);
-        for queue in &store.queues {
+        for queue in &store.summaries {
             let is_active = store.active == Some(queue.id);
             chips = chips.push(components::chip(
                 theme_cfg,
-                format!("{} ({})", queue.name, queue.len()),
+                format!("{} ({})", queue.name, queue.track_count),
                 is_active,
                 Message::QueueSelect(queue.id),
             ));

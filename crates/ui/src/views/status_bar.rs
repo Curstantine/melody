@@ -52,13 +52,10 @@ impl StatusBar {
 
                 let filter_indicator: Element<'a, Message> = if !ctx.search_query.trim().is_empty()
                 {
-                    text(
-                        theme_cfg,
-                        format!("·  Filter: \"{}\"", ctx.search_query.trim()),
-                    )
-                    .size(11)
-                    .color(muted)
-                    .into()
+                    text(theme_cfg, format!("·  Filter: {}", ctx.search_query.trim()))
+                        .size(11)
+                        .color(muted)
+                        .into()
                 } else {
                     Space::with_width(0).into()
                 };

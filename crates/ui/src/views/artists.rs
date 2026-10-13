@@ -1,4 +1,4 @@
-use core_engine::{ArtistSummary, SortDirection};
+use core_engine::{ArtistSummary, SortDirection, TrackFilter};
 use iced::border::Radius;
 use iced::widget::{button, column, container, row, scrollable, Space};
 use iced::{Alignment, Border, Element, Length, Padding};
@@ -446,11 +446,41 @@ impl ArtistsView {
         .width(tile_w)
         .height(avatar_size + TILE_META_HEIGHT);
 
-        button(card)
+        let select_btn = button(card)
             .style(styles::tile(theme_cfg))
             .padding(0)
-            .on_press(Message::SelectArtist(artist.artist.to_string()))
-            .into()
+            .on_press(Message::SelectArtist(artist.artist.to_string()));
+
+        let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text_color()))
+            .style(styles::icon_control_button(theme_cfg))
+            .padding(4)
+            .on_press(Message::PlayScope {
+                filter: TrackFilter::artist(artist.artist.as_ref()),
+                name: artist.artist.as_ref().to_string(),
+                shuffle: false,
+            });
+
+        let shuffle_btn = button(icons::icon(
+            icons::SHUFFLE_SVG,
+            14.0,
+            theme_cfg.text_color(),
+        ))
+        .style(styles::icon_control_button(theme_cfg))
+        .padding(4)
+        .on_press(Message::PlayScope {
+            filter: TrackFilter::artist(artist.artist.as_ref()),
+            name: artist.artist.as_ref().to_string(),
+            shuffle: true,
+        });
+
+        let actions = container(row![play_btn, shuffle_btn].spacing(4))
+            .width(tile_w)
+            .height(avatar_size)
+            .align_x(Alignment::Center)
+            .align_y(Alignment::End)
+            .padding(6);
+
+        iced::widget::stack([select_btn.into(), actions.into()]).into()
     }
 
     fn view_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -500,12 +530,47 @@ impl ArtistsView {
                 .align_y(Alignment::Center)
                 .padding([6, 12]);
 
-            let row_btn = button(artist_row)
+            let select_btn = button(artist_row)
                 .style(styles::tile(theme_cfg))
                 .width(Length::Fill)
                 .on_press(Message::SelectArtist(artist.artist.to_string()));
 
-            content = content.push(container(row_btn).height(row_h).width(Length::Fill));
+            let play_btn = button(icons::icon(
+                icons::PLAY_SVG,
+                14.0,
+                theme_cfg.text_muted_color(),
+            ))
+            .style(styles::icon_control_button(theme_cfg))
+            .padding(4)
+            .on_press(Message::PlayScope {
+                filter: TrackFilter::artist(artist.artist.as_ref()),
+                name: artist.artist.as_ref().to_string(),
+                shuffle: false,
+            });
+
+            let shuffle_btn = button(icons::icon(
+                icons::SHUFFLE_SVG,
+                14.0,
+                theme_cfg.text_muted_color(),
+            ))
+            .style(styles::icon_control_button(theme_cfg))
+            .padding(4)
+            .on_press(Message::PlayScope {
+                filter: TrackFilter::artist(artist.artist.as_ref()),
+                name: artist.artist.as_ref().to_string(),
+                shuffle: true,
+            });
+
+            let actions = row![play_btn, shuffle_btn]
+                .spacing(4)
+                .align_y(Alignment::Center)
+                .padding([0, 12]);
+
+            let full_row = row![select_btn, actions]
+                .align_y(Alignment::Center)
+                .width(Length::Fill);
+
+            content = content.push(container(full_row).height(row_h).width(Length::Fill));
         }
 
         let bottom = total_rows.saturating_sub(self.window_end) as f32 * row_h;

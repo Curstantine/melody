@@ -5,8 +5,8 @@ use std::sync::Arc;
 #[path = "../src/queue.rs"]
 mod queue;
 
-use core_engine::TrackRow;
-use queue::{Queue, QueueStore, DEFAULT_QUEUE_NAME};
+use core_engine::{QueueRecord, TrackRow};
+use queue::{Queue, QueueSource, QueueStore, DEFAULT_QUEUE_NAME};
 
 fn track(id: i64) -> TrackRow {
     TrackRow {
@@ -17,6 +17,18 @@ fn track(id: i64) -> TrackRow {
         duration_ms: 1000,
         file_path: format!("/music/{}.flac", id),
         duration_label: "0:01".to_string(),
+    }
+}
+
+fn record(id: i64, name: &str, count: usize) -> QueueRecord {
+    QueueRecord {
+        id,
+        name: name.to_string(),
+        current: 0,
+        source_kind: "manual".to_string(),
+        source_value: None,
+        source_playlist: None,
+        track_count: count,
     }
 }
 
@@ -52,7 +64,10 @@ fn queue_navigation_and_shuffle_boundaries() {
     assert!(q.move_track(0, false));
     assert_eq!(q.tracks[1].id, before);
     assert_eq!(q.current_index(), Some(1));
-    assert!(!q.move_track(q.len() - 1, false), "cannot move past the end");
+    assert!(
+        !q.move_track(q.len() - 1, false),
+        "cannot move past the end"
+    );
 }
 
 #[test]
@@ -64,8 +79,12 @@ fn queue_store_activation_and_removal() {
     let a = store.create("A");
     let b = store.create("B");
     assert_eq!(store.active, Some(b));
+    assert_eq!(store.active_queue().map(|q| q.id), Some(b));
+
+    // Switching active invalidates the stale materialized queue until reloaded.
     store.set_active(a);
-    assert_eq!(store.active_queue().map(|q| q.id), Some(a));
+    assert_eq!(store.active, Some(a));
+    assert!(store.active_queue().is_none());
 
     assert!(store.remove(b));
     assert!(!store.remove(b), "removing an unknown queue is a no-op");
@@ -75,44 +94,55 @@ fn queue_store_activation_and_removal() {
     // Default name is used when no explicit name is provided
     let mut store = QueueStore::default();
     store.create(DEFAULT_QUEUE_NAME);
-    assert_eq!(store.active_queue().unwrap().name, "Queue");
+    assert_eq!(store.summaries[0].name, "Queue");
 }
 
 #[test]
-fn queue_store_persistence_roundtrip() {
+fn queue_store_reuse_and_replacement() {
     let mut store = QueueStore::default();
-    let id = store.create("Persisted");
-    if let Some(q) = store.active_queue_mut() {
-        q.append_many((1..=4).map(track));
-        q.set_current(2);
-        q.source_playlist = Some("/playlists/foo.m3u8".to_string());
-    }
+    store.load_summaries(vec![record(3, "Mixtape", 2)]);
+    assert_eq!(store.next_id, 4);
 
-    let path = std::env::temp_dir().join(format!(
-        "melody_queue_test_{}.json",
-        std::process::id()
-    ));
-    store.save(&path);
+    let id = store.find_id_by_name("Mixtape").expect("found by name");
+    assert_eq!(id, 3);
 
-    let loaded = QueueStore::load(&path);
-    let q = loaded.active_queue().expect("queue restored");
-    assert_eq!(q.id, id);
-    assert_eq!(q.name, "Persisted");
-    assert_eq!(q.len(), 4);
-    assert_eq!(q.current_index(), Some(2));
-    assert_eq!(
-        q.source_playlist.as_deref(),
-        Some("/playlists/foo.m3u8")
-    );
-
-    let _ = std::fs::remove_file(&path);
+    assert!(store.replace_with_tracks(id, (1..=4).map(track).collect()));
+    assert_eq!(store.active, Some(3));
+    assert_eq!(store.active_queue().map(|q| q.tracks.len()), Some(4));
+    assert_eq!(store.summaries[0].track_count, 4);
 }
 
 #[test]
-fn queue_store_load_missing_file_is_empty() {
-    let path = std::env::temp_dir().join("melody_queue_does_not_exist_xyz.json");
-    let _ = std::fs::remove_file(&path);
-    let store = QueueStore::load(&path);
-    assert!(store.is_empty());
-    assert!(store.active_queue().is_none());
+fn queue_store_activate_with_tracks_uses_summary() {
+    let mut store = QueueStore::default();
+    store.load_summaries(vec![QueueRecord {
+        id: 7,
+        name: "Road Trip".to_string(),
+        current: 2,
+        source_kind: "album".to_string(),
+        source_value: Some("Album X".to_string()),
+        source_playlist: None,
+        track_count: 5,
+    }]);
+
+    store.activate_with_tracks(7, (1..=5).map(track).collect());
+    let active = store.active_queue().expect("active queue");
+    assert_eq!(active.source, QueueSource::Album);
+    assert_eq!(active.source_value.as_deref(), Some("Album X"));
+    assert_eq!(active.current, 2);
+    assert_eq!(active.len(), 5);
+}
+
+#[test]
+fn queue_source_roundtrips() {
+    for source in [
+        QueueSource::Manual,
+        QueueSource::Album,
+        QueueSource::Artist,
+        QueueSource::Search,
+        QueueSource::Playlist,
+        QueueSource::AllSongs,
+    ] {
+        assert_eq!(QueueSource::from_str(source.as_str()), source);
+    }
 }

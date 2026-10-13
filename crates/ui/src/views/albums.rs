@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-use core_engine::{AlbumSummary, SortDirection};
+use core_engine::{AlbumSummary, SortDirection, TrackFilter};
 use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, scrollable, Space};
 use iced::{Alignment, Element, Length, Padding};
@@ -603,12 +603,43 @@ impl AlbumsView {
                     .height(tile_w + TILE_META_HEIGHT)
                     .clip(true);
 
-                let card_btn = button(card_content)
+                let select_btn = button(card_content)
                     .style(styles::tile(theme_cfg))
                     .padding(0)
                     .on_press(Message::SelectAlbum(album.album.to_string()));
 
-                tile_row = tile_row.push(card_btn);
+                let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text_color()))
+                    .style(styles::icon_control_button(theme_cfg))
+                    .padding(4)
+                    .on_press(Message::PlayScope {
+                        filter: TrackFilter::album(album.album.as_ref()),
+                        name: album.album.as_ref().to_string(),
+                        shuffle: false,
+                    });
+
+                let shuffle_btn = button(icons::icon(
+                    icons::SHUFFLE_SVG,
+                    14.0,
+                    theme_cfg.text_color(),
+                ))
+                .style(styles::icon_control_button(theme_cfg))
+                .padding(4)
+                .on_press(Message::PlayScope {
+                    filter: TrackFilter::album(album.album.as_ref()),
+                    name: album.album.as_ref().to_string(),
+                    shuffle: true,
+                });
+
+                let actions = container(row![play_btn, shuffle_btn].spacing(4))
+                    .width(tile_w)
+                    .height(tile_w)
+                    .align_x(Alignment::End)
+                    .align_y(Alignment::End)
+                    .padding(6);
+
+                let card = iced::widget::stack([select_btn.into(), actions.into()]);
+
+                tile_row = tile_row.push(card);
             }
 
             content = content.push(
@@ -664,7 +695,11 @@ impl AlbumsView {
                 .color(theme_cfg.text_muted_color())];
             if !album.year_label.is_empty() {
                 subtitle = subtitle
-                    .push(text(theme_cfg, " • ").size(11).color(theme_cfg.text_muted_color()))
+                    .push(
+                        text(theme_cfg, " • ")
+                            .size(11)
+                            .color(theme_cfg.text_muted_color()),
+                    )
                     .push(
                         text(theme_cfg, album.year_label.as_str())
                             .size(11)
@@ -698,12 +733,47 @@ impl AlbumsView {
                 .align_y(Alignment::Center)
                 .padding([0, 8]);
 
-            let row_btn = button(album_row)
+            let select_btn = button(album_row)
                 .style(styles::tile(theme_cfg))
                 .width(Length::Fill)
                 .on_press(Message::SelectAlbum(album.album.to_string()));
 
-            content = content.push(container(row_btn).height(row_h).width(Length::Fill));
+            let play_btn = button(icons::icon(
+                icons::PLAY_SVG,
+                14.0,
+                theme_cfg.text_muted_color(),
+            ))
+            .style(styles::icon_control_button(theme_cfg))
+            .padding(4)
+            .on_press(Message::PlayScope {
+                filter: TrackFilter::album(album.album.as_ref()),
+                name: album.album.as_ref().to_string(),
+                shuffle: false,
+            });
+
+            let shuffle_btn = button(icons::icon(
+                icons::SHUFFLE_SVG,
+                14.0,
+                theme_cfg.text_muted_color(),
+            ))
+            .style(styles::icon_control_button(theme_cfg))
+            .padding(4)
+            .on_press(Message::PlayScope {
+                filter: TrackFilter::album(album.album.as_ref()),
+                name: album.album.as_ref().to_string(),
+                shuffle: true,
+            });
+
+            let actions = row![play_btn, shuffle_btn]
+                .spacing(4)
+                .align_y(Alignment::Center)
+                .padding([0, 8]);
+
+            let full_row = row![select_btn, actions]
+                .align_y(Alignment::Center)
+                .width(Length::Fill);
+
+            content = content.push(container(full_row).height(row_h).width(Length::Fill));
         }
 
         let bottom = total_rows.saturating_sub(self.window_end) as f32 * row_h;

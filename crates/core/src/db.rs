@@ -11,10 +11,11 @@ use walkdir::WalkDir;
 use crate::intern;
 use crate::metadata::extract_metadata;
 use crate::model::{
-    format_duration, AlbumSummary, ArtistSummary, NewTrack, PlaylistSummary, SortDirection,
-    SortField, Track, TrackIdHeader, TrackRow,
+    format_duration, AlbumSummary, ArtistSummary, NewTrack, PlaylistSummary, QueueRecord,
+    SortDirection, SortField, Track, TrackIdHeader, TrackRow,
 };
 use crate::paths;
+use crate::search::TrackFilter;
 
 #[derive(Error, Debug)]
 pub enum DbError {
@@ -105,6 +106,30 @@ impl LibraryDatabase {
                 track_count INTEGER NOT NULL DEFAULT 0,
                 created_timestamp INTEGER NOT NULL,
                 modified_timestamp INTEGER NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS playback_queues (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                current INTEGER NOT NULL DEFAULT 0,
+                source_kind TEXT NOT NULL DEFAULT 'manual',
+                source_value TEXT,
+                source_playlist TEXT,
+                created_timestamp INTEGER NOT NULL,
+                modified_timestamp INTEGER NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS playback_queue_tracks (
+                queue_id INTEGER NOT NULL,
+                position INTEGER NOT NULL,
+                track_id INTEGER NOT NULL,
+                PRIMARY KEY (queue_id, position)
+            );
+            CREATE INDEX IF NOT EXISTS idx_queue_tracks_queue ON playback_queue_tracks(queue_id);
+
+            CREATE TABLE IF NOT EXISTS playback_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                active_queue_id INTEGER
             );
             "#,
             )
@@ -370,19 +395,18 @@ impl LibraryDatabase {
         }
     }
 
-    pub async fn get_total_track_count(&self, filter: Option<&str>) -> Result<usize, DbError> {
-        let mut rows = match filter {
-            Some(f) if !f.trim().is_empty() => {
-                let pattern = format!("%{}%", f.trim());
-                self.conn
-                    .query(
-                        "SELECT COUNT(*) FROM tracks WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1",
-                        params![pattern],
-                    )
-                    .await?
-            }
-            _ => self.conn.query("SELECT COUNT(*) FROM tracks", ()).await?,
-        };
+    pub async fn get_total_track_count(
+        &self,
+        filter: Option<&TrackFilter>,
+    ) -> Result<usize, DbError> {
+        let mut binds: Vec<turso::Value> = Vec::new();
+        let clause = filter_clause(filter, &mut binds);
+        let query = format!("SELECT COUNT(*) FROM tracks{}", clause);
+
+        let mut rows = self
+            .conn
+            .query(&query, turso::params_from_iter(binds))
+            .await?;
 
         if let Some(row) = rows.next().await? {
             let count: i64 = row.get(0)?;
@@ -398,18 +422,11 @@ impl LibraryDatabase {
         &self,
         offset: usize,
         limit: usize,
-        filter: Option<&str>,
+        filter: Option<&TrackFilter>,
         sort_field: SortField,
         sort_dir: SortDirection,
     ) -> Result<Vec<Track>, DbError> {
-        let sort_col = match sort_field {
-            SortField::Title => "title",
-            SortField::Artist => "artist",
-            SortField::Album => "album",
-            SortField::Duration => "duration_ms",
-            SortField::TrackNum => "track_num NULLS LAST",
-            SortField::AddedDate => "added_timestamp",
-        };
+        let sort_col = sort_column(sort_field);
 
         let dir_str = match sort_dir {
             SortDirection::Ascending => "ASC",
@@ -417,51 +434,30 @@ impl LibraryDatabase {
         };
 
         let mut tracks = Vec::with_capacity(limit);
+        let mut binds: Vec<turso::Value> = Vec::new();
+        let clause = filter_clause(filter, &mut binds);
+        binds.push(turso::Value::from(limit as i64));
+        binds.push(turso::Value::from(offset as i64));
 
-        if let Some(f) = filter.filter(|s| !s.trim().is_empty()) {
-            let pattern = format!("%{}%", f.trim());
-            let query = format!(
-                r#"
-                SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
-                       track_num, disc_num, year, composer, label,
-                       musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
-                FROM tracks
-                WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1
-                ORDER BY {} {}
-                LIMIT ?2 OFFSET ?3
-                "#,
-                sort_col, dir_str
-            );
+        let query = format!(
+            r#"
+            SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
+                   track_num, disc_num, year, composer, label,
+                   musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
+            FROM tracks{}
+            ORDER BY {} {}
+            LIMIT ? OFFSET ?
+            "#,
+            clause, sort_col, dir_str
+        );
 
-            let mut rows = self
-                .conn
-                .query(&query, params![pattern, limit as i64, offset as i64])
-                .await?;
+        let mut rows = self
+            .conn
+            .query(&query, turso::params_from_iter(binds))
+            .await?;
 
-            while let Some(row) = rows.next().await? {
-                tracks.push(map_track_row(&row)?);
-            }
-        } else {
-            let query = format!(
-                r#"
-                SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
-                       track_num, disc_num, year, composer, label,
-                       musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
-                FROM tracks
-                ORDER BY {} {}
-                LIMIT ?1 OFFSET ?2
-                "#,
-                sort_col, dir_str
-            );
-
-            let mut rows = self
-                .conn
-                .query(&query, params![limit as i64, offset as i64])
-                .await?;
-
-            while let Some(row) = rows.next().await? {
-                tracks.push(map_track_row(&row)?);
-            }
+        while let Some(row) = rows.next().await? {
+            tracks.push(map_track_row(&row)?);
         }
 
         Ok(tracks)
@@ -476,18 +472,11 @@ impl LibraryDatabase {
         &self,
         offset: usize,
         limit: usize,
-        filter: Option<&str>,
+        filter: Option<&TrackFilter>,
         sort_field: SortField,
         sort_dir: SortDirection,
     ) -> Result<Vec<TrackRow>, DbError> {
-        let sort_col = match sort_field {
-            SortField::Title => "title",
-            SortField::Artist => "artist",
-            SortField::Album => "album",
-            SortField::Duration => "duration_ms",
-            SortField::TrackNum => "track_num NULLS LAST",
-            SortField::AddedDate => "added_timestamp",
-        };
+        let sort_col = sort_column(sort_field);
 
         let dir_str = match sort_dir {
             SortDirection::Ascending => "ASC",
@@ -495,49 +484,70 @@ impl LibraryDatabase {
         };
 
         let mut rows_out = Vec::with_capacity(limit);
+        let mut binds: Vec<turso::Value> = Vec::new();
+        let clause = filter_clause(filter, &mut binds);
+        binds.push(turso::Value::from(limit as i64));
+        binds.push(turso::Value::from(offset as i64));
 
-        if let Some(f) = filter.filter(|s| !s.trim().is_empty()) {
-            let pattern = format!("%{}%", f.trim());
-            let query = format!(
-                r#"
-                SELECT id, title, artist, album, duration_ms, file_path
-                FROM tracks
-                WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1
-                ORDER BY {} {}
-                LIMIT ?2 OFFSET ?3
-                "#,
-                sort_col, dir_str
-            );
+        let query = format!(
+            r#"
+            SELECT id, title, artist, album, duration_ms, file_path
+            FROM tracks{}
+            ORDER BY {} {}
+            LIMIT ? OFFSET ?
+            "#,
+            clause, sort_col, dir_str
+        );
 
-            let mut rows = self
-                .conn
-                .query(&query, params![pattern, limit as i64, offset as i64])
-                .await?;
+        let mut rows = self
+            .conn
+            .query(&query, turso::params_from_iter(binds))
+            .await?;
 
-            while let Some(row) = rows.next().await? {
-                rows_out.push(map_track_row_summary(&row)?);
-            }
-        } else {
-            let query = format!(
-                r#"
-                SELECT id, title, artist, album, duration_ms, file_path
-                FROM tracks
-                ORDER BY {} {}
-                LIMIT ?1 OFFSET ?2
-                "#,
-                sort_col, dir_str
-            );
-
-            let mut rows = self
-                .conn
-                .query(&query, params![limit as i64, offset as i64])
-                .await?;
-
-            while let Some(row) = rows.next().await? {
-                rows_out.push(map_track_row_summary(&row)?);
-            }
+        while let Some(row) = rows.next().await? {
+            rows_out.push(map_track_row_summary(&row)?);
         }
 
+        Ok(rows_out)
+    }
+
+    /// Loads every matching [`TrackRow`] without pagination.
+    ///
+    /// Used when materializing a playback queue from the active library scope
+    /// (album/artist/search). Callers should keep the filter reasonably narrow:
+    /// an empty filter loads the entire library.
+    pub async fn get_all_track_rows_filtered(
+        &self,
+        filter: Option<&TrackFilter>,
+        sort_field: SortField,
+        sort_dir: SortDirection,
+    ) -> Result<Vec<TrackRow>, DbError> {
+        let sort_col = sort_column(sort_field);
+        let dir_str = match sort_dir {
+            SortDirection::Ascending => "ASC",
+            SortDirection::Descending => "DESC",
+        };
+
+        let mut binds: Vec<turso::Value> = Vec::new();
+        let clause = filter_clause(filter, &mut binds);
+        let query = format!(
+            r#"
+            SELECT id, title, artist, album, duration_ms, file_path
+            FROM tracks{}
+            ORDER BY {} {}
+            "#,
+            clause, sort_col, dir_str
+        );
+
+        let mut rows = self
+            .conn
+            .query(&query, turso::params_from_iter(binds))
+            .await?;
+
+        let mut rows_out = Vec::new();
+        while let Some(row) = rows.next().await? {
+            rows_out.push(map_track_row_summary(&row)?);
+        }
         Ok(rows_out)
     }
 
@@ -1038,6 +1048,246 @@ impl LibraryDatabase {
                 }
             }
         }
+    }
+
+    // ── Playback queues ────────────────────────────────────────────────────
+
+    /// Lists every queue's metadata and member count, without loading tracks.
+    pub async fn list_queues(&self) -> Result<Vec<QueueRecord>, DbError> {
+        let mut rows = self
+            .conn
+            .query(
+                r#"
+                SELECT q.id, q.name, q.current, q.source_kind, q.source_value,
+                       q.source_playlist, COUNT(t.track_id)
+                FROM playback_queues q
+                LEFT JOIN playback_queue_tracks t ON t.queue_id = q.id
+                GROUP BY q.id
+                ORDER BY q.id ASC
+                "#,
+                (),
+            )
+            .await?;
+
+        let mut queues = Vec::new();
+        while let Some(row) = rows.next().await? {
+            let count: i64 = row.get(6)?;
+            queues.push(QueueRecord {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                current: row.get(2)?,
+                source_kind: row.get(3)?,
+                source_value: row.get(4)?,
+                source_playlist: row.get(5)?,
+                track_count: count as usize,
+            });
+        }
+        Ok(queues)
+    }
+
+    /// Loads the ordered track rows of a single queue.
+    pub async fn load_queue_tracks(&self, queue_id: i64) -> Result<Vec<TrackRow>, DbError> {
+        let mut rows = self
+            .conn
+            .query(
+                r#"
+                SELECT tr.id, tr.title, tr.artist, tr.album, tr.duration_ms, tr.file_path
+                FROM playback_queue_tracks qt
+                JOIN tracks tr ON tr.id = qt.track_id
+                WHERE qt.queue_id = ?1
+                ORDER BY qt.position ASC
+                "#,
+                params![queue_id],
+            )
+            .await?;
+
+        let mut out = Vec::new();
+        while let Some(row) = rows.next().await? {
+            out.push(map_track_row_summary(&row)?);
+        }
+        Ok(out)
+    }
+
+    /// Inserts or updates a queue's metadata row.
+    pub async fn upsert_queue(&self, record: &QueueRecord) -> Result<(), DbError> {
+        let now = now_secs();
+        self.conn
+            .execute(
+                r#"
+                INSERT INTO playback_queues (
+                    id, name, current, source_kind, source_value, source_playlist,
+                    created_timestamp, modified_timestamp
+                )
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
+                ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    current = excluded.current,
+                    source_kind = excluded.source_kind,
+                    source_value = excluded.source_value,
+                    source_playlist = excluded.source_playlist,
+                    modified_timestamp = excluded.modified_timestamp
+                "#,
+                params![
+                    record.id,
+                    sanitize_db_text(&record.name),
+                    record.current,
+                    sanitize_db_text(&record.source_kind),
+                    record.source_value.as_deref().map(sanitize_db_text),
+                    record.source_playlist.as_deref().map(sanitize_db_text),
+                    now,
+                ],
+            )
+            .await?;
+        Ok(())
+    }
+
+    /// Replaces a queue's ordered membership with the given track ids.
+    pub async fn replace_queue_tracks(&self, queue_id: i64, ids: &[i64]) -> Result<(), DbError> {
+        let tx = self.conn.unchecked_transaction().await?;
+        tx.execute(
+            "DELETE FROM playback_queue_tracks WHERE queue_id = ?1",
+            params![queue_id],
+        )
+        .await?;
+        for (position, id) in ids.iter().enumerate() {
+            tx.execute(
+                "INSERT INTO playback_queue_tracks (queue_id, position, track_id) VALUES (?1, ?2, ?3)",
+                params![queue_id, position as i64, *id],
+            )
+            .await?;
+        }
+        tx.execute(
+            "UPDATE playback_queues SET modified_timestamp = ?2 WHERE id = ?1",
+            params![queue_id, now_secs()],
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Updates only the cursor position of a queue.
+    pub async fn set_queue_current(&self, queue_id: i64, current: i64) -> Result<(), DbError> {
+        self.conn
+            .execute(
+                "UPDATE playback_queues SET current = ?2 WHERE id = ?1",
+                params![queue_id, current],
+            )
+            .await?;
+        Ok(())
+    }
+
+    /// Removes a queue and its tracks.
+    pub async fn delete_queue(&self, queue_id: i64) -> Result<(), DbError> {
+        let tx = self.conn.unchecked_transaction().await?;
+        tx.execute(
+            "DELETE FROM playback_queue_tracks WHERE queue_id = ?1",
+            params![queue_id],
+        )
+        .await?;
+        tx.execute(
+            "DELETE FROM playback_queues WHERE id = ?1",
+            params![queue_id],
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub async fn get_active_queue_id(&self) -> Result<Option<i64>, DbError> {
+        let mut rows = self
+            .conn
+            .query(
+                "SELECT active_queue_id FROM playback_state WHERE id = 1",
+                (),
+            )
+            .await?;
+        if let Some(row) = rows.next().await? {
+            let active: Option<i64> = row.get(0)?;
+            Ok(active)
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn set_active_queue_id(&self, id: Option<i64>) -> Result<(), DbError> {
+        self.conn
+            .execute(
+                r#"
+                INSERT INTO playback_state (id, active_queue_id) VALUES (1, ?1)
+                ON CONFLICT(id) DO UPDATE SET active_queue_id = excluded.active_queue_id
+                "#,
+                params![id],
+            )
+            .await?;
+        Ok(())
+    }
+}
+
+/// Current Unix timestamp in whole seconds.
+fn now_secs() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+/// Maps a sort field to its SQL ordering column expression.
+fn sort_column(sort_field: SortField) -> &'static str {
+    match sort_field {
+        SortField::Title => "title",
+        SortField::Artist => "artist",
+        SortField::Album => "album",
+        SortField::Duration => "duration_ms",
+        SortField::TrackNum => "track_num",
+        SortField::AddedDate => "added_timestamp",
+    }
+}
+
+/// Builds a `WHERE ...` clause from a [`TrackFilter`], pushing bound values in
+/// placeholder order. Returns an empty string when no filtering is needed.
+fn filter_clause(filter: Option<&TrackFilter>, binds: &mut Vec<turso::Value>) -> String {
+    let Some(filter) = filter.filter(|f| !f.is_empty()) else {
+        return String::new();
+    };
+
+    let mut clauses: Vec<String> = Vec::new();
+
+    for term in &filter.text {
+        clauses.push("(title LIKE ? OR artist LIKE ? OR album LIKE ?)".to_string());
+        let pattern = format!("%{}%", term);
+        binds.push(turso::Value::from(pattern.clone()));
+        binds.push(turso::Value::from(pattern.clone()));
+        binds.push(turso::Value::from(pattern));
+    }
+    if let Some(value) = &filter.title {
+        clauses.push("title LIKE ?".to_string());
+        binds.push(turso::Value::from(format!("%{}%", value)));
+    }
+    if let Some(value) = &filter.album {
+        clauses.push("album = ?".to_string());
+        binds.push(turso::Value::from(value.clone()));
+    }
+    if let Some(value) = &filter.album_artist {
+        clauses.push("album_artist = ?".to_string());
+        binds.push(turso::Value::from(value.clone()));
+    }
+    if let Some(value) = &filter.artist {
+        clauses.push("artist = ?".to_string());
+        binds.push(turso::Value::from(value.clone()));
+    }
+    if let Some(value) = &filter.genre {
+        clauses.push("genre = ?".to_string());
+        binds.push(turso::Value::from(value.clone()));
+    }
+    if let Some(year) = filter.year {
+        clauses.push("year = CAST(? AS INTEGER)".to_string());
+        binds.push(turso::Value::from(year.to_string()));
+    }
+
+    if clauses.is_empty() {
+        String::new()
+    } else {
+        format!(" WHERE {}", clauses.join(" AND "))
     }
 }
 

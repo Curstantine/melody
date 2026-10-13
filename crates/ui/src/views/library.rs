@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use core_engine::{SortDirection, SortField, TrackRow};
+use core_engine::{SortDirection, SortField, TrackFilter, TrackRow};
 use iced::widget::{button, column, container, mouse_area, row, scrollable, text_input, Space};
 use iced::{Alignment, Element, Length};
 
@@ -30,6 +30,9 @@ pub struct LibraryView {
     pub page_size: usize,
     pub row_height: f32,
     pub search_query: String,
+    /// Parsed form of `search_query`, used for the database query and to derive
+    /// the queue scope when playback starts.
+    pub filter: TrackFilter,
     pub sort_field: SortField,
     pub sort_dir: SortDirection,
     pub selected_track_id: Option<i64>,
@@ -48,6 +51,7 @@ impl LibraryView {
             page_size,
             row_height: ROW_HEIGHT,
             search_query: String::new(),
+            filter: TrackFilter::default(),
             sort_field: SortField::Title,
             sort_dir: SortDirection::Ascending,
             selected_track_id: None,
@@ -78,7 +82,23 @@ impl LibraryView {
     }
 
     pub fn set_search_query(&mut self, query: String) {
+        self.filter = TrackFilter::parse(&query);
         self.search_query = query;
+    }
+
+    /// Applies a structured filter and mirrors it into the search box text.
+    pub fn set_filter(&mut self, filter: TrackFilter) {
+        self.search_query = filter.to_query_string();
+        self.filter = filter;
+    }
+
+    /// The parsed filter, or `None` when it matches the whole library.
+    pub fn active_filter(&self) -> Option<TrackFilter> {
+        if self.filter.is_empty() {
+            None
+        } else {
+            Some(self.filter.clone())
+        }
     }
 
     pub fn toggle_sort(&mut self, field: SortField) {
@@ -209,13 +229,16 @@ impl LibraryView {
         is_playing: bool,
     ) -> Element<'a, Message> {
         // 1. Search Bar & View Mode Toolbar
-        let search_input = text_input("Search tracks, artists, albums...", &self.search_query)
-            .font(theme_cfg.font())
-            .size(12)
-            .on_input(Message::SearchInputChanged)
-            .padding([4, 8])
-            .style(styles::search_input_style(theme_cfg))
-            .width(Length::Fill);
+        let search_input = text_input(
+            "Search tracks... (album:\"…\" artist:… genre:… year:…)",
+            &self.search_query,
+        )
+        .font(theme_cfg.font())
+        .size(12)
+        .on_input(Message::SearchInputChanged)
+        .padding([4, 8])
+        .style(styles::search_input_style(theme_cfg))
+        .width(Length::Fill);
 
         let toolbar = row![
             container(icons::icon(
