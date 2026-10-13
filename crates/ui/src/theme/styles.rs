@@ -227,6 +227,46 @@ pub fn table_row_container(
     }
 }
 
+/// Queue track row style: selected (playing cursor or single-click) uses the
+/// standard highlight, while the row being dragged gets the tab-bar style
+/// primary tint so the drag source stays visible during reordering.
+pub fn queue_row_container(
+    cfg: &ThemeConfig,
+    is_selected: bool,
+    is_dragging: bool,
+) -> impl Fn(&Theme) -> container::Style + '_ {
+    move |_theme| {
+        if is_dragging {
+            container::Style {
+                background: Some(Background::Color(blend_color(
+                    cfg.surface_hover_color(),
+                    cfg.primary_color(),
+                    0.15,
+                ))),
+                text_color: Some(cfg.text_color()),
+                border: Border {
+                    color: cfg.border_color(),
+                    width: 1.0,
+                    radius: Radius::from(4.0),
+                },
+                shadow: Shadow::default(),
+            }
+        } else {
+            let bg = if is_selected {
+                cfg.surface_hover_color()
+            } else {
+                Color::TRANSPARENT
+            };
+            container::Style {
+                background: Some(Background::Color(bg)),
+                text_color: Some(cfg.text_color()),
+                border: Border::default(),
+                shadow: Shadow::default(),
+            }
+        }
+    }
+}
+
 pub fn tile(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
         let (bg, text) = match status {

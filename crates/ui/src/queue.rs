@@ -195,27 +195,22 @@ impl Queue {
         Some(removed)
     }
 
-    /// Moves a track one slot up or down.
-    pub fn move_track(&mut self, index: usize, up: bool) -> bool {
-        if index >= self.tracks.len() {
+    /// Moves the track at `from` to position `to`, shifting the tracks in
+    /// between. The cursor follows the playing track so playback stays on the
+    /// same song no matter how it (or the tracks around it) moved.
+    pub fn move_track_to(&mut self, from: usize, to: usize) -> bool {
+        let len = self.tracks.len();
+        if from >= len || to >= len || from == to {
             return false;
         }
-        let target = if up {
-            if index == 0 {
-                return false;
-            }
-            index - 1
-        } else {
-            if index + 1 >= self.tracks.len() {
-                return false;
-            }
-            index + 1
-        };
-        self.tracks.swap(index, target);
-        if self.current == index {
-            self.current = target;
-        } else if self.current == target {
-            self.current = index;
+        let track = self.tracks.remove(from);
+        self.tracks.insert(to, track);
+        if self.current == from {
+            self.current = to;
+        } else if from < self.current && self.current <= to {
+            self.current -= 1;
+        } else if to <= self.current && self.current < from {
+            self.current += 1;
         }
         true
     }

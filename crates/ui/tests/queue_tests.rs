@@ -61,16 +61,55 @@ fn queue_navigation_and_shuffle_boundaries() {
     q.remove(1);
     assert!(q.current_index().unwrap() < q.len());
 
-    // move_track swaps and follows the moved track
+    // move_track_to by one slot follows the moved track
     q.set_current(0);
     let before = q.tracks[0].id;
-    assert!(q.move_track(0, false));
+    assert!(q.move_track_to(0, 1));
     assert_eq!(q.tracks[1].id, before);
     assert_eq!(q.current_index(), Some(1));
     assert!(
-        !q.move_track(q.len() - 1, false),
+        !q.move_track_to(q.len() - 1, q.len()),
         "cannot move past the end"
     );
+}
+
+#[test]
+fn queue_move_track_to_shifts_and_follows_cursor() {
+    let mut q = Queue::new(1, "DnD");
+    q.append_many((1..=5).map(track));
+
+    // Drag first track to the end: cursor follows the moved track.
+    q.set_current(0);
+    assert!(q.move_track_to(0, 4));
+    assert_eq!(
+        q.tracks.iter().map(|t| t.id).collect::<Vec<_>>(),
+        vec![2, 3, 4, 5, 1]
+    );
+    assert_eq!(q.current_index(), Some(4));
+
+    // Drag last track back to the front: tracks after it shift down.
+    assert!(q.move_track_to(4, 0));
+    assert_eq!(
+        q.tracks.iter().map(|t| t.id).collect::<Vec<_>>(),
+        vec![1, 2, 3, 4, 5]
+    );
+    assert_eq!(q.current_index(), Some(0));
+
+    // Moving a track across the cursor shifts the cursor to track it.
+    q.set_current(2);
+    assert!(q.move_track_to(0, 4));
+    assert_eq!(
+        q.tracks.iter().map(|t| t.id).collect::<Vec<_>>(),
+        vec![2, 3, 4, 5, 1]
+    );
+    assert_eq!(q.tracks[q.current_index().unwrap()].id, 3);
+    assert!(q.move_track_to(4, 0));
+    assert_eq!(q.tracks[q.current_index().unwrap()].id, 3);
+
+    // No-ops.
+    assert!(!q.move_track_to(1, 1), "same slot is a no-op");
+    assert!(!q.move_track_to(0, 5), "out of bounds is a no-op");
+    assert!(!q.move_track_to(9, 0), "out of bounds is a no-op");
 }
 
 #[test]

@@ -238,16 +238,24 @@ pub enum Message {
     },
     QueueAddTrack(i64),
     QueueAppendLoaded(Vec<TrackRow>),
-    QueuePlayIndex(usize),
     QueueRemoveTrack {
         queue_id: u64,
         index: usize,
     },
-    QueueMoveTrack {
+    QueueClicked {
         queue_id: u64,
         index: usize,
-        up: bool,
     },
+    QueueRowHovered(Option<(u64, usize)>),
+    QueueDragStarted {
+        queue_id: u64,
+        index: usize,
+    },
+    QueueDraggedOver {
+        queue_id: u64,
+        index: usize,
+    },
+    QueueDragReleased,
     QueueSaveClicked,
     QueueSaveNameChanged(String),
     QueueSaveSubmitted(String),

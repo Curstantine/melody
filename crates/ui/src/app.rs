@@ -50,6 +50,9 @@ pub struct App {
     dragging_tab: Option<ViewTab>,
     hovered_tab: Option<ViewTab>,
     drag_order_changed: bool,
+    /// Queue track being drag-reordered: `(queue_id, current_index)`.
+    dragging_queue_track: Option<(u64, usize)>,
+    drag_queue_order_changed: bool,
 
     // Screen-specific state components
     library: LibraryView,
@@ -185,6 +188,8 @@ impl App {
             dragging_tab: None,
             hovered_tab: None,
             drag_order_changed: false,
+            dragging_queue_track: None,
+            drag_queue_order_changed: false,
 
             library,
             albums,
@@ -291,7 +296,7 @@ impl App {
         let covers =
             iced::time::every(Duration::from_millis(400)).map(|_| Message::EnsureAlbumCovers);
         let mut subscriptions = vec![ticker, covers];
-        if self.dragging_tab.is_some() {
+        if self.dragging_tab.is_some() || self.dragging_queue_track.is_some() {
             subscriptions.push(iced::event::listen_with(handle_drag_event));
         }
         Subscription::batch(subscriptions)
@@ -700,14 +705,15 @@ impl App {
             }
 
             Message::TabDragReleased => {
+                let queue_task = self.finish_queue_drag_task();
                 let had_drag = self.dragging_tab.is_some();
                 let order_changed = self.drag_order_changed;
                 self.dragging_tab = None;
                 self.drag_order_changed = false;
                 if had_drag && order_changed {
-                    self.save_config_task()
+                    Task::batch([self.save_config_task(), queue_task])
                 } else {
-                    Task::none()
+                    queue_task
                 }
             }
 
@@ -1278,6 +1284,8 @@ impl App {
                 if self.queues.active == Some(id) {
                     return Task::none();
                 }
+                self.dragging_queue_track = None;
+                self.drag_queue_order_changed = false;
                 self.queues.set_active(id);
                 self.playlists.reset_queue_window();
                 let db = self.db.clone();
@@ -1299,6 +1307,8 @@ impl App {
             }
             Message::QueueDelete(id) => {
                 let was_active = self.queues.active == Some(id);
+                self.dragging_queue_track = None;
+                self.drag_queue_order_changed = false;
                 let was_playing_deleted = was_active && self.current_track_id.is_some();
                 let fallback = self.queues.remove(id);
                 self.playlists.reset_queue_window();
@@ -1437,9 +1447,30 @@ impl App {
                 self.queues.touch_active_summary();
                 self.persist_active_queue_task()
             }
-            Message::QueuePlayIndex(index) => {
-                if let Some(queue) = self.queues.active_queue_mut() {
-                    queue.set_current(index);
+            Message::QueueRemoveTrack { queue_id, index } => {
+                if self.queues.active == Some(queue_id) {
+                    if let Some(queue) = self.queues.active_queue_mut() {
+                        queue.remove(index);
+                    }
+                }
+                self.queues.touch_active_summary();
+                self.persist_active_queue_task()
+            }
+            Message::QueueClicked { queue_id, index } => {
+                // Single click selects (arming double-click to play, like the
+                // library); double-click plays. Dragging starts only from the
+                // row's drag handle, so plain clicks never disturb the order.
+                let is_double_click = self.playlists.on_queue_click(queue_id, index);
+                if !is_double_click {
+                    return Task::none();
+                }
+                // Double-click plays; cancel any handle-drag in progress.
+                self.dragging_queue_track = None;
+                self.drag_queue_order_changed = false;
+                if self.queues.active == Some(queue_id) {
+                    if let Some(queue) = self.queues.active_queue_mut() {
+                        queue.set_current(index);
+                    }
                 }
                 self.queues.touch_active_summary();
                 let track_id = self
@@ -1455,27 +1486,49 @@ impl App {
                     None => Task::none(),
                 }
             }
-            Message::QueueRemoveTrack { queue_id, index } => {
-                if self.queues.active == Some(queue_id) {
-                    if let Some(queue) = self.queues.active_queue_mut() {
-                        queue.remove(index);
-                    }
+            Message::QueueDragStarted { queue_id, index } => {
+                // Dragging starts only from the revealed handle. A pending
+                // double-click arm is cancelled so a handle press never plays.
+                self.playlists.last_queue_click = None;
+                self.playlists.hovered_queue_row = None;
+                let in_range = self
+                    .queues
+                    .active_queue()
+                    .is_some_and(|q| self.queues.active == Some(queue_id) && index < q.len());
+                if in_range {
+                    self.dragging_queue_track = Some((queue_id, index));
+                    self.drag_queue_order_changed = false;
+                } else {
+                    self.dragging_queue_track = None;
+                    self.drag_queue_order_changed = false;
                 }
-                self.queues.touch_active_summary();
-                self.persist_active_queue_task()
+                Task::none()
             }
-            Message::QueueMoveTrack {
-                queue_id,
-                index,
-                up,
-            } => {
-                if self.queues.active == Some(queue_id) {
-                    if let Some(queue) = self.queues.active_queue_mut() {
-                        queue.move_track(index, up);
+            Message::QueueDraggedOver { queue_id, index } => {
+                // Live-reorder while held, mirroring tab-bar dragging.
+                if let Some((drag_id, drag_index)) = self.dragging_queue_track {
+                    if drag_id == queue_id
+                        && drag_index != index
+                        && self.queues.active == Some(queue_id)
+                    {
+                        let moved = self
+                            .queues
+                            .active_queue_mut()
+                            .is_some_and(|q| index < q.len() && q.move_track_to(drag_index, index));
+                        if moved {
+                            self.dragging_queue_track = Some((queue_id, index));
+                            self.drag_queue_order_changed = true;
+                            self.playlists.selected_queue_track = Some((queue_id, index));
+                            self.queues.touch_active_summary();
+                        }
                     }
                 }
-                self.queues.touch_active_summary();
-                self.persist_active_queue_task()
+                Task::none()
+            }
+            Message::QueueDragReleased => self.finish_queue_drag_task(),
+            Message::QueueRowHovered(target) => {
+                self.playlists.hovered_queue_row = target;
+                Task::none()
             }
             Message::QueueSaveClicked => {
                 self.playlists.saving_queue = true;
@@ -1836,6 +1889,22 @@ impl App {
             },
             |_| Message::QueuesPersisted,
         )
+    }
+
+    /// Ends a queue drag-reorder, persisting once iff the order changed.
+    fn finish_queue_drag_task(&mut self) -> Task<Message> {
+        let released = self.dragging_queue_track.take();
+        let order_changed = std::mem::take(&mut self.drag_queue_order_changed);
+        // The cursor stays over the dropped row but no new hover event will
+        // fire, so restore the reveal directly.
+        if let Some(pos) = released {
+            self.playlists.hovered_queue_row = Some(pos);
+        }
+        if released.is_some() && order_changed {
+            self.persist_active_queue_task()
+        } else {
+            Task::none()
+        }
     }
 
     /// Snaps the queue detail list so the playing cursor is visible. Skips
@@ -2257,7 +2326,10 @@ impl App {
                 .view(theme_cfg, self.current_track_id, self.is_playing),
             ViewTab::Albums => self.albums.view(theme_cfg),
             ViewTab::Artists => self.artists.view(theme_cfg),
-            ViewTab::Playlists => self.playlists.view(theme_cfg, &self.queues),
+            ViewTab::Playlists => {
+                self.playlists
+                    .view(theme_cfg, &self.queues, self.dragging_queue_track)
+            }
             ViewTab::Lyrics => {
                 let next_track = self.get_next_track();
 

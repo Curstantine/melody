@@ -2,6 +2,7 @@ use core_engine::{PlaylistSummary, SortDirection};
 use iced::border::Radius;
 use iced::widget::{button, column, container, row, scrollable, text_input, Space};
 use iced::{Alignment, Border, Element, Length};
+use std::time::Instant;
 
 use crate::components::{self, text};
 use crate::icons;
@@ -34,6 +35,15 @@ pub struct PlaylistsView {
     pub rename_input: String,
     pub saving_queue: bool,
     pub queue_save_input: String,
+    /// Single-clicked queue track awaiting a potential double-click (mirrors
+    /// [`crate::views::library::LibraryView::last_track_click`], but keyed by
+    /// `(queue_id, index)` since a queue may hold the same track twice).
+    pub last_queue_click: Option<(u64, usize, Instant)>,
+    /// Single-click selection highlight, distinct from the playing cursor.
+    pub selected_queue_track: Option<(u64, usize)>,
+    /// Queue row under the cursor. The row's `#` slot swaps to the drag
+    /// handle while hovered (or dragged), keeping rows clean otherwise.
+    pub hovered_queue_row: Option<(u64, usize)>,
     /// First rendered track of the virtualized queue detail window. Only the
     /// window around the visible scroll range is built each frame, mirroring
     /// the library view; spacers keep the scrollbar proportional.
@@ -58,6 +68,9 @@ impl PlaylistsView {
             rename_input: String::new(),
             saving_queue: false,
             queue_save_input: String::new(),
+            last_queue_click: None,
+            selected_queue_track: None,
+            hovered_queue_row: None,
             queue_window_start: 0,
         }
     }
@@ -71,6 +84,9 @@ impl PlaylistsView {
     /// iced preserves scroll offsets across content swaps.
     pub fn reset_queue_window(&mut self) {
         self.queue_window_start = 0;
+        self.last_queue_click = None;
+        self.selected_queue_track = None;
+        self.hovered_queue_row = None;
     }
 
     /// Moves the queue detail window from an absolute scroll offset in pixels.
@@ -88,6 +104,30 @@ impl PlaylistsView {
         }
         self.queue_window_start = desired;
         true
+    }
+
+    /// Handles a queue track click. Returns `true` on double-click (playback
+    /// should start), mirroring
+    /// [`crate::views::library::LibraryView::on_track_click`].
+    pub fn on_queue_click(&mut self, queue_id: u64, index: usize) -> bool {
+        let now = Instant::now();
+        let is_double_click = if let Some((last_id, last_index, last_time)) = self.last_queue_click
+        {
+            last_id == queue_id
+                && last_index == index
+                && now.duration_since(last_time).as_millis() <= 400
+        } else {
+            false
+        };
+
+        self.selected_queue_track = Some((queue_id, index));
+        if is_double_click {
+            self.last_queue_click = None;
+            true
+        } else {
+            self.last_queue_click = Some((queue_id, index, now));
+            false
+        }
     }
 
     pub fn set_view_mode(&mut self, mode: ViewMode) {
@@ -176,6 +216,7 @@ impl PlaylistsView {
         &'a self,
         theme_cfg: &'a ThemeConfig,
         store: &'a QueueStore,
+        dragging_track: Option<(u64, usize)>,
     ) -> Element<'a, Message> {
         let toolbar = self.view_toolbar(theme_cfg);
         let content: Element<'a, Message> = match self.section {
@@ -186,7 +227,7 @@ impl PlaylistsView {
                     self.view_catalog(theme_cfg)
                 }
             }
-            PlaylistSection::Queues => self.view_queues(theme_cfg, store),
+            PlaylistSection::Queues => self.view_queues(theme_cfg, store, dragging_track),
         };
 
         column![toolbar, content]
@@ -784,6 +825,7 @@ impl PlaylistsView {
         &'a self,
         theme_cfg: &'a ThemeConfig,
         store: &'a QueueStore,
+        dragging_track: Option<(u64, usize)>,
     ) -> Element<'a, Message> {
         if store.is_empty() {
             return components::empty_state(
@@ -868,10 +910,41 @@ impl PlaylistsView {
                 list = list.push(Space::with_height(top_spacer));
             }
             let current = active.current_index();
+            // While a handle-drag is held, hovering a row live-reorders (like
+            // the tab bar); otherwise hovering just reveals that row's drag
+            // handle in place of the track number.
+            let row_hover_enter = |index: usize| {
+                if dragging_track.is_some() {
+                    Message::QueueDraggedOver {
+                        queue_id: active_id,
+                        index,
+                    }
+                } else {
+                    Message::QueueRowHovered(Some((active_id, index)))
+                }
+            };
             for (offset, track) in active.tracks[start..end].iter().enumerate() {
                 let index = start + offset;
                 let is_current = current == Some(index);
-                let index_label =
+                let is_selected = self.selected_queue_track == Some((active_id, index));
+                let is_dragging = dragging_track == Some((active_id, index));
+                let show_handle = is_dragging || self.hovered_queue_row == Some((active_id, index));
+
+                // Leading slot: track number by default, drag handle while
+                // hovered (or dragged). Fixed 36x26 bounds in both states so
+                // the swap never shifts layout or re-fires hover.
+                let slot_content: Element<'a, Message> = if show_handle {
+                    container(icons::icon(
+                        icons::QUEUE_SVG,
+                        12.0,
+                        theme_cfg.text_muted_color(),
+                    ))
+                    .width(36)
+                    .height(26)
+                    .center_x(36)
+                    .center_y(26)
+                    .into()
+                } else {
                     container(text(theme_cfg, format!("{}", index + 1)).size(12).color(
                         if is_current {
                             theme_cfg.primary_color()
@@ -880,7 +953,25 @@ impl PlaylistsView {
                         },
                     ))
                     .width(36)
-                    .center_x(36);
+                    .height(26)
+                    .center_x(36)
+                    .center_y(26)
+                    .into()
+                };
+                let mut slot = iced::widget::mouse_area(slot_content)
+                    .on_enter(row_hover_enter(index))
+                    .on_exit(Message::QueueRowHovered(None));
+                if show_handle {
+                    // Only the revealed handle starts a drag (never the bare
+                    // number, which also keeps touch scrolling safe).
+                    slot = slot
+                        .on_press(Message::QueueDragStarted {
+                            queue_id: active_id,
+                            index,
+                        })
+                        .on_release(Message::QueueDragReleased)
+                        .interaction(iced::mouse::Interaction::Grab);
+                }
 
                 let title = text(theme_cfg, track.title.as_str())
                     .size(13)
@@ -894,7 +985,6 @@ impl PlaylistsView {
                     .color(theme_cfg.text_muted_color());
 
                 let row_content = row![
-                    index_label,
                     title.width(Length::FillPortion(5)),
                     artist.width(Length::FillPortion(4)),
                     text(theme_cfg, track.formatted_duration())
@@ -906,56 +996,51 @@ impl PlaylistsView {
                 .align_y(Alignment::Center)
                 .height(26);
 
-                let row_container = container(row_content)
-                    .style(styles::table_row_container(theme_cfg, is_current))
-                    .width(Length::Fill)
-                    .height(26);
+                let row_container = container(row_content).width(Length::Fill).height(26);
 
-                let clickable = iced::widget::mouse_area(row_container)
-                    .on_press(Message::QueuePlayIndex(index));
+                // Single click selects (arming double-click to play).
+                let body = iced::widget::mouse_area(row_container)
+                    .on_press(Message::QueueClicked {
+                        queue_id: active_id,
+                        index,
+                    })
+                    .on_enter(row_hover_enter(index))
+                    .on_exit(Message::QueueRowHovered(None))
+                    .interaction(iced::mouse::Interaction::Pointer);
 
-                let icon_btn = |icon: &'static str, msg: Message| {
-                    button(icons::icon(icon, 12.0, theme_cfg.text_muted_color()))
-                        .style(styles::icon_control_button(theme_cfg))
-                        .padding([3, 5])
-                        .on_press(msg)
-                };
+                let remove_btn = button(icons::icon(
+                    icons::TRASH_SVG,
+                    12.0,
+                    theme_cfg.text_muted_color(),
+                ))
+                .style(styles::icon_control_button(theme_cfg))
+                .padding([3, 5])
+                .on_press(Message::QueueRemoveTrack {
+                    queue_id: active_id,
+                    index,
+                });
 
+                // The highlight wraps the whole row so the background spans
+                // the handle slot, the content, and the delete button.
                 list = list.push(
-                    row![
-                        clickable,
-                        icon_btn(
-                            icons::CHEVRON_UP_SVG,
-                            Message::QueueMoveTrack {
-                                queue_id: active_id,
-                                index,
-                                up: true
-                            }
-                        ),
-                        icon_btn(
-                            icons::CHEVRON_DOWN_SVG,
-                            Message::QueueMoveTrack {
-                                queue_id: active_id,
-                                index,
-                                up: false
-                            }
-                        ),
-                        icon_btn(
-                            icons::TRASH_SVG,
-                            Message::QueueRemoveTrack {
-                                queue_id: active_id,
-                                index
-                            }
-                        ),
-                    ]
-                    .spacing(4)
-                    .align_y(Alignment::Center)
-                    .padding(iced::Padding {
-                        top: 0.0,
-                        right: 12.0,
-                        bottom: 0.0,
-                        left: 4.0,
-                    }),
+                    container(
+                        row![slot, body, remove_btn]
+                            .spacing(4)
+                            .align_y(Alignment::Center)
+                            .padding(iced::Padding {
+                                top: 0.0,
+                                right: 12.0,
+                                bottom: 0.0,
+                                left: 4.0,
+                            }),
+                    )
+                    .style(styles::queue_row_container(
+                        theme_cfg,
+                        is_current || is_selected,
+                        is_dragging,
+                    ))
+                    .width(Length::Fill)
+                    .height(26),
                 );
             }
             let bottom_spacer = total.saturating_sub(end) as f32 * QUEUE_ROW_HEIGHT;
