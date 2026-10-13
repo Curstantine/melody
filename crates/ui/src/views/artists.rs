@@ -499,7 +499,7 @@ impl ArtistsView {
             let artist_row = row![avatar, Space::with_width(12), title_block,]
                 .spacing(4)
                 .align_y(Alignment::Center)
-                .padding([6, 12]);
+                .padding([0, 8]);
 
             let select_btn = button(artist_row)
                 .style(styles::tile(theme_cfg))

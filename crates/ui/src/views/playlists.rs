@@ -510,7 +510,12 @@ impl PlaylistsView {
             let row_content = row![title_block, details]
                 .spacing(4)
                 .align_y(Alignment::Center)
-                .padding([4, 8]);
+                .padding(iced::Padding {
+                    top: 4.0,
+                    right: 8.0,
+                    bottom: 4.0,
+                    left: 16.0,
+                });
 
             let open_row = button(row_content)
                 .style(styles::tile(theme_cfg))
@@ -543,11 +548,12 @@ impl PlaylistsView {
                     row![open_row, play_btn, delete_btn]
                         .spacing(4)
                         .align_y(Alignment::Center)
+                        .width(Length::Fill)
                         .padding(iced::Padding {
                             top: 0.0,
                             right: 12.0,
                             bottom: 0.0,
-                            left: 4.0,
+                            left: 0.0,
                         }),
                 )
                 .style(styles::table_row_container(theme_cfg, is_selected))
