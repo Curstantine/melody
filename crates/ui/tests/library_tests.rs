@@ -15,6 +15,9 @@ use core_engine::TrackRow;
 use library::{LibraryView, ROW_HEIGHT};
 use theme::ThemeConfig;
 
+/// Simulated catalog size for the virtualization tests.
+const LARGE_LIBRARY_TRACK_COUNT: usize = 100_000;
+
 fn make_rows(start: usize, count: usize) -> Vec<TrackRow> {
     (start..start + count)
         .map(|i| TrackRow {
@@ -40,27 +43,27 @@ fn window_capacity_is_bounded_by_page_size() {
 
 #[test]
 fn scrolling_a_large_library_keeps_memory_bounded() {
-    const TOTAL: usize = 100_000;
+    let total = LARGE_LIBRARY_TRACK_COUNT;
 
     let mut view = LibraryView::new(50);
     let capacity = view.window_capacity();
 
     // Initial load at offset 0.
     let initial = make_rows(0, capacity);
-    view.set_window(initial, TOTAL);
-    assert_eq!(view.total_tracks, TOTAL);
+    view.set_window(initial, total);
+    assert_eq!(view.total_tracks, total);
     assert!(view.rows.len() <= capacity);
 
     // Simulate a user scrolling all the way to the bottom. Every time the view
     // requests a window reload we emulate the DB returning exactly one window.
     let mut y = 0.0_f32;
-    let bottom = TOTAL as f32 * ROW_HEIGHT;
+    let bottom = total as f32 * ROW_HEIGHT;
     let mut loads = 0usize;
     let mut peak_loaded = view.rows.len();
 
     while y < bottom {
         if let Some(offset) = view.on_scroll_offset(y) {
-            let count = capacity.min(TOTAL - offset);
+            let count = capacity.min(total - offset);
             view.replace_window(offset, make_rows(offset, count));
             loads += 1;
             peak_loaded = peak_loaded.max(view.rows.len());

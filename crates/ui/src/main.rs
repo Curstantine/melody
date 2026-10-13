@@ -4,6 +4,7 @@ pub mod config;
 mod font;
 mod icons;
 mod message;
+mod queue;
 mod theme;
 mod views;
 
@@ -20,7 +21,8 @@ fn main() -> iced::Result {
         )
         .try_init();
 
-    let mut builder = iced::application(App::title, App::update, App::view)
+    let mut builder = iced::application(App::new, App::update, App::view)
+        .title(App::title)
         .theme(App::theme)
         .subscription(App::subscription)
         .window(window::Settings {
@@ -34,8 +36,8 @@ fn main() -> iced::Result {
 
     if let Some(ref font_name) = config.primary_font {
         info!("Setting default font from saved config to: {font_name}");
-        builder = builder.default_font(theme::font_from_family_name(Some(font_name)));
+        builder = builder.font(theme::font_from_family_name(Some(font_name)));
     }
 
-    builder.run_with(App::new)
+    builder.run()
 }

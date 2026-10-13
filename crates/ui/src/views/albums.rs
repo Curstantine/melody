@@ -1,29 +1,21 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-use core_engine::{AlbumSummary, SortDirection};
+use core_engine::{AlbumSummary, SortDirection, TrackFilter};
 use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, scrollable, Space};
-use iced::{Alignment, Element, Length, Padding};
+use iced::widget::{column, container, image, row, scrollable, Space, Widget};
+use iced::{Alignment, Element, Length};
 
-use crate::components::{self, text};
+use crate::components;
 use crate::icons;
 use crate::message::{AlbumSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
-#[allow(dead_code)]
 pub const DEFAULT_ALBUM_TILE_WIDTH: u32 = 140;
 /// Minimum number of decoded album cover textures retained in RAM/VRAM.
 /// The effective cap is `max(MAX_ALBUM_COVERS, window_len)` so covers currently
 /// rendered by the virtualized window are never evicted.
 pub const MAX_ALBUM_COVERS: usize = 120;
-
-/// Fixed pixel height of a single list row.
-pub const LIST_ROW_HEIGHT: f32 = 52.0;
-/// Fixed height of the metadata block under a grid tile.
-pub const TILE_META_HEIGHT: f32 = 64.0;
-/// Vertical gap between catalog rows (baked into the virtualized row height).
-pub const ROW_SPACING: f32 = 14.0;
 
 const DEFAULT_COLUMNS: usize = 6;
 const DEFAULT_VIEWPORT_HEIGHT: f32 = 720.0;
@@ -39,7 +31,9 @@ fn cover_key(album: &AlbumSummary) -> String {
 fn columns_for_width(width: f32, tile_width: u32) -> usize {
     let usable = (width - HORIZONTAL_PADDING).max(tile_width as f32);
     let tile = tile_width as f32;
-    (((usable + ROW_SPACING) / (tile + ROW_SPACING)).floor() as usize).max(1)
+    (((usable + components::CATALOG_ROW_SPACING) / (tile + components::CATALOG_ROW_SPACING)).floor()
+        as usize)
+        .max(1)
 }
 
 /// Self-contained state and view component for the Albums catalog screen.
@@ -227,8 +221,12 @@ impl AlbumsView {
 
     pub fn row_height(&self) -> f32 {
         match self.view_mode {
-            ViewMode::Tile => self.tile_width as f32 + TILE_META_HEIGHT + ROW_SPACING,
-            ViewMode::List => LIST_ROW_HEIGHT,
+            ViewMode::Tile => {
+                self.tile_width as f32
+                    + components::CATALOG_TILE_META_HEIGHT
+                    + components::CATALOG_ROW_SPACING
+            }
+            ViewMode::List => components::CATALOG_LIST_ROW_HEIGHT,
         }
     }
 
@@ -318,8 +316,8 @@ impl AlbumsView {
 
     pub fn on_scroll(&mut self, viewport: &iced::widget::scrollable::Viewport) -> bool {
         let y = viewport.absolute_offset().y;
-        let width = viewport.bounds().width;
-        let height = viewport.bounds().height;
+        let width = viewport.bounds.width;
+        let height = viewport.bounds.height;
         self.recompute_window(y, width, height)
     }
 
@@ -505,7 +503,7 @@ impl AlbumsView {
                 self.sort_dir,
                 Message::AlbumSortChanged,
             ),
-            Space::with_width(Length::Fill),
+            Space::new().width(Length::Fill),
             components::view_mode_toggle(theme_cfg, self.view_mode, Message::SetAlbumsViewMode),
         ]
         .spacing(4)
@@ -532,7 +530,7 @@ impl AlbumsView {
             })
             .height(Length::Fill)
             .width(Length::Fill)
-            .into()
+            .boxed()
     }
 
     fn view_tiles<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -548,15 +546,17 @@ impl AlbumsView {
 
         let top = start_row as f32 * row_h;
         if top > 0.0 {
-            content = content.push(Space::with_height(top));
+            content = content.push(Space::new().height(top).boxed());
         }
 
         for chunk in self.visible_albums().chunks(per_row) {
-            let mut tile_row = row![].spacing(ROW_SPACING).align_y(Alignment::Start);
+            let mut tile_row = row![]
+                .spacing(components::CATALOG_ROW_SPACING)
+                .align_y(Alignment::Start);
 
             for album in chunk {
                 let key = cover_key(album);
-                let cover_art = components::cover_art(
+                let leading = components::cover_art(
                     theme_cfg,
                     self.album_covers.get(&key),
                     tile_w,
@@ -566,156 +566,111 @@ impl AlbumsView {
                     theme_cfg.primary_color(),
                 );
 
-                let meta = container(
-                    column![
-                        text(theme_cfg, album.album.as_ref())
-                            .size(13)
-                            .color(theme_cfg.text_color()),
-                        row![
-                            text(theme_cfg, album.artist.as_ref())
-                                .size(11)
-                                .color(theme_cfg.text_muted_color())
-                                .width(Length::Fill),
-                            text(theme_cfg, album.year_label.as_str())
-                                .size(11)
-                                .color(theme_cfg.text_muted_color()),
-                        ]
-                        .align_y(Alignment::Center),
-                        row![
-                            text(theme_cfg, album.tracks_label.as_str())
-                                .size(10)
-                                .color(theme_cfg.text_muted_color()),
-                            Space::with_width(Length::Fill),
-                            text(theme_cfg, album.duration_label.as_str())
-                                .size(10)
-                                .color(theme_cfg.text_muted_color()),
-                        ]
-                        .align_y(Alignment::Center),
-                    ]
-                    .spacing(3)
-                    .padding(8),
-                )
-                .width(tile_w)
-                .height(TILE_META_HEIGHT);
-
-                let card_content = container(column![cover_art, meta])
-                    .width(tile_w)
-                    .height(tile_w + TILE_META_HEIGHT)
-                    .clip(true);
-
-                let card_btn = button(card_content)
-                    .style(styles::tile(theme_cfg))
-                    .padding(0)
-                    .on_press(Message::SelectAlbum(album.album.to_string()));
-
-                tile_row = tile_row.push(card_btn);
+                tile_row = tile_row.push(
+                    components::CatalogTile {
+                        theme: theme_cfg,
+                        tile_width: tile_w,
+                        leading,
+                        title: album.album.as_ref(),
+                        mid_left: album.artist.as_ref(),
+                        mid_right: album.year_label.as_str(),
+                        bottom_left: album.tracks_label.as_str(),
+                        bottom_right: album.duration_label.as_str(),
+                        on_select: Message::SelectAlbum(album.album.to_string()),
+                        on_play: Message::PlayScope {
+                            filter: TrackFilter::album(album.album.as_ref()),
+                            name: album.album.as_ref().to_string(),
+                            shuffle: false,
+                        },
+                        on_shuffle: Message::PlayScope {
+                            filter: TrackFilter::album(album.album.as_ref()),
+                            name: album.album.as_ref().to_string(),
+                            shuffle: true,
+                        },
+                    }
+                    .view(),
+                );
             }
 
             content = content.push(
                 container(tile_row)
                     .height(row_h)
                     .width(Length::Fill)
-                    .align_y(Alignment::Start),
+                    .align_y(Alignment::Start)
+                    .boxed(),
             );
         }
 
         let bottom = total_rows.saturating_sub(end_row) as f32 * row_h;
         if bottom > 0.0 {
-            content = content.push(Space::with_height(bottom));
+            content = content.push(Space::new().height(bottom).boxed());
         }
 
-        scrollable(container(content).width(Length::Fill).padding(Padding {
-            left: 16.0,
-            right: 16.0,
-            ..Default::default()
-        }))
-        .id(scrollable::Id::new("albums_scroll"))
-        .on_scroll(Message::AlbumsScrolled)
-        .height(Length::Fill)
-        .style(styles::scrollable_style(theme_cfg))
-        .into()
+        scrollable(container(content).width(Length::Fill).padding([0, 16]))
+            .id(iced::widget::Id::new("albums_scroll"))
+            .on_scroll(|scroll| Message::AlbumsScrolled(scroll.viewport))
+            .height(Length::Fill)
+            .style(styles::scrollable_style(theme_cfg))
+            .boxed()
     }
 
     fn view_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
         let total_rows = self.albums.len();
-        let row_h = LIST_ROW_HEIGHT;
+        let row_h = components::CATALOG_LIST_ROW_HEIGHT;
 
         let mut content = column![].spacing(0).width(Length::Fill);
 
         let top = self.window_start as f32 * row_h;
         if top > 0.0 {
-            content = content.push(Space::with_height(top));
+            content = content.push(Space::new().height(top).boxed());
         }
 
         for album in self.visible_albums() {
             let key = cover_key(album);
-            let disc_thumbnail = components::cover_art(
-                theme_cfg,
-                self.album_covers.get(&key),
-                42.0,
-                Radius::from(4.0),
-                icons::DISC_SVG,
-                20.0,
-                theme_cfg.primary_color(),
+            content = content.push(
+                components::CatalogRow {
+                    theme: theme_cfg,
+                    leading: components::cover_art(
+                        theme_cfg,
+                        self.album_covers.get(&key),
+                        components::CATALOG_LIST_ART_SIZE,
+                        Radius::from(4.0),
+                        icons::DISC_SVG,
+                        20.0,
+                        theme_cfg.primary_color(),
+                    ),
+                    title: album.album.as_ref(),
+                    subtitle_left: album.artist.as_ref(),
+                    subtitle_right: album.year_label.as_str(),
+                    details: Some((album.tracks_label.as_str(), album.duration_label.as_str())),
+                    on_select: Message::SelectAlbum(album.album.to_string()),
+                    on_play: Message::PlayScope {
+                        filter: TrackFilter::album(album.album.as_ref()),
+                        name: album.album.as_ref().to_string(),
+                        shuffle: false,
+                    },
+                    on_shuffle: Message::PlayScope {
+                        filter: TrackFilter::album(album.album.as_ref()),
+                        name: album.album.as_ref().to_string(),
+                        shuffle: true,
+                    },
+                    width: Length::Fill,
+                    height: Length::Fixed(row_h),
+                }
+                .view(),
             );
-
-            let mut subtitle = row![text(theme_cfg, album.artist.as_ref())
-                .size(11)
-                .color(theme_cfg.text_muted_color())];
-            if !album.year_label.is_empty() {
-                subtitle = subtitle
-                    .push(text(theme_cfg, " • ").size(11).color(theme_cfg.text_muted_color()))
-                    .push(
-                        text(theme_cfg, album.year_label.as_str())
-                            .size(11)
-                            .color(theme_cfg.text_muted_color()),
-                    );
-            }
-
-            let title_block = column![
-                text(theme_cfg, album.album.as_ref())
-                    .size(13)
-                    .color(theme_cfg.text_color()),
-                subtitle,
-            ]
-            .spacing(2)
-            .width(Length::Fill);
-
-            let details = column![
-                text(theme_cfg, album.tracks_label.as_str())
-                    .size(12)
-                    .color(theme_cfg.text_muted_color()),
-                text(theme_cfg, album.duration_label.as_str())
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
-            ]
-            .spacing(2)
-            .align_x(Alignment::End)
-            .width(100);
-
-            let album_row = row![disc_thumbnail, Space::with_width(12), title_block, details,]
-                .spacing(4)
-                .align_y(Alignment::Center)
-                .padding([0, 8]);
-
-            let row_btn = button(album_row)
-                .style(styles::tile(theme_cfg))
-                .width(Length::Fill)
-                .on_press(Message::SelectAlbum(album.album.to_string()));
-
-            content = content.push(container(row_btn).height(row_h).width(Length::Fill));
         }
 
         let bottom = total_rows.saturating_sub(self.window_end) as f32 * row_h;
         if bottom > 0.0 {
-            content = content.push(Space::with_height(bottom));
+            content = content.push(Space::new().height(bottom).boxed());
         }
 
         scrollable(content)
-            .id(scrollable::Id::new("albums_scroll"))
-            .on_scroll(Message::AlbumsScrolled)
+            .id(iced::widget::Id::new("albums_scroll"))
+            .on_scroll(|scroll| Message::AlbumsScrolled(scroll.viewport))
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
-            .into()
+            .boxed()
     }
 }

@@ -55,6 +55,7 @@
               nixd
               nixfmt
               noto-fonts-cjk-sans
+              openssl
               (pkgs.rust-bin.stable.latest.default.override {
                 extensions = [
                   "rust-src"

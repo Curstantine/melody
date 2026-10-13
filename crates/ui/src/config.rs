@@ -3,7 +3,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::{error, info};
 
-use crate::message::{AlbumSortField, ArtistSortField, SettingsTab, ViewMode, ViewTab};
+use crate::message::{
+    AlbumSortField, ArtistSortField, PlaylistSortField, SettingsTab, ViewMode, ViewTab,
+};
 
 pub const DEFAULT_PAGE_SIZE: usize = 50;
 pub const DEFAULT_TILE_WIDTH: u32 = 140;
@@ -17,6 +19,7 @@ pub fn default_tab_order() -> Vec<ViewTab> {
         ViewTab::Lyrics,
         ViewTab::Albums,
         ViewTab::Artists,
+        ViewTab::Playlists,
     ]
 }
 
@@ -56,6 +59,8 @@ pub struct AppConfig {
     pub albums_view_mode: ViewMode,
     #[serde(default)]
     pub artists_view_mode: ViewMode,
+    #[serde(default)]
+    pub playlists_view_mode: ViewMode,
     #[serde(default = "default_page_size")]
     pub page_size: usize,
     #[serde(default = "default_tile_width")]
@@ -70,6 +75,8 @@ pub struct AppConfig {
     pub album_sort_field: AlbumSortField,
     #[serde(default)]
     pub artist_sort_field: ArtistSortField,
+    #[serde(default)]
+    pub playlist_sort_field: PlaylistSortField,
 
     #[serde(default = "default_volume")]
     pub volume: f32,
@@ -204,6 +211,7 @@ impl Default for AppConfig {
             library_view_mode: ViewMode::List,
             albums_view_mode: ViewMode::Tile,
             artists_view_mode: ViewMode::Tile,
+            playlists_view_mode: ViewMode::List,
             page_size: default_page_size(),
             tile_width: default_tile_width(),
             album_tile_width: default_album_tile_width(),
@@ -211,6 +219,7 @@ impl Default for AppConfig {
             now_playing_cover_size: default_now_playing_cover_size(),
             album_sort_field: AlbumSortField::Title,
             artist_sort_field: ArtistSortField::Artist,
+            playlist_sort_field: PlaylistSortField::Name,
             volume: default_volume(),
             is_shuffle: false,
             is_repeat: false,

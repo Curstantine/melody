@@ -1,6 +1,6 @@
 use core_engine::{AudioTechnicalInfo, Track, TrackRow};
 use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, scrollable, stack, Space};
+use iced::widget::{button, column, container, image, row, scrollable, stack, Space, Widget};
 use iced::{Alignment, ContentFit, Element, Length};
 
 use crate::components::{self, text};
@@ -8,7 +8,6 @@ use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
 
-#[allow(dead_code)]
 pub const DEFAULT_NOW_PLAYING_COVER_SIZE: u32 = 260;
 
 /// Self-contained state and view component for the Now Playing / Lyrics screen.
@@ -84,13 +83,13 @@ impl NowPlayingView {
                     text(theme_cfg, lyr)
                         .size(15)
                         .color(theme_cfg.text_color())
-                        .into()
+                        .boxed()
                 } else {
                     column![
                         text(theme_cfg, "No lyrics found for this track.")
                             .size(14)
                             .color(theme_cfg.text_color()),
-                        Space::with_height(4),
+                        Space::new().height(4),
                         text(
                             theme_cfg,
                             "Place a .lrc file in the same directory or configure a lyrics plugin."
@@ -98,7 +97,7 @@ impl NowPlayingView {
                         .size(12)
                         .color(theme_cfg.text_muted_color()),
                     ]
-                    .into()
+                    .boxed()
                 };
 
                 let lyrics_panel = scrollable(lyrics_body)
@@ -106,7 +105,7 @@ impl NowPlayingView {
                     .height(Length::Fill)
                     .style(styles::scrollable_style(theme_cfg));
 
-                let left_section = row![cover_art, Space::with_width(28), lyrics_panel,]
+                let left_section = row![cover_art, Space::new().width(28), lyrics_panel,]
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .align_y(Alignment::Center);
@@ -195,7 +194,7 @@ impl NowPlayingView {
                     text(theme_cfg, "Up Next")
                         .size(11)
                         .color(theme_cfg.primary_color()),
-                    Space::with_width(Length::Fill),
+                    Space::new().width(Length::Fill),
                     up_next_tags,
                 ]
                 .align_y(Alignment::Center);
@@ -241,12 +240,12 @@ impl NowPlayingView {
                         .style(styles::tile(theme_cfg))
                         .on_press(Message::PlayTrack(next_id))
                         .width(Length::Fill)
-                        .into()
+                        .boxed()
                     }
                     None => text(theme_cfg, "No upcoming tracks")
                         .size(11)
                         .color(theme_cfg.text_muted_color())
-                        .into(),
+                        .boxed(),
                 };
 
                 // Technical Details Section ("Properties", size 11, without icon)
@@ -279,18 +278,18 @@ impl NowPlayingView {
                     .spacing(4);
 
                     if let Some(kbps) = tech.bitrate_kbps {
-                        prop_col =
-                            prop_col.push(make_prop_row("Bitrate", format!("{} kbps", kbps)));
+                        prop_col = prop_col
+                            .push(make_prop_row("Bitrate", format!("{} kbps", kbps)).boxed());
                     }
 
                     if tech.file_size_bytes > 0 {
-                        prop_col =
-                            prop_col.push(make_prop_row("File Size", tech.formatted_file_size()));
+                        prop_col = prop_col
+                            .push(make_prop_row("File Size", tech.formatted_file_size()).boxed());
                     }
 
-                    prop_col.into()
+                    prop_col.boxed()
                 } else {
-                    column![].into()
+                    Space::new().boxed()
                 };
 
                 // Card container matching the general app UI with balanced bottom padding
@@ -327,15 +326,15 @@ impl NowPlayingView {
                     ..Default::default()
                 });
 
-                let right_section = column![Space::with_height(Length::Fill), bottom_right_card,]
+                let right_section = column![Space::new().height(Length::Fill), bottom_right_card,]
                     .width(340)
                     .height(Length::Fill)
                     .align_x(Alignment::End);
 
-                row![left_section, Space::with_width(20), right_section,]
+                row![left_section, Space::new().width(20), right_section,]
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .into()
+                    .boxed()
             }
             None => components::empty_state(
                 theme_cfg,
@@ -370,13 +369,13 @@ impl NowPlayingView {
                 stack![bg_img, dark_tint, foreground]
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .into()
+                    .boxed()
             }
             None => container(foreground)
                 .style(styles::main_background(theme_cfg))
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .into(),
+                .boxed(),
         }
     }
 }

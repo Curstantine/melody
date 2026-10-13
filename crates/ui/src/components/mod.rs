@@ -1,6 +1,6 @@
 use core_engine::SortDirection;
 use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, Space};
+use iced::widget::{button, column, container, image, row, Space, Widget};
 use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length};
 
 use crate::icons;
@@ -9,8 +9,14 @@ use crate::theme::{styles, ThemeConfig};
 
 use std::borrow::Cow;
 
+pub mod catalog;
 pub mod marquee;
 pub mod spinner;
+#[allow(unused_imports)]
+pub use catalog::{
+    CatalogRow, CatalogTile, TrackRow, CATALOG_LIST_ART_SIZE, CATALOG_LIST_ROW_HEIGHT,
+    CATALOG_ROW_SPACING, CATALOG_TILE_META_HEIGHT, TRACK_ROW_HEIGHT,
+};
 #[allow(unused_imports)]
 pub use marquee::Marquee;
 pub use spinner::Spinner;
@@ -23,16 +29,7 @@ pub fn text<'a>(
     theme_cfg: &ThemeConfig,
     content: impl Into<Cow<'a, str>>,
 ) -> iced::widget::Text<'a> {
-    let text_cow = content.into();
-    let shaping = if text_cow.is_ascii() {
-        iced::widget::text::Shaping::Basic
-    } else {
-        iced::widget::text::Shaping::Advanced
-    };
-
-    iced::widget::text(text_cow)
-        .font(theme_cfg.font())
-        .shaping(shaping)
+    iced::widget::text(content.into()).font(theme_cfg.font())
 }
 
 pub fn border_vert<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
@@ -43,7 +40,7 @@ pub fn border_vert<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
             background: Some(Background::Color(color)),
             ..Default::default()
         })
-        .into()
+        .boxed()
 }
 
 pub fn border_hori<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
@@ -54,7 +51,7 @@ pub fn border_hori<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
             background: Some(Background::Color(color)),
             ..Default::default()
         })
-        .into()
+        .boxed()
 }
 
 /// A reusable chip button with active state styling.
@@ -72,7 +69,7 @@ pub fn chip<'a>(
     .padding([3, 6])
     .style(styles::ghost_button(theme_cfg, is_active))
     .on_press(on_press)
-    .into()
+    .boxed()
 }
 
 /// A reusable chip button with an icon and label.
@@ -92,7 +89,7 @@ pub fn chip_with_icon<'a>(
     button(
         row![
             icons::icon(icon_svg, 13.0, color),
-            Space::with_width(4),
+            Space::new().width(4),
             text(theme_cfg, label.into()).size(11).color(color),
         ]
         .align_y(Alignment::Center),
@@ -100,7 +97,7 @@ pub fn chip_with_icon<'a>(
     .padding([3, 6])
     .style(styles::ghost_button(theme_cfg, is_active))
     .on_press(on_press)
-    .into()
+    .boxed()
 }
 
 /// A chip button representing a view mode (List or Tiles).
@@ -139,7 +136,7 @@ pub fn view_mode_toggle<'a>(
     ]
     .spacing(4)
     .align_y(Alignment::Center)
-    .into()
+    .boxed()
 }
 
 /// A sort chip displaying the field label and an active sort direction indicator arrow.
@@ -165,20 +162,20 @@ pub fn sort_chip<'a, T: Copy + PartialEq>(
         };
         row![
             text(theme_cfg, label).size(11).color(text_color),
-            Space::with_width(3),
+            Space::new().width(3),
             icons::icon(sort_icon_svg, 11.0, text_color),
         ]
         .align_y(Alignment::Center)
-        .into()
+        .boxed()
     } else {
-        text(theme_cfg, label).size(11).color(text_color).into()
+        text(theme_cfg, label).size(11).color(text_color).boxed()
     };
 
     button(content)
         .padding([3, 6])
         .style(styles::ghost_button(theme_cfg, is_active))
         .on_press(on_press)
-        .into()
+        .boxed()
 }
 
 /// A unified sort chip list with a "Sort:" label and multiple sort chips.
@@ -193,7 +190,7 @@ pub fn sort_chip_list<'a, T: Copy + PartialEq>(
         text(theme_cfg, "Sort:")
             .size(11)
             .color(theme_cfg.text_muted_color()),
-        Space::with_width(4),
+        Space::new().width(4),
     ]
     .spacing(4)
     .align_y(Alignment::Center);
@@ -209,7 +206,7 @@ pub fn sort_chip_list<'a, T: Copy + PartialEq>(
         ));
     }
 
-    sort_row.into()
+    sort_row.boxed()
 }
 
 /// A centered empty state view with a title and muted description.
@@ -233,7 +230,7 @@ pub fn empty_state<'a>(
     .padding(40)
     .width(Length::Fill)
     .align_x(Alignment::Center)
-    .into()
+    .boxed()
 }
 
 /// A container displaying cover art image or a fallback vector icon placeholder.
@@ -248,7 +245,7 @@ pub fn cover_art<'a>(
 ) -> Element<'a, Message> {
     let radius: Radius = radius.into();
     let border_color = theme_cfg.border_color();
-    let hover_bg = theme_cfg.surface_hover_color();
+    let placeholder_bg = theme_cfg.surface_color();
 
     match cover {
         Some(handle) => container(
@@ -270,7 +267,7 @@ pub fn cover_art<'a>(
             },
             ..Default::default()
         })
-        .into(),
+        .boxed(),
         None => container(icons::icon(
             fallback_icon_svg,
             fallback_icon_size,
@@ -281,7 +278,7 @@ pub fn cover_art<'a>(
         .center_x(size)
         .center_y(size)
         .style(move |_theme| container::Style {
-            background: Some(iced::Background::Color(hover_bg)),
+            background: Some(iced::Background::Color(placeholder_bg)),
             border: Border {
                 radius,
                 color: border_color,
@@ -289,7 +286,7 @@ pub fn cover_art<'a>(
             },
             ..Default::default()
         })
-        .into(),
+        .boxed(),
     }
 }
 
@@ -298,30 +295,32 @@ pub fn settings_header<'a>(
     title: &'static str,
     description: Option<&'static str>,
 ) -> Element<'a, Message> {
-    column![text(theme_cfg, title)
+    let mut header = column![text(theme_cfg, title)
         .size(20)
-        .color(theme_cfg.text_color()),]
-    .push_maybe(description.map(|x| {
-        text(theme_cfg, x)
-            .size(12)
-            .color(theme_cfg.text_muted_color())
-    }))
-    .spacing(4)
-    .into()
+        .color(theme_cfg.text_color()),];
+    if let Some(x) = description {
+        header = header.push(
+            text(theme_cfg, x)
+                .size(12)
+                .color(theme_cfg.text_muted_color())
+                .boxed(),
+        );
+    }
+    header.spacing(4).boxed()
 }
 
 /// A card container with a primary colored title header.
 pub fn settings_card<'a>(
     theme_cfg: &'a ThemeConfig,
     title: &'static str,
-    content: impl Into<Element<'a, Message>>,
+    content: Element<'a, Message>,
 ) -> Element<'a, Message> {
     container(
         column![
             text(theme_cfg, title)
                 .size(11)
                 .color(theme_cfg.primary_color()),
-            content.into(),
+            content,
         ]
         .spacing(12)
         .padding(16),
@@ -336,7 +335,7 @@ pub fn settings_card<'a>(
         ..Default::default()
     })
     .width(Length::Fill)
-    .into()
+    .boxed()
 }
 
 /// A metric card displaying a prominent value and muted label.
@@ -358,7 +357,7 @@ pub fn metric_box<'a>(
         .padding([8, 12]),
     )
     .style(move |_theme| container::Style {
-        background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+        background: Some(iced::Background::Color(theme_cfg.surface_color())),
         border: Border {
             radius: Radius::from(4.0),
             color: theme_cfg.border_color(),
@@ -367,7 +366,7 @@ pub fn metric_box<'a>(
         ..Default::default()
     })
     .width(Length::FillPortion(1))
-    .into()
+    .boxed()
 }
 
 /// A self-contained scanning indicator component powered by the `Spinner` widget.
@@ -385,5 +384,5 @@ pub fn scanning_indicator<'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, Message
     ]
     .spacing(4)
     .align_y(Alignment::Center)
-    .into()
+    .boxed()
 }

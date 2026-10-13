@@ -12,16 +12,17 @@ melody/
 │   ├── midnight_amber.toml
 │   └── xcode_default_darker.toml
 └── crates/
-    ├── core/         # Embedded Turso SQLite engine, FFmpeg metadata extraction, thumbnail caching
+    ├── core/         # Embedded Turso SQLite engine, FFmpeg metadata extraction, thumbnail caching, M3U playlists, scoped search filters, queue persistence
     ├── audio/        # Audio worker thread, CPAL playback, FFmpeg decoding & Rubato resampling, lock-free ring buffer
     ├── plugins/      # Plugin contracts, MPRIS (Linux), Scrobbling (ListenBrainz & Last.fm), lyrics, event dispatchers
-    └── ui/           # Iced GUI, views (Library, Albums, Artists, Now Playing, Settings)
+    └── ui/           # Iced GUI, views (Library, Albums, Artists, Playlists, Now Playing, Settings), DB-backed playback queues
 ```
 
 ## Views & Features
 
-- **Tracks (Library)**: Fast, virtualized track browser with customizable page sizes, search filtering across titles, artists, and albums, and column sorting.
-- **Albums & Artists**: Aggregated catalog views with cover art, flexible grid/list layouts, and configurable tile dimensions.
+- **Tracks (Library)**: Fast, virtualized track browser with customizable page sizes, column sorting, and scoped search (`artist:…`, `album:"…"`, `album_artist:…`, `genre:…`, `year:…`, `title:…` plus free text). Clicking an album or artist tiles into its exact scope.
+- **Albums & Artists**: Aggregated catalog views with cover art, flexible grid/list layouts, and configurable tile dimensions. Album tiles carry play/shuffle actions; artist tiles are click-to-filter, with play/shuffle kept in list rows.
+- **Playlists & Queues**: M3U/M3U8 playlists (Melody-managed files plus external references) with import, rename, and play support. DB-backed playback queues (`playback_queues` / `playback_queue_tracks`) — every playback context (album, artist, search, playlist, all songs) becomes a named, reusable queue with a virtualized detail view.
 - **Lyrics & Now Playing**: Dedicated player view showcasing artwork, track metadata, and scrollable lyrics with configurable cover sizes.
 - **Player Bar**: Persistent bottom controls featuring live seek scrubbing, volume controls, shuffle, repeat, track favoriting, and now-playing details.
 - **Status Bar**: Live catalog counts, active filter indicators, and library scanning progress.
@@ -31,6 +32,7 @@ melody/
     - **Scrobbling**: Built-in scrobbler support for ListenBrainz and Last.fm with customizable scrobble thresholds and now-playing updates.
 - **Integrations**:
     - **Linux MPRIS**: Native desktop media controls, track metadata, and playback status integration via D-Bus.
+- **Icons**: Inline vector SVGs sourced from [Boxicons](https://boxicons.com) (MIT), tinted at render time — no emoji or font-dependent glyphs.
 
 ## Getting Started
 
@@ -86,8 +88,9 @@ cargo build --workspace --release
 
 Melody stores settings and cached data according to standard OS conventions:
 
-- **Database**: `~/.local/share/melody/library.db` (Linux) / OS app data directory
+- **Database**: `~/.local/share/melody/library.db` (Linux) / OS app data directory — tracks, playlist file refs, and playback queues
 - **Config**: `~/.config/melody/config.toml` (Linux) / OS config directory
+- **Playlists**: `~/.local/share/melody/playlists/` (Linux) / OS app data directory — Melody-managed `.m3u8` files (external playlists may live anywhere)
 - **Thumbnail Cache**: `~/.cache/melody/thumbnails/` (Linux) / OS cache directory
 - **Themes**: `./themes/` or `~/.config/melody/themes/`
 

@@ -163,6 +163,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
@@ -184,12 +186,22 @@ jobs:
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
+      - name: Extract tag message
+        run: |
+          TAG="${{ steps.release_info.outputs.tag }}"
+          git fetch --tags --force
+          # Use subject + body (instead of %(contents)) to exclude any PGP signature block.
+          git tag -l --format='%(contents:subject)%0a%0a%(contents:body)' "$TAG" > TAG_BODY.md || true
+          echo "---- Tag message for $TAG ----"
+          cat TAG_BODY.md || true
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_info.outputs.tag }}
           name: Melody ${{ steps.release_info.outputs.tag }}
+          body_path: TAG_BODY.md
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
           files: dist/*

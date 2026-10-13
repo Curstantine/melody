@@ -1,20 +1,14 @@
-use core_engine::{ArtistSummary, SortDirection};
+use core_engine::{ArtistSummary, SortDirection, TrackFilter};
 use iced::border::Radius;
-use iced::widget::{button, column, container, row, scrollable, Space};
-use iced::{Alignment, Border, Element, Length, Padding};
+use iced::widget::{column, container, row, scrollable, Space, Widget};
+use iced::{Alignment, Element, Length, Padding};
 
-use crate::components::{self, text};
+use crate::components;
 use crate::icons;
 use crate::message::{ArtistSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
 pub const DEFAULT_ARTIST_TILE_WIDTH: u32 = 140;
-/// Fixed pixel height of a single list row.
-pub const LIST_ROW_HEIGHT: f32 = 52.0;
-/// Height of the metadata block under a tile.
-pub const TILE_META_HEIGHT: f32 = 64.0;
-/// Vertical gap between catalog rows (baked into the virtualized row height).
-pub const ROW_SPACING: f32 = 14.0;
 
 const DEFAULT_COLUMNS: usize = 6;
 const DEFAULT_VIEWPORT_HEIGHT: f32 = 720.0;
@@ -24,7 +18,9 @@ const HORIZONTAL_PADDING: f32 = 32.0;
 fn columns_for_width(width: f32, tile_width: u32) -> usize {
     let usable = (width - HORIZONTAL_PADDING).max(tile_width as f32);
     let tile = tile_width as f32;
-    (((usable + ROW_SPACING) / (tile + ROW_SPACING)).floor() as usize).max(1)
+    (((usable + components::CATALOG_ROW_SPACING) / (tile + components::CATALOG_ROW_SPACING)).floor()
+        as usize)
+        .max(1)
 }
 
 /// Self-contained state and view component for the Artists catalog screen.
@@ -168,8 +164,8 @@ impl ArtistsView {
 
     pub fn on_scroll(&mut self, viewport: &iced::widget::scrollable::Viewport) -> bool {
         let y = viewport.absolute_offset().y;
-        let width = viewport.bounds().width;
-        let height = viewport.bounds().height;
+        let width = viewport.bounds.width;
+        let height = viewport.bounds.height;
         self.recompute_window(y, width, height)
     }
 
@@ -191,14 +187,14 @@ impl ArtistsView {
         }
     }
 
-    fn avatar_size(&self) -> f32 {
-        (self.tile_width as f32 * 0.5).clamp(50.0, 100.0)
-    }
-
     pub fn row_height(&self) -> f32 {
         match self.view_mode {
-            ViewMode::Tile => self.avatar_size() + TILE_META_HEIGHT + ROW_SPACING,
-            ViewMode::List => LIST_ROW_HEIGHT,
+            ViewMode::Tile => {
+                self.tile_width as f32
+                    + components::CATALOG_TILE_META_HEIGHT
+                    + components::CATALOG_ROW_SPACING
+            }
+            ViewMode::List => components::CATALOG_LIST_ROW_HEIGHT,
         }
     }
 
@@ -321,7 +317,7 @@ impl ArtistsView {
                 self.sort_dir,
                 Message::ArtistSortChanged,
             ),
-            Space::with_width(Length::Fill),
+            Space::new().width(Length::Fill),
             components::view_mode_toggle(theme_cfg, self.view_mode, Message::SetArtistsViewMode),
         ]
         .spacing(4)
@@ -348,7 +344,7 @@ impl ArtistsView {
             })
             .height(Length::Fill)
             .width(Length::Fill)
-            .into()
+            .boxed()
     }
 
     fn view_tiles<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -357,32 +353,70 @@ impl ArtistsView {
         let start_row = self.window_start / per_row;
         let end_row = self.window_end.div_ceil(per_row);
         let row_h = self.row_height();
+        let tile_w = self.tile_width as f32;
+        let avatar_icon_size = (tile_w * 0.32).clamp(32.0, 72.0);
 
         let mut content = column![].spacing(0).width(Length::Fill);
 
         let top = start_row as f32 * row_h;
         if top > 0.0 {
-            content = content.push(Space::with_height(top));
+            content = content.push(Space::new().height(top).boxed());
         }
 
         for chunk in self.visible_artists().chunks(per_row) {
-            let mut tile_row = row![].spacing(ROW_SPACING).align_y(Alignment::Start);
+            let mut tile_row = row![]
+                .spacing(components::CATALOG_ROW_SPACING)
+                .align_y(Alignment::Start);
 
             for artist in chunk {
-                tile_row = tile_row.push(self.tile(artist, theme_cfg));
+                let leading = components::cover_art(
+                    theme_cfg,
+                    None,
+                    tile_w,
+                    Radius::default(),
+                    icons::USER_AVATAR_SVG,
+                    avatar_icon_size,
+                    theme_cfg.primary_color(),
+                );
+
+                tile_row = tile_row.push(
+                    components::CatalogTile {
+                        theme: theme_cfg,
+                        tile_width: tile_w,
+                        leading,
+                        title: artist.artist.as_ref(),
+                        mid_left: artist.stats_label.as_str(),
+                        mid_right: "",
+                        bottom_left: "",
+                        bottom_right: "",
+                        on_select: Message::SelectArtist(artist.artist.to_string()),
+                        on_play: Message::PlayScope {
+                            filter: TrackFilter::artist(artist.artist.as_ref()),
+                            name: artist.artist.as_ref().to_string(),
+                            shuffle: false,
+                        },
+                        on_shuffle: Message::PlayScope {
+                            filter: TrackFilter::artist(artist.artist.as_ref()),
+                            name: artist.artist.as_ref().to_string(),
+                            shuffle: true,
+                        },
+                    }
+                    .view(),
+                );
             }
 
             content = content.push(
                 container(tile_row)
                     .height(row_h)
                     .width(Length::Fill)
-                    .align_y(Alignment::Start),
+                    .align_y(Alignment::Start)
+                    .boxed(),
             );
         }
 
         let bottom = total_rows.saturating_sub(end_row) as f32 * row_h;
         if bottom > 0.0 {
-            content = content.push(Space::with_height(bottom));
+            content = content.push(Space::new().height(bottom).boxed());
         }
 
         scrollable(container(content).width(Length::Fill).padding(Padding {
@@ -390,134 +424,69 @@ impl ArtistsView {
             right: 16.0,
             ..Default::default()
         }))
-        .id(scrollable::Id::new("artists_scroll"))
-        .on_scroll(Message::ArtistsScrolled)
+        .id(iced::widget::Id::new("artists_scroll"))
+        .on_scroll(|scroll| Message::ArtistsScrolled(scroll.viewport))
         .height(Length::Fill)
         .style(styles::scrollable_style(theme_cfg))
-        .into()
-    }
-
-    fn tile<'a>(
-        &self,
-        artist: &'a ArtistSummary,
-        theme_cfg: &'a ThemeConfig,
-    ) -> Element<'a, Message> {
-        let tile_w = self.tile_width as f32;
-        let avatar_size = self.avatar_size();
-        let icon_size = (avatar_size * 0.52).clamp(24.0, 52.0);
-
-        let avatar = container(icons::icon(
-            icons::USER_AVATAR_SVG,
-            icon_size,
-            theme_cfg.primary_color(),
-        ))
-        .center(avatar_size) // sets width + height and centers the icon
-        .style(move |_theme| container::Style {
-            background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-            border: Border {
-                radius: Radius::from(avatar_size / 2.0),
-                color: theme_cfg.border_color(),
-                width: 1.0,
-            },
-            ..Default::default()
-        });
-
-        let meta = container(
-            column![
-                text(theme_cfg, artist.artist.as_ref())
-                    .size(13)
-                    .color(theme_cfg.text_color()),
-                text(theme_cfg, artist.stats_label.as_str())
-                    .size(10)
-                    .color(theme_cfg.text_muted_color()),
-            ]
-            .spacing(3)
-            .align_x(Alignment::Center),
-        )
-        .padding(8)
-        .center_x(Length::Fill) // fills the tile width and centers the column
-        .height(TILE_META_HEIGHT);
-
-        let card = container(
-            column![avatar, meta]
-                .align_x(Alignment::Center)
-                .width(Length::Fill),
-        )
-        .width(tile_w)
-        .height(avatar_size + TILE_META_HEIGHT);
-
-        button(card)
-            .style(styles::tile(theme_cfg))
-            .padding(0)
-            .on_press(Message::SelectArtist(artist.artist.to_string()))
-            .into()
+        .boxed()
     }
 
     fn view_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
         let total_rows = self.artists.len();
-        let row_h = LIST_ROW_HEIGHT;
+        let row_h = components::CATALOG_LIST_ROW_HEIGHT;
 
         let mut content = column![].spacing(0).width(Length::Fill);
 
         let top = self.window_start as f32 * row_h;
         if top > 0.0 {
-            content = content.push(Space::with_height(top));
+            content = content.push(Space::new().height(top).boxed());
         }
 
         for artist in self.visible_artists() {
-            let avatar = container(icons::icon(
-                icons::USER_AVATAR_SVG,
-                18.0,
-                theme_cfg.primary_color(),
-            ))
-            .width(36)
-            .height(36)
-            .center_x(36)
-            .center_y(36)
-            .style(move |_theme| container::Style {
-                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-                border: Border {
-                    color: theme_cfg.border_color(),
-                    width: 1.0,
-                    radius: Radius::from(18.0),
-                },
-                ..Default::default()
-            });
-
-            let title_block = column![
-                text(theme_cfg, artist.artist.as_ref())
-                    .size(13)
-                    .color(theme_cfg.text_color()),
-                text(theme_cfg, artist.stats_label.as_str())
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
-            ]
-            .spacing(2)
-            .width(Length::Fill);
-
-            let artist_row = row![avatar, Space::with_width(12), title_block,]
-                .spacing(4)
-                .align_y(Alignment::Center)
-                .padding([6, 12]);
-
-            let row_btn = button(artist_row)
-                .style(styles::tile(theme_cfg))
-                .width(Length::Fill)
-                .on_press(Message::SelectArtist(artist.artist.to_string()));
-
-            content = content.push(container(row_btn).height(row_h).width(Length::Fill));
+            content = content.push(
+                components::CatalogRow {
+                    theme: theme_cfg,
+                    leading: components::cover_art(
+                        theme_cfg,
+                        None,
+                        components::CATALOG_LIST_ART_SIZE,
+                        Radius::from(4.0),
+                        icons::USER_AVATAR_SVG,
+                        20.0,
+                        theme_cfg.primary_color(),
+                    ),
+                    title: artist.artist.as_ref(),
+                    subtitle_left: artist.stats_label.as_str(),
+                    subtitle_right: "",
+                    details: None,
+                    on_select: Message::SelectArtist(artist.artist.to_string()),
+                    on_play: Message::PlayScope {
+                        filter: TrackFilter::artist(artist.artist.as_ref()),
+                        name: artist.artist.as_ref().to_string(),
+                        shuffle: false,
+                    },
+                    on_shuffle: Message::PlayScope {
+                        filter: TrackFilter::artist(artist.artist.as_ref()),
+                        name: artist.artist.as_ref().to_string(),
+                        shuffle: true,
+                    },
+                    width: Length::Fill,
+                    height: Length::Fixed(row_h),
+                }
+                .view(),
+            );
         }
 
         let bottom = total_rows.saturating_sub(self.window_end) as f32 * row_h;
         if bottom > 0.0 {
-            content = content.push(Space::with_height(bottom));
+            content = content.push(Space::new().height(bottom).boxed());
         }
 
         scrollable(content)
-            .id(scrollable::Id::new("artists_scroll"))
-            .on_scroll(Message::ArtistsScrolled)
+            .id(iced::widget::Id::new("artists_scroll"))
+            .on_scroll(|scroll| Message::ArtistsScrolled(scroll.viewport))
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
-            .into()
+            .boxed()
     }
 }

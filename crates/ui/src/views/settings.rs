@@ -1,26 +1,22 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use iced::border::Radius;
 use iced::widget::{
-    button, column, container, pick_list, row, scrollable, slider, text_input, Space,
+    button, column, container, pick_list, row, scrollable, slider, text_input, Space, Widget,
 };
 use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::components::{self, border_hori, text};
 use crate::icons;
-use crate::message::{Message, SettingsMessage, SettingsTab, ViewMode, ViewTab};
+use crate::message::{Message, SettingsMessage, SettingsTab, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
-#[allow(dead_code)]
 pub struct SettingsContext<'a> {
-    pub tab_order: &'a [ViewTab],
     pub theme_names: &'a [String],
     pub active_theme_name: &'a str,
-    pub library_view_mode: ViewMode,
     pub albums_view_mode: ViewMode,
     pub artists_view_mode: ViewMode,
     pub page_size: usize,
-    pub tile_width: u32,
     pub album_tile_width: u32,
     pub artist_tile_width: u32,
     pub now_playing_cover_size: u32,
@@ -28,8 +24,6 @@ pub struct SettingsContext<'a> {
     pub total_tracks: usize,
     pub total_albums: usize,
     pub total_artists: usize,
-    pub db_path: &'a Path,
-    pub config_path: &'a Path,
     pub db_size_bytes: u64,
     pub cache_file_count: usize,
     pub cache_size_bytes: u64,
@@ -88,11 +82,6 @@ impl SettingsView {
         self.active_tab = tab;
     }
 
-    #[allow(dead_code)]
-    pub fn set_custom_font_input(&mut self, input: String) {
-        self.custom_font_input = input;
-    }
-
     pub fn set_library_folders(&mut self, folders: Vec<String>) {
         self.library_folders = folders;
     }
@@ -125,7 +114,7 @@ impl SettingsView {
         row![sidebar, main_panel]
             .width(Length::Fill)
             .height(Length::Fill)
-            .into()
+            .boxed()
     }
 
     fn view_sidebar<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -154,7 +143,7 @@ impl SettingsView {
             button(
                 row![
                     icons::icon(icon_svg, 16.0, color),
-                    Space::with_width(10),
+                    Space::new().width(10),
                     column![
                         text(theme_cfg, title).size(13).color(color),
                         text(theme_cfg, subtitle)
@@ -200,7 +189,7 @@ impl SettingsView {
         .width(Length::Fixed(221.0))
         .height(Length::Fill)
         .style(styles::sidebar_container(theme_cfg))
-        .into()
+        .boxed()
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -262,7 +251,7 @@ impl SettingsView {
         let reload_themes_btn = button(
             row![
                 icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text_color()),
-                Space::with_width(6),
+                Space::new().width(6),
                 text(theme_cfg, "Reload Themes from Disk")
                     .size(12)
                     .color(theme_cfg.text_color()),
@@ -281,15 +270,16 @@ impl SettingsView {
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 theme_buttons,
-                Space::with_height(6),
+                Space::new().height(6),
                 text(theme_cfg, "Active Palette Color Swatches")
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 palette_preview,
-                Space::with_height(4),
+                Space::new().height(4),
                 reload_themes_btn,
             ]
-            .spacing(8),
+            .spacing(8)
+            .boxed(),
         );
 
         // Typography & Font Configuration Card
@@ -317,10 +307,11 @@ impl SettingsView {
         }
 
         let font_selector = pick_list(
-            font_options,
             Some(active_font_family.clone()),
-            Message::SelectFont,
+            font_options,
+            |option: &String| option.clone(),
         )
+        .on_select(Message::SelectFont)
         .placeholder("Select a system font...")
         .padding([8, 12])
         .text_size(12)
@@ -343,7 +334,7 @@ impl SettingsView {
                         theme_cfg.text_muted_color()
                     }
                 ),
-                Space::with_width(4),
+                Space::new().width(4),
                 text(theme_cfg, "Apply Font")
                     .size(11)
                     .color(if has_custom_input {
@@ -375,7 +366,7 @@ impl SettingsView {
                 self.custom_font_input.trim().to_string()
             ))
             .width(Length::Fill),
-            Space::with_width(8),
+            Space::new().width(8),
             apply_custom_font_btn,
         ]
         .align_y(Alignment::Center);
@@ -387,7 +378,7 @@ impl SettingsView {
                 text(theme_cfg, "Multilingual Glyph Rendering Preview:")
                     .size(11)
                     .color(theme_cfg.primary_color()),
-                Space::with_height(4),
+                Space::new().height(4),
                 text(
                     theme_cfg,
                     "English: The quick brown fox jumps over the lazy dog."
@@ -419,7 +410,7 @@ impl SettingsView {
         .padding(12)
         .width(Length::Fill)
         .style(move |_theme| container::Style {
-            background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+            background: Some(iced::Background::Color(theme_cfg.surface_color())),
             border: Border {
                 radius: Radius::from(4.0),
                 color: theme_cfg.border_color(),
@@ -439,20 +430,21 @@ impl SettingsView {
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
                 font_metrics,
-                Space::with_height(4),
+                Space::new().height(4),
                 text(theme_cfg, "Select Font Family:")
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 font_selector,
-                Space::with_height(4),
+                Space::new().height(4),
                 text(theme_cfg, "Or Specify Custom Font:")
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 custom_font_row,
-                Space::with_height(6),
+                Space::new().height(6),
                 sample_text_box,
             ]
-            .spacing(8),
+            .spacing(8)
+            .boxed(),
         );
 
         // 1. Library Tab Section
@@ -491,7 +483,8 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
             ]
-            .spacing(10),
+            .spacing(10)
+            .boxed(),
         );
 
         // 2. Albums Tab Section
@@ -545,7 +538,7 @@ impl SettingsView {
                         .on_release(Message::SaveConfig)
                         .style(styles::settings_slider_style(theme_cfg))
                         .width(Length::Fixed(160.0)),
-                        Space::with_width(10),
+                        Space::new().width(10),
                         text(theme_cfg, format!("{} px", ctx.album_tile_width))
                             .size(12)
                             .color(theme_cfg.primary_color())
@@ -556,7 +549,8 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
             ]
-            .spacing(10),
+            .spacing(10)
+            .boxed(),
         );
 
         // 3. Artists Tab Section
@@ -610,7 +604,7 @@ impl SettingsView {
                         .on_release(Message::SaveConfig)
                         .style(styles::settings_slider_style(theme_cfg))
                         .width(Length::Fixed(160.0)),
-                        Space::with_width(10),
+                        Space::new().width(10),
                         text(theme_cfg, format!("{} px", ctx.artist_tile_width))
                             .size(12)
                             .color(theme_cfg.primary_color())
@@ -621,7 +615,8 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
             ]
-            .spacing(10),
+            .spacing(10)
+            .boxed(),
         );
 
         // 4. Now Playing Section
@@ -660,7 +655,7 @@ impl SettingsView {
                         .on_release(Message::SaveConfig)
                         .style(styles::settings_slider_style(theme_cfg))
                         .width(Length::Fixed(160.0)),
-                        Space::with_width(10),
+                        Space::new().width(10),
                         text(theme_cfg, format!("{} px", ctx.now_playing_cover_size))
                             .size(12)
                             .color(theme_cfg.primary_color())
@@ -693,7 +688,8 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
             ]
-            .spacing(10),
+            .spacing(10)
+            .boxed(),
         );
 
         column![
@@ -704,12 +700,12 @@ impl SettingsView {
             albums_tab_card,
             artists_tab_card,
             now_playing_card,
-            Space::with_height(20),
+            Space::new().height(20),
         ]
         .spacing(18)
         .padding(24)
         .width(Length::Fill)
-        .into()
+        .boxed()
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -760,14 +756,16 @@ impl SettingsView {
         let stats_card = components::settings_card(
             theme_cfg,
             "Storage & Index Metrics",
-            column![storage_stats_row1, storage_stats_row2].spacing(10),
+            column![storage_stats_row1, storage_stats_row2]
+                .spacing(10)
+                .boxed(),
         );
 
         // Scanned Folders List
         let add_folder_btn = button(
             row![
                 icons::icon(icons::PLUS_SVG, 13.0, theme_cfg.primary_color()),
-                Space::with_width(6),
+                Space::new().width(6),
                 text(
                     theme_cfg,
                     if ctx.is_scanning {
@@ -809,7 +807,7 @@ impl SettingsView {
             .width(Length::Fill)
             .align_x(Alignment::Center)
             .style(move |_theme| container::Style {
-                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+                background: Some(iced::Background::Color(theme_cfg.surface_color())),
                 border: Border {
                     radius: Radius::from(4.0),
                     color: theme_cfg.border_color(),
@@ -817,7 +815,7 @@ impl SettingsView {
                 },
                 ..Default::default()
             })
-            .into()
+            .boxed()
         } else {
             let mut col = column![].spacing(6);
             for folder_path in &self.library_folders {
@@ -827,7 +825,7 @@ impl SettingsView {
                 let rescan_btn = button(
                     row![
                         icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.text_color()),
-                        Space::with_width(4),
+                        Space::new().width(4),
                         text(theme_cfg, "Rescan")
                             .size(11)
                             .color(theme_cfg.text_color()),
@@ -844,11 +842,11 @@ impl SettingsView {
 
                 let remove_btn = button(
                     row![
-                        icons::icon(icons::TRASH_SVG, 12.0, theme_cfg.accent_color()),
-                        Space::with_width(4),
+                        icons::icon(icons::TRASH_SVG, 12.0, theme_cfg.danger_color()),
+                        Space::new().width(4),
                         text(theme_cfg, "Remove")
                             .size(11)
-                            .color(theme_cfg.accent_color()),
+                            .color(theme_cfg.danger_color()),
                     ]
                     .align_y(Alignment::Center),
                 )
@@ -863,13 +861,13 @@ impl SettingsView {
                 let item_row = container(
                     row![
                         icons::icon(icons::FOLDER_SVG, 15.0, theme_cfg.primary_color()),
-                        Space::with_width(10),
+                        Space::new().width(10),
                         text(theme_cfg, folder_path.as_str())
                             .size(12)
                             .color(theme_cfg.text_color())
                             .width(Length::Fill),
                         rescan_btn,
-                        Space::with_width(6),
+                        Space::new().width(6),
                         remove_btn,
                     ]
                     .align_y(Alignment::Center),
@@ -877,7 +875,7 @@ impl SettingsView {
                 .padding([8, 12])
                 .width(Length::Fill)
                 .style(move |_theme| container::Style {
-                    background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+                    background: Some(iced::Background::Color(theme_cfg.surface_color())),
                     border: Border {
                         radius: Radius::from(4.0),
                         color: theme_cfg.border_color(),
@@ -886,9 +884,9 @@ impl SettingsView {
                     ..Default::default()
                 });
 
-                col = col.push(item_row);
+                col = col.push(item_row.boxed());
             }
-            col.into()
+            col.boxed()
         };
 
         let folders_card = components::settings_card(
@@ -906,17 +904,18 @@ impl SettingsView {
                     add_folder_btn,
                 ]
                 .align_y(Alignment::Center),
-                Space::with_height(4),
+                Space::new().height(4),
                 folders_content,
             ]
-            .spacing(8),
+            .spacing(8)
+            .boxed(),
         );
 
         // Maintenance & Actions Card
         let reindex_all_btn = button(
             row![
                 icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.primary_color()),
-                Space::with_width(6),
+                Space::new().width(6),
                 text(
                     theme_cfg,
                     if ctx.is_scanning {
@@ -941,7 +940,7 @@ impl SettingsView {
         let clear_cache_btn = button(
             row![
                 icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.text_color()),
-                Space::with_width(6),
+                Space::new().width(6),
                 text(theme_cfg, "Clear Thumbnail Cache")
                     .size(12)
                     .color(theme_cfg.text_color()),
@@ -954,15 +953,11 @@ impl SettingsView {
 
         let clear_db_btn = button(
             row![
-                icons::icon(
-                    icons::TRASH_SVG,
-                    13.0,
-                    iced::Color::from_rgb(0.95, 0.35, 0.35)
-                ),
-                Space::with_width(6),
+                icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.danger_color()),
+                Space::new().width(6),
                 text(theme_cfg, "Delete Library Database")
                     .size(12)
-                    .color(iced::Color::from_rgb(0.95, 0.35, 0.35)),
+                    .color(theme_cfg.danger_color()),
             ]
             .align_y(Alignment::Center),
         )
@@ -992,7 +987,7 @@ impl SettingsView {
                     reindex_all_btn,
                 ]
                 .align_y(Alignment::Center),
-                Space::with_height(6),
+                Space::new().height(6),
                 // Action 2: Clear Thumbnail Cache
                 row![
                     column![
@@ -1011,13 +1006,13 @@ impl SettingsView {
                     clear_cache_btn,
                 ]
                 .align_y(Alignment::Center),
-                Space::with_height(6),
+                Space::new().height(6),
                 // Action 3: Clear / Reset Database
                 row![
                     column![
                         text(theme_cfg, "Reset Library Database")
                             .size(13)
-                            .color(iced::Color::from_rgb(0.95, 0.35, 0.35)),
+                            .color(theme_cfg.danger_color()),
                         text(theme_cfg, "Clears all indexed tracks, albums, and artist metadata from database. Your audio files on disk remain untouched.")
                             .size(11)
                             .color(theme_cfg.text_muted_color()),
@@ -1027,7 +1022,7 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
             ]
-            .spacing(10),
+            .spacing(10).boxed(),
         );
 
         column![
@@ -1035,12 +1030,12 @@ impl SettingsView {
             stats_card,
             folders_card,
             actions_card,
-            Space::with_height(20),
+            Space::new().height(20),
         ]
         .spacing(18)
         .padding(24)
         .width(Length::Fill)
-        .into()
+        .boxed()
     }
 
     fn view_scrobbling<'a>(
@@ -1088,7 +1083,7 @@ impl SettingsView {
                 ),
             ]
             .align_y(Alignment::Center),
-            Space::with_height(6),
+            Space::new().height(6),
             column![
                 text(theme_cfg, "Scrobble Threshold")
                     .size(13)
@@ -1123,7 +1118,8 @@ impl SettingsView {
             ]
             .spacing(6),
         ]
-        .spacing(12),
+        .spacing(12)
+        .boxed(),
     );
 
         // 2. ListenBrainz Card
@@ -1131,8 +1127,8 @@ impl SettingsView {
             self.scrobble_test_status.as_ref()
         {
             let (color, msg) = match res {
-                Ok(ref m) => (Color::from_rgb(0.2, 0.8, 0.4), m.as_str()),
-                Err(ref e) => (Color::from_rgb(0.9, 0.3, 0.3), e.as_str()),
+                Ok(ref m) => (theme_cfg.success_color(), m.as_str()),
+                Err(ref e) => (theme_cfg.danger_color(), e.as_str()),
             };
             Some(
                 container(text(theme_cfg, msg).size(12).color(color))
@@ -1156,7 +1152,7 @@ impl SettingsView {
         let lb_test_btn = button(
             row![
                 icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary_color()),
-                Space::with_width(6),
+                Space::new().width(6),
                 text(theme_cfg, "Test ListenBrainz Connection")
                     .size(11)
                     .color(theme_cfg.primary_color()),
@@ -1243,19 +1239,19 @@ impl SettingsView {
         .spacing(12);
 
         if let Some(banner) = lb_test_banner {
-            lb_column = lb_column.push(banner);
+            lb_column = lb_column.push(banner.boxed());
         }
 
         let listenbrainz_card =
-            components::settings_card(theme_cfg, "ListenBrainz Plugin", lb_column);
+            components::settings_card(theme_cfg, "ListenBrainz Plugin", lb_column.boxed());
 
         // 3. Last.fm Card
         let lastfm_test_banner = if let Some((plugins::scrobbler::ScrobbleService::LastFm, res)) =
             self.scrobble_test_status.as_ref()
         {
             let (color, msg) = match res {
-                Ok(ref m) => (Color::from_rgb(0.2, 0.8, 0.4), m.as_str()),
-                Err(ref e) => (Color::from_rgb(0.9, 0.3, 0.3), e.as_str()),
+                Ok(ref m) => (theme_cfg.success_color(), m.as_str()),
+                Err(ref e) => (theme_cfg.danger_color(), e.as_str()),
             };
             Some(
                 container(text(theme_cfg, msg).size(12).color(color))
@@ -1279,7 +1275,7 @@ impl SettingsView {
         let lastfm_test_btn = button(
             row![
                 icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary_color()),
-                Space::with_width(6),
+                Space::new().width(6),
                 text(theme_cfg, "Test Last.fm Connection")
                     .size(11)
                     .color(theme_cfg.primary_color()),
@@ -1383,22 +1379,23 @@ impl SettingsView {
         .spacing(12);
 
         if let Some(banner) = lastfm_test_banner {
-            lastfm_column = lastfm_column.push(banner);
+            lastfm_column = lastfm_column.push(banner.boxed());
         }
 
-        let lastfm_card = components::settings_card(theme_cfg, "Last.fm Plugin", lastfm_column);
+        let lastfm_card =
+            components::settings_card(theme_cfg, "Last.fm Plugin", lastfm_column.boxed());
 
         column![
             header,
             prefs_card,
             listenbrainz_card,
             lastfm_card,
-            Space::with_height(20),
+            Space::new().height(20),
         ]
         .spacing(18)
         .padding(24)
         .width(Length::Fill)
-        .into()
+        .boxed()
     }
 }
 
@@ -1411,23 +1408,24 @@ fn swatch_card<'a>(
     label: &'static str,
     color: iced::Color,
 ) -> Element<'a, Message> {
+    let border = theme_cfg.border_color();
     column![
-        container(Space::with_width(52).height(22)).style(move |_theme| container::Style {
+        container(Space::new().width(52).height(22)).style(move |_theme| container::Style {
             background: Some(iced::Background::Color(color)),
             border: Border {
                 radius: Radius::from(4.0),
-                color: iced::Color::from_rgba(1.0, 1.0, 1.0, 0.1),
+                color: border,
                 width: 1.0,
             },
             ..Default::default()
         }),
         text(theme_cfg, label)
             .size(10)
-            .color(iced::Color::from_rgb(0.6, 0.6, 0.6)),
+            .color(theme_cfg.text_muted_color()),
     ]
     .spacing(4)
     .align_x(Alignment::Center)
-    .into()
+    .boxed()
 }
 
 fn format_file_size(bytes: u64) -> String {

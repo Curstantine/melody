@@ -1,6 +1,6 @@
 use core_engine::{format_duration, Track};
 use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, slider, stack, Space};
+use iced::widget::{button, column, container, image, row, slider, stack, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use crate::components::{self, text};
@@ -44,6 +44,7 @@ impl PlayerBar {
         is_repeat: bool,
     ) -> Element<'a, Message> {
         let bar_fg = theme_cfg.player_bar_text_color();
+        let bar_muted = iced::Color { a: 0.6, ..bar_fg };
 
         // 1. Left: Track Info & Cover Thumbnail
         let cover_art = components::cover_art(
@@ -64,20 +65,18 @@ impl PlayerBar {
                     .font(theme_cfg.font()),
                 components::Marquee::new(format!("{} • {}", track.artist, track.album))
                     .size(11.0)
-                    .color(theme_cfg.text_muted_color())
+                    .color(bar_muted)
                     .font(theme_cfg.font()),
             ],
             None => column![
                 text(theme_cfg, "No track playing").size(13).color(bar_fg),
-                text(theme_cfg, "Melody")
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
+                text(theme_cfg, "Melody").size(11).color(bar_muted),
             ],
         }
         .spacing(2)
         .width(Length::Fill);
 
-        let track_section = row![cover_art, Space::with_width(10), track_details]
+        let track_section = row![cover_art, Space::new().width(10), track_details]
             .spacing(2)
             .align_y(Alignment::Center)
             .width(Length::Fill);
@@ -126,7 +125,7 @@ impl PlayerBar {
         let time_info = text(theme_cfg, format!("{cur_time_str} / {total_time_str}"))
             .size(10)
             .align_x(Alignment::End)
-            .color(theme_cfg.text_muted_color());
+            .color(bar_muted);
 
         let buttons_width = 176.0;
 
@@ -183,13 +182,13 @@ impl PlayerBar {
             vol_slider,
             text(theme_cfg, format!("{}%", (volume * 100.0).round() as u32))
                 .size(11)
-                .color(theme_cfg.text_muted_color())
+                .color(bar_muted)
                 .width(32),
         ]
         .spacing(6)
         .align_y(Alignment::Center);
 
-        let right_controls = row![shuffle_btn, repeat_btn, Space::with_width(6), vol_control,]
+        let right_controls = row![shuffle_btn, repeat_btn, Space::new().width(6), vol_control,]
             .spacing(4)
             .align_y(Alignment::Center);
 
@@ -198,7 +197,7 @@ impl PlayerBar {
             container(track_section)
                 .width(Length::Fill)
                 .align_y(Alignment::Center),
-            Space::with_width(buttons_width + 48.0),
+            Space::new().width(buttons_width + 48.0),
             container(right_controls)
                 .width(Length::Fill)
                 .align_x(Alignment::End)
@@ -222,7 +221,7 @@ impl PlayerBar {
             .width(Length::Fill)
             .height(8);
 
-        let top_right_timing = row![Space::with_width(Length::Fill), time_info,]
+        let top_right_timing = row![Space::new().width(Length::Fill), time_info,]
             .padding(iced::Padding {
                 top: 8.0,
                 right: 20.0,
@@ -239,6 +238,6 @@ impl PlayerBar {
             .style(styles::player_bar_container(theme_cfg))
             .width(Length::Fill)
             .height(72)
-            .into()
+            .boxed()
     }
 }

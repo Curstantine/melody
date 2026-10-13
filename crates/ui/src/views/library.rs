@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
 
-use core_engine::{SortDirection, SortField, TrackRow};
-use iced::widget::{button, column, container, mouse_area, row, scrollable, text_input, Space};
+use core_engine::{SortDirection, SortField, TrackFilter, TrackRow};
+use iced::widget::{
+    button, column, container, mouse_area, row, scrollable, text_input, Space, Widget,
+};
 use iced::{Alignment, Element, Length};
 
 use crate::components::{self, text};
@@ -30,6 +32,9 @@ pub struct LibraryView {
     pub page_size: usize,
     pub row_height: f32,
     pub search_query: String,
+    /// Parsed form of `search_query`, used for the database query and to derive
+    /// the queue scope when playback starts.
+    pub filter: TrackFilter,
     pub sort_field: SortField,
     pub sort_dir: SortDirection,
     pub selected_track_id: Option<i64>,
@@ -48,6 +53,7 @@ impl LibraryView {
             page_size,
             row_height: ROW_HEIGHT,
             search_query: String::new(),
+            filter: TrackFilter::default(),
             sort_field: SortField::Title,
             sort_dir: SortDirection::Ascending,
             selected_track_id: None,
@@ -78,7 +84,23 @@ impl LibraryView {
     }
 
     pub fn set_search_query(&mut self, query: String) {
+        self.filter = TrackFilter::parse(&query);
         self.search_query = query;
+    }
+
+    /// Applies a structured filter and mirrors it into the search box text.
+    pub fn set_filter(&mut self, filter: TrackFilter) {
+        self.search_query = filter.to_query_string();
+        self.filter = filter;
+    }
+
+    /// The parsed filter, or `None` when it matches the whole library.
+    pub fn active_filter(&self) -> Option<TrackFilter> {
+        if self.filter.is_empty() {
+            None
+        } else {
+            Some(self.filter.clone())
+        }
     }
 
     pub fn toggle_sort(&mut self, field: SortField) {
@@ -209,13 +231,16 @@ impl LibraryView {
         is_playing: bool,
     ) -> Element<'a, Message> {
         // 1. Search Bar & View Mode Toolbar
-        let search_input = text_input("Search tracks, artists, albums...", &self.search_query)
-            .font(theme_cfg.font())
-            .size(12)
-            .on_input(Message::SearchInputChanged)
-            .padding([4, 8])
-            .style(styles::search_input_style(theme_cfg))
-            .width(Length::Fill);
+        let search_input = text_input(
+            "Search tracks... (album:\"…\" artist:… genre:… year:…)",
+            &self.search_query,
+        )
+        .font(theme_cfg.font())
+        .size(12)
+        .on_input(Message::SearchInputChanged)
+        .padding([4, 8])
+        .style(styles::search_input_style(theme_cfg))
+        .width(Length::Fill);
 
         let toolbar = row![
             container(icons::icon(
@@ -248,13 +273,13 @@ impl LibraryView {
                 };
                 row![
                     text(theme_cfg, label).size(12),
-                    Space::with_width(4),
+                    Space::new().width(4),
                     icons::icon(sort_icon_svg, 12.0, theme_cfg.primary_color()),
                 ]
                 .align_y(Alignment::Center)
-                .into()
+                .boxed()
             } else {
-                text(theme_cfg, label).size(12).into()
+                text(theme_cfg, label).size(12).boxed()
             };
 
             button(content)
@@ -298,7 +323,7 @@ impl LibraryView {
 
             let top_spacer = self.window_start as f32 * self.row_height;
             if top_spacer > 0.0 {
-                items = items.push(Space::with_height(top_spacer));
+                items = items.push(Space::new().height(top_spacer).boxed());
             }
 
             for (idx, track) in self.rows.iter().enumerate() {
@@ -328,7 +353,7 @@ impl LibraryView {
                     .width(36)
                     .height(24)
                     .on_press(Message::TogglePlayPause)
-                    .into()
+                    .boxed()
                 } else {
                     container(
                         text(theme_cfg, format!("{}", display_index))
@@ -339,7 +364,7 @@ impl LibraryView {
                     .height(24)
                     .center_x(36)
                     .center_y(24)
-                    .into()
+                    .boxed()
                 };
 
                 let track_row = row![
@@ -386,23 +411,23 @@ impl LibraryView {
                 let interactive_row =
                     mouse_area(row_container).on_press(Message::TrackClicked(track.id));
 
-                items = items.push(interactive_row);
+                items = items.push(interactive_row.boxed());
             }
 
             let window_end = self.window_start + self.rows.len();
             let bottom_spacer =
                 self.total_tracks.saturating_sub(window_end) as f32 * self.row_height;
             if bottom_spacer > 0.0 {
-                items = items.push(Space::with_height(bottom_spacer));
+                items = items.push(Space::new().height(bottom_spacer).boxed());
             }
 
             scrollable(items)
-                .id(scrollable::Id::new("library_tracks"))
-                .on_scroll(Message::LibraryScrolled)
+                .id(iced::widget::Id::new("library_tracks"))
+                .on_scroll(|scroll| Message::LibraryScrolled(scroll.viewport))
                 .height(Length::Fill)
                 .width(Length::Fill)
                 .style(styles::scrollable_style(theme_cfg))
-                .into()
+                .boxed()
         };
 
         column![toolbar, table_header, content]
@@ -415,6 +440,6 @@ impl LibraryView {
             })
             .height(Length::Fill)
             .width(Length::Fill)
-            .into()
+            .boxed()
     }
 }

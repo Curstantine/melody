@@ -74,3 +74,13 @@ pub fn user_themes_dir() -> PathBuf {
     let _ = std::fs::create_dir_all(&dir);
     dir
 }
+
+/// Directory where Melody-managed `.m3u8` playlist files are stored.
+///
+/// External playlists may be referenced from anywhere on disk; this directory
+/// holds only the playlists the application itself creates or saves.
+pub fn playlists_dir() -> PathBuf {
+    let dir = data_dir().join("playlists");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}

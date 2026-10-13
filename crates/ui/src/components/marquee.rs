@@ -2,9 +2,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use iced::advanced::text::Paragraph;
 use iced::advanced::widget::tree::{self, Tree};
-use iced::advanced::{layout, mouse, renderer, text, Clipboard, Layout, Shell, Widget};
+use iced::advanced::widget::Meta;
+use iced::advanced::{layout, mouse, renderer, text, Layout, Shell, Widget};
 use iced::{
-    alignment, event, window, Color, Element, Event, Font, Length, Pixels, Point, Rectangle, Size,
+    alignment, window, Color, Element, Event, Font, Length, Pixels, Point, Rectangle, Size,
 };
 
 /// An auto-scrolling single-line marquee widget.
@@ -89,9 +90,11 @@ impl<P: Paragraph> Default for State<P> {
     }
 }
 
+impl Meta for Marquee {}
+
 impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer> for Marquee
 where
-    Renderer: text::Renderer<Font = Font>,
+    Renderer: text::Renderer,
 {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State<Renderer::Paragraph>>()
@@ -105,12 +108,7 @@ where
         Size::new(Length::Fill, Length::Shrink)
     }
 
-    fn layout(
-        &self,
-        tree: &mut Tree,
-        _renderer: &Renderer,
-        limits: &layout::Limits,
-    ) -> layout::Node {
+    fn layout(&mut self, tree: &mut Tree, _renderer: &Renderer, limits: &layout::Limits) {
         let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
 
         let shaping = if self.content.is_ascii() {
@@ -125,38 +123,44 @@ where
             size: self.size,
             line_height: iced::widget::text::LineHeight::default(),
             font: self.font,
-            horizontal_alignment: alignment::Horizontal::Left,
-            vertical_alignment: alignment::Vertical::Top,
+            align_x: text::Alignment::Left,
+            align_y: alignment::Vertical::Top,
             shaping,
             wrapping: iced::widget::text::Wrapping::None,
+            ellipsis: iced::advanced::text::Ellipsis::None,
+            hint_factor: None,
         });
 
         let height = state.paragraph.raw().min_height().max(self.size.0);
 
-        let node_size = limits.width(Length::Fill).height(Length::Shrink).resolve(
+        tree.size = limits.width(Length::Fill).height(Length::Shrink).resolve(
             Length::Fill,
             Length::Shrink,
             Size::new(0.0, height),
         );
-
-        layout::Node::new(node_size)
     }
 
-    fn on_event(
+    fn update(
         &mut self,
-        _tree: &mut Tree,
-        event: Event,
-        _layout: Layout<'_>,
+        tree: &mut Tree,
+        event: &Event,
+        layout: Layout,
         _cursor: mouse::Cursor,
         _renderer: &Renderer,
-        _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         if let Event::Window(window::Event::RedrawRequested(_)) = event {
-            shell.request_redraw(window::RedrawRequest::NextFrame);
+            // Only keep the frame loop alive while the text actually overflows
+            // its bounds and needs to animate. When the text fits, staying
+            // quiet lets iced 0.14's reactive rendering idle instead of
+            // re-rendering the whole scene at display rate (which starves
+            // scrollable updates on large lists).
+            let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
+            if state.paragraph.raw().min_width() > layout.bounds().width {
+                shell.request_redraw();
+            }
         }
-        event::Status::Ignored
     }
 
     fn draw(
@@ -165,7 +169,7 @@ where
         renderer: &mut Renderer,
         _theme: &Theme,
         _style: &renderer::Style,
-        layout: Layout<'_>,
+        layout: Layout,
         _cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
@@ -228,10 +232,10 @@ where
     }
 }
 
-impl<'a, Message: 'a, Theme: 'a, Renderer: text::Renderer<Font = Font> + 'a> From<Marquee>
+impl<'a, Message: 'a, Theme: 'a, Renderer: text::Renderer + 'a> From<Marquee>
     for Element<'a, Message, Theme, Renderer>
 {
     fn from(m: Marquee) -> Self {
-        Self::new(m)
+        iced::widget::Widget::boxed(m)
     }
 }

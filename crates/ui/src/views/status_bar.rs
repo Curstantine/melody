@@ -1,5 +1,5 @@
 use core_engine::{format_duration, AlbumSummary, ArtistSummary, Track};
-use iced::widget::{column, container, row, Space};
+use iced::widget::{column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use crate::components::{border_vert, scanning_indicator, text};
@@ -7,7 +7,6 @@ use crate::icons;
 use crate::message::{Message, ViewTab};
 use crate::theme::{styles, ThemeConfig};
 
-#[allow(dead_code)]
 pub struct StatusBarContext<'a> {
     pub active_tab: ViewTab,
     // Tracks (Music) context
@@ -26,6 +25,11 @@ pub struct StatusBarContext<'a> {
     // Now Playing context
     pub current_track: Option<&'a Track>,
     pub is_playing: bool,
+    // Playlists / Queues context
+    pub playlist_count: usize,
+    pub queue_count: usize,
+    /// Active queue name and length, when a queue drives playback.
+    pub active_queue: Option<(&'a str, usize)>,
     // Global telemetry
     pub is_scanning: bool,
 }
@@ -47,15 +51,12 @@ impl StatusBar {
 
                 let filter_indicator: Element<'a, Message> = if !ctx.search_query.trim().is_empty()
                 {
-                    text(
-                        theme_cfg,
-                        format!("·  Filter: \"{}\"", ctx.search_query.trim()),
-                    )
-                    .size(11)
-                    .color(muted)
-                    .into()
+                    text(theme_cfg, format!("·  Filter: {}", ctx.search_query.trim()))
+                        .size(11)
+                        .color(muted)
+                        .boxed()
                 } else {
-                    Space::with_width(0).into()
+                    Space::new().width(0).boxed()
                 };
 
                 row![
@@ -65,7 +66,7 @@ impl StatusBar {
                 ]
                 .spacing(6)
                 .align_y(Alignment::Center)
-                .into()
+                .boxed()
             }
 
             ViewTab::Albums => {
@@ -89,7 +90,7 @@ impl StatusBar {
                 ]
                 .spacing(6)
                 .align_y(Alignment::Center)
-                .into()
+                .boxed()
             }
 
             ViewTab::Artists => {
@@ -113,7 +114,7 @@ impl StatusBar {
                 ]
                 .spacing(6)
                 .align_y(Alignment::Center)
-                .into()
+                .boxed()
             }
 
             ViewTab::Lyrics => {
@@ -143,7 +144,7 @@ impl StatusBar {
                     ]
                     .spacing(6)
                     .align_y(Alignment::Center)
-                    .into()
+                    .boxed()
                 } else {
                     row![
                         icons::icon(icons::DISC_SVG, 11.0, muted),
@@ -151,7 +152,43 @@ impl StatusBar {
                     ]
                     .spacing(6)
                     .align_y(Alignment::Center)
-                    .into()
+                    .boxed()
+                }
+            }
+
+            ViewTab::Playlists => {
+                if let Some((name, len)) = ctx.active_queue {
+                    row![
+                        icons::icon(icons::QUEUE_SVG, 11.0, muted),
+                        text(theme_cfg, format!("Queue: {}", name))
+                            .size(11)
+                            .color(muted),
+                        text(theme_cfg, "·").size(11).color(muted),
+                        text(theme_cfg, format!("{} tracks", len))
+                            .size(11)
+                            .color(muted),
+                        text(theme_cfg, "·").size(11).color(muted),
+                        text(theme_cfg, format!("{} playlists", ctx.playlist_count))
+                            .size(11)
+                            .color(muted),
+                    ]
+                    .spacing(6)
+                    .align_y(Alignment::Center)
+                    .boxed()
+                } else {
+                    row![
+                        icons::icon(icons::PLAYLIST_SVG, 11.0, muted),
+                        text(theme_cfg, format!("{} playlists", ctx.playlist_count))
+                            .size(11)
+                            .color(muted),
+                        text(theme_cfg, "·").size(11).color(muted),
+                        text(theme_cfg, format!("{} queues open", ctx.queue_count))
+                            .size(11)
+                            .color(muted),
+                    ]
+                    .spacing(6)
+                    .align_y(Alignment::Center)
+                    .boxed()
                 }
             }
 
@@ -165,12 +202,15 @@ impl StatusBar {
             ]
             .spacing(6)
             .align_y(Alignment::Center)
-            .into(),
+            .boxed(),
         };
 
         // 2. Global Right Section
-        let status_row = row![left_items, Space::with_width(Length::Fill),]
-            .push_maybe(ctx.is_scanning.then_some(scanning_indicator(theme_cfg)))
+        let mut status_row = row![left_items, Space::new().width(Length::Fill),];
+        if ctx.is_scanning {
+            status_row = status_row.push(scanning_indicator(theme_cfg));
+        }
+        let status_row = status_row
             .spacing(8)
             .height(24)
             .align_y(Alignment::Center)
@@ -183,6 +223,6 @@ impl StatusBar {
         .style(styles::status_bar_container(theme_cfg))
         .width(Length::Fill)
         .height(25)
-        .into()
+        .boxed()
     }
 }

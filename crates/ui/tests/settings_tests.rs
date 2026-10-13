@@ -11,9 +11,7 @@ mod settings;
 #[path = "../src/theme/mod.rs"]
 mod theme;
 
-use std::path::Path;
-
-use message::{SettingsTab, ViewMode, ViewTab};
+use message::{SettingsTab, ViewMode};
 use theme::{ThemeConfig, DEFAULT_THEME_NAME};
 
 #[test]
@@ -36,7 +34,6 @@ fn test_settings_views_render_without_panicking() {
     let theme_cfg = ThemeConfig::default();
     let folders = vec!["/music/ambient".to_string(), "/music/jazz".to_string()];
     let available_fonts = vec!["Default".to_string(), "Noto Sans CJK JP".to_string()];
-    let db_path = Path::new("/tmp/test_library.db");
 
     for tab in [
         SettingsTab::Appearance,
@@ -53,19 +50,11 @@ fn test_settings_views_render_without_panicking() {
 
         let theme_names_vec = vec![DEFAULT_THEME_NAME.to_string(), "Nord".to_string()];
         let ctx = settings::SettingsContext {
-            tab_order: &[
-                ViewTab::Tracks,
-                ViewTab::Lyrics,
-                ViewTab::Albums,
-                ViewTab::Artists,
-            ],
             theme_names: &theme_names_vec,
             active_theme_name: DEFAULT_THEME_NAME,
-            library_view_mode: ViewMode::List,
             albums_view_mode: ViewMode::Tile,
             artists_view_mode: ViewMode::Tile,
             page_size: 50,
-            tile_width: 170,
             album_tile_width: 170,
             artist_tile_width: 160,
             now_playing_cover_size: 220,
@@ -73,8 +62,6 @@ fn test_settings_views_render_without_panicking() {
             total_tracks: 120,
             total_albums: 15,
             total_artists: 8,
-            db_path,
-            config_path: Path::new("/tmp/test_config.toml"),
             db_size_bytes: 2048576,
             cache_file_count: 42,
             cache_size_bytes: 524288,

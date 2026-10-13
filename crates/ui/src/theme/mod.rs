@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use iced::{theme::Palette, Color, Theme};
+use iced::{theme::palette::Seed, Color, Theme};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
@@ -19,7 +19,8 @@ mod hex_color {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Color::parse(&s).ok_or_else(|| D::Error::custom(format!("invalid hex color: {s}")))
+        s.parse::<Color>()
+            .map_err(|_| D::Error::custom(format!("invalid hex color: {s}")))
     }
 
     pub fn serialize<S>(color: &Color, serializer: S) -> Result<S::Ok, S::Error>
@@ -46,9 +47,10 @@ mod opt_hex_color {
     {
         let opt = Option::<String>::deserialize(deserializer)?;
         match opt {
-            Some(s) => Color::parse(&s)
+            Some(s) => s
+                .parse::<Color>()
                 .map(Some)
-                .ok_or_else(|| D::Error::custom(format!("invalid hex color: {s}"))),
+                .map_err(|_| D::Error::custom(format!("invalid hex color: {s}"))),
             None => Ok(None),
         }
     }
@@ -129,7 +131,7 @@ impl Default for ThemeConfig {
 }
 
 pub fn parse_hex(hex: &str) -> Color {
-    Color::parse(hex.trim()).unwrap_or(Color::BLACK)
+    hex.trim().parse().unwrap_or(Color::BLACK)
 }
 
 impl ThemeConfig {
@@ -186,21 +188,22 @@ impl ThemeConfig {
     }
 
     pub fn slider_rail_color(&self) -> Color {
-        self.slider_rail.unwrap_or(self.surface_hover)
+        self.slider_rail.unwrap_or(self.surface)
     }
 
-    pub fn to_palette(&self) -> Palette {
-        Palette {
+    pub fn to_seed(&self) -> Seed {
+        Seed {
             background: self.bg_color(),
             text: self.text_color(),
             primary: self.primary_color(),
             success: self.success_color(),
+            warning: self.accent_color(),
             danger: self.danger_color(),
         }
     }
 
     pub fn to_iced_theme(&self) -> Theme {
-        Theme::custom(self.name.clone(), self.to_palette())
+        Theme::custom(self.name.clone(), self.to_seed())
     }
 
     pub fn font(&self) -> iced::Font {
@@ -233,7 +236,7 @@ fn intern_str(s: &str) -> &'static str {
 pub fn font_from_family_name(name: Option<&str>) -> iced::Font {
     if let Some(name) = name {
         let family_static = intern_str(name);
-        iced::Font::with_name(family_static)
+        iced::Font::new(family_static)
     } else {
         iced::Font::DEFAULT
     }
