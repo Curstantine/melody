@@ -11,9 +11,10 @@ use walkdir::WalkDir;
 use crate::intern;
 use crate::metadata::extract_metadata;
 use crate::model::{
-    format_duration, AlbumSummary, ArtistSummary, NewTrack, SortDirection, SortField, Track,
-    TrackIdHeader, TrackRow,
+    format_duration, AlbumSummary, ArtistSummary, NewTrack, PlaylistSummary, SortDirection,
+    SortField, Track, TrackIdHeader, TrackRow,
 };
+use crate::paths;
 
 #[derive(Error, Debug)]
 pub enum DbError {
@@ -91,27 +92,35 @@ impl LibraryDatabase {
             CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);
             CREATE INDEX IF NOT EXISTS idx_tracks_path ON tracks(file_path);
 
-            CREATE TABLE IF NOT EXISTS playlists (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                created_timestamp INTEGER NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS playlist_tracks (
-                playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
-                track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
-                position INTEGER NOT NULL,
-                PRIMARY KEY (playlist_id, track_id)
-            );
-
             CREATE TABLE IF NOT EXISTS library_folders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 path TEXT NOT NULL UNIQUE,
                 added_timestamp INTEGER NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS playlist_files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_path TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                track_count INTEGER NOT NULL DEFAULT 0,
+                created_timestamp INTEGER NOT NULL,
+                modified_timestamp INTEGER NOT NULL
+            );
             "#,
             )
             .await?;
+
+        // The original `playlists` / `playlist_tracks` tables were never written
+        // to by any code path; playlist contents are now owned by the M3U files
+        // themselves and the database only keeps a `playlist_files` reference.
+        let _ = self
+            .conn
+            .execute("DROP TABLE IF EXISTS playlist_tracks", ())
+            .await;
+        let _ = self
+            .conn
+            .execute("DROP TABLE IF EXISTS playlists", ())
+            .await;
 
         // Safe migrations for databases created before schema additions
         let _ = self
@@ -565,6 +574,41 @@ impl LibraryDatabase {
         Ok(out)
     }
 
+    /// Fetches lightweight [`TrackRow`]s for every requested id in chunked
+    /// `WHERE id IN (...)` queries. Returns a map so callers can restore their
+    /// own ordering (e.g. playlist order).
+    pub async fn get_track_rows_by_ids(
+        &self,
+        ids: &[i64],
+    ) -> Result<HashMap<i64, TrackRow>, DbError> {
+        let mut out = HashMap::with_capacity(ids.len());
+        if ids.is_empty() {
+            return Ok(out);
+        }
+
+        const CHUNK: usize = 500;
+        for chunk in ids.chunks(CHUNK) {
+            let placeholders = std::iter::repeat_n("?", chunk.len())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let query = format!(
+                "SELECT id, title, artist, album, duration_ms, file_path FROM tracks WHERE id IN ({})",
+                placeholders
+            );
+
+            let mut rows = self
+                .conn
+                .query(&query, turso::params_from_iter(chunk.iter().copied()))
+                .await?;
+
+            while let Some(row) = rows.next().await? {
+                let summary = map_track_row_summary(&row)?;
+                out.insert(summary.id, summary);
+            }
+        }
+        Ok(out)
+    }
+
     /// Fetches only the filesystem path for a track id (used to resolve album
     /// cover art for the visible catalog window).
     pub async fn get_track_path_by_id(&self, id: i64) -> Result<Option<String>, DbError> {
@@ -728,13 +772,169 @@ impl LibraryDatabase {
         Ok(affected > 0)
     }
 
-    /// Wipes all indexed tracks and playlist associations from the database
+    /// Wipes all indexed tracks from the database.
+    ///
+    /// Playlist file references are intentionally preserved: the referenced
+    /// `.m3u` files remain valid on disk and are re-resolved against the
+    /// library on the next scan.
     pub async fn clear_all_tracks(&self) -> Result<u64, DbError> {
         let count = self.conn.execute("DELETE FROM tracks", ()).await?;
-        let _ = self.conn.execute("DELETE FROM playlist_tracks", ()).await;
         let _ = self.conn.execute("VACUUM", ()).await;
         intern::clear();
         Ok(count)
+    }
+
+    // ── Playlist file references ─────────────────────────────────────────────
+
+    /// Registers or refreshes a playlist file reference.
+    ///
+    /// `created_timestamp` is only applied on first insert; the modification
+    /// time and cached track count are always updated.
+    pub async fn upsert_playlist_file(
+        &self,
+        file_path: &str,
+        name: &str,
+        track_count: usize,
+    ) -> Result<i64, DbError> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        self.conn
+            .execute(
+                r#"
+            INSERT INTO playlist_files (file_path, name, track_count, created_timestamp, modified_timestamp)
+            VALUES (?1, ?2, ?3, ?4, ?4)
+            ON CONFLICT(file_path) DO UPDATE SET
+                name = excluded.name,
+                track_count = excluded.track_count,
+                modified_timestamp = excluded.modified_timestamp
+            "#,
+                params![
+                    sanitize_db_text(file_path),
+                    sanitize_db_text(name),
+                    track_count as i64,
+                    now,
+                ],
+            )
+            .await?;
+
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    /// Removes a playlist file reference. The file on disk is left untouched.
+    pub async fn remove_playlist_file(&self, id: i64) -> Result<bool, DbError> {
+        let affected = self
+            .conn
+            .execute("DELETE FROM playlist_files WHERE id = ?1", params![id])
+            .await?;
+        Ok(affected > 0)
+    }
+
+    /// Removes a playlist file reference by path. The file is left untouched.
+    pub async fn remove_playlist_file_by_path(&self, file_path: &str) -> Result<bool, DbError> {
+        let affected = self
+            .conn
+            .execute(
+                "DELETE FROM playlist_files WHERE file_path = ?1",
+                params![file_path.to_string()],
+            )
+            .await?;
+        Ok(affected > 0)
+    }
+
+    /// Renames the display name of a referenced playlist.
+    pub async fn rename_playlist_file(&self, id: i64, name: &str) -> Result<bool, DbError> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let affected = self
+            .conn
+            .execute(
+                "UPDATE playlist_files SET name = ?1, modified_timestamp = ?2 WHERE id = ?3",
+                params![sanitize_db_text(name), now, id],
+            )
+            .await?;
+        Ok(affected > 0)
+    }
+
+    /// Loads every referenced playlist, ordered by name.
+    pub async fn get_playlists(&self) -> Result<Vec<PlaylistSummary>, DbError> {
+        let mut rows = self
+            .conn
+            .query(
+                r#"
+            SELECT id, file_path, name, track_count, created_timestamp, modified_timestamp
+            FROM playlist_files
+            ORDER BY name COLLATE NOCASE ASC
+            "#,
+                (),
+            )
+            .await?;
+
+        let managed_dir = paths::playlists_dir();
+        let mut playlists = Vec::new();
+        while let Some(row) = rows.next().await? {
+            let id: i64 = row.get(0)?;
+            let file_path: String = row.get(1)?;
+            let name: String = row.get(2)?;
+            let track_count: i64 = row.get(3)?;
+            let created_timestamp: i64 = row.get(4)?;
+            let modified_timestamp: i64 = row.get(5)?;
+
+            let managed = Path::new(&file_path).starts_with(&managed_dir);
+            playlists.push(PlaylistSummary {
+                id,
+                name,
+                file_path,
+                track_count: track_count as usize,
+                created_timestamp,
+                modified_timestamp,
+                managed,
+                tracks_label: format!("{} tracks", track_count),
+            });
+        }
+        Ok(playlists)
+    }
+
+    /// Resolves absolute filesystem paths to track ids in a single query.
+    ///
+    /// Used to map M3U playlist entries onto indexed library tracks when
+    /// building a playback queue. Unmatched paths are simply absent from the map.
+    pub async fn get_track_ids_by_paths(
+        &self,
+        paths: &[String],
+    ) -> Result<HashMap<String, i64>, DbError> {
+        let mut out = HashMap::new();
+        if paths.is_empty() {
+            return Ok(out);
+        }
+
+        // Chunk to stay clear of SQLite's variable limit for very large playlists.
+        const CHUNK: usize = 500;
+        for chunk in paths.chunks(CHUNK) {
+            let placeholders = std::iter::repeat_n("?", chunk.len())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let query = format!(
+                "SELECT id, file_path FROM tracks WHERE file_path IN ({})",
+                placeholders
+            );
+
+            let mut rows = self
+                .conn
+                .query(&query, turso::params_from_iter(chunk.iter().cloned()))
+                .await?;
+
+            while let Some(row) = rows.next().await? {
+                let id: i64 = row.get(0)?;
+                let path: String = row.get(1)?;
+                out.insert(path, id);
+            }
+        }
+        Ok(out)
     }
 
     /// Recursively scan directory and index all supported audio files.

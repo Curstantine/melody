@@ -407,6 +407,68 @@ async fn test_scan_directory_symlink_traversal() {
 }
 
 #[tokio::test]
+async fn test_playlist_file_references() {
+    let db = LibraryDatabase::in_memory()
+        .await
+        .expect("Failed to create in-memory db");
+
+    // Initially empty
+    assert!(db.get_playlists().await.unwrap().is_empty());
+
+    let id = db
+        .upsert_playlist_file("/playlists/Chill.m3u8", "Chill", 3)
+        .await
+        .expect("upsert failed");
+    assert!(id > 0);
+
+    // Upsert same path refreshes count/name rather than duplicating
+    db.upsert_playlist_file("/playlists/Chill.m3u8", "Chill Vibes", 4)
+        .await
+        .expect("re-upsert failed");
+    let playlists = db.get_playlists().await.unwrap();
+    assert_eq!(playlists.len(), 1);
+    assert_eq!(playlists[0].name, "Chill Vibes");
+    assert_eq!(playlists[0].track_count, 4);
+    assert_eq!(playlists[0].tracks_label, "4 tracks");
+
+    // Rename by id
+    assert!(db.rename_playlist_file(id, "Focus").await.unwrap());
+    assert_eq!(db.get_playlists().await.unwrap()[0].name, "Focus");
+
+    // Path -> id resolution (only indexed tracks match)
+    let track = NewTrack {
+        file_path: "/music/a.flac".to_string(),
+        title: "A".to_string(),
+        artist: "Artist".to_string(),
+        album: "Album".to_string(),
+        duration_ms: 1000,
+        ..Default::default()
+    };
+    db.insert_or_update_track(&track).await.unwrap();
+
+    let map = db
+        .get_track_ids_by_paths(&[
+            "/music/a.flac".to_string(),
+            "/music/missing.flac".to_string(),
+        ])
+        .await
+        .unwrap();
+    assert_eq!(map.len(), 1);
+    assert!(map.contains_key("/music/a.flac"));
+
+    // Remove reference
+    assert!(db.remove_playlist_file(id).await.unwrap());
+    assert!(db.get_playlists().await.unwrap().is_empty());
+
+    // Removing a track does not touch playlist references
+    db.upsert_playlist_file("/playlists/Keep.m3u8", "Keep", 1)
+        .await
+        .unwrap();
+    db.clear_all_tracks().await.unwrap();
+    assert_eq!(db.get_playlists().await.unwrap().len(), 1);
+}
+
+#[tokio::test]
 async fn test_insert_track_with_non_utf8_and_null_bytes() {
     let db = LibraryDatabase::in_memory()
         .await

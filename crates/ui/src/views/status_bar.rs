@@ -26,6 +26,11 @@ pub struct StatusBarContext<'a> {
     // Now Playing context
     pub current_track: Option<&'a Track>,
     pub is_playing: bool,
+    // Playlists / Queues context
+    pub playlist_count: usize,
+    pub queue_count: usize,
+    /// Active queue name and length, when a queue drives playback.
+    pub active_queue: Option<(&'a str, usize)>,
     // Global telemetry
     pub is_scanning: bool,
 }
@@ -148,6 +153,42 @@ impl StatusBar {
                     row![
                         icons::icon(icons::DISC_SVG, 11.0, muted),
                         text(theme_cfg, "Playback Idle").size(11).color(muted),
+                    ]
+                    .spacing(6)
+                    .align_y(Alignment::Center)
+                    .into()
+                }
+            }
+
+            ViewTab::Playlists => {
+                if let Some((name, len)) = ctx.active_queue {
+                    row![
+                        icons::icon(icons::QUEUE_SVG, 11.0, muted),
+                        text(theme_cfg, format!("Queue: {}", name))
+                            .size(11)
+                            .color(muted),
+                        text(theme_cfg, "·").size(11).color(muted),
+                        text(theme_cfg, format!("{} tracks", len))
+                            .size(11)
+                            .color(muted),
+                        text(theme_cfg, "·").size(11).color(muted),
+                        text(theme_cfg, format!("{} playlists", ctx.playlist_count))
+                            .size(11)
+                            .color(muted),
+                    ]
+                    .spacing(6)
+                    .align_y(Alignment::Center)
+                    .into()
+                } else {
+                    row![
+                        icons::icon(icons::PLAYLIST_SVG, 11.0, muted),
+                        text(theme_cfg, format!("{} playlists", ctx.playlist_count))
+                            .size(11)
+                            .color(muted),
+                        text(theme_cfg, "·").size(11).color(muted),
+                        text(theme_cfg, format!("{} queues open", ctx.queue_count))
+                            .size(11)
+                            .color(muted),
                     ]
                     .spacing(6)
                     .align_y(Alignment::Center)

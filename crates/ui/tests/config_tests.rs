@@ -12,7 +12,7 @@ mod message;
 mod theme;
 
 use config::AppConfig;
-use message::{AlbumSortField, ArtistSortField, SettingsTab, ViewMode, ViewTab};
+use message::{AlbumSortField, ArtistSortField, PlaylistSortField, SettingsTab, ViewMode, ViewTab};
 
 #[test]
 fn test_default_app_config() {
@@ -24,7 +24,8 @@ fn test_default_app_config() {
             ViewTab::Tracks,
             ViewTab::Lyrics,
             ViewTab::Albums,
-            ViewTab::Artists
+            ViewTab::Artists,
+            ViewTab::Playlists
         ]
     );
     assert_eq!(cfg.settings_tab, SettingsTab::Appearance);
@@ -33,6 +34,7 @@ fn test_default_app_config() {
     assert_eq!(cfg.library_view_mode, ViewMode::List);
     assert_eq!(cfg.albums_view_mode, ViewMode::Tile);
     assert_eq!(cfg.artists_view_mode, ViewMode::Tile);
+    assert_eq!(cfg.playlists_view_mode, ViewMode::List);
     assert_eq!(cfg.page_size, 50);
     assert_eq!(cfg.tile_width, 140);
     assert_eq!(cfg.album_tile_width, 140);
@@ -40,6 +42,7 @@ fn test_default_app_config() {
     assert_eq!(cfg.now_playing_cover_size, 260);
     assert_eq!(cfg.album_sort_field, AlbumSortField::Title);
     assert_eq!(cfg.artist_sort_field, ArtistSortField::Artist);
+    assert_eq!(cfg.playlist_sort_field, PlaylistSortField::Name);
     assert_eq!(cfg.volume, 1.0);
     assert!(!cfg.is_shuffle);
     assert!(!cfg.is_repeat);
@@ -57,6 +60,7 @@ fn test_config_toml_roundtrip() {
             ViewTab::Tracks,
             ViewTab::Artists,
             ViewTab::Lyrics,
+            ViewTab::Playlists,
         ],
         settings_tab: SettingsTab::Library,
         theme_name: "Nord".to_string(),
@@ -64,6 +68,7 @@ fn test_config_toml_roundtrip() {
         library_view_mode: ViewMode::Tile,
         albums_view_mode: ViewMode::List,
         artists_view_mode: ViewMode::List,
+        playlists_view_mode: ViewMode::List,
         page_size: 100,
         tile_width: 190,
         album_tile_width: 190,
@@ -71,6 +76,7 @@ fn test_config_toml_roundtrip() {
         now_playing_cover_size: 260,
         album_sort_field: AlbumSortField::Artist,
         artist_sort_field: ArtistSortField::TrackCount,
+        playlist_sort_field: PlaylistSortField::TrackCount,
         volume: 0.65,
         is_shuffle: true,
         is_repeat: true,
@@ -118,7 +124,8 @@ fn test_tab_order_sanitization() {
             ViewTab::Artists,
             ViewTab::Tracks,
             ViewTab::Lyrics,
-            ViewTab::Albums
+            ViewTab::Albums,
+            ViewTab::Playlists
         ]
     );
 
@@ -131,7 +138,8 @@ fn test_tab_order_sanitization() {
             ViewTab::Tracks,
             ViewTab::Lyrics,
             ViewTab::Albums,
-            ViewTab::Artists
+            ViewTab::Artists,
+            ViewTab::Playlists
         ]
     );
 }

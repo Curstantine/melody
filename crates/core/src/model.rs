@@ -131,6 +131,27 @@ pub struct AlbumSummary {
     pub duration_label: String,
 }
 
+/// A referenced M3U/M3U8 playlist file.
+///
+/// The playlist's contents live in the file itself; this summary only carries
+/// the reference and cached metadata used to render the catalog without
+/// re-reading every playlist from disk each frame.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlaylistSummary {
+    pub id: i64,
+    pub name: String,
+    pub file_path: String,
+    pub track_count: usize,
+    pub created_timestamp: i64,
+    pub modified_timestamp: i64,
+    /// True when the file lives inside Melody's managed playlists directory.
+    #[serde(default)]
+    pub managed: bool,
+    /// Pre-rendered "N tracks" label for allocation-free rendering.
+    #[serde(default)]
+    pub tracks_label: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtistSummary {
     pub artist: InternedStr,

@@ -4,6 +4,7 @@ pub mod config;
 mod font;
 mod icons;
 mod message;
+mod queue;
 mod theme;
 mod views;
 

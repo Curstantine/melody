@@ -3,7 +3,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use audio::{AudioController, AudioEngine};
-use core_engine::{LibraryDatabase, Track, TrackRow};
+use core_engine::{
+    parse_m3u, write_m3u, LibraryDatabase, PlaylistEntry, PlaylistSummary, Track, TrackRow,
+};
 use crossbeam_channel::Receiver;
 use iced::widget::{button, column, container, image, mouse_area, row, Space};
 use iced::{Element, Length, Subscription, Task, Theme};
@@ -11,16 +13,20 @@ use plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 #[cfg(target_os = "linux")]
 use plugins::MprisPlugin;
 use plugins::{PlayerAction, PluginManager, TrackMetadata};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::components::{border_vert, text};
 use crate::config::{AppConfig, ScrobbleConfig};
 use crate::icons;
-use crate::message::{Message, ViewMode, ViewTab};
+use crate::message::{
+    Message, PlaylistItem, PlaylistOpenIntent, PlaylistResolution, PlaylistSection, ViewMode,
+    ViewTab,
+};
+use crate::queue::{QueueStore, DEFAULT_QUEUE_NAME};
 use crate::theme::{styles, ThemeManager};
 use crate::views::{
-    self, AlbumsView, ArtistsView, LibraryView, NowPlayingView, PlayerBar, SettingsView, StatusBar,
-    StatusBarContext,
+    self, AlbumsView, ArtistsView, LibraryView, NowPlayingView, PlayerBar, PlaylistsView,
+    SettingsView, StatusBar, StatusBarContext,
 };
 
 pub struct App {
@@ -43,9 +49,14 @@ pub struct App {
     library: LibraryView,
     albums: AlbumsView,
     artists: ArtistsView,
+    playlists: PlaylistsView,
     now_playing: NowPlayingView,
     settings: SettingsView,
     player_bar: PlayerBar,
+
+    // Playback queues (in-memory, persisted to `queues.json`)
+    queues: QueueStore,
+    queues_path: PathBuf,
 
     // Playback State
     current_track: Option<Track>,
@@ -142,8 +153,12 @@ impl App {
             config.artist_tile_width,
         );
         let now_playing = NowPlayingView::with_cover_size(config.now_playing_cover_size);
+        let playlists = PlaylistsView::new(config.playlists_view_mode, config.playlist_sort_field);
         let settings = SettingsView::new(config.settings_tab, available_fonts);
         let player_bar = PlayerBar::new();
+
+        let queues_path = core_engine::queues_file();
+        let queues = QueueStore::load(&queues_path);
 
         let app = Self {
             db,
@@ -163,9 +178,13 @@ impl App {
             library,
             albums,
             artists,
+            playlists,
             now_playing,
             settings,
             player_bar,
+
+            queues,
+            queues_path,
 
             current_track: None,
             current_track_id: None,
@@ -193,13 +212,23 @@ impl App {
             mpris_rx,
         };
 
-        let mut initial_tasks = vec![app.reload_tracks_task(), {
-            let db = app.db.clone();
-            Task::perform(
-                async move { db.get_library_folders().await.unwrap_or_default() },
-                Message::LibraryFoldersLoaded,
-            )
-        }];
+        let mut initial_tasks = vec![
+            app.reload_tracks_task(),
+            {
+                let db = app.db.clone();
+                Task::perform(
+                    async move { db.get_library_folders().await.unwrap_or_default() },
+                    Message::LibraryFoldersLoaded,
+                )
+            },
+            {
+                let db = app.db.clone();
+                Task::perform(
+                    async move { db.get_playlists().await.unwrap_or_default() },
+                    Message::PlaylistsLoaded,
+                )
+            },
+        ];
 
         if app.active_tab == ViewTab::Albums {
             let db = app.db.clone();
@@ -332,9 +361,8 @@ impl App {
 
                     // Resolve the next track's path from the in-memory window; the
                     // background task then produces its thumbnail off-thread.
-                    let next_track_path = self
-                        .get_next_track()
-                        .map(|nt| PathBuf::from(&nt.file_path));
+                    let next_track_path =
+                        self.get_next_track().map(|nt| PathBuf::from(&nt.file_path));
 
                     let plugin_manager = self.plugin_manager.clone();
                     Task::perform(
@@ -424,6 +452,14 @@ impl App {
                     return Task::none();
                 }
 
+                if self.queues.active.is_some() {
+                    if let Some(id) = self.step_active_queue(true) {
+                        let play = self.update(Message::PlayTrack(id));
+                        return Task::batch([play, self.save_queues_task()]);
+                    }
+                    return Task::none();
+                }
+
                 if let Some(next) = self.get_next_track() {
                     return self.update(Message::PlayTrack(next.id));
                 }
@@ -449,6 +485,14 @@ impl App {
                 if self.position_ms > 3000 {
                     self.audio_controller.seek(Duration::from_millis(0));
                     self.position_ms = 0;
+                    return Task::none();
+                }
+
+                if self.queues.active.is_some() {
+                    if let Some(id) = self.step_active_queue(false) {
+                        let play = self.update(Message::PlayTrack(id));
+                        return Task::batch([play, self.save_queues_task()]);
+                    }
                     return Task::none();
                 }
 
@@ -579,6 +623,15 @@ impl App {
                         }
                     }
                     ViewTab::Settings => Task::batch([save_task, self.load_storage_stats_task()]),
+                    ViewTab::Playlists => {
+                        self.albums.clear_covers();
+                        let db = self.db.clone();
+                        let refresh = Task::perform(
+                            async move { db.get_playlists().await.unwrap_or_default() },
+                            Message::PlaylistsLoaded,
+                        );
+                        Task::batch([save_task, refresh])
+                    }
                     _ => {
                         self.albums.clear_covers();
                         save_task
@@ -735,7 +788,11 @@ impl App {
 
             Message::TrackClicked(id) => {
                 if self.library.on_track_click(id) {
-                    self.update(Message::PlayTrack(id))
+                    // Playing directly from the library leaves queue mode so
+                    // next/previous follow the visible track list again.
+                    self.queues.deactivate();
+                    let play = self.update(Message::PlayTrack(id));
+                    Task::batch([play, self.save_queues_task()])
                 } else {
                     Task::none()
                 }
@@ -909,8 +966,7 @@ impl App {
                         tokio::task::spawn_blocking(move || {
                             let _ = core_engine::clear_thumbnail_cache();
                             let stats = core_engine::get_thumbnail_cache_stats();
-                            let db_size =
-                                std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+                            let db_size = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
                             (stats, db_size)
                         })
                         .await
@@ -961,6 +1017,465 @@ impl App {
                 self.library.set_search_query(artist_name);
                 self.reload_tracks_task()
             }
+
+            // ── Playlists ───────────────────────────────────────────────────
+            Message::PlaylistSectionChanged(section) => {
+                self.playlists.set_section(section);
+                Task::none()
+            }
+
+            Message::PlaylistsLoaded(playlists) => {
+                self.playlists.set_playlists(playlists);
+                Task::none()
+            }
+
+            Message::RefreshPlaylists => {
+                let db = self.db.clone();
+                Task::perform(
+                    async move { db.get_playlists().await.unwrap_or_default() },
+                    Message::PlaylistsLoaded,
+                )
+            }
+
+            Message::SelectPlaylist(id) => {
+                if id < 0 {
+                    self.playlists.clear_detail();
+                    return Task::none();
+                }
+                let Some(playlist) = self.playlist_by_id(id) else {
+                    return Task::none();
+                };
+                self.playlists.selected_id = Some(id);
+                let db = self.db.clone();
+                Task::perform(
+                    resolve_playlist(db, playlist.file_path),
+                    move |resolution| Message::PlaylistResolved {
+                        playlist_id: id,
+                        intent: PlaylistOpenIntent::View,
+                        resolution,
+                    },
+                )
+            }
+
+            Message::PlaylistResolved {
+                playlist_id,
+                intent,
+                resolution,
+            } => match intent {
+                PlaylistOpenIntent::View => {
+                    if let Some(playlist) = self.playlist_by_id(playlist_id) {
+                        self.playlists.set_detail(
+                            playlist_id,
+                            playlist.name,
+                            playlist.file_path,
+                            resolution.items,
+                        );
+                    }
+                    Task::none()
+                }
+                PlaylistOpenIntent::Play { start_index } => {
+                    if resolution.tracks.is_empty() {
+                        return Task::none();
+                    }
+                    let name = self
+                        .playlist_by_id(playlist_id)
+                        .map(|p| p.name)
+                        .unwrap_or_else(|| DEFAULT_QUEUE_NAME.to_string());
+                    let index = start_index.min(resolution.tracks.len() - 1);
+                    self.create_queue_from_tracks(name, resolution.tracks);
+                    if let Some(queue) = self.queues.active_queue_mut() {
+                        queue.set_current(index);
+                    }
+                    let track_id = self
+                        .queues
+                        .active_queue()
+                        .and_then(|q| q.current_track())
+                        .map(|t| t.id);
+                    match track_id {
+                        Some(id) => {
+                            let play = self.update(Message::PlayTrack(id));
+                            Task::batch([play, self.save_queues_task()])
+                        }
+                        None => self.save_queues_task(),
+                    }
+                }
+                PlaylistOpenIntent::AddToQueue => {
+                    let tracks = resolution.tracks;
+                    if tracks.is_empty() {
+                        return Task::none();
+                    }
+                    if self.queues.active.is_none() {
+                        self.queues.create(DEFAULT_QUEUE_NAME);
+                    }
+                    if let Some(queue) = self.queues.active_queue_mut() {
+                        queue.append_many(tracks);
+                    }
+                    self.save_queues_task()
+                }
+            },
+
+            Message::PlayPlaylist(id) => self.open_playlist(id, 0),
+            Message::PlayPlaylistItem(id, index) => self.open_playlist(id, index),
+            Message::PlaylistToQueue(id) => {
+                self.resolve_playlist_intent(id, PlaylistOpenIntent::AddToQueue)
+            }
+
+            Message::NewPlaylistClicked => {
+                self.playlists.creating = true;
+                self.playlists.new_name_input.clear();
+                Task::none()
+            }
+            Message::NewPlaylistNameChanged(value) => {
+                self.playlists.new_name_input = value;
+                Task::none()
+            }
+            Message::NewPlaylistCancelled => {
+                self.playlists.creating = false;
+                self.playlists.new_name_input.clear();
+                Task::none()
+            }
+            Message::NewPlaylistNameSubmitted(name) => {
+                let name = name.trim().to_string();
+                if name.is_empty() {
+                    return Task::none();
+                }
+                self.playlists.creating = false;
+                self.playlists.new_name_input.clear();
+                let db = self.db.clone();
+                Task::perform(
+                    async move {
+                        let path = unique_playlist_path(&name);
+                        if let Err(e) = write_m3u(&path, &[]) {
+                            warn!("Failed to create playlist file {:?}: {}", path, e);
+                        }
+                        let path_str = path.to_string_lossy().to_string();
+                        let _ = db.upsert_playlist_file(&path_str, &name, 0).await;
+                        db.get_playlists().await.unwrap_or_default()
+                    },
+                    Message::PlaylistsLoaded,
+                )
+            }
+
+            Message::RenamePlaylist(id) => {
+                if let Some(playlist) = self.playlist_by_id(id) {
+                    self.playlists.renaming = true;
+                    self.playlists.rename_input = playlist.name;
+                }
+                Task::none()
+            }
+            Message::RenamePlaylistNameChanged(value) => {
+                self.playlists.rename_input = value;
+                Task::none()
+            }
+            Message::RenamePlaylistCancelled => {
+                self.playlists.renaming = false;
+                self.playlists.rename_input.clear();
+                Task::none()
+            }
+            Message::RenamePlaylistSubmitted(id, name) => {
+                let name = name.trim().to_string();
+                if name.is_empty() {
+                    return Task::none();
+                }
+                self.playlists.renaming = false;
+                self.playlists.rename_input.clear();
+                let Some(playlist) = self.playlist_by_id(id) else {
+                    return Task::none();
+                };
+                let db = self.db.clone();
+                Task::perform(
+                    async move {
+                        if playlist.managed {
+                            let old_path = PathBuf::from(&playlist.file_path);
+                            let old_stem = old_path
+                                .file_stem()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or_default();
+                            let sanitized = core_engine::sanitize_playlist_filename(&name);
+                            let new_path = if sanitized == old_stem {
+                                old_path.clone()
+                            } else {
+                                unique_playlist_path(&name)
+                            };
+
+                            if new_path != old_path {
+                                if let Err(e) = std::fs::rename(&old_path, &new_path) {
+                                    warn!("Failed to rename playlist file: {}", e);
+                                }
+                                let new_str = new_path.to_string_lossy().to_string();
+                                let _ = db
+                                    .upsert_playlist_file(&new_str, &name, playlist.track_count)
+                                    .await;
+                                let _ = db.remove_playlist_file_by_path(&playlist.file_path).await;
+                            } else {
+                                let _ = db.rename_playlist_file(playlist.id, &name).await;
+                            }
+                        } else {
+                            let _ = db.rename_playlist_file(playlist.id, &name).await;
+                        }
+                        db.get_playlists().await.unwrap_or_default()
+                    },
+                    Message::PlaylistsLoaded,
+                )
+            }
+
+            Message::DeletePlaylist(id) => {
+                self.playlists.clear_detail();
+                let playlist = self.playlist_by_id(id);
+                let db = self.db.clone();
+                Task::perform(
+                    async move {
+                        if let Some(playlist) = playlist {
+                            if playlist.managed {
+                                let _ = std::fs::remove_file(&playlist.file_path);
+                            }
+                            let _ = db.remove_playlist_file(playlist.id).await;
+                        }
+                        db.get_playlists().await.unwrap_or_default()
+                    },
+                    Message::PlaylistsLoaded,
+                )
+            }
+
+            Message::PlaylistSortChanged(field) => {
+                self.playlists.set_sort_field(field);
+                self.save_config_task()
+            }
+
+            Message::SetPlaylistsViewMode(mode) => {
+                self.playlists.set_view_mode(mode);
+                self.save_config_task()
+            }
+
+            Message::ImportPlaylistsClicked => Task::perform(
+                async {
+                    let files = rfd::AsyncFileDialog::new()
+                        .set_title("Import Playlists")
+                        .add_filter("Playlists", &["m3u", "m3u8"])
+                        .pick_files()
+                        .await;
+                    files.map(|handles| {
+                        handles
+                            .into_iter()
+                            .map(|f| f.path().to_path_buf())
+                            .collect::<Vec<_>>()
+                    })
+                },
+                Message::PlaylistsImported,
+            ),
+
+            Message::PlaylistsImported(paths) => {
+                let Some(paths) = paths else {
+                    return Task::none();
+                };
+                if paths.is_empty() {
+                    return Task::none();
+                }
+                let db = self.db.clone();
+                Task::perform(
+                    async move {
+                        for path in paths {
+                            if !core_engine::is_supported_playlist_file(&path) {
+                                continue;
+                            }
+                            match parse_m3u(&path) {
+                                Ok(parsed) => {
+                                    let path_str = path.to_string_lossy().to_string();
+                                    let _ = db
+                                        .upsert_playlist_file(
+                                            &path_str,
+                                            &parsed.name,
+                                            parsed.entries.len(),
+                                        )
+                                        .await;
+                                }
+                                Err(e) => warn!("Failed to import playlist {:?}: {}", path, e),
+                            }
+                        }
+                        db.get_playlists().await.unwrap_or_default()
+                    },
+                    Message::PlaylistsLoaded,
+                )
+            }
+
+            // ── Queues ──────────────────────────────────────────────────────
+            Message::QueueNew => {
+                self.queues.create(DEFAULT_QUEUE_NAME);
+                self.playlists.set_section(PlaylistSection::Queues);
+                self.save_queues_task()
+            }
+            Message::QueueSelect(id) => {
+                self.queues.set_active(id);
+                self.save_queues_task()
+            }
+            Message::QueueDelete(id) => {
+                self.queues.remove(id);
+                self.save_queues_task()
+            }
+            Message::QueueAddTrack(id) => {
+                let db = self.db.clone();
+                Task::perform(
+                    async move {
+                        db.get_track_rows_by_ids(&[id])
+                            .await
+                            .unwrap_or_default()
+                            .remove(&id)
+                            .into_iter()
+                            .collect::<Vec<_>>()
+                    },
+                    Message::QueueAppendLoaded,
+                )
+            }
+            Message::QueueAddMany(ids) => {
+                let db = self.db.clone();
+                Task::perform(
+                    async move {
+                        db.get_track_rows_by_ids(&ids)
+                            .await
+                            .unwrap_or_default()
+                            .into_values()
+                            .collect::<Vec<_>>()
+                    },
+                    Message::QueueAppendLoaded,
+                )
+            }
+            Message::QueuePlayNext(id) => {
+                let db = self.db.clone();
+                Task::perform(
+                    async move {
+                        db.get_track_rows_by_ids(&[id])
+                            .await
+                            .unwrap_or_default()
+                            .remove(&id)
+                            .into_iter()
+                            .collect::<Vec<_>>()
+                    },
+                    Message::QueuePlayNextLoaded,
+                )
+            }
+            Message::QueueAppendLoaded(tracks) => {
+                if tracks.is_empty() {
+                    return Task::none();
+                }
+                if self.queues.active.is_none() {
+                    self.queues.create(DEFAULT_QUEUE_NAME);
+                }
+                if let Some(queue) = self.queues.active_queue_mut() {
+                    queue.append_many(tracks);
+                }
+                self.save_queues_task()
+            }
+            Message::QueuePlayNextLoaded(tracks) => {
+                if tracks.is_empty() {
+                    return Task::none();
+                }
+                if self.queues.active.is_none() {
+                    self.queues.create(DEFAULT_QUEUE_NAME);
+                }
+                if let Some(queue) = self.queues.active_queue_mut() {
+                    // Insert in reverse so the pending track lands first.
+                    for track in tracks.into_iter().rev() {
+                        queue.insert_next(track);
+                    }
+                }
+                self.save_queues_task()
+            }
+            Message::QueuePlayIndex(index) => {
+                if let Some(queue) = self.queues.active_queue_mut() {
+                    queue.set_current(index);
+                }
+                let track_id = self
+                    .queues
+                    .active_queue()
+                    .and_then(|q| q.current_track())
+                    .map(|t| t.id);
+                match track_id {
+                    Some(id) => {
+                        let play = self.update(Message::PlayTrack(id));
+                        Task::batch([play, self.save_queues_task()])
+                    }
+                    None => Task::none(),
+                }
+            }
+            Message::QueueRemoveTrack { queue_id, index } => {
+                if self.queues.active == Some(queue_id) {
+                    if let Some(queue) = self.queues.active_queue_mut() {
+                        queue.remove(index);
+                    }
+                }
+                self.save_queues_task()
+            }
+            Message::QueueMoveTrack {
+                queue_id,
+                index,
+                up,
+            } => {
+                if self.queues.active == Some(queue_id) {
+                    if let Some(queue) = self.queues.active_queue_mut() {
+                        queue.move_track(index, up);
+                    }
+                }
+                self.save_queues_task()
+            }
+            Message::QueueSaveClicked => {
+                self.playlists.saving_queue = true;
+                self.playlists.queue_save_input = self
+                    .queues
+                    .active_queue()
+                    .map(|q| q.name.clone())
+                    .unwrap_or_else(|| DEFAULT_QUEUE_NAME.to_string());
+                Task::none()
+            }
+            Message::QueueSaveNameChanged(value) => {
+                self.playlists.queue_save_input = value;
+                Task::none()
+            }
+            Message::QueueSaveCancelled => {
+                self.playlists.saving_queue = false;
+                self.playlists.queue_save_input.clear();
+                Task::none()
+            }
+            Message::QueueSaveSubmitted(name) => {
+                let name = name.trim().to_string();
+                if name.is_empty() {
+                    return Task::none();
+                }
+                self.playlists.saving_queue = false;
+                self.playlists.queue_save_input.clear();
+                let tracks: Vec<TrackRow> = self
+                    .queues
+                    .active_queue()
+                    .map(|q| q.tracks.clone())
+                    .unwrap_or_default();
+                if tracks.is_empty() {
+                    return Task::none();
+                }
+                let db = self.db.clone();
+                Task::perform(
+                    async move {
+                        let path = unique_playlist_path(&name);
+                        let entries: Vec<PlaylistEntry> = tracks
+                            .iter()
+                            .map(|t| PlaylistEntry {
+                                raw_path: t.file_path.clone(),
+                                resolved_path: PathBuf::from(&t.file_path),
+                                title: Some(t.title.clone()),
+                                duration_ms: Some(t.duration_ms),
+                            })
+                            .collect();
+                        if let Err(e) = write_m3u(&path, &entries) {
+                            warn!("Failed to save queue as playlist: {}", e);
+                        }
+                        let path_str = path.to_string_lossy().to_string();
+                        let _ = db
+                            .upsert_playlist_file(&path_str, &name, entries.len())
+                            .await;
+                        db.get_playlists().await.unwrap_or_default()
+                    },
+                    Message::PlaylistsLoaded,
+                )
+            }
+            Message::QueuesPersisted => Task::none(),
 
             Message::SelectTheme(name) => {
                 self.theme_manager.set_theme(&name);
@@ -1181,8 +1696,104 @@ impl App {
     }
 
     pub fn get_next_track(&self) -> Option<&TrackRow> {
+        if let Some(queue) = self.queues.active_queue() {
+            if self.is_shuffle && !queue.is_empty() {
+                let idx = (self.position_ms as usize ^ 0x9e3779b9) % queue.len();
+                return queue.tracks.get(idx);
+            }
+            if let Some(idx) = queue.next_index() {
+                return queue.tracks.get(idx);
+            }
+            return None;
+        }
         self.library
             .get_next_row(self.current_track_id, self.is_shuffle, self.position_ms)
+    }
+
+    /// Advances the active queue cursor and returns the id of the track to play.
+    ///
+    /// `forward` selects next/previous; shuffle ignores direction and jumps to a
+    /// pseudo-random slot. Returns `None` at a queue boundary.
+    fn step_active_queue(&mut self, forward: bool) -> Option<i64> {
+        let position_seed = self.position_ms;
+        let is_shuffle = self.is_shuffle;
+        let queue = self.queues.active_queue_mut()?;
+        if queue.is_empty() {
+            return None;
+        }
+
+        let target = if is_shuffle {
+            let len = queue.len();
+            if len <= 1 {
+                queue.current_index().unwrap_or(0)
+            } else {
+                let current = queue.current_index().unwrap_or(0);
+                let mut pick = (position_seed as usize ^ 0x9e3779b9) % len;
+                if pick == current {
+                    pick = (pick + 1) % len;
+                }
+                pick
+            }
+        } else if forward {
+            queue.next_index()?
+        } else {
+            queue.previous_index()?
+        };
+
+        queue.set_current(target);
+        Some(queue.tracks[target].id)
+    }
+
+    /// Persists the queue store to disk off the UI thread.
+    fn save_queues_task(&self) -> Task<Message> {
+        let queues = self.queues.clone();
+        let path = self.queues_path.clone();
+        Task::perform(
+            async move {
+                tokio::task::spawn_blocking(move || queues.save(&path))
+                    .await
+                    .ok();
+            },
+            |_| Message::QueuesPersisted,
+        )
+    }
+
+    /// Replaces the active queue (or creates one) from an ordered track list.
+    fn create_queue_from_tracks(&mut self, name: String, tracks: Vec<TrackRow>) -> u64 {
+        let id = self.queues.create(name);
+        if let Some(queue) = self.queues.active_queue_mut() {
+            queue.tracks = tracks;
+            queue.current = 0;
+        }
+        id
+    }
+
+    fn playlist_by_id(&self, id: i64) -> Option<PlaylistSummary> {
+        self.playlists
+            .playlists
+            .iter()
+            .find(|p| p.id == id)
+            .cloned()
+    }
+
+    /// Resolves a playlist and plays it, optionally starting at `start_index`.
+    fn open_playlist(&self, id: i64, start_index: usize) -> Task<Message> {
+        self.resolve_playlist_intent(id, PlaylistOpenIntent::Play { start_index })
+    }
+
+    fn resolve_playlist_intent(&self, id: i64, intent: PlaylistOpenIntent) -> Task<Message> {
+        let Some(playlist) = self.playlist_by_id(id) else {
+            return Task::none();
+        };
+        let db = self.db.clone();
+        Task::perform(
+            resolve_playlist(db, playlist.file_path),
+            move |resolution| Message::PlaylistResolved {
+                playlist_id: id,
+                intent,
+                resolution,
+            },
+        )
     }
 
     pub fn to_config(&self) -> AppConfig {
@@ -1195,6 +1806,7 @@ impl App {
             library_view_mode: ViewMode::List,
             albums_view_mode: self.albums.view_mode,
             artists_view_mode: self.artists.view_mode,
+            playlists_view_mode: self.playlists.view_mode,
             page_size: self.library.page_size,
             tile_width: self.albums.tile_width,
             album_tile_width: self.albums.tile_width,
@@ -1202,6 +1814,7 @@ impl App {
             now_playing_cover_size: self.now_playing.cover_size,
             album_sort_field: self.albums.sort_field,
             artist_sort_field: self.artists.sort_field,
+            playlist_sort_field: self.playlists.sort_field,
             volume: self.volume,
             is_shuffle: self.is_shuffle,
             is_repeat: self.is_repeat,
@@ -1514,6 +2127,7 @@ impl App {
                 .view(theme_cfg, self.current_track_id, self.is_playing),
             ViewTab::Albums => self.albums.view(theme_cfg),
             ViewTab::Artists => self.artists.view(theme_cfg),
+            ViewTab::Playlists => self.playlists.view(theme_cfg, &self.queues),
             ViewTab::Lyrics => {
                 let next_track = self.get_next_track();
 
@@ -1608,6 +2222,12 @@ impl App {
             artist_tracks: self.artists.total_tracks,
             current_track: self.current_track.as_ref(),
             is_playing: self.is_playing,
+            playlist_count: self.playlists.len(),
+            queue_count: self.queues.queues.len(),
+            active_queue: self
+                .queues
+                .active_queue()
+                .map(|q| (q.name.as_str(), q.len())),
             is_scanning: self.is_scanning,
         };
 
@@ -1627,6 +2247,89 @@ impl App {
 
 fn get_database_path() -> PathBuf {
     core_engine::database_file()
+}
+
+/// Parses an M3U file and matches its entries against indexed library tracks.
+async fn resolve_playlist(db: LibraryDatabase, file_path: String) -> PlaylistResolution {
+    let parsed = match parse_m3u(&file_path) {
+        Ok(parsed) => parsed,
+        Err(e) => {
+            warn!("Failed to parse playlist {}: {}", file_path, e);
+            return PlaylistResolution {
+                items: Vec::new(),
+                tracks: Vec::new(),
+            };
+        }
+    };
+
+    let path_strings: Vec<String> = parsed
+        .entries
+        .iter()
+        .map(|e| e.resolved_path.to_string_lossy().to_string())
+        .collect();
+    let id_map = db
+        .get_track_ids_by_paths(&path_strings)
+        .await
+        .unwrap_or_default();
+    let ids: Vec<i64> = path_strings
+        .iter()
+        .filter_map(|p| id_map.get(p).copied())
+        .collect();
+    let rows = db.get_track_rows_by_ids(&ids).await.unwrap_or_default();
+
+    let mut items = Vec::with_capacity(parsed.entries.len());
+    let mut tracks = Vec::new();
+    for entry in &parsed.entries {
+        let resolved = entry.resolved_path.to_string_lossy().to_string();
+        if let Some(id) = id_map.get(&resolved).copied() {
+            if let Some(row) = rows.get(&id) {
+                items.push(PlaylistItem {
+                    title: row.title.clone(),
+                    artist: row.display_artist().to_string(),
+                    duration_label: row.formatted_duration().to_string(),
+                    track_id: Some(id),
+                });
+                tracks.push(row.clone());
+                continue;
+            }
+        }
+
+        let title = entry
+            .title
+            .clone()
+            .or_else(|| {
+                entry
+                    .resolved_path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_string())
+            })
+            .unwrap_or_else(|| entry.raw_path.clone());
+        items.push(PlaylistItem {
+            title,
+            artist: "Not in library".to_string(),
+            duration_label: entry
+                .duration_ms
+                .map(core_engine::format_duration)
+                .unwrap_or_default(),
+            track_id: None,
+        });
+    }
+
+    PlaylistResolution { items, tracks }
+}
+
+/// Returns a non-colliding `.m3u8` path inside the managed playlists directory.
+fn unique_playlist_path(name: &str) -> PathBuf {
+    let dir = core_engine::playlists_dir();
+    let base = core_engine::sanitize_playlist_filename(name);
+    let mut candidate = dir.join(format!("{}.m3u8", base));
+    let mut counter = 2;
+    while candidate.exists() {
+        candidate = dir.join(format!("{} ({}).m3u8", base, counter));
+        counter += 1;
+    }
+    candidate
 }
 
 fn handle_drag_event(
