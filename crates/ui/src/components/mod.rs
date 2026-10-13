@@ -29,16 +29,7 @@ pub fn text<'a>(
     theme_cfg: &ThemeConfig,
     content: impl Into<Cow<'a, str>>,
 ) -> iced::widget::Text<'a> {
-    let text_cow = content.into();
-    let shaping = if text_cow.is_ascii() {
-        iced::widget::text::Shaping::Basic
-    } else {
-        iced::widget::text::Shaping::Advanced
-    };
-
-    iced::widget::text(text_cow)
-        .font(theme_cfg.font())
-        .shaping(shaping)
+    iced::widget::text(content.into()).font(theme_cfg.font())
 }
 
 pub fn border_vert<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {

@@ -144,9 +144,9 @@ where
 
     fn update(
         &mut self,
-        _tree: &mut Tree,
+        tree: &mut Tree,
         event: &Event,
-        _layout: Layout<'_>,
+        layout: Layout<'_>,
         _cursor: mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
@@ -154,7 +154,15 @@ where
         _viewport: &Rectangle,
     ) {
         if let Event::Window(window::Event::RedrawRequested(_)) = event {
-            shell.request_redraw();
+            // Only keep the frame loop alive while the text actually overflows
+            // its bounds and needs to animate. When the text fits, staying
+            // quiet lets iced 0.14's reactive rendering idle instead of
+            // re-rendering the whole scene at display rate (which starves
+            // scrollable updates on large lists).
+            let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
+            if state.paragraph.raw().min_width() > layout.bounds().width {
+                shell.request_redraw();
+            }
         }
     }
 

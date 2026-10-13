@@ -30,6 +30,7 @@ iced = { workspace = true, features = [
   "svg",
   "image",
   "advanced",
+  "debug",
 ] }
 crossbeam-channel.workspace = true
 serde = { workspace = true, features = ["derive"] }
