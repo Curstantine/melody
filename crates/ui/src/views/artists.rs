@@ -317,7 +317,7 @@ impl ArtistsView {
                 self.sort_dir,
                 Message::ArtistSortChanged,
             ),
-            Space::with_width(Length::Fill),
+            Space::new().width(Length::Fill),
             components::view_mode_toggle(theme_cfg, self.view_mode, Message::SetArtistsViewMode),
         ]
         .spacing(4)
@@ -360,7 +360,7 @@ impl ArtistsView {
 
         let top = start_row as f32 * row_h;
         if top > 0.0 {
-            content = content.push(Space::with_height(top));
+            content = content.push(Space::new().height(top));
         }
 
         for chunk in self.visible_artists().chunks(per_row) {
@@ -415,7 +415,7 @@ impl ArtistsView {
 
         let bottom = total_rows.saturating_sub(end_row) as f32 * row_h;
         if bottom > 0.0 {
-            content = content.push(Space::with_height(bottom));
+            content = content.push(Space::new().height(bottom));
         }
 
         scrollable(container(content).width(Length::Fill).padding(Padding {
@@ -423,7 +423,7 @@ impl ArtistsView {
             right: 16.0,
             ..Default::default()
         }))
-        .id(scrollable::Id::new("artists_scroll"))
+        .id(iced::widget::Id::new("artists_scroll"))
         .on_scroll(Message::ArtistsScrolled)
         .height(Length::Fill)
         .style(styles::scrollable_style(theme_cfg))
@@ -438,7 +438,7 @@ impl ArtistsView {
 
         let top = self.window_start as f32 * row_h;
         if top > 0.0 {
-            content = content.push(Space::with_height(top));
+            content = content.push(Space::new().height(top));
         }
 
         for artist in self.visible_artists() {
@@ -478,11 +478,11 @@ impl ArtistsView {
 
         let bottom = total_rows.saturating_sub(self.window_end) as f32 * row_h;
         if bottom > 0.0 {
-            content = content.push(Space::with_height(bottom));
+            content = content.push(Space::new().height(bottom));
         }
 
         scrollable(content)
-            .id(scrollable::Id::new("artists_scroll"))
+            .id(iced::widget::Id::new("artists_scroll"))
             .on_scroll(Message::ArtistsScrolled)
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))

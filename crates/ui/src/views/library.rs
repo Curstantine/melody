@@ -271,7 +271,7 @@ impl LibraryView {
                 };
                 row![
                     text(theme_cfg, label).size(12),
-                    Space::with_width(4),
+                    Space::new().width(4),
                     icons::icon(sort_icon_svg, 12.0, theme_cfg.primary_color()),
                 ]
                 .align_y(Alignment::Center)
@@ -321,7 +321,7 @@ impl LibraryView {
 
             let top_spacer = self.window_start as f32 * self.row_height;
             if top_spacer > 0.0 {
-                items = items.push(Space::with_height(top_spacer));
+                items = items.push(Space::new().height(top_spacer));
             }
 
             for (idx, track) in self.rows.iter().enumerate() {
@@ -416,11 +416,11 @@ impl LibraryView {
             let bottom_spacer =
                 self.total_tracks.saturating_sub(window_end) as f32 * self.row_height;
             if bottom_spacer > 0.0 {
-                items = items.push(Space::with_height(bottom_spacer));
+                items = items.push(Space::new().height(bottom_spacer));
             }
 
             scrollable(items)
-                .id(scrollable::Id::new("library_tracks"))
+                .id(iced::widget::Id::new("library_tracks"))
                 .on_scroll(Message::LibraryScrolled)
                 .height(Length::Fill)
                 .width(Length::Fill)

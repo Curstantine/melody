@@ -361,7 +361,7 @@ impl PlaylistsView {
         let mut bar = row![
             section_chip("Playlists", PlaylistSection::Playlists, icons::PLAYLIST_SVG),
             section_chip("Queues", PlaylistSection::Queues, icons::QUEUE_SVG),
-            Space::with_width(Length::Fill),
+            Space::new().width(Length::Fill),
         ]
         .spacing(6)
         .align_y(Alignment::Center);
@@ -443,7 +443,7 @@ impl PlaylistsView {
                 self.sort_dir,
                 Message::PlaylistSortChanged,
             ),
-            Space::with_width(Length::Fill),
+            Space::new().width(Length::Fill),
             components::view_mode_toggle(theme_cfg, self.view_mode, Message::SetPlaylistsViewMode),
         ]
         .spacing(4)
@@ -561,7 +561,7 @@ impl PlaylistsView {
         }
 
         scrollable(list)
-            .id(scrollable::Id::new("playlists_scroll"))
+            .id(iced::widget::Id::new("playlists_scroll"))
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
             .into()
@@ -651,7 +651,7 @@ impl PlaylistsView {
             right: 16.0,
             ..Default::default()
         }))
-        .id(scrollable::Id::new("playlists_scroll"))
+        .id(iced::widget::Id::new("playlists_scroll"))
         .height(Length::Fill)
         .style(styles::scrollable_style(theme_cfg))
         .into()
@@ -699,12 +699,12 @@ impl PlaylistsView {
                 )
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
-                Space::with_height(8),
+                Space::new().height(8),
                 row![
                     input,
-                    Space::with_width(8),
+                    Space::new().width(8),
                     create,
-                    Space::with_width(4),
+                    Space::new().width(4),
                     cancel
                 ]
                 .align_y(Alignment::Center),
@@ -737,7 +737,7 @@ impl PlaylistsView {
                         self.rename_input.clone()
                     ))
                     .width(Length::Fixed(280.0)),
-                Space::with_width(8),
+                Space::new().width(8),
                 button(
                     text(theme_cfg, "Save")
                         .size(12)
@@ -749,7 +749,7 @@ impl PlaylistsView {
                     playlist_id,
                     self.rename_input.clone()
                 )),
-                Space::with_width(4),
+                Space::new().width(4),
                 button(
                     text(theme_cfg, "Cancel")
                         .size(12)
@@ -868,7 +868,7 @@ impl PlaylistsView {
         column![
             header_block,
             scrollable(list)
-                .id(scrollable::Id::new("playlist_detail_scroll"))
+                .id(iced::widget::Id::new("playlist_detail_scroll"))
                 .height(Length::Fill)
                 .style(styles::scrollable_style(theme_cfg)),
         ]
@@ -965,7 +965,7 @@ impl PlaylistsView {
             let (start, end) = queue_window_for_start(total, self.queue_window_start);
             let top_spacer = start as f32 * QUEUE_ROW_HEIGHT;
             if top_spacer > 0.0 {
-                list = list.push(Space::with_height(top_spacer));
+                list = list.push(Space::new().height(top_spacer));
             }
             let current = active.current_index();
             // While a handle-drag is held, hovering a row live-reorders (like
@@ -1017,7 +1017,7 @@ impl PlaylistsView {
             }
             let bottom_spacer = total.saturating_sub(end) as f32 * QUEUE_ROW_HEIGHT;
             if bottom_spacer > 0.0 {
-                list = list.push(Space::with_height(bottom_spacer));
+                list = list.push(Space::new().height(bottom_spacer));
             }
         }
 
@@ -1031,7 +1031,7 @@ impl PlaylistsView {
             header,
             save_form,
             scrollable(list)
-                .id(scrollable::Id::new("queue_scroll"))
+                .id(iced::widget::Id::new("queue_scroll"))
                 .on_scroll(Message::QueueScrolled)
                 .height(Length::Fill)
                 .style(styles::scrollable_style(theme_cfg)),
@@ -1096,7 +1096,7 @@ impl PlaylistsView {
                     .on_input(Message::QueueSaveNameChanged)
                     .on_submit(Message::QueueSaveSubmitted(self.queue_save_input.clone()))
                     .width(Length::Fixed(280.0)),
-                Space::with_width(8),
+                Space::new().width(8),
                 button(
                     text(theme_cfg, "Save")
                         .size(12)
@@ -1105,7 +1105,7 @@ impl PlaylistsView {
                 .padding([6, 12])
                 .style(styles::ghost_button(theme_cfg, false))
                 .on_press(Message::QueueSaveSubmitted(self.queue_save_input.clone())),
-                Space::with_width(4),
+                Space::new().width(4),
                 button(
                     text(theme_cfg, "Cancel")
                         .size(12)
@@ -1124,7 +1124,7 @@ impl PlaylistsView {
             })
             .into()
         } else {
-            Space::with_height(0).into()
+            Space::new().height(0).into()
         }
     }
 }

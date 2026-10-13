@@ -8,8 +8,9 @@ use core_engine::{
     SortField, Track, TrackFilter, TrackRow,
 };
 use crossbeam_channel::Receiver;
-use iced::widget::scrollable::RelativeOffset;
-use iced::widget::{button, column, container, image, mouse_area, row, scrollable, Space};
+use iced::widget::operation::snap_to;
+use iced::widget::operation::RelativeOffset;
+use iced::widget::{button, column, container, image, mouse_area, row, Space};
 use iced::{Element, Length, Subscription, Task, Theme};
 use plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 #[cfg(target_os = "linux")]
@@ -636,7 +637,7 @@ impl App {
                 }
                 PlayerAction::Quit => {
                     info!("MPRIS Quit requested");
-                    iced::window::get_latest().and_then(iced::window::close)
+                    iced::window::latest().and_then(iced::window::close)
                 }
             },
 
@@ -1825,9 +1826,9 @@ impl App {
                 self.albums.set_albums(albums);
                 // The catalog was (re)loaded at offset 0; keep the scrollable in
                 // sync so the window and the viewport cannot disagree.
-                let snap = iced::widget::scrollable::snap_to(
-                    iced::widget::scrollable::Id::new("albums_scroll"),
-                    iced::widget::scrollable::RelativeOffset::START,
+                let snap = snap_to(
+                    iced::widget::Id::new("albums_scroll"),
+                    RelativeOffset::START,
                 );
                 if self.active_tab == ViewTab::Albums {
                     Task::batch([self.load_visible_album_covers_task(), snap])
@@ -2056,8 +2057,8 @@ impl App {
             return Task::none();
         }
         let y = (current as f32 / total as f32).clamp(0.0, 1.0);
-        scrollable::snap_to(
-            scrollable::Id::new("queue_scroll"),
+        snap_to(
+            iced::widget::Id::new("queue_scroll"),
             RelativeOffset { x: 0.0, y },
         )
     }
@@ -2440,7 +2441,7 @@ impl App {
         for btn in tab_buttons {
             nav_row = nav_row.push(btn);
         }
-        nav_row = nav_row.push(Space::with_width(Length::Fill));
+        nav_row = nav_row.push(Space::new().width(Length::Fill));
         nav_row = nav_row.push(settings_btn);
 
         let top_bar = container(column![
@@ -2669,7 +2670,7 @@ fn queue_source_for_filter(filter: &TrackFilter) -> QueueSource {
 
 /// Snaps the queue detail list back to the top (used on page changes).
 fn snap_queue_scroll_top() -> Task<Message> {
-    scrollable::snap_to(scrollable::Id::new("queue_scroll"), RelativeOffset::START)
+    snap_to(iced::widget::Id::new("queue_scroll"), RelativeOffset::START)
 }
 
 /// Fisher–Yates shuffle seeded from the system clock (no `rand` dependency).

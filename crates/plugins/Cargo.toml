@@ -6,21 +6,21 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-core_engine = { package = "core", path = "../core" }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "2.0"
-tracing = "0.1"
-extism = { version = "1.41", optional = true }
-ureq = { version = "3.4.2", features = ["json"] }
-md-5 = "0.11.0"
+core_engine.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+extism = { workspace = true, optional = true }
+ureq = { workspace = true, features = ["json"] }
+md-5.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
-mpris-server = "0.10.0"
-async-io = "2.6"
-futures-lite = "2.6"
-crossbeam-channel = "0.5"
-url = "2.5"
+mpris-server.workspace = true
+async-io.workspace = true
+futures-lite.workspace = true
+crossbeam-channel.workspace = true
+url.workspace = true
 
 [features]
 default = []

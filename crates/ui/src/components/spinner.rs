@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use iced::advanced::{
     layout, mouse, renderer, svg, widget::Tree, Clipboard, Layout, Shell, Widget,
 };
-use iced::{event, window, Color, Element, Event, Length, Radians, Rectangle, Size};
+use iced::{window, Color, Element, Event, Length, Radians, Rectangle, Size};
 
 pub struct Spinner {
     handle: svg::Handle,
@@ -39,25 +39,24 @@ where
         Size::new(Length::Fixed(self.size), Length::Fixed(self.size))
     }
 
-    fn layout(&self, _tree: &mut Tree, _r: &Renderer, limits: &layout::Limits) -> layout::Node {
+    fn layout(&mut self, _tree: &mut Tree, _r: &Renderer, limits: &layout::Limits) -> layout::Node {
         layout::atomic(limits, self.size, self.size)
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         _tree: &mut Tree,
-        event: Event,
+        event: &Event,
         _layout: Layout<'_>,
         _cursor: mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         if let Event::Window(window::Event::RedrawRequested(_)) = event {
-            shell.request_redraw(window::RedrawRequest::NextFrame);
+            shell.request_redraw();
         }
-        event::Status::Ignored
     }
 
     fn draw(
@@ -82,7 +81,8 @@ where
             svg_item = svg_item.color(color);
         }
 
-        renderer.draw_svg(svg_item, layout.bounds());
+        let bounds = layout.bounds();
+        renderer.draw_svg(svg_item, bounds, bounds);
     }
 }
 

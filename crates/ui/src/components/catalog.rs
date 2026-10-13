@@ -1,3 +1,4 @@
+use iced::widget::text::Wrapping;
 use iced::widget::{button, column, container, row, Space};
 use iced::{Alignment, Element, Length, Padding};
 
@@ -89,7 +90,7 @@ impl<'a> CatalogRow<'a> {
         .spacing(2)
         .width(Length::Fill);
 
-        let mut row_content = row![leading, Space::with_width(12), title_block,].spacing(4);
+        let mut row_content = row![leading, Space::new().width(12), title_block,].spacing(4);
 
         if let Some((top, bottom)) = details {
             let details_col = column![
@@ -191,9 +192,14 @@ impl<'a> CatalogTile<'a> {
 
         let meta = container(
             column![
+                // Single-line title: width-bounded with no wrapping so long
+                // Latin and CJK titles truncate at the tile edge instead of
+                // wrapping (glyph-measured by the renderer, not char-counted).
                 text(theme_cfg, title)
                     .size(13)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_color())
+                    .width(Length::Fill)
+                    .wrapping(Wrapping::None),
                 row![
                     text(theme_cfg, mid_left)
                         .size(11)
@@ -208,7 +214,7 @@ impl<'a> CatalogTile<'a> {
                     text(theme_cfg, bottom_left)
                         .size(10)
                         .color(theme_cfg.text_muted_color()),
-                    Space::with_width(Length::Fill),
+                    Space::new().width(Length::Fill),
                     text(theme_cfg, bottom_right)
                         .size(10)
                         .color(theme_cfg.text_muted_color()),

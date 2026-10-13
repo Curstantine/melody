@@ -56,7 +56,7 @@ impl StatusBar {
                         .color(muted)
                         .into()
                 } else {
-                    Space::with_width(0).into()
+                    Space::new().width(0).into()
                 };
 
                 row![
@@ -206,8 +206,11 @@ impl StatusBar {
         };
 
         // 2. Global Right Section
-        let status_row = row![left_items, Space::with_width(Length::Fill),]
-            .push_maybe(ctx.is_scanning.then_some(scanning_indicator(theme_cfg)))
+        let mut status_row = row![left_items, Space::new().width(Length::Fill),];
+        if ctx.is_scanning {
+            status_row = status_row.push(scanning_indicator(theme_cfg));
+        }
+        let status_row = status_row
             .spacing(8)
             .height(24)
             .align_y(Alignment::Center)

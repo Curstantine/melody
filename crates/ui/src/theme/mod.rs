@@ -19,7 +19,8 @@ mod hex_color {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Color::parse(&s).ok_or_else(|| D::Error::custom(format!("invalid hex color: {s}")))
+        s.parse::<Color>()
+            .map_err(|_| D::Error::custom(format!("invalid hex color: {s}")))
     }
 
     pub fn serialize<S>(color: &Color, serializer: S) -> Result<S::Ok, S::Error>
@@ -46,9 +47,10 @@ mod opt_hex_color {
     {
         let opt = Option::<String>::deserialize(deserializer)?;
         match opt {
-            Some(s) => Color::parse(&s)
+            Some(s) => s
+                .parse::<Color>()
                 .map(Some)
-                .ok_or_else(|| D::Error::custom(format!("invalid hex color: {s}"))),
+                .map_err(|_| D::Error::custom(format!("invalid hex color: {s}"))),
             None => Ok(None),
         }
     }
@@ -129,7 +131,7 @@ impl Default for ThemeConfig {
 }
 
 pub fn parse_hex(hex: &str) -> Color {
-    Color::parse(hex.trim()).unwrap_or(Color::BLACK)
+    hex.trim().parse().unwrap_or(Color::BLACK)
 }
 
 impl ThemeConfig {
@@ -195,6 +197,7 @@ impl ThemeConfig {
             text: self.text_color(),
             primary: self.primary_color(),
             success: self.success_color(),
+            warning: self.accent_color(),
             danger: self.danger_color(),
         }
     }

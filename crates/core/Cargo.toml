@@ -10,17 +10,17 @@ name = "core_engine"
 path = "src/lib.rs"
 
 [dependencies]
-ffmpeg-next = "9.0.0"
-serde = { version = "1.0", features = ["derive", "rc"] }
-serde_json = "1.0"
-thiserror = "2.0"
-tracing = "0.1"
-walkdir = "2.5"
-image = { version = "0.24", default-features = false, features = ["jpeg", "png"] }
-directories = "5.0"
-turso = "0.8.3-pre.1"
-encoding_rs = "0.8"
-tokio = { version = "1", features = ["rt"] }
+ffmpeg-next.workspace = true
+serde = { workspace = true, features = ["derive", "rc"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+walkdir.workspace = true
+image = { workspace = true, features = ["jpeg", "png"] }
+directories.workspace = true
+turso.workspace = true
+encoding_rs.workspace = true
+tokio = { workspace = true, features = ["rt"] }
 
 [dev-dependencies]
-tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

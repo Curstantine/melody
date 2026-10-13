@@ -1,14 +1,41 @@
 [workspace]
 resolver = "2"
-members = [
-    "crates/core",
-    "crates/audio",
-    "crates/plugins",
-    "crates/ui",
-]
+members = ["crates/core", "crates/audio", "crates/plugins", "crates/ui"]
 
 [workspace.package]
 version = "0.1.2"
 edition = "2021"
-authors = ["melody contributors"]
+authors = ["Curstantine <Curstantine@proton.me>"]
 license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+core_engine = { package = "core", path = "crates/core" }
+audio = { path = "crates/audio" }
+plugins = { path = "crates/plugins" }
+
+async-io = "2.6"
+cpal = "0.15"
+crossbeam-channel = "0.5"
+directories = "5.0"
+encoding_rs = "0.8"
+extism = "1.41"
+ffmpeg-next = "9.0.0"
+futures-lite = "2.6"
+iced = { version = "0.14.0", default-features = false }
+image = { version = "0.24", default-features = false }
+md-5 = "0.11.0"
+mpris-server = "0.10.0"
+rfd = "0.15"
+ringbuf = "0.4.7"
+rubato = "0.16"
+serde = "1.0"
+serde_json = "1.0"
+thiserror = "2.0"
+tokio = "1"
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+turso = "0.8.3-pre.1"
+ureq = "3.4.2"
+url = "2.5"
+walkdir = "2.5"

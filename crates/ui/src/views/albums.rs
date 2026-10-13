@@ -503,7 +503,7 @@ impl AlbumsView {
                 self.sort_dir,
                 Message::AlbumSortChanged,
             ),
-            Space::with_width(Length::Fill),
+            Space::new().width(Length::Fill),
             components::view_mode_toggle(theme_cfg, self.view_mode, Message::SetAlbumsViewMode),
         ]
         .spacing(4)
@@ -546,7 +546,7 @@ impl AlbumsView {
 
         let top = start_row as f32 * row_h;
         if top > 0.0 {
-            content = content.push(Space::with_height(top));
+            content = content.push(Space::new().height(top));
         }
 
         for chunk in self.visible_albums().chunks(per_row) {
@@ -602,11 +602,11 @@ impl AlbumsView {
 
         let bottom = total_rows.saturating_sub(end_row) as f32 * row_h;
         if bottom > 0.0 {
-            content = content.push(Space::with_height(bottom));
+            content = content.push(Space::new().height(bottom));
         }
 
         scrollable(container(content).width(Length::Fill).padding([0, 16]))
-            .id(scrollable::Id::new("albums_scroll"))
+            .id(iced::widget::Id::new("albums_scroll"))
             .on_scroll(Message::AlbumsScrolled)
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
@@ -621,7 +621,7 @@ impl AlbumsView {
 
         let top = self.window_start as f32 * row_h;
         if top > 0.0 {
-            content = content.push(Space::with_height(top));
+            content = content.push(Space::new().height(top));
         }
 
         for album in self.visible_albums() {
@@ -662,11 +662,11 @@ impl AlbumsView {
 
         let bottom = total_rows.saturating_sub(self.window_end) as f32 * row_h;
         if bottom > 0.0 {
-            content = content.push(Space::with_height(bottom));
+            content = content.push(Space::new().height(bottom));
         }
 
         scrollable(content)
-            .id(scrollable::Id::new("albums_scroll"))
+            .id(iced::widget::Id::new("albums_scroll"))
             .on_scroll(Message::AlbumsScrolled)
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))

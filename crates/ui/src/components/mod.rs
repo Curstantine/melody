@@ -98,7 +98,7 @@ pub fn chip_with_icon<'a>(
     button(
         row![
             icons::icon(icon_svg, 13.0, color),
-            Space::with_width(4),
+            Space::new().width(4),
             text(theme_cfg, label.into()).size(11).color(color),
         ]
         .align_y(Alignment::Center),
@@ -171,7 +171,7 @@ pub fn sort_chip<'a, T: Copy + PartialEq>(
         };
         row![
             text(theme_cfg, label).size(11).color(text_color),
-            Space::with_width(3),
+            Space::new().width(3),
             icons::icon(sort_icon_svg, 11.0, text_color),
         ]
         .align_y(Alignment::Center)
@@ -199,7 +199,7 @@ pub fn sort_chip_list<'a, T: Copy + PartialEq>(
         text(theme_cfg, "Sort:")
             .size(11)
             .color(theme_cfg.text_muted_color()),
-        Space::with_width(4),
+        Space::new().width(4),
     ]
     .spacing(4)
     .align_y(Alignment::Center);
@@ -304,16 +304,17 @@ pub fn settings_header<'a>(
     title: &'static str,
     description: Option<&'static str>,
 ) -> Element<'a, Message> {
-    column![text(theme_cfg, title)
+    let mut header = column![text(theme_cfg, title)
         .size(20)
-        .color(theme_cfg.text_color()),]
-    .push_maybe(description.map(|x| {
-        text(theme_cfg, x)
-            .size(12)
-            .color(theme_cfg.text_muted_color())
-    }))
-    .spacing(4)
-    .into()
+        .color(theme_cfg.text_color()),];
+    if let Some(x) = description {
+        header = header.push(
+            text(theme_cfg, x)
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+        );
+    }
+    header.spacing(4).into()
 }
 
 /// A card container with a primary colored title header.

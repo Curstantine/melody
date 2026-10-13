@@ -4,7 +4,7 @@ use iced::advanced::text::Paragraph;
 use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::{layout, mouse, renderer, text, Clipboard, Layout, Shell, Widget};
 use iced::{
-    alignment, event, window, Color, Element, Event, Font, Length, Pixels, Point, Rectangle, Size,
+    alignment, window, Color, Element, Event, Font, Length, Pixels, Point, Rectangle, Size,
 };
 
 /// An auto-scrolling single-line marquee widget.
@@ -106,7 +106,7 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         tree: &mut Tree,
         _renderer: &Renderer,
         limits: &layout::Limits,
@@ -125,8 +125,8 @@ where
             size: self.size,
             line_height: iced::widget::text::LineHeight::default(),
             font: self.font,
-            horizontal_alignment: alignment::Horizontal::Left,
-            vertical_alignment: alignment::Vertical::Top,
+            align_x: text::Alignment::Left,
+            align_y: alignment::Vertical::Top,
             shaping,
             wrapping: iced::widget::text::Wrapping::None,
         });
@@ -142,21 +142,20 @@ where
         layout::Node::new(node_size)
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         _tree: &mut Tree,
-        event: Event,
+        event: &Event,
         _layout: Layout<'_>,
         _cursor: mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         if let Event::Window(window::Event::RedrawRequested(_)) = event {
-            shell.request_redraw(window::RedrawRequest::NextFrame);
+            shell.request_redraw();
         }
-        event::Status::Ignored
     }
 
     fn draw(

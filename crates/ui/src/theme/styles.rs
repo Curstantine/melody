@@ -11,6 +11,7 @@ pub fn main_background(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style
         text_color: Some(cfg.text_color()),
         border: Border::default(),
         shadow: Shadow::default(),
+        snap: true,
     }
 }
 
@@ -101,6 +102,7 @@ pub fn header_tab_container(
             text_color: Some(text),
             border,
             shadow: Shadow::default(),
+            snap: true,
         }
     }
 }
@@ -111,7 +113,7 @@ pub fn pick_list_style(
     move |_theme, status| {
         let border_color = match status {
             pick_list::Status::Active => cfg.border_color(),
-            pick_list::Status::Hovered | pick_list::Status::Opened => cfg.primary_color(),
+            pick_list::Status::Hovered | pick_list::Status::Opened { .. } => cfg.primary_color(),
         };
 
         pick_list::Style {
@@ -139,6 +141,7 @@ pub fn menu_style(cfg: &ThemeConfig) -> impl Fn(&Theme) -> menu::Style + '_ {
         },
         selected_text_color: cfg.primary_color(),
         selected_background: Background::Color(cfg.surface_hover_color()),
+        shadow: Shadow::default(),
     }
 }
 
@@ -182,6 +185,7 @@ pub fn player_bar_button(
                 ..Border::default()
             },
             shadow: Shadow::default(),
+            snap: true,
         }
     }
 }
@@ -208,6 +212,7 @@ pub fn player_bar_play_button(
                 ..Border::default()
             },
             shadow: Shadow::default(),
+            snap: true,
         }
     }
 }
@@ -227,6 +232,7 @@ pub fn table_row_container(
             text_color: Some(cfg.text_color()),
             border: Border::default(),
             shadow: Shadow::default(),
+            snap: true,
         }
     }
 }
@@ -254,6 +260,7 @@ pub fn queue_row_container(
                     radius: Radius::from(4.0),
                 },
                 shadow: Shadow::default(),
+                snap: true,
             }
         } else {
             let bg = if is_selected {
@@ -266,6 +273,7 @@ pub fn queue_row_container(
                 text_color: Some(cfg.text_color()),
                 border: Border::default(),
                 shadow: Shadow::default(),
+                snap: true,
             }
         }
     }
@@ -285,6 +293,7 @@ pub fn tile(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Sty
             text_color: text,
             border: Border::default(),
             shadow: Shadow::default(),
+            snap: true,
         }
     }
 }
@@ -315,6 +324,7 @@ pub fn ghost_button(
                 ..Border::default()
             },
             shadow: Shadow::default(),
+            snap: true,
         }
     }
 }
@@ -354,6 +364,7 @@ pub fn column_header_button(
             text_color,
             border: Border::default(),
             shadow: Shadow::default(),
+            snap: true,
         }
     }
 }
@@ -377,6 +388,7 @@ pub fn icon_control_button(
                 ..Border::default()
             },
             shadow: Shadow::default(),
+            snap: true,
         }
     }
 }
@@ -450,6 +462,7 @@ pub fn danger_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> bu
                 width: 1.0,
             },
             shadow: Shadow::default(),
+            snap: true,
         }
     }
 }
@@ -459,7 +472,7 @@ pub fn search_input_style(
 ) -> impl Fn(&Theme, text_input::Status) -> text_input::Style + '_ {
     move |_theme, status| {
         let border_color = match status {
-            text_input::Status::Focused => cfg.primary_color(),
+            text_input::Status::Focused { .. } => cfg.primary_color(),
             text_input::Status::Hovered => cfg.accent_color(),
             _ => cfg.border_color(),
         };
@@ -588,6 +601,7 @@ pub fn scrollable_style(
             scrollable::Status::Hovered {
                 is_horizontal_scrollbar_hovered,
                 is_vertical_scrollbar_hovered,
+                ..
             } => (
                 is_vertical_scrollbar_hovered,
                 is_horizontal_scrollbar_hovered,
@@ -595,11 +609,12 @@ pub fn scrollable_style(
             scrollable::Status::Dragged {
                 is_horizontal_scrollbar_dragged,
                 is_vertical_scrollbar_dragged,
+                ..
             } => (
                 is_vertical_scrollbar_dragged,
                 is_horizontal_scrollbar_dragged,
             ),
-            scrollable::Status::Active => (false, false),
+            scrollable::Status::Active { .. } => (false, false),
         };
 
         let make_rail = |is_hovered: bool| {
@@ -617,7 +632,7 @@ pub fn scrollable_style(
                 ))),
                 border: Border::default(),
                 scroller: scrollable::Scroller {
-                    color: scroller_color,
+                    background: Background::Color(scroller_color),
                     border: Border::default(),
                 },
             }
@@ -628,6 +643,16 @@ pub fn scrollable_style(
             vertical_rail: make_rail(vertical_hovered),
             horizontal_rail: make_rail(horizontal_hovered),
             gap: None,
+            auto_scroll: scrollable::AutoScroll {
+                background: Background::Color(cfg.surface_color()),
+                border: Border {
+                    color: cfg.border_color(),
+                    width: 1.0,
+                    radius: Radius::from(8.0),
+                },
+                shadow: Shadow::default(),
+                icon: cfg.text_muted_color(),
+            },
         }
     }
 }

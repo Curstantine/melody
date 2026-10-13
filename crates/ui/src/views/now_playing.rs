@@ -89,7 +89,7 @@ impl NowPlayingView {
                         text(theme_cfg, "No lyrics found for this track.")
                             .size(14)
                             .color(theme_cfg.text_color()),
-                        Space::with_height(4),
+                        Space::new().height(4),
                         text(
                             theme_cfg,
                             "Place a .lrc file in the same directory or configure a lyrics plugin."
@@ -105,7 +105,7 @@ impl NowPlayingView {
                     .height(Length::Fill)
                     .style(styles::scrollable_style(theme_cfg));
 
-                let left_section = row![cover_art, Space::with_width(28), lyrics_panel,]
+                let left_section = row![cover_art, Space::new().width(28), lyrics_panel,]
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .align_y(Alignment::Center);
@@ -194,7 +194,7 @@ impl NowPlayingView {
                     text(theme_cfg, "Up Next")
                         .size(11)
                         .color(theme_cfg.primary_color()),
-                    Space::with_width(Length::Fill),
+                    Space::new().width(Length::Fill),
                     up_next_tags,
                 ]
                 .align_y(Alignment::Center);
@@ -326,12 +326,12 @@ impl NowPlayingView {
                     ..Default::default()
                 });
 
-                let right_section = column![Space::with_height(Length::Fill), bottom_right_card,]
+                let right_section = column![Space::new().height(Length::Fill), bottom_right_card,]
                     .width(340)
                     .height(Length::Fill)
                     .align_x(Alignment::End);
 
-                row![left_section, Space::with_width(20), right_section,]
+                row![left_section, Space::new().width(20), right_section,]
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .into()

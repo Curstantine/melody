@@ -76,7 +76,7 @@ impl PlayerBar {
         .spacing(2)
         .width(Length::Fill);
 
-        let track_section = row![cover_art, Space::with_width(10), track_details]
+        let track_section = row![cover_art, Space::new().width(10), track_details]
             .spacing(2)
             .align_y(Alignment::Center)
             .width(Length::Fill);
@@ -188,7 +188,7 @@ impl PlayerBar {
         .spacing(6)
         .align_y(Alignment::Center);
 
-        let right_controls = row![shuffle_btn, repeat_btn, Space::with_width(6), vol_control,]
+        let right_controls = row![shuffle_btn, repeat_btn, Space::new().width(6), vol_control,]
             .spacing(4)
             .align_y(Alignment::Center);
 
@@ -197,7 +197,7 @@ impl PlayerBar {
             container(track_section)
                 .width(Length::Fill)
                 .align_y(Alignment::Center),
-            Space::with_width(buttons_width + 48.0),
+            Space::new().width(buttons_width + 48.0),
             container(right_controls)
                 .width(Length::Fill)
                 .align_x(Alignment::End)
@@ -221,7 +221,7 @@ impl PlayerBar {
             .width(Length::Fill)
             .height(8);
 
-        let top_right_timing = row![Space::with_width(Length::Fill), time_info,]
+        let top_right_timing = row![Space::new().width(Length::Fill), time_info,]
             .padding(iced::Padding {
                 top: 8.0,
                 right: 20.0,

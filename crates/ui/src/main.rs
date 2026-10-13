@@ -21,7 +21,8 @@ fn main() -> iced::Result {
         )
         .try_init();
 
-    let mut builder = iced::application(App::title, App::update, App::view)
+    let mut builder = iced::application(App::new, App::update, App::view)
+        .title(App::title)
         .theme(App::theme)
         .subscription(App::subscription)
         .window(window::Settings {
@@ -38,5 +39,5 @@ fn main() -> iced::Result {
         builder = builder.default_font(theme::font_from_family_name(Some(font_name)));
     }
 
-    builder.run_with(App::new)
+    builder.run()
 }
