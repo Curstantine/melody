@@ -458,7 +458,7 @@ pub fn search_input_style(
         };
 
         text_input::Style {
-            background: Background::Color(cfg.surface_hover_color()),
+            background: Background::Color(cfg.surface_color()),
             border: Border {
                 color: border_color,
                 width: 1.0,
@@ -547,7 +547,7 @@ pub fn settings_slider_style(
             rail: slider::Rail {
                 backgrounds: (
                     Background::Color(cfg.primary_color()),
-                    Background::Color(cfg.surface_hover_color()),
+                    Background::Color(cfg.surface_color()),
                 ),
                 width: 4.0,
                 border: Border {

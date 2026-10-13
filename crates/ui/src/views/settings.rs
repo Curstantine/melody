@@ -408,7 +408,7 @@ impl SettingsView {
         .padding(12)
         .width(Length::Fill)
         .style(move |_theme| container::Style {
-            background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+            background: Some(iced::Background::Color(theme_cfg.surface_color())),
             border: Border {
                 radius: Radius::from(4.0),
                 color: theme_cfg.border_color(),
@@ -798,7 +798,7 @@ impl SettingsView {
             .width(Length::Fill)
             .align_x(Alignment::Center)
             .style(move |_theme| container::Style {
-                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+                background: Some(iced::Background::Color(theme_cfg.surface_color())),
                 border: Border {
                     radius: Radius::from(4.0),
                     color: theme_cfg.border_color(),
@@ -866,7 +866,7 @@ impl SettingsView {
                 .padding([8, 12])
                 .width(Length::Fill)
                 .style(move |_theme| container::Style {
-                    background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+                    background: Some(iced::Background::Color(theme_cfg.surface_color())),
                     border: Border {
                         radius: Radius::from(4.0),
                         color: theme_cfg.border_color(),

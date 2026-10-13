@@ -186,7 +186,7 @@ impl ThemeConfig {
     }
 
     pub fn slider_rail_color(&self) -> Color {
-        self.slider_rail.unwrap_or(self.surface_hover)
+        self.slider_rail.unwrap_or(self.surface)
     }
 
     pub fn to_palette(&self) -> Palette {

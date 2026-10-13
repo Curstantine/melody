@@ -249,7 +249,7 @@ pub fn cover_art<'a>(
 ) -> Element<'a, Message> {
     let radius: Radius = radius.into();
     let border_color = theme_cfg.border_color();
-    let hover_bg = theme_cfg.surface_hover_color();
+    let placeholder_bg = theme_cfg.surface_color();
 
     match cover {
         Some(handle) => container(
@@ -282,7 +282,7 @@ pub fn cover_art<'a>(
         .center_x(size)
         .center_y(size)
         .style(move |_theme| container::Style {
-            background: Some(iced::Background::Color(hover_bg)),
+            background: Some(iced::Background::Color(placeholder_bg)),
             border: Border {
                 radius,
                 color: border_color,
@@ -359,7 +359,7 @@ pub fn metric_box<'a>(
         .padding([8, 12]),
     )
     .style(move |_theme| container::Style {
-        background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+        background: Some(iced::Background::Color(theme_cfg.surface_color())),
         border: Border {
             radius: Radius::from(4.0),
             color: theme_cfg.border_color(),

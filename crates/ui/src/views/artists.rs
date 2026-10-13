@@ -413,7 +413,7 @@ impl ArtistsView {
         ))
         .center(avatar_size) // sets width + height and centers the icon
         .style(move |_theme| container::Style {
-            background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+            background: Some(iced::Background::Color(theme_cfg.surface_color())),
             border: Border {
                 radius: Radius::from(avatar_size / 2.0),
                 color: theme_cfg.border_color(),
@@ -476,7 +476,7 @@ impl ArtistsView {
             .center_x(36)
             .center_y(36)
             .style(move |_theme| container::Style {
-                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+                background: Some(iced::Background::Color(theme_cfg.surface_color())),
                 border: Border {
                     color: theme_cfg.border_color(),
                     width: 1.0,
