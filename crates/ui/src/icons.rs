@@ -103,9 +103,6 @@ pub const RADIO_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="
 /// Boxicons `chevron-left`.
 pub const ARROW_LEFT_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M14.29 6.29L8.59 12l5.7 5.71l1.42-1.42l-4.3-4.29l4.3-4.29z"/></svg>"#;
 
-/// Boxicons `chevron-right`.
-pub const ARROW_RIGHT_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m9.71 17.71l5.7-5.71l-5.7-5.71l-1.42 1.42l4.3 4.29l-4.3 4.29z"/></svg>"#;
-
 pub fn icon<'a>(svg_str: &'static str, size: f32, color: Color) -> Svg<'a, Theme> {
     iced::widget::svg(Handle::from_memory(svg_str.as_bytes()))
         .width(Length::Fixed(size))

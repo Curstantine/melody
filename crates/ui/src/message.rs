@@ -229,6 +229,10 @@ pub enum Message {
         playlist_id: i64,
         success: bool,
     },
+    PlaylistRemoveTrack {
+        playlist_id: i64,
+        index: usize,
+    },
     RenamePlaylist(i64),
     RenamePlaylistNameChanged(String),
     RenamePlaylistSubmitted(i64, String),

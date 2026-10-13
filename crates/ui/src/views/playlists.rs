@@ -1,9 +1,10 @@
 use core_engine::{PlaylistEntry, PlaylistSummary, SortDirection};
 use iced::border::Radius;
 use iced::widget::{button, column, container, row, scrollable, text_input, Space};
-use iced::{Alignment, Border, Element, Length};
+use iced::{Alignment, Element, Length};
 use std::time::Instant;
 
+use crate::components::track_row::{track_row, TrackRowProps};
 use crate::components::{self, text};
 use crate::icons;
 use crate::message::{Message, PlaylistItem, PlaylistSection, PlaylistSortField, ViewMode};
@@ -239,6 +240,49 @@ impl PlaylistsView {
         self.detail_items.insert(to, item);
         let entry = self.detail_entries.remove(from);
         self.detail_entries.insert(to, entry);
+        true
+    }
+
+    /// Removes an open-playlist row, keeping display items and raw file
+    /// entries 1:1 so the file rewrite preserves every remaining line.
+    /// Selection/hover/click state is shifted or cleared to match.
+    pub fn remove_detail_entry(&mut self, playlist_id: i64, index: usize) -> bool {
+        if self.selected_id != Some(playlist_id) {
+            return false;
+        }
+        let len = self.detail_items.len();
+        if index >= len || self.detail_entries.len() != len {
+            return false;
+        }
+        self.detail_items.remove(index);
+        self.detail_entries.remove(index);
+        self.selected_detail_track = match self.selected_detail_track {
+            Some((id, i)) if id == playlist_id => {
+                if i == index {
+                    None
+                } else if i > index {
+                    Some((id, i - 1))
+                } else {
+                    Some((id, i))
+                }
+            }
+            other => other,
+        };
+        self.hovered_detail_row = match self.hovered_detail_row {
+            Some((id, i)) if id == playlist_id && i == index => None,
+            Some((id, i)) if id == playlist_id && i > index => Some((id, i - 1)),
+            other => other,
+        };
+        if self
+            .last_detail_click
+            .is_some_and(|(id, i, _)| id == playlist_id && i == index)
+        {
+            self.last_detail_click = None;
+        } else if let Some((id, i, t)) = self.last_detail_click {
+            if id == playlist_id && i > index {
+                self.last_detail_click = Some((id, i - 1, t));
+            }
+        }
         true
     }
 
@@ -483,20 +527,20 @@ impl PlaylistsView {
             .padding([4, 6])
             .on_press(Message::PlayPlaylist(playlist.id));
 
-            let open_btn = button(icons::icon(
-                icons::ARROW_RIGHT_SVG,
+            let delete_btn = button(icons::icon(
+                icons::TRASH_SVG,
                 12.0,
                 theme_cfg.text_muted_color(),
             ))
             .style(styles::icon_control_button(theme_cfg))
             .padding([4, 6])
-            .on_press(Message::SelectPlaylist(playlist.id));
+            .on_press(Message::DeletePlaylist(playlist.id));
 
             // The highlight wraps the whole row so the background spans the
             // content and the action buttons.
             list = list.push(
                 container(
-                    row![open_row, play_btn, open_btn]
+                    row![open_row, play_btn, delete_btn]
                         .spacing(4)
                         .align_y(Alignment::Center)
                         .padding(iced::Padding {
@@ -526,24 +570,18 @@ impl PlaylistsView {
         for idx in self.sorted_indices() {
             let playlist = &self.playlists[idx];
 
-            let icon = container(icons::icon(
+            // Same cover renderer as the album tile (square corners, 1px
+            // border); playlists have no artwork, so the icon fallback
+            // always shows.
+            let icon = components::cover_art(
+                theme_cfg,
+                None,
+                PLAYLIST_TILE_SIZE,
+                Radius::default(),
                 icons::PLAYLIST_SVG,
                 PLAYLIST_TILE_SIZE * 0.34,
                 theme_cfg.primary_color(),
-            ))
-            .width(PLAYLIST_TILE_SIZE)
-            .height(PLAYLIST_TILE_SIZE)
-            .center_x(PLAYLIST_TILE_SIZE)
-            .center_y(PLAYLIST_TILE_SIZE)
-            .style(move |_theme| container::Style {
-                background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
-                border: Border {
-                    radius: Radius::from(6.0),
-                    color: theme_cfg.border_color(),
-                    width: 1.0,
-                },
-                ..Default::default()
-            });
+            );
 
             let meta = container(
                 column![
@@ -560,16 +598,38 @@ impl PlaylistsView {
             .width(PLAYLIST_TILE_SIZE)
             .height(48);
 
-            let card = button(
-                container(column![icon, meta])
-                    .width(PLAYLIST_TILE_SIZE)
-                    .clip(true),
-            )
-            .style(styles::tile(theme_cfg))
-            .padding(0)
-            .on_press(Message::SelectPlaylist(playlist.id));
+            let card_content = container(column![icon, meta])
+                .width(PLAYLIST_TILE_SIZE)
+                .clip(true);
 
-            tile_row = tile_row.push(card);
+            let select_btn = button(card_content)
+                .style(styles::tile(theme_cfg))
+                .padding(0)
+                .on_press(Message::SelectPlaylist(playlist.id));
+
+            let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text_color()))
+                .style(styles::icon_control_button(theme_cfg))
+                .padding(4)
+                .on_press(Message::PlayPlaylist(playlist.id));
+
+            let delete_btn = button(icons::icon(icons::TRASH_SVG, 14.0, theme_cfg.text_color()))
+                .style(styles::icon_control_button(theme_cfg))
+                .padding(4)
+                .on_press(Message::DeletePlaylist(playlist.id));
+
+            // Action buttons overlay the cover's bottom-right corner, just
+            // like the album tile: the actions container is sized to the
+            // cover and stacked above the select button.
+            let actions = container(row![play_btn, delete_btn].spacing(4))
+                .width(PLAYLIST_TILE_SIZE)
+                .height(PLAYLIST_TILE_SIZE)
+                .align_x(Alignment::End)
+                .align_y(Alignment::End)
+                .padding(6);
+
+            let tile = iced::widget::stack([select_btn.into(), actions.into()]);
+
+            tile_row = tile_row.push(tile);
             columns += 1;
             if columns == 5 {
                 grid = grid.push(tile_row);
@@ -699,9 +759,9 @@ impl PlaylistsView {
         } else {
             column![
                 text(theme_cfg, self.detail_name.as_str())
-                    .size(18)
+                    .size(15)
                     .color(theme_cfg.text_color()),
-                text(theme_cfg, self.detail_path.as_str())
+                text(theme_cfg, format!("{} tracks", self.detail_items.len()))
                     .size(11)
                     .color(theme_cfg.text_muted_color()),
             ]
@@ -709,51 +769,52 @@ impl PlaylistsView {
             .into()
         };
 
-        let action = |label: &'static str, icon: &'static str, msg: Message| {
-            button(
-                row![
-                    icons::icon(icon, 12.0, theme_cfg.text_color()),
-                    Space::with_width(5),
-                    text(theme_cfg, label)
-                        .size(11)
-                        .color(theme_cfg.text_color()),
-                ]
-                .align_y(Alignment::Center),
-            )
-            .padding([5, 10])
-            .style(styles::ghost_button(theme_cfg, false))
-            .on_press(msg)
-        };
-
         let actions = row![
-            action("Play", icons::PLAY_SVG, Message::PlayPlaylist(playlist_id)),
-            action(
-                "Add to Queue",
+            components::chip_with_icon(
+                theme_cfg,
+                icons::PLAY_SVG,
+                "Play",
+                false,
+                Message::PlayPlaylist(playlist_id),
+            ),
+            components::chip_with_icon(
+                theme_cfg,
                 icons::QUEUE_SVG,
-                Message::PlaylistToQueue(playlist_id)
+                "Add to Queue",
+                false,
+                Message::PlaylistToQueue(playlist_id),
             ),
-            action(
-                "Rename",
+            components::chip_with_icon(
+                theme_cfg,
                 icons::REFRESH_SVG,
-                Message::RenamePlaylist(playlist_id)
+                "Rename",
+                false,
+                Message::RenamePlaylist(playlist_id),
             ),
-            action(
-                "Delete",
+            components::chip_with_icon(
+                theme_cfg,
                 icons::TRASH_SVG,
-                Message::DeletePlaylist(playlist_id)
+                "Delete",
+                false,
+                Message::DeletePlaylist(playlist_id),
             ),
         ]
         .spacing(6)
         .align_y(Alignment::Center);
 
-        let header_block = container(column![header, Space::with_height(8), actions].spacing(4))
-            .padding(iced::Padding {
-                top: 8.0,
-                right: 16.0,
-                bottom: 8.0,
-                left: 16.0,
-            })
-            .width(Length::Fill);
+        // Title on the left, actions on the right — mirroring `queue_header`.
+        let header_block = container(
+            row![container(header).width(Length::Fill), actions,]
+                .spacing(6)
+                .align_y(Alignment::Center),
+        )
+        .padding(iced::Padding {
+            top: 6.0,
+            right: 16.0,
+            bottom: 8.0,
+            left: 16.0,
+        })
+        .width(Length::Fill);
 
         let mut list = column![].spacing(1).width(Length::Fill);
         if self.detail_items.is_empty() {
@@ -775,115 +836,24 @@ impl PlaylistsView {
             };
             for (index, item) in self.detail_items.iter().enumerate() {
                 let available = item.is_available();
-                let is_selected = self.selected_detail_track == Some((playlist_id, index));
-                let is_dragging = dragging_detail == Some((playlist_id, index));
-                let show_handle =
-                    is_dragging || self.hovered_detail_row == Some((playlist_id, index));
-                let title_color = if available {
-                    theme_cfg.text_color()
-                } else {
-                    theme_cfg.text_muted_color()
-                };
-
-                // Leading slot: track number by default, drag handle while
-                // hovered (or dragged). Fixed 36x26 bounds in both states so
-                // the swap never shifts layout or re-fires hover.
-                let slot_content: Element<'a, Message> = if show_handle {
-                    container(icons::icon(
-                        icons::QUEUE_SVG,
-                        12.0,
-                        theme_cfg.text_muted_color(),
-                    ))
-                    .width(36)
-                    .height(26)
-                    .center_x(36)
-                    .center_y(26)
-                    .into()
-                } else {
-                    container(
-                        text(theme_cfg, format!("{}", index + 1))
-                            .size(12)
-                            .color(theme_cfg.text_muted_color()),
-                    )
-                    .width(36)
-                    .height(26)
-                    .center_x(36)
-                    .center_y(26)
-                    .into()
-                };
-                let mut slot = iced::widget::mouse_area(slot_content)
-                    .on_enter(row_hover_enter(index))
-                    .on_exit(Message::PlaylistDetailHovered(None));
-                if show_handle {
-                    // Only the revealed handle starts a drag (never the bare
-                    // number, which also keeps touch scrolling safe).
-                    slot = slot
-                        .on_press(Message::PlaylistDetailDragStarted { playlist_id, index })
-                        .on_release(Message::PlaylistDetailDragReleased)
-                        .interaction(iced::mouse::Interaction::Grab);
-                }
-
-                let title = text(theme_cfg, item.title.as_str())
-                    .size(13)
-                    .color(title_color);
-                let artist = text(theme_cfg, item.artist.as_str())
-                    .size(11)
-                    .color(theme_cfg.text_muted_color());
-                let duration = text(theme_cfg, item.duration_label.as_str())
-                    .size(12)
-                    .color(theme_cfg.text_muted_color())
-                    .width(80);
-
-                let row_content = row![
-                    title.width(Length::FillPortion(5)),
-                    artist.width(Length::FillPortion(4)),
-                    duration,
-                ]
-                .spacing(8)
-                .align_y(Alignment::Center)
-                .height(26);
-
-                let row_container = container(row_content).width(Length::Fill).height(26);
-
-                // Single click selects (arming double-click to play).
-                // Unavailable rows stay unclickable for playback but remain
-                // draggable via the handle.
-                let body: Element<'a, Message> = if available {
-                    iced::widget::mouse_area(row_container)
-                        .on_press(Message::PlaylistDetailClicked { playlist_id, index })
-                        .on_enter(row_hover_enter(index))
-                        .on_exit(Message::PlaylistDetailHovered(None))
-                        .interaction(iced::mouse::Interaction::Pointer)
-                        .into()
-                } else {
-                    iced::widget::mouse_area(row_container)
-                        .on_enter(row_hover_enter(index))
-                        .on_exit(Message::PlaylistDetailHovered(None))
-                        .into()
-                };
-
-                // The highlight wraps the whole row so the background spans
-                // the handle slot and the content.
-                list = list.push(
-                    container(
-                        row![slot, body]
-                            .spacing(4)
-                            .align_y(Alignment::Center)
-                            .padding(iced::Padding {
-                                top: 0.0,
-                                right: 12.0,
-                                bottom: 0.0,
-                                left: 4.0,
-                            }),
-                    )
-                    .style(styles::queue_row_container(
-                        theme_cfg,
-                        is_selected,
-                        is_dragging,
-                    ))
-                    .width(Length::Fill)
-                    .height(26),
-                );
+                list = list.push(track_row(TrackRowProps {
+                    theme: theme_cfg,
+                    index,
+                    title: item.title.as_str(),
+                    artist: item.artist.as_str(),
+                    duration: item.duration_label.as_str(),
+                    highlighted: self.selected_detail_track == Some((playlist_id, index)),
+                    dragging: dragging_detail == Some((playlist_id, index)),
+                    show_handle: dragging_detail == Some((playlist_id, index))
+                        || self.hovered_detail_row == Some((playlist_id, index)),
+                    on_press: available
+                        .then_some(Message::PlaylistDetailClicked { playlist_id, index }),
+                    drag_start: Message::PlaylistDetailDragStarted { playlist_id, index },
+                    drag_release: Message::PlaylistDetailDragReleased,
+                    hover_enter: row_hover_enter(index),
+                    hover_exit: Message::PlaylistDetailHovered(None),
+                    on_remove: Message::PlaylistRemoveTrack { playlist_id, index },
+                }));
             }
         }
 
@@ -1006,122 +976,33 @@ impl PlaylistsView {
             for (offset, track) in active.tracks[start..end].iter().enumerate() {
                 let index = start + offset;
                 let is_current = current == Some(index);
-                let is_selected = self.selected_queue_track == Some((active_id, index));
-                let is_dragging = dragging_track == Some((active_id, index));
-                let show_handle = is_dragging || self.hovered_queue_row == Some((active_id, index));
-
-                // Leading slot: track number by default, drag handle while
-                // hovered (or dragged). Fixed 36x26 bounds in both states so
-                // the swap never shifts layout or re-fires hover.
-                let slot_content: Element<'a, Message> = if show_handle {
-                    container(icons::icon(
-                        icons::QUEUE_SVG,
-                        12.0,
-                        theme_cfg.text_muted_color(),
-                    ))
-                    .width(36)
-                    .height(26)
-                    .center_x(36)
-                    .center_y(26)
-                    .into()
-                } else {
-                    container(text(theme_cfg, format!("{}", index + 1)).size(12).color(
-                        if is_current {
-                            theme_cfg.primary_color()
-                        } else {
-                            theme_cfg.text_muted_color()
-                        },
-                    ))
-                    .width(36)
-                    .height(26)
-                    .center_x(36)
-                    .center_y(26)
-                    .into()
-                };
-                let mut slot = iced::widget::mouse_area(slot_content)
-                    .on_enter(row_hover_enter(index))
-                    .on_exit(Message::QueueRowHovered(None));
-                if show_handle {
-                    // Only the revealed handle starts a drag (never the bare
-                    // number, which also keeps touch scrolling safe).
-                    slot = slot
-                        .on_press(Message::QueueDragStarted {
-                            queue_id: active_id,
-                            index,
-                        })
-                        .on_release(Message::QueueDragReleased)
-                        .interaction(iced::mouse::Interaction::Grab);
-                }
-
-                let title = text(theme_cfg, track.title.as_str())
-                    .size(13)
-                    .color(if is_current {
-                        theme_cfg.primary_color()
-                    } else {
-                        theme_cfg.text_color()
-                    });
-                let artist = text(theme_cfg, track.display_artist())
-                    .size(11)
-                    .color(theme_cfg.text_muted_color());
-
-                let row_content = row![
-                    title.width(Length::FillPortion(5)),
-                    artist.width(Length::FillPortion(4)),
-                    text(theme_cfg, track.formatted_duration())
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(64),
-                ]
-                .spacing(8)
-                .align_y(Alignment::Center)
-                .height(26);
-
-                let row_container = container(row_content).width(Length::Fill).height(26);
-
-                // Single click selects (arming double-click to play).
-                let body = iced::widget::mouse_area(row_container)
-                    .on_press(Message::QueueClicked {
+                list = list.push(track_row(TrackRowProps {
+                    theme: theme_cfg,
+                    index,
+                    title: track.title.as_str(),
+                    artist: track.display_artist(),
+                    duration: track.formatted_duration(),
+                    highlighted: is_current
+                        || self.selected_queue_track == Some((active_id, index)),
+                    dragging: dragging_track == Some((active_id, index)),
+                    show_handle: dragging_track == Some((active_id, index))
+                        || self.hovered_queue_row == Some((active_id, index)),
+                    on_press: Some(Message::QueueClicked {
                         queue_id: active_id,
                         index,
-                    })
-                    .on_enter(row_hover_enter(index))
-                    .on_exit(Message::QueueRowHovered(None))
-                    .interaction(iced::mouse::Interaction::Pointer);
-
-                let remove_btn = button(icons::icon(
-                    icons::TRASH_SVG,
-                    12.0,
-                    theme_cfg.text_muted_color(),
-                ))
-                .style(styles::icon_control_button(theme_cfg))
-                .padding([3, 5])
-                .on_press(Message::QueueRemoveTrack {
-                    queue_id: active_id,
-                    index,
-                });
-
-                // The highlight wraps the whole row so the background spans
-                // the handle slot, the content, and the delete button.
-                list = list.push(
-                    container(
-                        row![slot, body, remove_btn]
-                            .spacing(4)
-                            .align_y(Alignment::Center)
-                            .padding(iced::Padding {
-                                top: 0.0,
-                                right: 12.0,
-                                bottom: 0.0,
-                                left: 4.0,
-                            }),
-                    )
-                    .style(styles::queue_row_container(
-                        theme_cfg,
-                        is_current || is_selected,
-                        is_dragging,
-                    ))
-                    .width(Length::Fill)
-                    .height(26),
-                );
+                    }),
+                    drag_start: Message::QueueDragStarted {
+                        queue_id: active_id,
+                        index,
+                    },
+                    drag_release: Message::QueueDragReleased,
+                    hover_enter: row_hover_enter(index),
+                    hover_exit: Message::QueueRowHovered(None),
+                    on_remove: Message::QueueRemoveTrack {
+                        queue_id: active_id,
+                        index,
+                    },
+                }));
             }
             let bottom_spacer = total.saturating_sub(end) as f32 * QUEUE_ROW_HEIGHT;
             if bottom_spacer > 0.0 {
@@ -1185,9 +1066,9 @@ impl PlaylistsView {
         .spacing(6)
         .align_y(Alignment::Center)
         .padding(iced::Padding {
-            top: 4.0,
+            top: 6.0,
             right: 16.0,
-            bottom: 6.0,
+            bottom: 8.0,
             left: 16.0,
         })
         .into()

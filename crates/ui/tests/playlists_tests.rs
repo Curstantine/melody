@@ -137,6 +137,93 @@ fn reordered_entries_round_trip_through_m3u_file() {
 }
 
 #[test]
+fn shared_track_row_renders_without_panicking() {
+    use components::track_row::{track_row, TrackRowProps};
+    use message::Message;
+    use theme::ThemeConfig;
+
+    let theme_cfg = ThemeConfig::default();
+
+    // Open-playlist context: clickable row.
+    let _ = track_row(TrackRowProps {
+        theme: &theme_cfg,
+        index: 0,
+        title: "One",
+        artist: "Artist",
+        duration: "3:00",
+        highlighted: true,
+        dragging: false,
+        show_handle: true,
+        on_press: Some(Message::PlaylistDetailClicked {
+            playlist_id: 7,
+            index: 0,
+        }),
+        drag_start: Message::PlaylistDetailDragStarted {
+            playlist_id: 7,
+            index: 0,
+        },
+        drag_release: Message::PlaylistDetailDragReleased,
+        hover_enter: Message::PlaylistDetailHovered(Some((7, 0))),
+        hover_exit: Message::PlaylistDetailHovered(None),
+        on_remove: Message::PlaylistRemoveTrack {
+            playlist_id: 7,
+            index: 0,
+        },
+    });
+
+    // Open-playlist context: unmatched (unclickable) entry.
+    let _ = track_row(TrackRowProps {
+        theme: &theme_cfg,
+        index: 1,
+        title: "Missing",
+        artist: "Artist",
+        duration: "3:00",
+        highlighted: false,
+        dragging: false,
+        show_handle: false,
+        on_press: None,
+        drag_start: Message::PlaylistDetailDragStarted {
+            playlist_id: 7,
+            index: 1,
+        },
+        drag_release: Message::PlaylistDetailDragReleased,
+        hover_enter: Message::PlaylistDetailHovered(Some((7, 1))),
+        hover_exit: Message::PlaylistDetailHovered(None),
+        on_remove: Message::PlaylistRemoveTrack {
+            playlist_id: 7,
+            index: 1,
+        },
+    });
+
+    // Queue context.
+    let _ = track_row(TrackRowProps {
+        theme: &theme_cfg,
+        index: 2,
+        title: "Three",
+        artist: "Artist",
+        duration: "4:12",
+        highlighted: false,
+        dragging: false,
+        show_handle: false,
+        on_press: Some(Message::QueueClicked {
+            queue_id: 1,
+            index: 2,
+        }),
+        drag_start: Message::QueueDragStarted {
+            queue_id: 1,
+            index: 2,
+        },
+        drag_release: Message::QueueDragReleased,
+        hover_enter: Message::QueueRowHovered(Some((1, 2))),
+        hover_exit: Message::QueueRowHovered(None),
+        on_remove: Message::QueueRemoveTrack {
+            queue_id: 1,
+            index: 2,
+        },
+    });
+}
+
+#[test]
 fn detail_state_resets_with_detail() {
     let mut view = detail_view();
     view.on_detail_click(7, 0);
@@ -147,4 +234,48 @@ fn detail_state_resets_with_detail() {
     assert!(view.hovered_detail_row.is_none());
     assert!(view.last_detail_click.is_none());
     assert_eq!(view.section, PlaylistSection::Playlists);
+}
+
+#[test]
+fn remove_detail_entry_keeps_items_and_entries_in_sync() {
+    let mut view = detail_view();
+    assert!(view.remove_detail_entry(7, 1));
+    assert_eq!(
+        view.detail_items
+            .iter()
+            .map(|i| i.title.as_str())
+            .collect::<Vec<_>>(),
+        vec!["One", "Three"]
+    );
+    assert_eq!(
+        view.detail_entries
+            .iter()
+            .map(|e| e.raw_path.as_str())
+            .collect::<Vec<_>>(),
+        vec!["/music/1.flac", "/music/3.flac"],
+        "raw file entries (including unmatched lines) follow the same removal"
+    );
+}
+
+#[test]
+fn remove_detail_entry_rejects_bad_removals() {
+    let mut view = detail_view();
+    assert!(!view.remove_detail_entry(7, 3), "out of bounds is a no-op");
+    assert!(!view.remove_detail_entry(9, 0), "wrong playlist is a no-op");
+    assert_eq!(view.detail_items.len(), 3);
+    assert_eq!(view.detail_entries.len(), 3);
+}
+
+#[test]
+fn remove_detail_entry_shifts_selection_state() {
+    let mut view = detail_view();
+    view.selected_detail_track = Some((7, 2));
+    view.hovered_detail_row = Some((7, 2));
+    assert!(view.remove_detail_entry(7, 0));
+    assert_eq!(view.selected_detail_track, Some((7, 1)));
+    assert_eq!(view.hovered_detail_row, Some((7, 1)));
+
+    assert!(view.remove_detail_entry(7, 1));
+    assert!(view.selected_detail_track.is_none());
+    assert!(view.hovered_detail_row.is_none());
 }

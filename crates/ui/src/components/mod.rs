@@ -11,6 +11,7 @@ use std::borrow::Cow;
 
 pub mod marquee;
 pub mod spinner;
+pub mod track_row;
 #[allow(unused_imports)]
 pub use marquee::Marquee;
 pub use spinner::Spinner;

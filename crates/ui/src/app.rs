@@ -1160,6 +1160,34 @@ impl App {
                 self.playlists.hovered_detail_row = target;
                 Task::none()
             }
+            Message::PlaylistRemoveTrack { playlist_id, index } => {
+                if !self.playlists.remove_detail_entry(playlist_id, index) {
+                    return Task::none();
+                }
+                // A removal invalidates any in-progress handle-drag indices
+                // for the same playlist, so cancel the drag outright.
+                if self
+                    .dragging_detail
+                    .is_some_and(|(id, _)| id == playlist_id)
+                {
+                    self.dragging_detail = None;
+                    self.drag_detail_order_changed = false;
+                }
+                let path = self.playlists.detail_path.clone();
+                let entries = self.playlists.detail_entries.clone();
+                Task::perform(
+                    async move {
+                        let wrote = tokio::task::spawn_blocking(move || write_m3u(&path, &entries))
+                            .await
+                            .is_ok_and(|result| result.is_ok());
+                        (playlist_id, wrote)
+                    },
+                    |(playlist_id, success)| Message::PlaylistDetailPersisted {
+                        playlist_id,
+                        success,
+                    },
+                )
+            }
             Message::PlaylistDetailPersisted {
                 playlist_id,
                 success,
@@ -1168,6 +1196,24 @@ impl App {
                     // Disk write failed: reload from the file to undo the
                     // optimistic in-memory reorder.
                     return self.resolve_playlist_intent(playlist_id, PlaylistOpenIntent::View);
+                }
+                if success && self.playlists.selected_id == Some(playlist_id) {
+                    // Reorder leaves the count unchanged but removal shrinks
+                    // it, so refresh the cached catalog count in both cases.
+                    let path = self.playlists.detail_path.clone();
+                    let name = self.playlists.detail_name.clone();
+                    let count = self.playlists.detail_items.len();
+                    if path.is_empty() {
+                        return Task::none();
+                    }
+                    let db = self.db.clone();
+                    return Task::perform(
+                        async move {
+                            let _ = db.upsert_playlist_file(&path, &name, count).await;
+                            db.get_playlists().await.unwrap_or_default()
+                        },
+                        Message::PlaylistsLoaded,
+                    );
                 }
                 Task::none()
             }
