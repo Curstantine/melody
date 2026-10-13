@@ -73,10 +73,10 @@ fn test_flac_embedded_picture_empty_mime() {
     let img = image::RgbImage::new(100, 100);
     let mut jpeg_bytes = Vec::new();
     image::DynamicImage::ImageRgb8(img)
-        .write_to(
-            &mut std::io::Cursor::new(&mut jpeg_bytes),
-            image::ImageOutputFormat::Jpeg(80),
-        )
+        .write_with_encoder(image::codecs::jpeg::JpegEncoder::new_with_quality(
+            &mut jpeg_bytes,
+            80,
+        ))
         .unwrap();
 
     // 2. Build a valid FLAC container with STREAMINFO and PICTURE blocks

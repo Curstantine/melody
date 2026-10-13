@@ -1,10 +1,9 @@
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
-use image::ImageOutputFormat;
+use image::codecs::jpeg::JpegEncoder;
 use tracing::debug;
 
 use crate::metadata::extract_cover_art;
@@ -78,15 +77,11 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
             let thumb = img.resize_to_fill(max_dim, max_dim, image::imageops::FilterType::Triangle);
             let rgb = image::DynamicImage::ImageRgb8(thumb.to_rgb8());
 
-            let output_format = if max_dim >= THUMB_DIM_HIGH {
-                ImageOutputFormat::Jpeg(85)
-            } else {
-                ImageOutputFormat::Jpeg(70)
-            };
+            let quality = if max_dim >= THUMB_DIM_HIGH { 85 } else { 70 };
 
             let mut out_bytes = Vec::new();
             if rgb
-                .write_to(&mut Cursor::new(&mut out_bytes), output_format)
+                .write_with_encoder(JpegEncoder::new_with_quality(&mut out_bytes, quality))
                 .is_ok()
             {
                 let _ = fs::create_dir_all(&cache_dir);
@@ -130,11 +125,8 @@ pub fn generate_blurred_cover(image_bytes: &[u8]) -> Option<Vec<u8>> {
     let rgb = image::DynamicImage::ImageRgba8(darken);
 
     let mut out_bytes = Vec::new();
-    rgb.write_to(
-        &mut Cursor::new(&mut out_bytes),
-        ImageOutputFormat::Jpeg(70),
-    )
-    .ok()?;
+    rgb.write_with_encoder(JpegEncoder::new_with_quality(&mut out_bytes, 70))
+        .ok()?;
 
     Some(out_bytes)
 }

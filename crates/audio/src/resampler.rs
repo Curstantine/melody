@@ -1,4 +1,5 @@
-use rubato::{FftFixedIn, Resampler};
+use rubato::audioadapter_buffers::direct::{SequentialSliceOfSlices, SequentialSliceOfVecs};
+use rubato::{Fft, FixedSync, Resampler, WindowFunction};
 use tracing::warn;
 
 /// ITU-R BS.775 downmix coefficients for center and surround channels.
@@ -84,7 +85,7 @@ pub struct AudioConverter {
     dst_sample_rate: u32,
     /// rubato FFT resampler operating on `src_channels` separate channel
     /// planes. `None` when src and dst sample rates are identical.
-    resampler: Option<FftFixedIn<f32>>,
+    resampler: Option<Fft<f32>>,
     /// Planar channel buffers fed into rubato.
     input_planes: Vec<Vec<f32>>,
     /// Planar channel buffers produced by rubato.
@@ -111,12 +112,14 @@ impl AudioConverter {
 
         // Build a rubato FFT resampler when sample rates differ.
         let resampler = if src_sample_rate != dst_sample_rate {
-            match FftFixedIn::<f32>::new(
+            match Fft::<f32>::new_custom(
                 src_sample_rate as usize,
                 dst_sample_rate as usize,
                 RESAMPLE_CHUNK,
                 2, // sub-chunks — 2 gives a good quality/latency trade-off
                 src_channels,
+                WindowFunction::BlackmanHarris2,
+                FixedSync::Input,
             ) {
                 Ok(r) => Some(r),
                 Err(e) => {
@@ -160,12 +163,14 @@ impl AudioConverter {
         }
         // Recreate the resampler to flush its internal delay line.
         if self.resampler.is_some() {
-            self.resampler = FftFixedIn::<f32>::new(
+            self.resampler = Fft::<f32>::new_custom(
                 self.src_sample_rate as usize,
                 self.dst_sample_rate as usize,
                 RESAMPLE_CHUNK,
                 2,
                 self.src_channels,
+                WindowFunction::BlackmanHarris2,
+                FixedSync::Input,
             )
             .ok();
         }
@@ -236,7 +241,27 @@ impl AudioConverter {
                 slices.push(&p[offset..offset + chunk]);
             }
 
-            match resampler.process_into_buffer(&slices, &mut self.output_planes, None) {
+            let input_adapter = match SequentialSliceOfSlices::new(&slices, src_channels, chunk) {
+                Ok(adapter) => adapter,
+                Err(e) => {
+                    warn!("Resampler input adapter error: {}", e);
+                    break;
+                }
+            };
+            let out_capacity = self.output_planes.first().map(Vec::len).unwrap_or(0);
+            let mut output_adapter = match SequentialSliceOfVecs::new_mut(
+                &mut self.output_planes,
+                src_channels,
+                out_capacity,
+            ) {
+                Ok(adapter) => adapter,
+                Err(e) => {
+                    warn!("Resampler output adapter error: {}", e);
+                    break;
+                }
+            };
+
+            match resampler.process_into_buffer(&input_adapter, &mut output_adapter, None) {
                 Ok((_, out_frames)) => {
                     // Re-interleave src_channels planes → dst_channels output
                     let mut src_frame_stack = [0.0f32; 8];
@@ -316,7 +341,27 @@ impl AudioConverter {
         let src_channels = self.src_channels;
         let dst_channels = self.dst_channels;
 
-        match resampler.process_into_buffer(&slices, &mut self.output_planes, None) {
+        let input_adapter = match SequentialSliceOfSlices::new(&slices, src_channels, chunk) {
+            Ok(adapter) => adapter,
+            Err(e) => {
+                warn!("Resampler flush input adapter error: {}", e);
+                return;
+            }
+        };
+        let out_capacity = self.output_planes.first().map(Vec::len).unwrap_or(0);
+        let mut output_adapter = match SequentialSliceOfVecs::new_mut(
+            &mut self.output_planes,
+            src_channels,
+            out_capacity,
+        ) {
+            Ok(adapter) => adapter,
+            Err(e) => {
+                warn!("Resampler flush output adapter error: {}", e);
+                return;
+            }
+        };
+
+        match resampler.process_into_buffer(&input_adapter, &mut output_adapter, None) {
             Ok((_, out_frames)) => {
                 let mut src_frame_stack = [0.0f32; 8];
                 let mut dst_frame_stack = [0.0f32; 8];
