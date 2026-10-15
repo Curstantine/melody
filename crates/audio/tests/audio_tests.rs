@@ -42,7 +42,7 @@ fn test_audio_status_atomic_primitives() {
 
 #[test]
 fn test_audio_converter_mono_to_stereo() {
-    let mut converter = AudioConverter::new(1, 44100, 2, 44100);
+    let mut converter = AudioConverter::new(1, 44100, 2, 44100).expect("converter construction");
 
     let input = vec![0.5, -0.5, 1.0, 0.0];
     let mut output = Vec::new();
@@ -57,7 +57,7 @@ fn test_audio_converter_mono_to_stereo() {
 #[test]
 fn test_audio_converter_resampling() {
     // 22050 Hz to 44100 Hz stereo (2x upsampling)
-    let mut converter = AudioConverter::new(2, 22050, 2, 44100);
+    let mut converter = AudioConverter::new(2, 22050, 2, 44100).expect("converter construction");
 
     // FFT resampler operates in 1024-frame chunks
     let input = vec![0.5f32; 1024 * 2];
@@ -72,7 +72,7 @@ fn test_audio_converter_resampling() {
 #[test]
 fn test_audio_converter_unaligned_packet_residuals() {
     // 48000 Hz to 44100 Hz stereo
-    let mut converter = AudioConverter::new(2, 48000, 2, 44100);
+    let mut converter = AudioConverter::new(2, 48000, 2, 44100).expect("converter construction");
 
     // Feed non-multiple of chunk size (e.g. 3000 frames)
     // Packet 1: 3000 frames -> processes 2048 frames (2 chunks), leaves 952 frames buffered.
