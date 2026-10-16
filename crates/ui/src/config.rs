@@ -49,6 +49,8 @@ pub struct AppConfig {
 
     #[serde(default = "default_theme_name")]
     pub theme_name: String,
+    #[serde(default = "default_layout_name")]
+    pub layout_name: String,
     #[serde(default)]
     pub primary_font: Option<String>,
 
@@ -153,8 +155,14 @@ impl ScrobbleConfig {
     }
 }
 
+pub const DEFAULT_LAYOUT_NAME: &str = "Default";
+
 fn default_theme_name() -> String {
     crate::theme::DEFAULT_THEME_NAME.to_string()
+}
+
+fn default_layout_name() -> String {
+    DEFAULT_LAYOUT_NAME.to_string()
 }
 
 fn default_page_size() -> usize {
@@ -182,6 +190,7 @@ impl Default for AppConfig {
         Self {
             tab_order: default_tab_order(),
             theme_name: default_theme_name(),
+            layout_name: default_layout_name(),
             primary_font: None,
             page_size: default_page_size(),
             tile_width: default_tile_width(),

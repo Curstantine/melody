@@ -1,6 +1,6 @@
 use iced::border::Radius;
 use iced::overlay::menu;
-use iced::widget::{button, container, pick_list, scrollable, slider, text_input};
+use iced::widget::{button, container, pick_list, scrollable, slider, text_input, toggler};
 use iced::{Background, Border, Color, Shadow, Theme};
 
 use super::ThemeConfig;
@@ -112,14 +112,21 @@ pub fn pick_list_style(
 ) -> impl Fn(&Theme, pick_list::Status) -> pick_list::Style + '_ {
     move |_theme, status| {
         let border_color = match status {
-            pick_list::Status::Active | pick_list::Status::Disabled => cfg.border_color(),
-            pick_list::Status::Hovered | pick_list::Status::Opened { .. } => cfg.primary_color(),
+            pick_list::Status::Opened { .. } => cfg.primary_color(),
+            pick_list::Status::Hovered => cfg.accent_color(),
+            _ => cfg.border_color(),
+        };
+
+        let handle_color = match status {
+            pick_list::Status::Opened { .. } => cfg.primary_color(),
+            pick_list::Status::Hovered => cfg.text_color(),
+            _ => cfg.text_muted_color(),
         };
 
         pick_list::Style {
             text_color: cfg.text_color(),
             placeholder_color: cfg.text_muted_color(),
-            handle_color: cfg.text_muted_color(),
+            handle_color,
             background: Background::Color(cfg.surface_color()),
             border: Border {
                 color: border_color,
@@ -524,7 +531,7 @@ pub fn volume_slider_style(
     move |_theme, status| {
         let handle_radius = match status {
             slider::Status::Hovered | slider::Status::Dragged => 6.0,
-            _ => 4.5,
+            _ => 5.0,
         };
         slider::Style {
             rail: slider::Rail {
@@ -532,7 +539,7 @@ pub fn volume_slider_style(
                     Background::Color(cfg.slider_active_color()),
                     Background::Color(cfg.slider_rail_color()),
                 ),
-                width: 3.5,
+                width: 4.0,
                 border: Border {
                     radius: Radius::from(2.0),
                     ..Border::default()
@@ -652,6 +659,60 @@ pub fn scrollable_style(
                 shadow: Shadow::default(),
                 icon: cfg.text_muted_color(),
             },
+        }
+    }
+}
+
+pub fn toggler_style(cfg: &ThemeConfig) -> impl Fn(&Theme, toggler::Status) -> toggler::Style + '_ {
+    move |_theme, status| {
+        let is_toggled = match status {
+            toggler::Status::Active { is_toggled }
+            | toggler::Status::Hovered { is_toggled }
+            | toggler::Status::Disabled { is_toggled } => is_toggled,
+        };
+        let is_hovered = matches!(status, toggler::Status::Hovered { .. });
+
+        let background = if is_toggled {
+            if is_hovered {
+                blend_color(cfg.primary_color(), cfg.surface_color(), 0.15)
+            } else {
+                cfg.primary_color()
+            }
+        } else if is_hovered {
+            blend_color(cfg.slider_rail_color(), cfg.text_muted_color(), 0.25)
+        } else {
+            cfg.slider_rail_color()
+        };
+
+        let foreground = if is_toggled {
+            let primary = cfg.primary_color();
+            let is_primary_bright =
+                (0.299 * primary.r + 0.587 * primary.g + 0.114 * primary.b) > 0.5;
+            if is_primary_bright {
+                cfg.surface_color()
+            } else {
+                Color::WHITE
+            }
+        } else if is_hovered {
+            cfg.text_color()
+        } else {
+            cfg.text_muted_color()
+        };
+
+        toggler::Style {
+            background: background.into(),
+            background_border_width: 1.0,
+            background_border_color: if is_toggled {
+                cfg.primary_color()
+            } else {
+                cfg.border_color()
+            },
+            foreground: foreground.into(),
+            foreground_border_width: 0.0,
+            foreground_border_color: Color::TRANSPARENT,
+            text_color: None,
+            border_radius: None,
+            padding_ratio: 0.05,
         }
     }
 }

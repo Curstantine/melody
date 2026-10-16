@@ -98,6 +98,13 @@ pub fn user_themes_dir() -> PathBuf {
     dir
 }
 
+/// User directory where custom runtime KDL layouts are placed.
+pub fn user_layouts_dir() -> PathBuf {
+    let dir = config_dir().join("layouts");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
 /// Directory where Melody-managed `.m3u8` playlist files are stored.
 ///
 /// External playlists may be referenced from anywhere on disk; this directory

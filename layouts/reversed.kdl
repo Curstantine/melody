@@ -1,0 +1,10 @@
+layout name="Reversed" description="Top player controls with clean view area" {
+    column {
+        player-bar height=72
+        divider orientation="horizontal"
+        navbar height=32
+        divider orientation="horizontal"
+        main-view fill=true
+        status-bar height=24
+    }
+}

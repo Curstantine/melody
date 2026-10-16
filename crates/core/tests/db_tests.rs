@@ -398,6 +398,7 @@ async fn test_library_folders_and_clear_tracks() {
 }
 
 #[tokio::test]
+#[cfg(unix)]
 async fn test_scan_directory_symlink_traversal() {
     let base_temp = std::env::temp_dir().join(format!(
         "melody_test_scan_{}",
@@ -413,7 +414,6 @@ async fn test_scan_directory_symlink_traversal() {
 
     // Create a symlink to real_dir inside scan_dir
     let symlinked_folder = scan_dir.join("symlinked_artists");
-    #[cfg(unix)]
     std::os::unix::fs::symlink(&real_dir, &symlinked_folder).expect("symlink creation failed");
 
     // Put a dummy audio file in real_dir
@@ -431,6 +431,52 @@ async fn test_scan_directory_symlink_traversal() {
 
     // The file inside the symlinked directory was traversed and processed
     assert!(summary.scanned_files >= 1);
+
+    let _ = std::fs::remove_dir_all(&base_temp);
+}
+
+#[tokio::test]
+async fn test_scan_directories_progress_callback() {
+    let base_temp = std::env::temp_dir().join(format!(
+        "melody_test_progress_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let dir1 = base_temp.join("folder1");
+    let dir2 = base_temp.join("folder2");
+    let _ = std::fs::create_dir_all(&dir1);
+    let _ = std::fs::create_dir_all(&dir2);
+
+    std::fs::write(dir1.join("song1.mp3"), b"audio").unwrap();
+    std::fs::write(dir1.join("song2.flac"), b"audio").unwrap();
+    std::fs::write(dir2.join("song3.ogg"), b"audio").unwrap();
+
+    let db = LibraryDatabase::in_memory()
+        .await
+        .expect("Failed to create in-memory db");
+
+    let progress_events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let progress_clone = progress_events.clone();
+
+    let summary = db
+        .scan_directories(
+            &[&dir1, &dir2],
+            Some(move |cur, tot| {
+                progress_clone.lock().unwrap().push((cur, tot));
+            }),
+        )
+        .await
+        .expect("scan_directories failed");
+
+    assert_eq!(summary.scanned_files, 3);
+    let events = progress_events.lock().unwrap().clone();
+    assert!(!events.is_empty());
+    // Initial event reports (0, 3)
+    assert_eq!(events[0], (0, 3));
+    // Final event reports (3, 3)
+    assert_eq!(events.last().copied(), Some((3, 3)));
 
     let _ = std::fs::remove_dir_all(&base_temp);
 }

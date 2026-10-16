@@ -27,7 +27,7 @@ melody/
 - **Player Bar**: Persistent bottom controls featuring live seek scrubbing, volume controls, shuffle, repeat, track favoriting, and now-playing details.
 - **Status Bar**: Live catalog counts, active filter indicators, and library scanning progress.
 - **Settings**:
-    - **Appearance**: Select themes, configure primary system or custom fonts, customize pagination limits, and set card/tile dimensions for catalog views.
+    - **Appearance**: Select themes, configure primary system fonts, customize pagination limits, and set card/tile dimensions for catalog views.
     - **Library**: Manage indexed folders, rescan metadata, inspect database file size, and view or clear the thumbnail cache.
     - **Scrobbling**: Built-in scrobbler support for ListenBrainz and Last.fm with customizable scrobble thresholds and now-playing updates.
 - **Integrations**:

@@ -58,7 +58,7 @@ impl ViewTab {
     pub fn label(&self) -> &'static str {
         match self {
             ViewTab::Tracks => "Library",
-            ViewTab::Lyrics => "Now Playing",
+            ViewTab::Lyrics => "Now playing",
             ViewTab::Albums => "Albums",
             ViewTab::Artists => "Artists",
             ViewTab::Playlists => "Playlists",
@@ -128,11 +128,6 @@ pub enum SettingsTab {
     Scrobbling,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SettingsMessage {
-    CustomFontInputChanged(String),
-}
-
 #[derive(Clone)]
 pub enum Message {
     // Playback Controls
@@ -178,7 +173,12 @@ pub enum Message {
     SetPageSize(usize),
 
     // Scanning & File Picking
+    ScanProgress {
+        current: usize,
+        total: usize,
+    },
     ScanFinished(ScanSummary),
+    ThumbnailsGenerated,
 
     // Album / Artist Selection & Sorting
     SelectAlbum(String),
@@ -288,10 +288,11 @@ pub enum Message {
     QueueScrolled(iced::widget::scrollable::Viewport),
 
     // Themes & Settings
-    Settings(SettingsMessage),
     SelectSettingsTab(SettingsTab),
     SelectTheme(String),
     ReloadThemes,
+    SelectLayout(String),
+    ReloadLayouts,
     SelectFont(String),
     SaveConfig,
     DebouncedConfigSave(u64),
@@ -396,7 +397,13 @@ impl std::fmt::Debug for Message {
                 .field("rows_len", &rows.len())
                 .finish(),
             Self::SetPageSize(n) => f.debug_tuple("SetPageSize").field(n).finish(),
+            Self::ScanProgress { current, total } => f
+                .debug_struct("ScanProgress")
+                .field("current", current)
+                .field("total", total)
+                .finish(),
             Self::ScanFinished(s) => f.debug_tuple("ScanFinished").field(s).finish(),
+            Self::ThumbnailsGenerated => write!(f, "ThumbnailsGenerated"),
             Self::SelectAlbum(s) => f.debug_tuple("SelectAlbum").field(s).finish(),
             Self::SelectArtist(s) => f.debug_tuple("SelectArtist").field(s).finish(),
             Self::AlbumSortChanged(s) => f.debug_tuple("AlbumSortChanged").field(s).finish(),
@@ -558,10 +565,11 @@ impl std::fmt::Debug for Message {
             Self::QueueSaveCancelled => write!(f, "QueueSaveCancelled"),
             Self::QueuesPersisted => write!(f, "QueuesPersisted"),
             Self::QueueScrolled(v) => f.debug_tuple("QueueScrolled").field(v).finish(),
-            Self::Settings(s) => f.debug_tuple("Settings").field(s).finish(),
             Self::SelectSettingsTab(t) => f.debug_tuple("SelectSettingsTab").field(t).finish(),
             Self::SelectTheme(s) => f.debug_tuple("SelectTheme").field(s).finish(),
             Self::ReloadThemes => write!(f, "ReloadThemes"),
+            Self::SelectLayout(s) => f.debug_tuple("SelectLayout").field(s).finish(),
+            Self::ReloadLayouts => write!(f, "ReloadLayouts"),
             Self::SelectFont(s) => f.debug_tuple("SelectFont").field(s).finish(),
             Self::SaveConfig => write!(f, "SaveConfig"),
             Self::DebouncedConfigSave(seq) => {

@@ -497,7 +497,7 @@ impl AlbumsView {
                     ("Year", AlbumSortField::Year),
                     ("Tracks", AlbumSortField::TrackCount),
                     ("Duration", AlbumSortField::Duration),
-                    ("Date Added", AlbumSortField::DateAdded),
+                    ("Date added", AlbumSortField::DateAdded),
                 ],
                 self.sort_field,
                 self.sort_dir,

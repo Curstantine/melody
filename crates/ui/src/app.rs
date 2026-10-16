@@ -8,28 +8,27 @@ use core_engine::{
     SortField, Track, TrackFilter, TrackRow,
 };
 use crossbeam_channel::Receiver;
+use iced::futures::SinkExt;
+use iced::widget::image;
 use iced::widget::operation::scrollable::{snap_to, RelativeOffset};
 use iced::widget::operation::Animation;
-use iced::widget::{button, column, container, image, mouse_area, row, Space, Widget};
-use iced::{Element, Length, Subscription, Task, Theme};
+use iced::{Element, Subscription, Task, Theme};
 use plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 #[cfg(target_os = "linux")]
 use plugins::MprisPlugin;
 use plugins::{PlayerAction, PluginManager, TrackMetadata};
 use tracing::{error, info, warn};
 
-use crate::components::{border_vert, text};
 use crate::config::{AppConfig, ScrobbleConfig};
-use crate::icons;
+use crate::layout::LayoutManager;
 use crate::message::{
     Message, PlaylistItem, PlaylistOpenIntent, PlaylistResolution, PlaylistSection, ViewTab,
 };
 use crate::queue::{queue_window_for_start, QueueSource, QueueStore, DEFAULT_QUEUE_NAME};
 use crate::state::AppState;
-use crate::theme::{styles, ThemeManager};
+use crate::theme::ThemeManager;
 use crate::views::{
-    self, AlbumsView, ArtistsView, LibraryView, NowPlayingView, PlayerBar, PlaylistsView,
-    SettingsView, StatusBar, StatusBarContext,
+    AlbumsView, ArtistsView, LibraryView, NowPlayingView, PlayerBar, PlaylistsView, SettingsView,
 };
 
 /// Album covers resolved per background chunk. Bounds the `IN (...)` lookup
@@ -37,73 +36,76 @@ use crate::views::{
 pub const ALBUM_COVER_LOAD_CHUNK_SIZE: usize = 16;
 
 pub struct App {
-    db: LibraryDatabase,
-    db_path: PathBuf,
-    config_path: PathBuf,
-    state_path: PathBuf,
-    _audio_engine: AudioEngine,
-    audio_controller: AudioController,
-    plugin_manager: PluginManager,
-    theme_manager: ThemeManager,
+    pub(crate) db: LibraryDatabase,
+    pub(crate) db_path: PathBuf,
+    pub(crate) config_path: PathBuf,
+    pub(crate) state_path: PathBuf,
+    pub(crate) _audio_engine: AudioEngine,
+    pub(crate) audio_controller: AudioController,
+    pub(crate) plugin_manager: PluginManager,
+    pub(crate) theme_manager: ThemeManager,
+    pub(crate) layout_manager: LayoutManager,
 
     // Navigation & Tabs
-    active_tab: ViewTab,
-    tab_order: Vec<ViewTab>,
-    dragging_tab: Option<ViewTab>,
-    hovered_tab: Option<ViewTab>,
-    drag_order_changed: bool,
+    pub(crate) active_tab: ViewTab,
+    pub(crate) tab_order: Vec<ViewTab>,
+    pub(crate) dragging_tab: Option<ViewTab>,
+    pub(crate) hovered_tab: Option<ViewTab>,
+    pub(crate) drag_order_changed: bool,
     /// Queue track being drag-reordered: `(queue_id, current_index)`.
-    dragging_queue_track: Option<(u64, usize)>,
-    drag_queue_order_changed: bool,
+    pub(crate) dragging_queue_track: Option<(u64, usize)>,
+    pub(crate) drag_queue_order_changed: bool,
     /// Open-playlist row being drag-reordered: `(playlist_id, index)`.
-    dragging_detail: Option<(i64, usize)>,
-    drag_detail_order_changed: bool,
+    pub(crate) dragging_detail: Option<(i64, usize)>,
+    pub(crate) drag_detail_order_changed: bool,
 
     // Screen-specific state components
-    library: LibraryView,
-    albums: AlbumsView,
-    artists: ArtistsView,
-    playlists: PlaylistsView,
-    now_playing: NowPlayingView,
-    settings: SettingsView,
-    player_bar: PlayerBar,
+    pub(crate) library: LibraryView,
+    pub(crate) albums: AlbumsView,
+    pub(crate) artists: ArtistsView,
+    pub(crate) playlists: PlaylistsView,
+    pub(crate) now_playing: NowPlayingView,
+    pub(crate) settings: SettingsView,
+    pub(crate) player_bar: PlayerBar,
 
     // Playback queues (in-memory view, persisted to the database)
-    queues: QueueStore,
+    pub(crate) queues: QueueStore,
 
     // Playback State
-    current_track: Option<Track>,
-    current_track_id: Option<i64>,
-    current_cover: Option<image::Handle>,
-    current_blurred_cover: Option<image::Handle>,
-    current_next_cover: Option<image::Handle>,
-    current_tech_info: Option<core_engine::AudioTechnicalInfo>,
-    is_playing: bool,
-    position_ms: u64,
-    duration_ms: u64,
-    volume: f32,
-    is_shuffle: bool,
-    is_repeat: bool,
-    gapless: bool,
-    pending_gapless_next: Option<TrackRow>,
+    pub(crate) current_track: Option<Track>,
+    pub(crate) current_track_id: Option<i64>,
+    pub(crate) current_cover: Option<image::Handle>,
+    pub(crate) current_blurred_cover: Option<image::Handle>,
+    pub(crate) current_next_cover: Option<image::Handle>,
+    pub(crate) current_tech_info: Option<core_engine::AudioTechnicalInfo>,
+    pub(crate) is_playing: bool,
+    pub(crate) position_ms: u64,
+    pub(crate) duration_ms: u64,
+    pub(crate) volume: f32,
+    pub(crate) is_shuffle: bool,
+    pub(crate) is_repeat: bool,
+    pub(crate) gapless: bool,
+    pub(crate) pending_gapless_next: Option<TrackRow>,
 
     // Global Scanning Telemetry
-    is_scanning: bool,
+    pub(crate) is_scanning: bool,
+    pub(crate) scan_progress: Option<(usize, usize)>,
+    pub(crate) is_generating_thumbnails: bool,
 
     // Scrobbling Plugins
-    listenbrainz_plugin: Arc<ListenBrainzPlugin>,
-    lastfm_plugin: Arc<LastFmPlugin>,
-    scrobble_config: ScrobbleConfig,
+    pub(crate) listenbrainz_plugin: Arc<ListenBrainzPlugin>,
+    pub(crate) lastfm_plugin: Arc<LastFmPlugin>,
+    pub(crate) scrobble_config: ScrobbleConfig,
 
-    config_save_seq: u64,
-    state_save_seq: u64,
-    search_seq: u64,
+    pub(crate) config_save_seq: u64,
+    pub(crate) state_save_seq: u64,
+    pub(crate) search_seq: u64,
 
     // Storage telemetry (refreshed on demand, never per frame)
-    cache_stats: core_engine::CacheStats,
-    db_size_bytes: u64,
+    pub(crate) cache_stats: core_engine::CacheStats,
+    pub(crate) db_size_bytes: u64,
 
-    mpris_rx: Option<Receiver<PlayerAction>>,
+    pub(crate) mpris_rx: Option<Receiver<PlayerAction>>,
 }
 
 impl App {
@@ -155,6 +157,9 @@ impl App {
             theme_manager.set_font(Some(font.clone()));
         }
 
+        let mut layout_manager = LayoutManager::new();
+        layout_manager.select_layout(&config.layout_name);
+
         let available_fonts = crate::font::list_font_families();
         let config_path = AppConfig::config_path();
         let state_path = AppState::state_path();
@@ -193,6 +198,7 @@ impl App {
             audio_controller,
             plugin_manager,
             theme_manager,
+            layout_manager,
 
             active_tab: state.active_tab,
             tab_order: config.tab_order.clone(),
@@ -230,6 +236,8 @@ impl App {
             pending_gapless_next: None,
 
             is_scanning: false,
+            scan_progress: None,
+            is_generating_thumbnails: false,
 
             listenbrainz_plugin,
             lastfm_plugin,
@@ -921,7 +929,7 @@ impl App {
                 Task::perform(
                     async {
                         let folder = rfd::AsyncFileDialog::new()
-                            .set_title("Add Music Folder to Library")
+                            .set_title("Add music folder to library")
                             .pick_folder()
                             .await;
                         folder.map(|f| f.path().to_path_buf())
@@ -934,21 +942,28 @@ impl App {
                 Some(path) => {
                     let path_str = path.to_string_lossy().to_string();
                     info!("Adding library folder: {}", path_str);
+                    self.is_scanning = true;
+                    self.scan_progress = None;
                     let db = self.db.clone();
-                    Task::perform(
-                        async move {
-                            let _ = db.add_library_folder(&path_str).await;
-                            let summary = db
-                                .scan_directory(&path, None::<fn(usize, usize)>)
-                                .await
-                                .unwrap_or_default();
-                            summary
-                        },
-                        Message::ScanFinished,
-                    )
+                    Task::stream(iced::stream::channel(100, async move |mut sender| {
+                        let _ = db.add_library_folder(&path_str).await;
+                        let mut cb_sender = sender.clone();
+                        let summary = db
+                            .scan_directory(
+                                &path,
+                                Some(move |current, total| {
+                                    let _ = cb_sender
+                                        .try_send(Message::ScanProgress { current, total });
+                                }),
+                            )
+                            .await
+                            .unwrap_or_default();
+                        let _ = sender.send(Message::ScanFinished(summary)).await;
+                    }))
                 }
                 None => {
                     self.is_scanning = false;
+                    self.scan_progress = None;
                     Task::none()
                 }
             },
@@ -972,46 +987,54 @@ impl App {
 
             Message::RescanLibraryFolder(path) => {
                 self.is_scanning = true;
+                self.scan_progress = None;
                 info!("Rescanning library folder: {:?}", path);
                 let db = self.db.clone();
-                Task::perform(
-                    async move {
-                        let summary = db
-                            .scan_directory(&path, None::<fn(usize, usize)>)
-                            .await
-                            .unwrap_or_default();
-                        summary
-                    },
-                    Message::ScanFinished,
-                )
+                Task::stream(iced::stream::channel(100, async move |mut sender| {
+                    let mut cb_sender = sender.clone();
+                    let summary = db
+                        .scan_directory(
+                            &path,
+                            Some(move |current, total| {
+                                let _ =
+                                    cb_sender.try_send(Message::ScanProgress { current, total });
+                            }),
+                        )
+                        .await
+                        .unwrap_or_default();
+                    let _ = sender.send(Message::ScanFinished(summary)).await;
+                }))
             }
 
             Message::ReindexLibrary => {
                 self.is_scanning = true;
+                self.scan_progress = None;
                 info!(
                     "Reindexing all library folders: {:?}",
                     self.settings.library_folders
                 );
                 let db = self.db.clone();
                 let folders = self.settings.library_folders.clone();
-                Task::perform(
-                    async move {
-                        let mut total_summary = core_engine::ScanSummary::default();
-                        for folder_str in folders {
-                            let path = PathBuf::from(folder_str);
-                            if let Ok(summary) =
-                                db.scan_directory(&path, None::<fn(usize, usize)>).await
-                            {
-                                total_summary.scanned_files += summary.scanned_files;
-                                total_summary.inserted_tracks += summary.inserted_tracks;
-                                total_summary.updated_tracks += summary.updated_tracks;
-                                total_summary.failed_files += summary.failed_files;
-                            }
-                        }
-                        total_summary
-                    },
-                    Message::ScanFinished,
-                )
+                Task::stream(iced::stream::channel(100, async move |mut sender| {
+                    let mut cb_sender = sender.clone();
+                    let paths: Vec<PathBuf> = folders.into_iter().map(PathBuf::from).collect();
+                    let summary = db
+                        .scan_directories(
+                            &paths,
+                            Some(move |current, total| {
+                                let _ =
+                                    cb_sender.try_send(Message::ScanProgress { current, total });
+                            }),
+                        )
+                        .await
+                        .unwrap_or_default();
+                    let _ = sender.send(Message::ScanFinished(summary)).await;
+                }))
+            }
+
+            Message::ScanProgress { current, total } => {
+                self.scan_progress = Some((current, total));
+                Task::none()
             }
 
             Message::ClearLibrary => {
@@ -1055,6 +1078,8 @@ impl App {
 
             Message::ScanFinished(_summary) => {
                 self.is_scanning = false;
+                self.scan_progress = None;
+                self.is_generating_thumbnails = true;
                 let db = self.db.clone();
                 Task::batch([
                     Task::perform(
@@ -1063,17 +1088,23 @@ impl App {
                     ),
                     self.reload_after_scan_task(),
                     self.load_storage_stats_task(),
+                    self.generate_thumbnails_task(),
                 ])
+            }
+
+            Message::ThumbnailsGenerated => {
+                self.is_generating_thumbnails = false;
+                let covers_task = if self.active_tab == ViewTab::Albums {
+                    self.load_visible_album_covers_task()
+                } else {
+                    Task::none()
+                };
+                Task::batch([self.load_storage_stats_task(), covers_task])
             }
 
             Message::StorageStatsLoaded(stats, db_size_bytes) => {
                 self.cache_stats = stats;
                 self.db_size_bytes = db_size_bytes;
-                Task::none()
-            }
-
-            Message::Settings(settings_msg) => {
-                self.settings.update(settings_msg);
                 Task::none()
             }
 
@@ -1456,7 +1487,7 @@ impl App {
             Message::ImportPlaylistsClicked => Task::perform(
                 async {
                     let files = rfd::AsyncFileDialog::new()
-                        .set_title("Import Playlists")
+                        .set_title("Import playlists")
                         .add_filter("Playlists", &["m3u", "m3u8"])
                         .pick_files()
                         .await;
@@ -1801,6 +1832,19 @@ impl App {
 
             Message::ReloadThemes => {
                 self.theme_manager.load_all_themes();
+                Task::none()
+            }
+
+            Message::SelectLayout(name) => {
+                if self.layout_manager.select_layout(&name) {
+                    self.save_config_task()
+                } else {
+                    Task::none()
+                }
+            }
+
+            Message::ReloadLayouts => {
+                self.layout_manager.load_all_layouts();
                 Task::none()
             }
 
@@ -2368,6 +2412,7 @@ impl App {
         AppConfig {
             tab_order: self.tab_order.clone(),
             theme_name: self.theme_manager.active_theme_name.clone(),
+            layout_name: self.layout_manager.active_layout_name.clone(),
             primary_font: self.theme_manager.current_config.font_family.clone(),
             page_size: self.library.page_size,
             tile_width: self.albums.tile_width,
@@ -2525,6 +2570,33 @@ impl App {
         )
     }
 
+    fn generate_thumbnails_task(&self) -> Task<Message> {
+        let db = self.db.clone();
+        Task::perform(
+            async move {
+                let albums = db.get_albums().await.unwrap_or_default();
+                let cover_ids: Vec<i64> = albums.iter().filter_map(|a| a.cover_track_id).collect();
+                let paths_map = db
+                    .get_track_paths_by_ids(&cover_ids)
+                    .await
+                    .unwrap_or_default();
+
+                tokio::task::spawn_blocking(move || {
+                    for path_str in paths_map.values() {
+                        let path = PathBuf::from(path_str);
+                        let _ = core_engine::get_or_create_thumbnail(
+                            &path,
+                            core_engine::THUMB_DIM_DEFAULT,
+                        );
+                    }
+                })
+                .await
+                .ok();
+            },
+            |_| Message::ThumbnailsGenerated,
+        )
+    }
+
     fn load_visible_album_covers_task(&mut self) -> Task<Message> {
         let to_load = self.albums.get_missing_covers_to_load();
         if to_load.is_empty() {
@@ -2619,211 +2691,7 @@ impl App {
 
     pub fn view(&self) -> Element<'_, Message> {
         let theme_cfg = &self.theme_manager.current_config;
-
-        // Top Navigation & Tab Bar
-        let is_any_dragging = self.dragging_tab.is_some();
-
-        let tab_buttons = self.tab_order.iter().map(|&tab| -> Element<'_, Message> {
-            let is_selected = self.active_tab == tab;
-            let is_dragging = self.dragging_tab == Some(tab);
-            let is_hovered = self.hovered_tab == Some(tab);
-
-            let tab_icon_color = if is_selected || is_dragging {
-                theme_cfg.primary_color()
-            } else if is_hovered {
-                theme_cfg.text_color()
-            } else {
-                theme_cfg.text_muted_color()
-            };
-
-            let tab_inner = row![
-                icons::icon(tab.icon_svg(), 12.0, tab_icon_color),
-                text(theme_cfg, tab.label())
-                    .size(11)
-                    .color(if is_selected || is_dragging {
-                        theme_cfg.primary_color()
-                    } else if is_hovered {
-                        theme_cfg.text_color()
-                    } else {
-                        theme_cfg.text_muted_color()
-                    }),
-            ]
-            .spacing(6)
-            .align_y(iced::Alignment::Center);
-
-            let tab_container =
-                container(tab_inner)
-                    .padding([5, 10])
-                    .style(styles::header_tab_container(
-                        theme_cfg,
-                        is_selected,
-                        is_hovered,
-                        is_dragging,
-                    ));
-
-            mouse_area(tab_container)
-                .on_press(Message::TabDragStarted(tab))
-                .on_release(Message::TabDragReleased)
-                .on_enter(if is_any_dragging {
-                    Message::TabDraggedOver(tab)
-                } else {
-                    Message::TabHovered(Some(tab))
-                })
-                .on_exit(Message::TabHovered(None))
-                .interaction(iced::mouse::Interaction::Pointer)
-                .boxed()
-        });
-
-        let settings_btn = button(icons::icon(
-            icons::SETTINGS_SVG,
-            14.0,
-            if self.active_tab == ViewTab::Settings {
-                theme_cfg.primary_color()
-            } else {
-                theme_cfg.text_muted_color()
-            },
-        ))
-        .padding([4, 8])
-        .style(styles::icon_control_button(theme_cfg))
-        .on_press(Message::SelectTab(ViewTab::Settings));
-
-        let mut nav_row = row![].spacing(4).align_y(iced::Alignment::Center);
-        for btn in tab_buttons {
-            nav_row = nav_row.push(btn);
-        }
-        nav_row = nav_row.push(Space::new().width(Length::Fill).boxed());
-        nav_row = nav_row.push(settings_btn.boxed());
-
-        let top_bar = container(column![
-            nav_row.padding([4, 12]).height(32),
-            border_vert(1.0, theme_cfg.border_color()),
-        ])
-        .style(styles::top_bar_container(theme_cfg))
-        .width(Length::Fill)
-        .height(33);
-
-        let main_view: Element<'_, Message> = match self.active_tab {
-            ViewTab::Tracks => self
-                .library
-                .view(theme_cfg, self.current_track_id, self.is_playing),
-            ViewTab::Albums => self.albums.view(theme_cfg),
-            ViewTab::Artists => self.artists.view(theme_cfg),
-            ViewTab::Playlists => self.playlists.view(
-                theme_cfg,
-                &self.queues,
-                self.dragging_queue_track,
-                self.dragging_detail,
-            ),
-            ViewTab::Lyrics => {
-                let next_track = self.get_next_track();
-
-                self.now_playing.view(
-                    theme_cfg,
-                    self.current_track.as_ref(),
-                    self.current_cover.as_ref(),
-                    self.current_blurred_cover.as_ref(),
-                    next_track,
-                    self.current_next_cover.as_ref(),
-                    self.is_repeat,
-                    self.is_shuffle,
-                    self.current_tech_info.as_ref(),
-                )
-            }
-            ViewTab::Settings => {
-                let cache_stats = self.cache_stats;
-                let db_size_bytes = self.db_size_bytes;
-
-                self.settings.view(
-                    theme_cfg,
-                    views::settings::SettingsContext {
-                        theme_names: self.theme_manager.theme_names(),
-                        active_theme_name: &self.theme_manager.active_theme_name,
-                        albums_view_mode: self.albums.view_mode,
-                        artists_view_mode: self.artists.view_mode,
-                        page_size: self.library.page_size,
-                        album_tile_width: self.albums.tile_width,
-                        artist_tile_width: self.artists.tile_width,
-                        now_playing_cover_size: self.now_playing.cover_size,
-                        primary_font: self.theme_manager.current_config.font_family.as_deref(),
-                        total_tracks: self.library.total_tracks,
-                        total_albums: self.albums.len(),
-                        total_artists: self.artists.len(),
-                        db_size_bytes,
-                        cache_file_count: cache_stats.file_count,
-                        cache_size_bytes: cache_stats.total_bytes,
-                        is_scanning: self.is_scanning,
-
-                        listenbrainz_enabled: self.scrobble_config.listenbrainz_enabled,
-                        listenbrainz_token: &self.scrobble_config.listenbrainz_token,
-                        listenbrainz_api_url: &self.scrobble_config.listenbrainz_api_url,
-                        listenbrainz_status: self.listenbrainz_plugin.status(),
-                        listenbrainz_scrobbles: self.listenbrainz_plugin.scrobble_count(),
-
-                        lastfm_enabled: self.scrobble_config.lastfm_enabled,
-                        lastfm_api_key: &self.scrobble_config.lastfm_api_key,
-                        lastfm_api_secret: &self.scrobble_config.lastfm_api_secret,
-                        lastfm_session_key: &self.scrobble_config.lastfm_session_key,
-                        lastfm_api_url: &self.scrobble_config.lastfm_api_url,
-                        lastfm_status: self.lastfm_plugin.status(),
-                        lastfm_scrobbles: self.lastfm_plugin.scrobble_count(),
-
-                        submit_now_playing: self.scrobble_config.submit_now_playing,
-                        scrobble_percent: self.scrobble_config.scrobble_percent,
-                        gapless: self.gapless,
-                    },
-                )
-            }
-        };
-
-        let body = container(main_view)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .clip(true);
-
-        let player_bar = self.player_bar.view(
-            theme_cfg,
-            self.current_track.as_ref(),
-            self.current_cover.as_ref(),
-            self.is_playing,
-            self.position_ms,
-            self.duration_ms,
-            self.volume,
-            self.is_shuffle,
-            self.is_repeat,
-        );
-
-        let status_bar_ctx = StatusBarContext {
-            active_tab: self.active_tab,
-            total_tracks: self.library.total_tracks,
-            search_query: &self.library.search_query,
-            album_count: self.albums.albums.len(),
-            album_tracks: self.albums.total_tracks,
-            album_duration_ms: self.albums.total_duration_ms,
-            artist_count: self.artists.artists.len(),
-            artist_albums: self.artists.total_albums,
-            artist_tracks: self.artists.total_tracks,
-            current_track: self.current_track.as_ref(),
-            is_playing: self.is_playing,
-            playlist_count: self.playlists.len(),
-            queue_count: self.queues.summaries.len(),
-            active_queue: self
-                .queues
-                .active_queue()
-                .map(|q| (q.name.as_str(), q.len())),
-            is_scanning: self.is_scanning,
-        };
-
-        let status_bar = StatusBar::view(theme_cfg, status_bar_ctx);
-
-        let full_layout = column![top_bar, body, player_bar, status_bar]
-            .width(Length::Fill)
-            .height(Length::Fill);
-
-        container(full_layout)
-            .style(styles::main_background(theme_cfg))
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .boxed()
+        self.render_layout(theme_cfg)
     }
 }
 

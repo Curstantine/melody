@@ -35,11 +35,13 @@ iced = { workspace = true, features = [
   "debug",
 ] }
 crossbeam-channel.workspace = true
+kdl.workspace = true
 serde = { workspace = true, features = ["derive"] }
 toml.workspace = true
 walkdir.workspace = true
 rfd.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "time"] }
 url.workspace = true
