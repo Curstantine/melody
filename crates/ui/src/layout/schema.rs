@@ -653,8 +653,6 @@ mod tests {
                     row fill=true {
                         column width=200 {
                             navbar orientation="vertical" fill=true
-                            divider orientation="horizontal"
-                            track-info height=64
                         }
                         divider orientation="vertical"
                         column fill=true {
@@ -687,7 +685,7 @@ mod tests {
                                 ..
                             } => {
                                 assert_eq!(*width, SizeConstraint::Fixed(200.0));
-                                assert_eq!(col_children.len(), 3);
+                                assert_eq!(col_children.len(), 1);
                                 assert_eq!(
                                     col_children[0],
                                     LayoutNode::Component(LayoutComponent::Navbar {

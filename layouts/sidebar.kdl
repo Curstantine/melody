@@ -3,8 +3,6 @@ layout name="Sidebar" description="Modern sidebar navigation with bottom player 
         row fill=true {
             column width=180 {
                 navbar orientation="vertical" fill=true
-                divider orientation="horizontal"
-                track-info height=64
             }
             divider orientation="vertical"
             column fill=true {
