@@ -116,23 +116,25 @@ fn reordered_entries_round_trip_through_m3u_file() {
         std::process::id()
     ));
     write_m3u(&path, &view.detail_entries).expect("write reordered playlist");
+    let content = std::fs::read_to_string(&path).expect("read reordered playlist");
+    assert!(content.contains("/music/3.flac"));
+    assert!(content.contains("/music/1.flac"));
+    assert!(content.contains("/music/x.flac"));
+
     let parsed = parse_m3u(&path).expect("parse reordered playlist");
     let _ = std::fs::remove_file(&path);
-    // write_m3u relativizes paths against the playlist directory (joined
-    // lexically, not normalized), so compare file names: order must survive
-    // the round trip.
+    // write_m3u writes absolute paths, so verify both order and absolute paths survive.
     assert_eq!(
         parsed
             .entries
             .iter()
-            .map(|e| e
-                .resolved_path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or_default()
-                .to_string())
+            .map(|e| e.resolved_path.to_string_lossy().to_string())
             .collect::<Vec<_>>(),
-        vec!["3.flac", "1.flac", "x.flac"]
+        vec![
+            "/music/3.flac".to_string(),
+            "/music/1.flac".to_string(),
+            "/music/x.flac".to_string(),
+        ]
     );
 }
 

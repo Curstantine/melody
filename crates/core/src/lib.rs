@@ -21,7 +21,7 @@ pub use paths::{
     state_dir, state_file, thumbnail_cache_dir, user_themes_dir,
 };
 pub use playlist::{
-    is_supported_playlist_file, parse_m3u, parse_m3u_str, playlist_name_from_path,
+    is_supported_playlist_file, normalize_path, parse_m3u, parse_m3u_str, playlist_name_from_path,
     resolve_entry_path, sanitize_playlist_filename, write_m3u, ParsedPlaylist, PlaylistEntry,
     PlaylistError,
 };

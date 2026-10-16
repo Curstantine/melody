@@ -101,11 +101,12 @@ fn sanitized_truncate(s: &str, max: usize) -> String {
 /// Resolves a raw playlist path (absolute or relative) against `playlist_dir`.
 pub fn resolve_entry_path(playlist_dir: &Path, raw: &str) -> PathBuf {
     let candidate = Path::new(raw);
-    if candidate.is_absolute() {
+    let path = if candidate.is_absolute() {
         candidate.to_path_buf()
     } else {
         playlist_dir.join(candidate)
-    }
+    };
+    normalize_path(&path)
 }
 
 /// Decodes playlist file bytes, tolerating a UTF-8 BOM and falling back to
@@ -210,8 +211,7 @@ fn is_remote_url(line: &str) -> bool {
 
 /// Writes entries to an extended M3U8 (UTF-8) playlist file.
 ///
-/// Paths are written relative to the playlist's directory when a relative path
-/// can be derived; otherwise absolute paths are used. The parent directory is
+/// Paths are written using absolute paths. The parent directory is
 /// created if it does not exist.
 pub fn write_m3u<P: AsRef<Path>>(path: P, entries: &[PlaylistEntry]) -> Result<(), PlaylistError> {
     let path = path.as_ref();
@@ -229,12 +229,22 @@ pub fn write_m3u<P: AsRef<Path>>(path: P, entries: &[PlaylistEntry]) -> Result<(
             entry.resolved_path.clone()
         };
 
-        let written = relative_path(parent, &target);
-        let written_str = if written.as_os_str().is_empty() {
-            target.to_string_lossy().to_string()
+        let target = if is_remote_url(&entry.raw_path) {
+            PathBuf::from(&entry.raw_path)
+        } else if target.is_absolute() {
+            normalize_path(&target)
         } else {
-            written.to_string_lossy().to_string()
+            let resolved = resolve_entry_path(parent, &target.to_string_lossy());
+            if resolved.is_absolute() {
+                resolved
+            } else {
+                std::path::absolute(&resolved)
+                    .map(|p| normalize_path(&p))
+                    .unwrap_or(resolved)
+            }
         };
+
+        let written_str = target.to_string_lossy().to_string();
 
         let secs = entry
             .duration_ms
@@ -267,40 +277,29 @@ pub fn write_m3u<P: AsRef<Path>>(path: P, entries: &[PlaylistEntry]) -> Result<(
     Ok(())
 }
 
-/// Computes a relative path from `base` to `target`, falling back to `target`
-/// unchanged when the two share no common root (e.g. different Windows drives).
-fn relative_path(base: &Path, target: &Path) -> PathBuf {
-    let base_components: Vec<Component> = base.components().collect();
-    let target_components: Vec<Component> = target.components().collect();
-
-    if base_components.is_empty() || target_components.is_empty() {
-        return target.to_path_buf();
+/// Normalizes path components lexically without touching the filesystem.
+pub fn normalize_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if matches!(
+                    normalized.components().next_back(),
+                    Some(Component::Normal(_))
+                ) {
+                    normalized.pop();
+                } else if !matches!(
+                    normalized.components().next_back(),
+                    Some(Component::RootDir | Component::Prefix(_))
+                ) {
+                    normalized.push(component);
+                }
+            }
+            _ => normalized.push(component.as_os_str()),
+        }
     }
-
-    let mut common = 0;
-    while common < base_components.len()
-        && common < target_components.len()
-        && base_components[common] == target_components[common]
-    {
-        common += 1;
-    }
-
-    if common == 0 {
-        return target.to_path_buf();
-    }
-
-    let mut result = PathBuf::new();
-    for _ in common..base_components.len() {
-        result.push("..");
-    }
-    for component in &target_components[common..] {
-        result.push(component.as_os_str());
-    }
-
-    if result.as_os_str().is_empty() {
-        result.push(".");
-    }
-    result
+    normalized
 }
 
 #[cfg(test)]
@@ -369,7 +368,7 @@ mod tests {
 
         let written = std::fs::read_to_string(&playlist_path).unwrap();
         assert!(written.starts_with("#EXTM3U"));
-        assert!(written.contains("tracks/a.flac"));
+        assert!(written.contains(&track_path.to_string_lossy().to_string()));
 
         let parsed = parse_m3u(&playlist_path).unwrap();
         assert_eq!(parsed.entries.len(), 1);
@@ -387,15 +386,30 @@ mod tests {
     }
 
     #[test]
-    fn relative_path_between_absolute_dirs() {
+    fn normalizes_paths_lexically() {
+        assert_eq!(normalize_path(Path::new("/a/b/c")), PathBuf::from("/a/b/c"));
         assert_eq!(
-            relative_path(Path::new("/a/b/c"), Path::new("/a/b/d/e.mp3")),
-            PathBuf::from("../d/e.mp3")
+            normalize_path(Path::new("/a/b/../c")),
+            PathBuf::from("/a/c")
         );
-        // Both share the filesystem root, so a relative traversal is still valid.
         assert_eq!(
-            relative_path(Path::new("/a/b"), Path::new("/x/y.mp3")),
-            PathBuf::from("../../x/y.mp3")
+            normalize_path(Path::new("/a/./b/./c")),
+            PathBuf::from("/a/b/c")
         );
+        assert_eq!(normalize_path(Path::new("/../../a")), PathBuf::from("/a"));
+        assert_eq!(normalize_path(Path::new("a/b/../../c")), PathBuf::from("c"));
+        assert_eq!(
+            normalize_path(Path::new("a/b/../../../c")),
+            PathBuf::from("../c")
+        );
+    }
+
+    #[test]
+    fn resolves_relative_path_with_parent_traversal() {
+        let resolved = resolve_entry_path(
+            Path::new("/home/user/.local/share/melody/playlists"),
+            "../../../../Music/song.mp3",
+        );
+        assert_eq!(resolved, PathBuf::from("/home/user/Music/song.mp3"));
     }
 }
