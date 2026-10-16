@@ -1,4 +1,4 @@
-use core_engine::{format_duration, AlbumSummary, ArtistSummary, Track};
+use core_engine::{format_duration, Track};
 use iced::widget::{column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length};
 
@@ -13,13 +13,11 @@ pub struct StatusBarContext<'a> {
     pub total_tracks: usize,
     pub search_query: &'a str,
     // Albums context
-    pub albums: &'a [AlbumSummary],
-    /// Precomputed album totals (avoid folding the catalog every frame).
+    pub album_count: usize,
     pub album_tracks: usize,
     pub album_duration_ms: u64,
-    // Artists context
-    pub artists: &'a [ArtistSummary],
-    /// Precomputed artist totals.
+    /// Artists context
+    pub artist_count: usize,
     pub artist_albums: usize,
     pub artist_tracks: usize,
     // Now Playing context
@@ -69,53 +67,41 @@ impl StatusBar {
                 .boxed()
             }
 
-            ViewTab::Albums => {
-                let total_albums = ctx.albums.len();
-                let total_tracks = ctx.album_tracks;
-                let total_duration_ms = ctx.album_duration_ms;
+            ViewTab::Albums => row![
+                icons::icon(icons::ALBUM_SVG, 11.0, muted),
+                text(theme_cfg, format!("{} albums", ctx.album_count))
+                    .size(11)
+                    .color(muted),
+                text(theme_cfg, "·").size(11).color(muted),
+                text(theme_cfg, format!("{} tracks", ctx.album_tracks))
+                    .size(11)
+                    .color(muted),
+                text(theme_cfg, "·").size(11).color(muted),
+                text(theme_cfg, format_duration(ctx.album_duration_ms))
+                    .size(11)
+                    .color(muted),
+            ]
+            .spacing(6)
+            .align_y(Alignment::Center)
+            .boxed(),
 
-                row![
-                    icons::icon(icons::ALBUM_SVG, 11.0, muted),
-                    text(theme_cfg, format!("{} albums viewing", total_albums))
-                        .size(11)
-                        .color(muted),
-                    text(theme_cfg, "·").size(11).color(muted),
-                    text(theme_cfg, format!("{} tracks", total_tracks))
-                        .size(11)
-                        .color(muted),
-                    text(theme_cfg, "·").size(11).color(muted),
-                    text(theme_cfg, format_duration(total_duration_ms))
-                        .size(11)
-                        .color(muted),
-                ]
-                .spacing(6)
-                .align_y(Alignment::Center)
-                .boxed()
-            }
-
-            ViewTab::Artists => {
-                let total_artists = ctx.artists.len();
-                let total_albums = ctx.artist_albums;
-                let total_tracks = ctx.artist_tracks;
-
-                row![
-                    icons::icon(icons::USER_AVATAR_SVG, 11.0, muted),
-                    text(theme_cfg, format!("{} artists viewing", total_artists))
-                        .size(11)
-                        .color(muted),
-                    text(theme_cfg, "·").size(11).color(muted),
-                    text(theme_cfg, format!("{} albums", total_albums))
-                        .size(11)
-                        .color(muted),
-                    text(theme_cfg, "·").size(11).color(muted),
-                    text(theme_cfg, format!("{} tracks", total_tracks))
-                        .size(11)
-                        .color(muted),
-                ]
-                .spacing(6)
-                .align_y(Alignment::Center)
-                .boxed()
-            }
+            ViewTab::Artists => row![
+                icons::icon(icons::USER_AVATAR_SVG, 11.0, muted),
+                text(theme_cfg, format!("{} artists", ctx.artist_count))
+                    .size(11)
+                    .color(muted),
+                text(theme_cfg, "·").size(11).color(muted),
+                text(theme_cfg, format!("{} albums", ctx.artist_albums))
+                    .size(11)
+                    .color(muted),
+                text(theme_cfg, "·").size(11).color(muted),
+                text(theme_cfg, format!("{} tracks", ctx.artist_tracks))
+                    .size(11)
+                    .color(muted),
+            ]
+            .spacing(6)
+            .align_y(Alignment::Center)
+            .boxed(),
 
             ViewTab::Lyrics => {
                 if let Some(track) = ctx.current_track {
