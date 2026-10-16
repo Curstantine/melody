@@ -375,19 +375,42 @@ impl App {
                         }
 
                         let track_id = next_track.id;
-                        let title = next_track.title.clone();
+                        let duration_ms = next_track.duration_ms;
+                        let file_path = next_track.file_path;
+                        let title = next_track.title;
                         let artist = next_track.artist.to_string();
                         let album = next_track.album.to_string();
-                        let duration_ms = next_track.duration_ms;
-                        let file_path = next_track.file_path.clone();
+
+                        self.current_cover = None;
+                        self.current_blurred_cover = None;
+                        self.current_next_cover = None;
+                        self.current_tech_info = None;
+                        self.now_playing.set_lyrics(None);
+
+                        self.plugin_manager.on_track_change(&TrackMetadata {
+                            title: title.clone(),
+                            artist: artist.clone(),
+                            album: album.clone(),
+                            duration_ms,
+                            file_path: file_path.clone(),
+                        });
+
+                        let path = PathBuf::from(&file_path);
+                        let load_assets = self.load_track_assets_task(
+                            track_id,
+                            path,
+                            artist.clone(),
+                            title.clone(),
+                            duration_ms,
+                        );
 
                         let track = Track {
                             id: track_id,
-                            file_path: file_path.clone(),
-                            title: title.clone(),
-                            artist: artist.clone(),
+                            file_path,
+                            title,
+                            artist,
                             album_artist: None,
-                            album: album.clone(),
+                            album,
                             genre: None,
                             duration_ms,
                             track_num: None,
@@ -405,23 +428,6 @@ impl App {
                         self.current_track_id = Some(track_id);
                         self.duration_ms = duration_ms;
 
-                        self.current_cover = None;
-                        self.current_blurred_cover = None;
-                        self.current_next_cover = None;
-                        self.current_tech_info = None;
-                        self.now_playing.set_lyrics(None);
-
-                        self.plugin_manager.on_track_change(&TrackMetadata {
-                            title: title.clone(),
-                            artist: artist.clone(),
-                            album: album.clone(),
-                            duration_ms,
-                            file_path: file_path.clone(),
-                        });
-
-                        let path = PathBuf::from(&file_path);
-                        let load_assets =
-                            self.load_track_assets_task(track_id, path, artist, title, duration_ms);
                         let persist = self.persist_active_current_task();
                         let snap = self.snap_queue_to_current();
                         let db = self.db.clone();
@@ -480,11 +486,16 @@ impl App {
                     // thread never stalls on disk I/O, image decoding or FFmpeg.
                     self.audio_controller.load(path.clone(), true);
                     let track_id = track.id;
-                    let track_clone = track.clone();
-                    self.current_track = Some(track.clone());
+                    let duration_ms = track.duration_ms;
+                    let title = track.title.clone();
+                    let artist = track.artist.clone();
+                    let album = track.album.clone();
+                    let file_path = track.file_path.clone();
+
+                    self.current_track = Some(track);
                     self.current_track_id = Some(track_id);
                     self.position_ms = 0;
-                    self.duration_ms = track.duration_ms;
+                    self.duration_ms = duration_ms;
 
                     // Clear stale assets from the previous track right away so we
                     // never render a mismatched cover while the new one loads.
@@ -496,21 +507,15 @@ impl App {
 
                     // Notify plugins synchronously (cheap state updates).
                     self.plugin_manager.on_track_change(&TrackMetadata {
-                        title: track.title,
-                        artist: track.artist,
-                        album: track.album,
-                        duration_ms: track.duration_ms,
-                        file_path: track.file_path,
+                        title: title.clone(),
+                        artist: artist.clone(),
+                        album,
+                        duration_ms,
+                        file_path,
                     });
 
                     self.queue_next_gapless_track();
-                    self.load_track_assets_task(
-                        track_id,
-                        path,
-                        track_clone.artist,
-                        track_clone.title,
-                        track_clone.duration_ms,
-                    )
+                    self.load_track_assets_task(track_id, path, artist, title, duration_ms)
                 } else {
                     Task::none()
                 }
