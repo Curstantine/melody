@@ -298,6 +298,7 @@ pub fn settings_header<'a>(
     let mut header = column![text(theme_cfg, title)
         .size(20)
         .color(theme_cfg.text_color()),];
+
     if let Some(x) = description {
         header = header.push(
             text(theme_cfg, x)
@@ -306,6 +307,7 @@ pub fn settings_header<'a>(
                 .boxed(),
         );
     }
+
     header.spacing(4).boxed()
 }
 

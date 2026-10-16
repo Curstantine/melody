@@ -482,7 +482,7 @@ impl SettingsView {
             column![
                 text(
                     theme_cfg,
-                    "Select from discovered system/CJK fonts or specify any installed font family"
+                    "Select from discovered system fonts or specify any installed font family"
                 )
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
@@ -779,7 +779,7 @@ impl SettingsView {
             Space::new().height(20),
         ]
         .spacing(18)
-        .padding(24)
+        .padding([18, 24])
         .width(Length::Fill)
         .boxed()
     }
@@ -1109,7 +1109,7 @@ impl SettingsView {
             Space::new().height(20),
         ]
         .spacing(18)
-        .padding(24)
+        .padding([18, 24])
         .width(Length::Fill)
         .boxed()
     }
@@ -1469,7 +1469,7 @@ impl SettingsView {
             Space::new().height(20),
         ]
         .spacing(18)
-        .padding(24)
+        .padding([18, 24])
         .width(Length::Fill)
         .boxed()
     }
