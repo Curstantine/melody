@@ -45,6 +45,7 @@ pub struct SettingsContext<'a> {
 
     pub submit_now_playing: bool,
     pub scrobble_percent: u32,
+    pub gapless: bool,
 }
 
 /// Self-contained state and view component for the Settings preferences screen.
@@ -182,8 +183,7 @@ impl SettingsView {
                     "ListenBrainz & Last.fm",
                 )
             ]
-            .width(220.0)
-            .spacing(2),
+            .width(220.0),
             border_hori(1.0, theme_cfg.border_color())
         ])
         .width(Length::Fixed(221.0))
@@ -684,6 +684,24 @@ impl SettingsView {
                         },
                         ctx.submit_now_playing,
                         Message::ToggleSubmitNowPlaying(!ctx.submit_now_playing),
+                    ),
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    text(theme_cfg, "Gapless Audio Playback:")
+                        .size(12)
+                        .color(theme_cfg.text_color())
+                        .width(Length::Fixed(160.0)),
+                    components::chip_with_icon(
+                        theme_cfg,
+                        if ctx.gapless {
+                            icons::CHECK_SVG
+                        } else {
+                            icons::RADIO_SVG
+                        },
+                        if ctx.gapless { "Enabled" } else { "Disabled" },
+                        ctx.gapless,
+                        Message::ToggleGapless(!ctx.gapless),
                     ),
                 ]
                 .align_y(Alignment::Center),

@@ -81,6 +81,10 @@ impl AudioController {
         self.send(AudioCommand::Load { path, autoplay });
     }
 
+    pub fn set_next_track(&self, path: Option<PathBuf>) {
+        self.send(AudioCommand::SetNextTrack(path));
+    }
+
     pub fn set_volume(&self, volume: f32) {
         self.send(AudioCommand::SetVolume(volume));
     }
@@ -137,7 +141,15 @@ fn init_ffmpeg() {
     });
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TrackBoundary {
+    pub switch_at_sample: u64,
+    pub next_duration_ms: u64,
+}
+
 struct LoadedTrack {
+    path: PathBuf,
+    duration_ms: u64,
     input: Input,
     decoder: ffmpeg_next::codec::decoder::Audio,
     stream_index: usize,
@@ -198,6 +210,8 @@ fn run_audio_worker(
     let _active_stream = stream.map(|(s, _)| s);
 
     let mut loaded_track: Option<LoadedTrack> = None;
+    let mut next_track: Option<LoadedTrack> = None;
+    let mut written_samples: u64 = 0;
 
     // When the decoder has hit EOF and the ring buffer has emptied, the last
     // callback buffer and the device's output latency are still in flight.
@@ -207,6 +221,7 @@ fn run_audio_worker(
     // SPSC ring buffer for decoding worker -> cpal callback
     // Note: The producer is held by the worker
     let mut ring_producer = WORKER_PRODUCER.lock().unwrap().take();
+    let mut boundary_producer = WORKER_BOUNDARY_PRODUCER.lock().unwrap().take();
 
     loop {
         // 1. Process all pending commands
@@ -215,8 +230,10 @@ fn run_audio_worker(
                 cmd,
                 &status,
                 &mut loaded_track,
+                &mut next_track,
                 &flush_flag,
                 &mut ring_producer,
+                &mut written_samples,
                 device_sample_rate,
                 device_channels,
             );
@@ -224,6 +241,7 @@ fn run_audio_worker(
 
         // 2. Decode audio if playing and loaded
         if status.is_playing() {
+            let mut transition_to = None;
             if let Some(track) = loaded_track.as_mut() {
                 if !track.reached_eof {
                     eof_deadline = None;
@@ -240,6 +258,7 @@ fn run_audio_worker(
                                         &mut ring_producer,
                                         device_channels,
                                         &flush_flag,
+                                        &mut written_samples,
                                     );
                                 }
                             }
@@ -252,15 +271,23 @@ fn run_audio_worker(
                                 &mut ring_producer,
                                 device_channels,
                                 &flush_flag,
+                                &mut written_samples,
                             );
                             flush_resampler(
                                 track,
                                 &mut ring_producer,
                                 device_channels,
                                 &flush_flag,
+                                &mut written_samples,
                             );
+
+                            if let Some(next) = next_track.take() {
+                                transition_to = Some(next);
+                            }
                         }
                     }
+                } else if let Some(next) = next_track.take() {
+                    transition_to = Some(next);
                 } else {
                     let is_empty = ring_producer
                         .as_ref()
@@ -305,6 +332,21 @@ fn run_audio_worker(
                 status.set_playing(false);
                 thread::sleep(Duration::from_millis(20));
             }
+
+            if let Some(next) = transition_to {
+                info!(
+                    "Transitioning gaplessly to next track {:?} (switch at sample {})",
+                    next.path, written_samples
+                );
+                if let Some(ref mut bp) = boundary_producer {
+                    let _ = bp.try_push(TrackBoundary {
+                        switch_at_sample: written_samples,
+                        next_duration_ms: next.duration_ms,
+                    });
+                }
+                loaded_track = Some(next);
+                eof_deadline = None;
+            }
         } else {
             eof_deadline = None;
 
@@ -314,8 +356,10 @@ fn run_audio_worker(
                     cmd,
                     &status,
                     &mut loaded_track,
+                    &mut next_track,
                     &flush_flag,
                     &mut ring_producer,
+                    &mut written_samples,
                     device_sample_rate,
                     device_channels,
                 );
@@ -329,6 +373,7 @@ fn drain_decoder_frames(
     ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
     device_channels: usize,
     flush_flag: &Arc<AtomicBool>,
+    written_samples: &mut u64,
 ) {
     while track
         .decoder
@@ -359,7 +404,8 @@ fn drain_decoder_frames(
                         };
 
                         if let Some(ref mut prod) = ring_producer {
-                            if !push_to_ring_buffer(prod, float_slice, flush_flag) {
+                            if !push_to_ring_buffer(prod, float_slice, flush_flag, written_samples)
+                            {
                                 break;
                             }
                         }
@@ -378,6 +424,7 @@ fn flush_resampler(
     ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
     device_channels: usize,
     flush_flag: &Arc<AtomicBool>,
+    written_samples: &mut u64,
 ) {
     while let Ok(Some(_)) = track.resampler.flush(&mut track.resampled_frame) {
         if flush_flag.load(Ordering::Relaxed) {
@@ -397,7 +444,7 @@ fn flush_resampler(
             };
 
             if let Some(ref mut prod) = ring_producer {
-                if !push_to_ring_buffer(prod, float_slice, flush_flag) {
+                if !push_to_ring_buffer(prod, float_slice, flush_flag, written_samples) {
                     break;
                 }
             }
@@ -409,6 +456,7 @@ fn push_to_ring_buffer(
     prod: &mut ringbuf::HeapProd<f32>,
     samples: &[f32],
     flush_flag: &Arc<AtomicBool>,
+    written_samples: &mut u64,
 ) -> bool {
     let mut written = 0;
     let mut retries = 0;
@@ -419,6 +467,7 @@ fn push_to_ring_buffer(
 
         let n = prod.push_slice(&samples[written..]);
         written += n;
+        *written_samples += n as u64;
         if written < samples.len() {
             if n == 0 {
                 retries += 1;
@@ -440,8 +489,10 @@ fn push_to_ring_buffer(
     true
 }
 
-// Global slot to transfer producer created in CPAL stream setup to worker thread
+// Global slots to transfer producers created in CPAL stream setup to worker thread
 static WORKER_PRODUCER: std::sync::Mutex<Option<ringbuf::HeapProd<f32>>> =
+    std::sync::Mutex::new(None);
+static WORKER_BOUNDARY_PRODUCER: std::sync::Mutex<Option<ringbuf::HeapProd<TrackBoundary>>> =
     std::sync::Mutex::new(None);
 
 /// Records how far in the future the buffer handed to the callback will actually
@@ -483,13 +534,87 @@ fn advance_position(
 type CpalStreamSetup = (cpal::Stream, u32, usize, Arc<AtomicU64>);
 
 /// Shared, per-stream state handed to the realtime output callbacks.
-struct CallbackState<'a> {
-    consumer: &'a mut ringbuf::HeapCons<f32>,
-    flush_flag: &'a AtomicBool,
-    status: &'a AudioStatus,
-    sample_rate: u32,
-    channels: usize,
-    pos_rem: &'a mut u64,
+pub struct CallbackState<'a> {
+    pub consumer: &'a mut ringbuf::HeapCons<f32>,
+    pub boundary_consumer: &'a mut ringbuf::HeapCons<TrackBoundary>,
+    pub current_boundary: &'a mut Option<TrackBoundary>,
+    pub consumed_samples: &'a mut u64,
+    pub flush_flag: &'a AtomicBool,
+    pub status: &'a AudioStatus,
+    pub sample_rate: u32,
+    pub channels: usize,
+    pub pos_rem: &'a mut u64,
+}
+
+pub fn pop_samples_with_boundary(data: &mut [f32], state: &mut CallbackState) -> usize {
+    let mut total_read = 0;
+
+    while total_read < data.len() {
+        if state.current_boundary.is_none() {
+            *state.current_boundary = state.boundary_consumer.try_pop();
+        }
+
+        if let Some(ref mut b) = state.current_boundary {
+            let target = b.switch_at_sample;
+            if *state.consumed_samples >= target {
+                let next_dur = b.next_duration_ms;
+                *state.current_boundary = None;
+                state.status.set_duration_ms(next_dur);
+                state.status.set_position_ms(0);
+                *state.pos_rem = 0;
+                state.status.set_gapless_transition(true);
+                continue;
+            }
+
+            let samples_until_switch = (target - *state.consumed_samples) as usize;
+            let needed = data.len() - total_read;
+            let to_read = needed.min(samples_until_switch);
+
+            let read = state
+                .consumer
+                .pop_slice(&mut data[total_read..total_read + to_read]);
+            if read > 0 {
+                advance_position(
+                    state.status,
+                    read,
+                    state.channels,
+                    state.sample_rate,
+                    state.pos_rem,
+                );
+                *state.consumed_samples += read as u64;
+                total_read += read;
+            }
+
+            if *state.consumed_samples >= target {
+                let next_dur = b.next_duration_ms;
+                *state.current_boundary = None;
+                state.status.set_duration_ms(next_dur);
+                state.status.set_position_ms(0);
+                *state.pos_rem = 0;
+                state.status.set_gapless_transition(true);
+            }
+
+            if read < to_read {
+                break;
+            }
+        } else {
+            let read = state.consumer.pop_slice(&mut data[total_read..]);
+            if read > 0 {
+                advance_position(
+                    state.status,
+                    read,
+                    state.channels,
+                    state.sample_rate,
+                    state.pos_rem,
+                );
+                *state.consumed_samples += read as u64;
+                total_read += read;
+            }
+            break;
+        }
+    }
+
+    total_read
 }
 
 fn setup_cpal_stream(
@@ -504,7 +629,11 @@ fn setup_cpal_stream(
     let rb = HeapRb::<f32>::new(RING_BUFFER_CAPACITY);
     let (producer, mut consumer) = rb.split();
 
+    let boundary_rb = HeapRb::<TrackBoundary>::new(16);
+    let (boundary_producer, mut boundary_consumer) = boundary_rb.split();
+
     *WORKER_PRODUCER.lock().unwrap() = Some(producer);
+    *WORKER_BOUNDARY_PRODUCER.lock().unwrap() = Some(boundary_producer);
 
     let flush_cb = flush_flag.clone();
     let status_cb = status.clone();
@@ -514,6 +643,8 @@ fn setup_cpal_stream(
 
     // Sub-millisecond remainder carried between callbacks (see advance_position).
     let mut pos_rem: u64 = 0;
+    let mut current_boundary: Option<TrackBoundary> = None;
+    let mut consumed_samples: u64 = 0;
 
     let err_fn = |err| error!("CPAL output stream error: {}", err);
 
@@ -525,6 +656,9 @@ fn setup_cpal_stream(
                     record_output_latency(info, &latency_cb);
                     let mut state = CallbackState {
                         consumer: &mut consumer,
+                        boundary_consumer: &mut boundary_consumer,
+                        current_boundary: &mut current_boundary,
+                        consumed_samples: &mut consumed_samples,
                         flush_flag: &flush_cb,
                         status: &status_cb,
                         sample_rate,
@@ -546,6 +680,9 @@ fn setup_cpal_stream(
                         record_output_latency(info, &latency_cb);
                         let mut state = CallbackState {
                             consumer: &mut consumer,
+                            boundary_consumer: &mut boundary_consumer,
+                            current_boundary: &mut current_boundary,
+                            consumed_samples: &mut consumed_samples,
                             flush_flag: &flush_cb,
                             status: &status_cb,
                             sample_rate,
@@ -568,6 +705,9 @@ fn setup_cpal_stream(
                         record_output_latency(info, &latency_cb);
                         let mut state = CallbackState {
                             consumer: &mut consumer,
+                            boundary_consumer: &mut boundary_consumer,
+                            current_boundary: &mut current_boundary,
+                            consumed_samples: &mut consumed_samples,
                             flush_flag: &flush_cb,
                             status: &status_cb,
                             sample_rate,
@@ -593,6 +733,9 @@ fn audio_callback_f32(data: &mut [f32], state: &mut CallbackState) {
     if state.flush_flag.swap(false, Ordering::SeqCst) {
         state.consumer.clear();
         *state.pos_rem = 0;
+        *state.consumed_samples = 0;
+        state.boundary_consumer.clear();
+        *state.current_boundary = None;
     }
 
     if !state.status.is_playing() {
@@ -600,7 +743,7 @@ fn audio_callback_f32(data: &mut [f32], state: &mut CallbackState) {
         return;
     }
 
-    let read_count = state.consumer.pop_slice(data);
+    let read_count = pop_samples_with_boundary(data, state);
     if read_count < data.len() {
         data[read_count..].fill(0.0);
     }
@@ -611,20 +754,15 @@ fn audio_callback_f32(data: &mut [f32], state: &mut CallbackState) {
             *sample *= vol;
         }
     }
-
-    advance_position(
-        state.status,
-        read_count,
-        state.channels,
-        state.sample_rate,
-        state.pos_rem,
-    );
 }
 
 fn audio_callback_i16(data: &mut [i16], scratch: &mut Vec<f32>, state: &mut CallbackState) {
     if state.flush_flag.swap(false, Ordering::SeqCst) {
         state.consumer.clear();
         *state.pos_rem = 0;
+        *state.consumed_samples = 0;
+        state.boundary_consumer.clear();
+        *state.current_boundary = None;
     }
 
     if !state.status.is_playing() {
@@ -636,7 +774,7 @@ fn audio_callback_i16(data: &mut [i16], scratch: &mut Vec<f32>, state: &mut Call
         scratch.resize(data.len(), 0.0);
     }
     let scratch_slice = &mut scratch[..data.len()];
-    let read_count = state.consumer.pop_slice(scratch_slice);
+    let read_count = pop_samples_with_boundary(scratch_slice, state);
     if read_count < data.len() {
         scratch_slice[read_count..].fill(0.0);
     }
@@ -646,20 +784,15 @@ fn audio_callback_i16(data: &mut [i16], scratch: &mut Vec<f32>, state: &mut Call
         let clamped = (scratch_slice[i] * vol).clamp(-1.0, 1.0);
         *sample = (clamped * i16::MAX as f32) as i16;
     }
-
-    advance_position(
-        state.status,
-        read_count,
-        state.channels,
-        state.sample_rate,
-        state.pos_rem,
-    );
 }
 
 fn audio_callback_u16(data: &mut [u16], scratch: &mut Vec<f32>, state: &mut CallbackState) {
     if state.flush_flag.swap(false, Ordering::SeqCst) {
         state.consumer.clear();
         *state.pos_rem = 0;
+        *state.consumed_samples = 0;
+        state.boundary_consumer.clear();
+        *state.current_boundary = None;
     }
 
     if !state.status.is_playing() {
@@ -671,7 +804,7 @@ fn audio_callback_u16(data: &mut [u16], scratch: &mut Vec<f32>, state: &mut Call
         scratch.resize(data.len(), 0.0);
     }
     let scratch_slice = &mut scratch[..data.len()];
-    let read_count = state.consumer.pop_slice(scratch_slice);
+    let read_count = pop_samples_with_boundary(scratch_slice, state);
     if read_count < data.len() {
         scratch_slice[read_count..].fill(0.0);
     }
@@ -681,14 +814,6 @@ fn audio_callback_u16(data: &mut [u16], scratch: &mut Vec<f32>, state: &mut Call
         let clamped = (scratch_slice[i] * vol).clamp(-1.0, 1.0);
         *sample = (((clamped + 1.0) * 0.5) * u16::MAX as f32) as u16;
     }
-
-    advance_position(
-        state.status,
-        read_count,
-        state.channels,
-        state.sample_rate,
-        state.pos_rem,
-    );
 }
 
 fn flush_audio_buffer(flush_flag: &Arc<AtomicBool>) {
@@ -704,24 +829,30 @@ fn flush_audio_buffer(flush_flag: &Arc<AtomicBool>) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_command(
     cmd: AudioCommand,
     status: &AudioStatus,
     loaded_track: &mut Option<LoadedTrack>,
+    next_track: &mut Option<LoadedTrack>,
     flush_flag: &Arc<AtomicBool>,
     _ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
+    written_samples: &mut u64,
     device_sample_rate: u32,
     device_channels: usize,
 ) {
     match cmd {
         AudioCommand::Load { path, autoplay } => {
             info!("Loading audio file: {:?}", path);
+            *next_track = None;
             match load_track(&path, device_sample_rate, device_channels) {
-                Ok((track, duration_ms)) => {
+                Ok(track) => {
                     // Flush any stale audio from the previous track and wait for the consumer
                     // callback to acknowledge it before loading the new track and decoding samples.
                     flush_audio_buffer(flush_flag);
+                    *written_samples = 0;
 
+                    let duration_ms = track.duration_ms;
                     *loaded_track = Some(track);
                     status.set_duration_ms(duration_ms);
                     status.set_position_ms(0);
@@ -737,6 +868,27 @@ fn handle_command(
                 }
             }
         }
+        AudioCommand::SetNextTrack(maybe_path) => match maybe_path {
+            Some(path) => {
+                if next_track.as_ref().map(|t| &t.path) == Some(&path) {
+                    return;
+                }
+                info!("Preloading next track for gapless audio: {:?}", path);
+                match load_track(&path, device_sample_rate, device_channels) {
+                    Ok(track) => {
+                        info!("Preloaded next track successfully: {:?}", track.path);
+                        *next_track = Some(track);
+                    }
+                    Err(e) => {
+                        warn!("Failed to preload next track {:?}: {}", path, e);
+                        *next_track = None;
+                    }
+                }
+            }
+            None => {
+                *next_track = None;
+            }
+        },
         AudioCommand::Play => {
             if status.is_loaded() {
                 status.set_playing(true);
@@ -753,6 +905,7 @@ fn handle_command(
         AudioCommand::Stop => {
             status.set_playing(false);
             status.set_position_ms(0);
+            *next_track = None;
             if let Some(track) = loaded_track.as_mut() {
                 let _ = track.input.seek(0, ..);
                 track.decoder.flush();
@@ -764,6 +917,7 @@ fn handle_command(
                 track.reached_eof = false;
             }
             flush_audio_buffer(flush_flag);
+            *written_samples = 0;
         }
         AudioCommand::Seek(duration) => {
             if let Some(track) = loaded_track.as_mut() {
@@ -787,6 +941,14 @@ fn handle_command(
                         }
                         track.reached_eof = false;
                         flush_audio_buffer(flush_flag);
+                        *written_samples = 0;
+
+                        if let Some(ref mut next) = next_track {
+                            let _ = next.input.seek(0, ..);
+                            next.decoder.flush();
+                            next.reached_eof = false;
+                        }
+
                         status.set_position_ms(target_dur.as_millis() as u64);
                         info!("Seeked to {:?}", target_dur);
                     }
@@ -806,7 +968,7 @@ fn load_track(
     path: &Path,
     dst_sample_rate: u32,
     dst_channels: usize,
-) -> Result<(LoadedTrack, u64), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<LoadedTrack, Box<dyn std::error::Error + Send + Sync>> {
     init_ffmpeg();
 
     let input = ffmpeg_next::format::input(path)?;
@@ -862,6 +1024,8 @@ fn load_track(
     )?;
 
     let loaded = LoadedTrack {
+        path: path.to_path_buf(),
+        duration_ms,
         input,
         decoder,
         stream_index,
@@ -871,5 +1035,5 @@ fn load_track(
         resampled_frame: AudioFrame::empty(),
     };
 
-    Ok((loaded, duration_ms))
+    Ok(loaded)
 }

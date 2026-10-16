@@ -199,3 +199,73 @@ fn test_track_decoding_to_eof() {
         "Subsequent track load must play without hang"
     );
 }
+
+#[test]
+fn test_gapless_status_and_boundary_transition() {
+    use audio::{pop_samples_with_boundary, CallbackState, TrackBoundary};
+    use ringbuf::traits::{Producer, Split};
+    use ringbuf::HeapRb;
+    use std::sync::atomic::AtomicBool;
+
+    let status = AudioStatus::new();
+    status.set_duration_ms(100_000);
+    status.set_playing(true);
+
+    assert!(!status.gapless_transition());
+    status.set_gapless_transition(true);
+    assert!(status.gapless_transition());
+    assert!(status.take_gapless_transition());
+    assert!(!status.gapless_transition());
+
+    // Test sample-accurate boundary transition in pop_samples_with_boundary
+    let audio_rb = HeapRb::<f32>::new(1024);
+    let (mut audio_prod, mut audio_cons) = audio_rb.split();
+
+    let boundary_rb = HeapRb::<TrackBoundary>::new(8);
+    let (mut boundary_prod, mut boundary_cons) = boundary_rb.split();
+
+    // Track 1 has 40 samples in the buffer
+    let track1_samples = vec![1.0f32; 40];
+    audio_prod.push_slice(&track1_samples);
+
+    // Track 2 has 60 samples in the buffer
+    let track2_samples = vec![2.0f32; 60];
+    audio_prod.push_slice(&track2_samples);
+
+    // Set boundary at sample 40, switching to Track 2 with duration 200_000 ms
+    let _ = boundary_prod.try_push(TrackBoundary {
+        switch_at_sample: 40,
+        next_duration_ms: 200_000,
+    });
+
+    let flush_flag = AtomicBool::new(false);
+    let mut current_boundary = None;
+    let mut consumed_samples: u64 = 0;
+    let mut pos_rem: u64 = 0;
+
+    let mut state = CallbackState {
+        consumer: &mut audio_cons,
+        boundary_consumer: &mut boundary_cons,
+        current_boundary: &mut current_boundary,
+        consumed_samples: &mut consumed_samples,
+        flush_flag: &flush_flag,
+        status: &status,
+        sample_rate: 44100,
+        channels: 2,
+        pos_rem: &mut pos_rem,
+    };
+
+    // Callback requests 100 samples (covering 40 samples of track 1 and 60 samples of track 2)
+    let mut out = vec![0.0f32; 100];
+    let read = pop_samples_with_boundary(&mut out, &mut state);
+
+    assert_eq!(read, 100);
+    assert_eq!(&out[..40], &track1_samples[..]);
+    assert_eq!(&out[40..100], &track2_samples[..]);
+
+    // Check that gapless transition was triggered
+    assert!(status.take_gapless_transition());
+    assert_eq!(status.duration_ms(), 200_000);
+    assert_eq!(state.current_boundary, &None);
+    assert_eq!(*state.consumed_samples, 100);
+}

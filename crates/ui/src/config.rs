@@ -84,6 +84,8 @@ pub struct AppConfig {
     pub is_shuffle: bool,
     #[serde(default)]
     pub is_repeat: bool,
+    #[serde(default = "default_true")]
+    pub gapless: bool,
 
     #[serde(default)]
     pub scrobble: ScrobbleConfig,
@@ -223,6 +225,7 @@ impl Default for AppConfig {
             volume: default_volume(),
             is_shuffle: false,
             is_repeat: false,
+            gapless: true,
             scrobble: ScrobbleConfig::default(),
         }
     }

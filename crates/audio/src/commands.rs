@@ -17,4 +17,6 @@ pub enum AudioCommand {
     Seek(Duration),
     /// Set master volume (0.0 to 1.5)
     SetVolume(f32),
+    /// Preload the next track for gapless audio playback
+    SetNextTrack(Option<PathBuf>),
 }

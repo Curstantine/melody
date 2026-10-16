@@ -46,6 +46,7 @@ fn test_default_app_config() {
     assert_eq!(cfg.volume, 1.0);
     assert!(!cfg.is_shuffle);
     assert!(!cfg.is_repeat);
+    assert!(cfg.gapless);
     assert!(!cfg.scrobble.listenbrainz_enabled);
     assert!(!cfg.scrobble.lastfm_enabled);
     assert_eq!(cfg.scrobble.scrobble_percent, 50);
@@ -80,6 +81,7 @@ fn test_config_toml_roundtrip() {
         volume: 0.65,
         is_shuffle: true,
         is_repeat: true,
+        gapless: false,
         scrobble: config::ScrobbleConfig {
             listenbrainz_enabled: true,
             listenbrainz_token: "test_token".to_string(),

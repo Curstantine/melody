@@ -83,6 +83,8 @@ pub struct App {
     volume: f32,
     is_shuffle: bool,
     is_repeat: bool,
+    gapless: bool,
+    pending_gapless_next: Option<TrackRow>,
 
     // Global Scanning Telemetry
     is_scanning: bool,
@@ -219,6 +221,8 @@ impl App {
             volume: config.volume,
             is_shuffle: config.is_shuffle,
             is_repeat: config.is_repeat,
+            gapless: config.gapless,
+            pending_gapless_next: None,
 
             is_scanning: false,
 
@@ -337,6 +341,103 @@ impl App {
                     self.plugin_manager.on_position_change(self.position_ms);
                 }
 
+                // Check for gapless track transition
+                if status.take_gapless_transition() {
+                    info!("Gapless transition occurred");
+                    self.position_ms = 0;
+                    if status.duration_ms() > 0 {
+                        self.duration_ms = status.duration_ms();
+                    }
+                    self.plugin_manager.on_playback_end();
+
+                    if self.is_repeat {
+                        if let Some(track) = &self.current_track {
+                            self.plugin_manager.on_track_change(&TrackMetadata {
+                                title: track.title.clone(),
+                                artist: track.artist.clone(),
+                                album: track.album.clone(),
+                                duration_ms: track.duration_ms,
+                                file_path: track.file_path.clone(),
+                            });
+                        }
+                        self.queue_next_gapless_track();
+                        return Task::none();
+                    }
+
+                    if let Some(next_track) = self.pending_gapless_next.take() {
+                        if let Some(queue) = self.queues.active_queue_mut() {
+                            if let Some(pos) =
+                                queue.tracks.iter().position(|t| t.id == next_track.id)
+                            {
+                                queue.set_current(pos);
+                            }
+                            self.queues.touch_active_summary();
+                        }
+
+                        let track_id = next_track.id;
+                        let title = next_track.title.clone();
+                        let artist = next_track.artist.to_string();
+                        let album = next_track.album.to_string();
+                        let duration_ms = next_track.duration_ms;
+                        let file_path = next_track.file_path.clone();
+
+                        let track = Track {
+                            id: track_id,
+                            file_path: file_path.clone(),
+                            title: title.clone(),
+                            artist: artist.clone(),
+                            album_artist: None,
+                            album: album.clone(),
+                            genre: None,
+                            duration_ms,
+                            track_num: None,
+                            disc_num: None,
+                            year: None,
+                            composer: None,
+                            label: None,
+                            musicbrainz_track_id: None,
+                            musicbrainz_artist_id: None,
+                            musicbrainz_album_id: None,
+                            added_timestamp: 0,
+                        };
+
+                        self.current_track = Some(track);
+                        self.current_track_id = Some(track_id);
+                        self.duration_ms = duration_ms;
+
+                        self.current_cover = None;
+                        self.current_blurred_cover = None;
+                        self.current_next_cover = None;
+                        self.current_tech_info = None;
+                        self.now_playing.set_lyrics(None);
+
+                        self.plugin_manager.on_track_change(&TrackMetadata {
+                            title: title.clone(),
+                            artist: artist.clone(),
+                            album: album.clone(),
+                            duration_ms,
+                            file_path: file_path.clone(),
+                        });
+
+                        let path = PathBuf::from(&file_path);
+                        let load_assets =
+                            self.load_track_assets_task(track_id, path, artist, title, duration_ms);
+                        let persist = self.persist_active_current_task();
+                        let snap = self.snap_queue_to_current();
+                        let db = self.db.clone();
+                        let fetch_details = Task::perform(
+                            async move { db.get_track_by_id(track_id).await.unwrap_or(None) },
+                            |res| Message::TrackDetailsLoaded(Box::new(res)),
+                        );
+
+                        self.queue_next_gapless_track();
+
+                        return Task::batch([load_assets, persist, snap, fetch_details]);
+                    } else {
+                        return self.update(Message::NextTrack);
+                    }
+                }
+
                 // Check if track ended
                 if status.take_ended() {
                     info!("Playback ended, triggering next track");
@@ -379,6 +480,7 @@ impl App {
                     // thread never stalls on disk I/O, image decoding or FFmpeg.
                     self.audio_controller.load(path.clone(), true);
                     let track_id = track.id;
+                    let track_clone = track.clone();
                     self.current_track = Some(track.clone());
                     self.current_track_id = Some(track_id);
                     self.position_ms = 0;
@@ -392,10 +494,6 @@ impl App {
                     self.current_tech_info = None;
                     self.now_playing.set_lyrics(None);
 
-                    let artist = track.artist.clone();
-                    let title = track.title.clone();
-                    let duration_ms = track.duration_ms;
-
                     // Notify plugins synchronously (cheap state updates).
                     self.plugin_manager.on_track_change(&TrackMetadata {
                         title: track.title,
@@ -405,57 +503,26 @@ impl App {
                         file_path: track.file_path,
                     });
 
-                    // Resolve the next track's path from the in-memory window; the
-                    // background task then produces its thumbnail off-thread.
-                    let next_track_path =
-                        self.get_next_track().map(|nt| PathBuf::from(&nt.file_path));
-
-                    let plugin_manager = self.plugin_manager.clone();
-                    Task::perform(
-                        async move {
-                            tokio::task::spawn_blocking(move || {
-                                let cover = core_engine::get_or_create_thumbnail(
-                                    &path,
-                                    core_engine::THUMB_DIM_HIGH,
-                                )
-                                .or_else(|| core_engine::extract_cover_art(&path));
-
-                                let blurred = cover
-                                    .as_deref()
-                                    .and_then(core_engine::generate_blurred_cover);
-
-                                let tech_info =
-                                    core_engine::extract_technical_info(&path, duration_ms);
-
-                                let lyrics = plugin_manager.fetch_lyrics(&artist, &title);
-
-                                let next_cover = next_track_path.and_then(|nt_path| {
-                                    core_engine::get_or_create_thumbnail(
-                                        &nt_path,
-                                        core_engine::THUMB_DIM_DEFAULT,
-                                    )
-                                    .or_else(|| core_engine::extract_cover_art(&nt_path))
-                                });
-
-                                (cover, blurred, next_cover, tech_info, lyrics)
-                            })
-                            .await
-                            .unwrap_or((None, None, None, None, None))
-                        },
-                        move |(cover, blurred, next_cover, tech_info, lyrics)| {
-                            Message::PlaybackAssetsLoaded {
-                                track_id,
-                                cover,
-                                blurred,
-                                next_cover,
-                                tech_info,
-                                lyrics,
-                            }
-                        },
+                    self.queue_next_gapless_track();
+                    self.load_track_assets_task(
+                        track_id,
+                        path,
+                        track_clone.artist,
+                        track_clone.title,
+                        track_clone.duration_ms,
                     )
                 } else {
                     Task::none()
                 }
+            }
+
+            Message::TrackDetailsLoaded(maybe_track) => {
+                if let Some(track) = *maybe_track {
+                    if self.current_track_id == Some(track.id) {
+                        self.current_track = Some(track);
+                    }
+                }
+                Task::none()
             }
 
             Message::PlaybackAssetsLoaded {
@@ -485,6 +552,7 @@ impl App {
             }
 
             Message::Stop => {
+                self.pending_gapless_next = None;
                 self.audio_controller.stop();
                 self.position_ms = 0;
                 Task::none()
@@ -520,6 +588,7 @@ impl App {
                 self.is_shuffle = !self.is_shuffle;
                 info!("Shuffle toggled: {}", self.is_shuffle);
                 self.plugin_manager.on_shuffle_change(self.is_shuffle);
+                self.queue_next_gapless_track();
                 self.save_config_task()
             }
 
@@ -527,6 +596,14 @@ impl App {
                 self.is_repeat = !self.is_repeat;
                 info!("Repeat toggled: {}", self.is_repeat);
                 self.plugin_manager.on_repeat_change(self.is_repeat);
+                self.queue_next_gapless_track();
+                self.save_config_task()
+            }
+
+            Message::ToggleGapless(enabled) => {
+                self.gapless = enabled;
+                info!("Gapless playback toggled: {}", self.gapless);
+                self.queue_next_gapless_track();
                 self.save_config_task()
             }
 
@@ -1928,8 +2005,16 @@ impl App {
     pub fn get_next_track(&self) -> Option<&TrackRow> {
         if let Some(queue) = self.queues.active_queue() {
             if self.is_shuffle && !queue.is_empty() {
-                let idx = (self.position_ms as usize ^ 0x9e3779b9) % queue.len();
-                return queue.tracks.get(idx);
+                let len = queue.len();
+                if len <= 1 {
+                    return queue.tracks.get(queue.current_index().unwrap_or(0));
+                }
+                let current = queue.current_index().unwrap_or(0);
+                let mut pick = (self.position_ms as usize ^ 0x9e3779b9) % len;
+                if pick == current {
+                    pick = (pick + 1) % len;
+                }
+                return queue.tracks.get(pick);
             }
             if let Some(idx) = queue.next_index() {
                 return queue.tracks.get(idx);
@@ -1938,6 +2023,94 @@ impl App {
         }
         self.library
             .get_next_row(self.current_track_id, self.is_shuffle, self.position_ms)
+    }
+
+    fn load_track_assets_task(
+        &self,
+        track_id: i64,
+        path: PathBuf,
+        artist: String,
+        title: String,
+        duration_ms: u64,
+    ) -> Task<Message> {
+        let next_track_path = self.get_next_track().map(|nt| PathBuf::from(&nt.file_path));
+        let plugin_manager = self.plugin_manager.clone();
+
+        Task::perform(
+            async move {
+                tokio::task::spawn_blocking(move || {
+                    let cover =
+                        core_engine::get_or_create_thumbnail(&path, core_engine::THUMB_DIM_HIGH)
+                            .or_else(|| core_engine::extract_cover_art(&path));
+
+                    let blurred = cover
+                        .as_deref()
+                        .and_then(core_engine::generate_blurred_cover);
+
+                    let tech_info = core_engine::extract_technical_info(&path, duration_ms);
+
+                    let lyrics = plugin_manager.fetch_lyrics(&artist, &title);
+
+                    let next_cover = next_track_path.and_then(|nt_path| {
+                        core_engine::get_or_create_thumbnail(
+                            &nt_path,
+                            core_engine::THUMB_DIM_DEFAULT,
+                        )
+                        .or_else(|| core_engine::extract_cover_art(&nt_path))
+                    });
+
+                    (cover, blurred, next_cover, tech_info, lyrics)
+                })
+                .await
+                .unwrap_or((None, None, None, None, None))
+            },
+            move |(cover, blurred, next_cover, tech_info, lyrics)| Message::PlaybackAssetsLoaded {
+                track_id,
+                cover,
+                blurred,
+                next_cover,
+                tech_info,
+                lyrics,
+            },
+        )
+    }
+
+    pub fn queue_next_gapless_track(&mut self) {
+        if !self.gapless {
+            self.pending_gapless_next = None;
+            self.audio_controller.set_next_track(None);
+            return;
+        }
+
+        if self.is_repeat {
+            if let Some(track) = &self.current_track {
+                let path = PathBuf::from(&track.file_path);
+                self.audio_controller.set_next_track(Some(path));
+                let track_row = TrackRow {
+                    id: track.id,
+                    title: track.title.clone(),
+                    artist: track.artist.as_str().into(),
+                    album: track.album.as_str().into(),
+                    duration_ms: track.duration_ms,
+                    file_path: track.file_path.clone(),
+                    duration_label: track.formatted_duration(),
+                };
+                self.pending_gapless_next = Some(track_row);
+            } else {
+                self.audio_controller.set_next_track(None);
+                self.pending_gapless_next = None;
+            }
+            return;
+        }
+
+        if let Some(next_track) = self.get_next_track() {
+            let path = PathBuf::from(&next_track.file_path);
+            self.audio_controller.set_next_track(Some(path));
+            self.pending_gapless_next = Some(next_track.clone());
+        } else {
+            self.audio_controller.set_next_track(None);
+            self.pending_gapless_next = None;
+        }
     }
 
     /// Advances the active queue cursor and returns the id of the track to play.
@@ -2187,6 +2360,7 @@ impl App {
             volume: self.volume,
             is_shuffle: self.is_shuffle,
             is_repeat: self.is_repeat,
+            gapless: self.gapless,
             scrobble: self.scrobble_config.clone(),
         }
     }
@@ -2538,6 +2712,7 @@ impl App {
 
                         submit_now_playing: self.scrobble_config.submit_now_playing,
                         scrobble_percent: self.scrobble_config.scrobble_percent,
+                        gapless: self.gapless,
                     },
                 )
             }

@@ -83,6 +83,7 @@ fn test_settings_views_render_without_panicking() {
 
             submit_now_playing: true,
             scrobble_percent: 50,
+            gapless: true,
         };
 
         // Render each view and verify it builds valid Iced elements without panic

@@ -9,6 +9,7 @@ pub struct AudioStatus {
     is_loaded: Arc<AtomicBool>,
     volume_raw: Arc<AtomicU32>,
     is_ended: Arc<AtomicBool>,
+    gapless_transition: Arc<AtomicBool>,
 }
 
 impl Default for AudioStatus {
@@ -26,6 +27,7 @@ impl AudioStatus {
             is_loaded: Arc::new(AtomicBool::new(false)),
             volume_raw: Arc::new(AtomicU32::new(1000)), // Default 1.0 volume (1000 / 1000)
             is_ended: Arc::new(AtomicBool::new(false)),
+            gapless_transition: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -94,5 +96,20 @@ impl AudioStatus {
     #[inline]
     pub fn take_ended(&self) -> bool {
         self.is_ended.swap(false, Ordering::Relaxed)
+    }
+
+    #[inline]
+    pub fn gapless_transition(&self) -> bool {
+        self.gapless_transition.load(Ordering::Relaxed)
+    }
+
+    #[inline]
+    pub fn set_gapless_transition(&self, val: bool) {
+        self.gapless_transition.store(val, Ordering::Release);
+    }
+
+    #[inline]
+    pub fn take_gapless_transition(&self) -> bool {
+        self.gapless_transition.swap(false, Ordering::AcqRel)
     }
 }

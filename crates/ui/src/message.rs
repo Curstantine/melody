@@ -147,6 +147,7 @@ pub enum Message {
     AudioTick,
     ToggleShuffle,
     ToggleRepeat,
+    ToggleGapless(bool),
     MprisAction(plugins::PlayerAction),
 
     // Navigation & Views
@@ -325,6 +326,7 @@ pub enum Message {
     ArtistsLoaded(Vec<ArtistSummary>),
     LibraryFoldersLoaded(Vec<String>),
     TrackResolvedForPlayback(Box<Option<Track>>),
+    TrackDetailsLoaded(Box<Option<Track>>),
     PlaybackAssetsLoaded {
         track_id: i64,
         cover: Option<Vec<u8>>,
@@ -358,6 +360,7 @@ impl std::fmt::Debug for Message {
             Self::AudioTick => write!(f, "AudioTick"),
             Self::ToggleShuffle => write!(f, "ToggleShuffle"),
             Self::ToggleRepeat => write!(f, "ToggleRepeat"),
+            Self::ToggleGapless(v) => f.debug_tuple("ToggleGapless").field(v).finish(),
             Self::MprisAction(a) => f.debug_tuple("MprisAction").field(a).finish(),
             Self::SelectTab(t) => f.debug_tuple("SelectTab").field(t).finish(),
             Self::TabDragStarted(t) => f.debug_tuple("TabDragStarted").field(t).finish(),
@@ -618,6 +621,10 @@ impl std::fmt::Debug for Message {
                 .finish(),
             Self::TrackResolvedForPlayback(t) => f
                 .debug_struct("TrackResolvedForPlayback")
+                .field("is_some", &t.is_some())
+                .finish(),
+            Self::TrackDetailsLoaded(t) => f
+                .debug_struct("TrackDetailsLoaded")
                 .field("is_some", &t.is_some())
                 .finish(),
             Self::PlaybackAssetsLoaded {
