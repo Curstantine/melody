@@ -2,13 +2,14 @@ use std::path::PathBuf;
 
 use iced::border::Radius;
 use iced::widget::{
-    button, column, container, pick_list, row, scrollable, slider, text_input, Space, Widget,
+    button, center, column, container, pick_list, row, scrollable, slider, text_input, Space,
+    Widget,
 };
 use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::components::{self, border_hori, text};
 use crate::icons;
-use crate::message::{Message, SettingsMessage, SettingsTab, ViewMode};
+use crate::message::{Message, SettingsTab, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
 pub struct SettingsContext<'a> {
@@ -34,16 +35,12 @@ pub struct SettingsContext<'a> {
     pub listenbrainz_enabled: bool,
     pub listenbrainz_token: &'a str,
     pub listenbrainz_api_url: &'a str,
-    pub listenbrainz_status: String,
-    pub listenbrainz_scrobbles: u64,
 
     pub lastfm_enabled: bool,
     pub lastfm_api_key: &'a str,
     pub lastfm_api_secret: &'a str,
     pub lastfm_session_key: &'a str,
     pub lastfm_api_url: &'a str,
-    pub lastfm_status: String,
-    pub lastfm_scrobbles: u64,
 
     pub submit_now_playing: bool,
     pub scrobble_percent: u32,
@@ -54,7 +51,6 @@ pub struct SettingsContext<'a> {
 pub struct SettingsView {
     pub active_tab: SettingsTab,
     pub available_fonts: Vec<String>,
-    pub custom_font_input: String,
     pub library_folders: Vec<String>,
     pub scrobble_test_status: Option<(plugins::scrobbler::ScrobbleService, Result<String, String>)>,
 }
@@ -67,17 +63,8 @@ impl SettingsView {
         Self {
             active_tab,
             available_fonts,
-            custom_font_input: String::new(),
             library_folders: Vec::new(),
             scrobble_test_status: None,
-        }
-    }
-
-    pub fn update(&mut self, message: SettingsMessage) {
-        match message {
-            SettingsMessage::CustomFontInputChanged(input) => {
-                self.custom_font_input = input;
-            }
         }
     }
 
@@ -338,16 +325,6 @@ impl SettingsView {
         // Typography & Font Configuration Card
         let active_font_family = ctx.primary_font.unwrap_or("Default").to_string();
 
-        let font_metrics = row![
-            components::metric_box(theme_cfg, "Active font family", active_font_family.clone()),
-            components::metric_box(
-                theme_cfg,
-                "Discovered font files",
-                format!("{} files", self.available_fonts.len()),
-            ),
-        ]
-        .spacing(12);
-
         // Font dropdown selector
         let mut font_options = self.available_fonts.clone();
         if !font_options.iter().any(|f| f == "Default") {
@@ -376,63 +353,11 @@ impl SettingsView {
         .style(styles::pick_list_style(theme_cfg))
         .menu_style(styles::menu_style(theme_cfg));
 
-        // Custom font input row
-        let custom_font_trimmed = self.custom_font_input.trim().to_string();
-        let has_custom_input = !custom_font_trimmed.is_empty();
-
-        let apply_custom_font_btn = button(
-            row![
-                icons::icon(
-                    icons::CHECK_SVG,
-                    12.0,
-                    if has_custom_input {
-                        theme_cfg.primary_color()
-                    } else {
-                        theme_cfg.text_muted_color()
-                    }
-                ),
-                Space::new().width(4),
-                text(theme_cfg, "Apply font")
-                    .size(11)
-                    .color(if has_custom_input {
-                        theme_cfg.primary_color()
-                    } else {
-                        theme_cfg.text_muted_color()
-                    }),
-            ]
-            .align_y(Alignment::Center),
-        )
-        .padding([5, 10])
-        .style(styles::ghost_button(theme_cfg, false))
-        .on_press_maybe(if has_custom_input {
-            Some(Message::SelectFont(custom_font_trimmed))
-        } else {
-            None
-        });
-
-        let custom_font_row = row![
-            text_input(
-                "Enter custom system font family (e.g. Inter, Roboto, Arial)...",
-                &self.custom_font_input,
-            )
-            .size(12)
-            .padding([5, 8])
-            .style(styles::search_input_style(theme_cfg))
-            .on_input(|s| Message::Settings(SettingsMessage::CustomFontInputChanged(s)))
-            .on_submit(Message::SelectFont(
-                self.custom_font_input.trim().to_string()
-            ))
-            .width(Length::Fill),
-            Space::new().width(8),
-            apply_custom_font_btn,
-        ]
-        .align_y(Alignment::Center);
-
         let active_iced_font = theme_cfg.font();
 
         let sample_text_box = container(
             column![
-                text(theme_cfg, "Multilingual glyph rendering preview:")
+                text(theme_cfg, "Multilingual glyph rendering preview")
                     .size(11)
                     .color(theme_cfg.primary_color()),
                 Space::new().height(4),
@@ -480,24 +405,13 @@ impl SettingsView {
             theme_cfg,
             "Typography & font configuration",
             column![
-                text(
-                    theme_cfg,
-                    "Select from discovered system fonts or specify any installed font family"
-                )
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-                font_metrics,
-                Space::new().height(4),
-                text(theme_cfg, "Select font family:")
-                    .size(12)
-                    .color(theme_cfg.text_muted_color()),
-                font_selector,
-                Space::new().height(4),
-                text(theme_cfg, "Or specify custom font:")
-                    .size(12)
-                    .color(theme_cfg.text_muted_color()),
-                custom_font_row,
-                Space::new().height(6),
+                column![
+                    text(theme_cfg, "Select font family")
+                        .size(12)
+                        .color(theme_cfg.text_muted_color()),
+                    font_selector,
+                ]
+                .spacing(4),
                 sample_text_box,
             ]
             .spacing(8)
@@ -524,23 +438,14 @@ impl SettingsView {
         let library_tab_card = components::settings_card(
             theme_cfg,
             "Library tab",
-            column![
-                text(
-                    theme_cfg,
-                    "Preferences and viewport pagination density for the music library"
-                )
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-                row![
-                    text(theme_cfg, "Page limit:")
-                        .size(12)
-                        .color(theme_cfg.text_color())
-                        .width(Length::Fixed(160.0)),
-                    page_size_buttons,
-                ]
-                .align_y(Alignment::Center),
+            row![
+                text(theme_cfg, "Page limit")
+                    .size(12)
+                    .color(theme_cfg.text_color())
+                    .width(Length::Fixed(160.0)),
+                page_size_buttons,
             ]
-            .spacing(10)
+            .align_y(Alignment::Center)
             .boxed(),
         );
 
@@ -565,14 +470,8 @@ impl SettingsView {
             theme_cfg,
             "Albums tab",
             column![
-                text(
-                    theme_cfg,
-                    "Layout presentation and tile dimensions for album catalog"
-                )
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
                 row![
-                    text(theme_cfg, "Catalog view mode:")
+                    text(theme_cfg, "Catalog view mode")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -584,7 +483,7 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
                 row![
-                    text(theme_cfg, "Tile width:")
+                    text(theme_cfg, "Tile width")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -631,14 +530,8 @@ impl SettingsView {
             theme_cfg,
             "Artists tab",
             column![
-                text(
-                    theme_cfg,
-                    "Layout presentation and tile dimensions for artist catalog"
-                )
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
                 row![
-                    text(theme_cfg, "Catalog view mode:")
+                    text(theme_cfg, "Catalog view mode")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -650,7 +543,7 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
                 row![
-                    text(theme_cfg, "Tile width:")
+                    text(theme_cfg, "Tile width")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -697,11 +590,8 @@ impl SettingsView {
             theme_cfg,
             "Now playing",
             column![
-                text(theme_cfg, "Artwork dimensions and playback display options")
-                    .size(12)
-                    .color(theme_cfg.text_muted_color()),
                 row![
-                    text(theme_cfg, "Cover art dimension:")
+                    text(theme_cfg, "Cover art dimension")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -723,7 +613,7 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
                 row![
-                    text(theme_cfg, "Now playing notifications:")
+                    text(theme_cfg, "Now playing notifications")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -745,7 +635,7 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
                 row![
-                    text(theme_cfg, "Gapless audio playback:")
+                    text(theme_cfg, "Gapless audio playback")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -837,11 +727,9 @@ impl SettingsView {
                 .boxed(),
         );
 
-        // Scanned Folders List
-        let add_folder_btn = button(
+        let add_folder_btn = button(center(
             row![
                 icons::icon(icons::PLUS_SVG, 13.0, theme_cfg.primary_color()),
-                Space::new().width(6),
                 text(
                     theme_cfg,
                     if ctx.is_scanning {
@@ -853,9 +741,10 @@ impl SettingsView {
                 .size(12)
                 .color(theme_cfg.text_color()),
             ]
+            .spacing(6)
             .align_y(Alignment::Center),
-        )
-        .padding([6, 14])
+        ))
+        .width(Length::Fill)
         .style(styles::ghost_button(theme_cfg, false))
         .on_press_maybe(if ctx.is_scanning {
             None
@@ -967,24 +856,8 @@ impl SettingsView {
 
         let folders_card = components::settings_card(
             theme_cfg,
-            "Scanned music directories",
-            column![
-                row![
-                    text(
-                        theme_cfg,
-                        "Audio files inside these directories are indexed recursively."
-                    )
-                    .size(12)
-                    .color(theme_cfg.text_muted_color())
-                    .width(Length::Fill),
-                    add_folder_btn,
-                ]
-                .align_y(Alignment::Center),
-                Space::new().height(4),
-                folders_content,
-            ]
-            .spacing(8)
-            .boxed(),
+            "Scanned directories",
+            column![folders_content, add_folder_btn].spacing(8).boxed(),
         );
 
         // Maintenance & Actions Card
@@ -1123,53 +996,20 @@ impl SettingsView {
 
         // 1. General Preferences Card
         let prefs_card = components::settings_card(
-        theme_cfg,
-        "Scrobble preferences",
-        column![
-            text(theme_cfg, "Playback notification and logging thresholds")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-            row![
-                column![
-                    text(theme_cfg, "Now playing notifications")
-                        .size(13)
-                        .color(theme_cfg.text_color()),
-                    text(
-                        theme_cfg,
-                        "Broadcast currently playing track metadata when playback begins"
-                    )
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
-                ]
-                .width(Length::Fill),
-                components::chip_with_icon(
-                    theme_cfg,
-                    if ctx.submit_now_playing {
-                        icons::CHECK_SVG
-                    } else {
-                        icons::RADIO_SVG
-                    },
-                    if ctx.submit_now_playing {
-                        "Enabled"
-                    } else {
-                        "Disabled"
-                    },
-                    ctx.submit_now_playing,
-                    Message::ToggleSubmitNowPlaying(!ctx.submit_now_playing),
-                ),
-            ]
-            .align_y(Alignment::Center),
-            Space::new().height(6),
+            theme_cfg,
+            "Scrobble preferences",
             column![
                 text(theme_cfg, "Scrobble threshold")
                     .size(13)
                     .color(theme_cfg.text_color()),
+                Space::new().height(4),
                 text(
                     theme_cfg,
                     "Percentage of track length to listen to before logging a scrobble (capped at 4 minutes)"
                 )
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
+                Space::new().height(6),
                 row![
                     components::chip(
                         theme_cfg,
@@ -1191,12 +1031,8 @@ impl SettingsView {
                     ),
                 ]
                 .spacing(8),
-            ]
-            .spacing(6),
-        ]
-        .spacing(12)
-        .boxed(),
-    );
+            ].boxed()
+        );
 
         // 2. ListenBrainz Card
         let lb_test_banner = if let Some((plugins::scrobbler::ScrobbleService::ListenBrainz, res)) =
@@ -1272,23 +1108,16 @@ impl SettingsView {
                 ),
             ]
             .align_y(Alignment::Center),
-            row![
-                components::metric_box(theme_cfg, "Status", ctx.listenbrainz_status.to_string()),
-                components::metric_box(
-                    theme_cfg,
-                    "Session scrobbles",
-                    ctx.listenbrainz_scrobbles.to_string(),
-                ),
-            ]
-            .spacing(12),
             column![
                 text(theme_cfg, "User token")
                     .size(12)
                     .color(theme_cfg.text_color()),
                 text_input("Enter ListenBrainz user token...", ctx.listenbrainz_token)
-                    .on_input(Message::ListenBrainzTokenChanged)
+                    .size(12)
+                    .padding([5, 8])
                     .style(styles::search_input_style(theme_cfg))
-                    .padding([7, 10]),
+                    .on_input(Message::ListenBrainzTokenChanged)
+                    .width(Length::Fill),
                 text(
                     theme_cfg,
                     "Obtain your user token from your profile at https://listenbrainz.org/profile/"
@@ -1303,11 +1132,13 @@ impl SettingsView {
                     .color(theme_cfg.text_color()),
                 text_input(
                     "https://api.listenbrainz.org/1/submit-listens",
-                    ctx.listenbrainz_api_url
+                    ctx.listenbrainz_api_url,
                 )
-                .on_input(Message::ListenBrainzUrlChanged)
+                .size(12)
+                .padding([5, 8])
                 .style(styles::search_input_style(theme_cfg))
-                .padding([7, 10]),
+                .on_input(Message::ListenBrainzUrlChanged)
+                .width(Length::Fill),
             ]
             .spacing(4),
             lb_test_btn,
@@ -1395,23 +1226,16 @@ impl SettingsView {
                 ),
             ]
             .align_y(Alignment::Center),
-            row![
-                components::metric_box(theme_cfg, "Status", ctx.lastfm_status.to_string()),
-                components::metric_box(
-                    theme_cfg,
-                    "Session scrobbles",
-                    ctx.lastfm_scrobbles.to_string(),
-                ),
-            ]
-            .spacing(12),
             column![
                 text(theme_cfg, "API key")
                     .size(12)
                     .color(theme_cfg.text_color()),
                 text_input("Enter Last.fm API key...", ctx.lastfm_api_key)
-                    .on_input(Message::LastFmApiKeyChanged)
+                    .size(12)
+                    .padding([5, 8])
                     .style(styles::search_input_style(theme_cfg))
-                    .padding([7, 10]),
+                    .on_input(Message::LastFmApiKeyChanged)
+                    .width(Length::Fill),
             ]
             .spacing(4),
             column![
@@ -1419,9 +1243,11 @@ impl SettingsView {
                     .size(12)
                     .color(theme_cfg.text_color()),
                 text_input("Enter Last.fm shared secret...", ctx.lastfm_api_secret)
-                    .on_input(Message::LastFmApiSecretChanged)
+                    .size(12)
+                    .padding([5, 8])
                     .style(styles::search_input_style(theme_cfg))
-                    .padding([7, 10]),
+                    .on_input(Message::LastFmApiSecretChanged)
+                    .width(Length::Fill),
             ]
             .spacing(4),
             column![
@@ -1429,9 +1255,11 @@ impl SettingsView {
                     .size(12)
                     .color(theme_cfg.text_color()),
                 text_input("Enter Last.fm session key (sk)...", ctx.lastfm_session_key)
-                    .on_input(Message::LastFmSessionKeyChanged)
+                    .size(12)
+                    .padding([5, 8])
                     .style(styles::search_input_style(theme_cfg))
-                    .padding([7, 10]),
+                    .on_input(Message::LastFmSessionKeyChanged)
+                    .width(Length::Fill),
                 text(
                     theme_cfg,
                     "Obtain your API key and session key from your Last.fm API account settings"
@@ -1445,9 +1273,11 @@ impl SettingsView {
                     .size(12)
                     .color(theme_cfg.text_color()),
                 text_input("https://ws.audioscrobbler.com/2.0/", ctx.lastfm_api_url)
-                    .on_input(Message::LastFmUrlChanged)
+                    .size(12)
+                    .padding([5, 8])
                     .style(styles::search_input_style(theme_cfg))
-                    .padding([7, 10]),
+                    .on_input(Message::LastFmUrlChanged)
+                    .width(Length::Fill),
             ]
             .spacing(4),
             lastfm_test_btn,

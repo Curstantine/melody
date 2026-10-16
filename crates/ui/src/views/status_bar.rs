@@ -2,11 +2,12 @@ use core_engine::{format_duration, Track};
 use iced::widget::{column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length};
 
-use crate::components::{border_vert, scanning_indicator, text};
+use crate::components::{border_vert, scanning_indicator, text, thumbnail_caching_indicator};
 use crate::icons;
 use crate::message::{Message, ViewTab};
 use crate::theme::{styles, ThemeConfig};
 
+#[derive(Debug, Clone, Copy)]
 pub struct StatusBarContext<'a> {
     pub active_tab: ViewTab,
     // Tracks (Music) context
@@ -30,6 +31,8 @@ pub struct StatusBarContext<'a> {
     pub active_queue: Option<(&'a str, usize)>,
     // Global telemetry
     pub is_scanning: bool,
+    pub scan_progress: Option<(usize, usize)>,
+    pub is_generating_thumbnails: bool,
 }
 
 /// Persistent bottom status bar component.
@@ -194,7 +197,9 @@ impl StatusBar {
         // 2. Global Right Section
         let mut status_row = row![left_items, Space::new().width(Length::Fill),];
         if ctx.is_scanning {
-            status_row = status_row.push(scanning_indicator(theme_cfg));
+            status_row = status_row.push(scanning_indicator(theme_cfg, ctx.scan_progress));
+        } else if ctx.is_generating_thumbnails {
+            status_row = status_row.push(thumbnail_caching_indicator(theme_cfg));
         }
         let status_row = status_row
             .spacing(8)

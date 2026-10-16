@@ -8,6 +8,8 @@ mod icons;
 mod message;
 #[path = "../src/views/settings.rs"]
 mod settings;
+#[path = "../src/views/status_bar.rs"]
+mod status_bar;
 #[path = "../src/theme/mod.rs"]
 mod theme;
 
@@ -43,7 +45,6 @@ fn test_settings_views_render_without_panicking() {
         let settings_view = settings::SettingsView {
             active_tab: tab,
             available_fonts: available_fonts.clone(),
-            custom_font_input: String::new(),
             library_folders: folders.clone(),
             scrobble_test_status: None,
         };
@@ -73,16 +74,12 @@ fn test_settings_views_render_without_panicking() {
             listenbrainz_enabled: true,
             listenbrainz_token: "test_token",
             listenbrainz_api_url: "https://api.listenbrainz.org/1/submit-listens",
-            listenbrainz_status: "Ready".to_string(),
-            listenbrainz_scrobbles: 12,
 
             lastfm_enabled: true,
             lastfm_api_key: "test_api_key",
             lastfm_api_secret: "test_secret",
             lastfm_session_key: "test_sk",
             lastfm_api_url: "https://ws.audioscrobbler.com/2.0/",
-            lastfm_status: "Ready".to_string(),
-            lastfm_scrobbles: 8,
 
             submit_now_playing: true,
             scrobble_percent: 50,
@@ -92,4 +89,37 @@ fn test_settings_views_render_without_panicking() {
         // Render each view and verify it builds valid Iced elements without panic
         let _element = settings_view.view(&theme_cfg, ctx);
     }
+}
+
+#[test]
+fn test_status_bar_indicators_render() {
+    let theme_cfg = ThemeConfig::default();
+    let ctx = status_bar::StatusBarContext {
+        active_tab: message::ViewTab::Tracks,
+        total_tracks: 100,
+        search_query: "",
+        album_count: 10,
+        album_tracks: 100,
+        album_duration_ms: 100000,
+        artist_count: 5,
+        artist_albums: 10,
+        artist_tracks: 100,
+        current_track: None,
+        is_playing: false,
+        playlist_count: 2,
+        queue_count: 1,
+        active_queue: None,
+        is_scanning: true,
+        scan_progress: Some((45, 120)),
+        is_generating_thumbnails: false,
+    };
+    let _el = status_bar::StatusBar::view(&theme_cfg, ctx);
+
+    let ctx_thumbs = status_bar::StatusBarContext {
+        is_scanning: false,
+        scan_progress: None,
+        is_generating_thumbnails: true,
+        ..ctx
+    };
+    let _el2 = status_bar::StatusBar::view(&theme_cfg, ctx_thumbs);
 }

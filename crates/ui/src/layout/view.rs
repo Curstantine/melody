@@ -300,6 +300,7 @@ impl App {
                 icons::icon(tab.icon_svg(), 12.0, tab_icon_color),
                 text(theme_cfg, tab.label())
                     .size(11)
+                    .line_height(1.0)
                     .color(if is_selected || is_dragging {
                         theme_cfg.primary_color()
                     } else if is_hovered {
@@ -381,10 +382,19 @@ impl App {
 
                 if show_settings {
                     nav_col = nav_col.push(Space::new().height(Length::Fill).boxed());
+                    let settings_is_selected = self.active_tab == ViewTab::Settings;
                     let settings_row = row![
-                        settings_btn,
-                        text(theme_cfg, "Settings").size(11).color(
-                            if self.active_tab == ViewTab::Settings {
+                        icons::icon(
+                            icons::SETTINGS_SVG,
+                            12.0,
+                            if settings_is_selected {
+                                theme_cfg.primary_color()
+                            } else {
+                                theme_cfg.text_muted_color()
+                            },
+                        ),
+                        text(theme_cfg, "Settings").size(11).line_height(1.0).color(
+                            if settings_is_selected {
                                 theme_cfg.primary_color()
                             } else {
                                 theme_cfg.text_muted_color()
@@ -400,7 +410,7 @@ impl App {
                             .width(Length::Fill)
                             .style(styles::header_tab_container(
                                 theme_cfg,
-                                self.active_tab == ViewTab::Settings,
+                                settings_is_selected,
                                 false,
                                 false,
                             )),
@@ -481,16 +491,12 @@ impl App {
                 listenbrainz_enabled: self.scrobble_config.listenbrainz_enabled,
                 listenbrainz_token: &self.scrobble_config.listenbrainz_token,
                 listenbrainz_api_url: &self.scrobble_config.listenbrainz_api_url,
-                listenbrainz_status: self.listenbrainz_plugin.status(),
-                listenbrainz_scrobbles: self.listenbrainz_plugin.scrobble_count(),
 
                 lastfm_enabled: self.scrobble_config.lastfm_enabled,
                 lastfm_api_key: &self.scrobble_config.lastfm_api_key,
                 lastfm_api_secret: &self.scrobble_config.lastfm_api_secret,
                 lastfm_session_key: &self.scrobble_config.lastfm_session_key,
                 lastfm_api_url: &self.scrobble_config.lastfm_api_url,
-                lastfm_status: self.lastfm_plugin.status(),
-                lastfm_scrobbles: self.lastfm_plugin.scrobble_count(),
 
                 submit_now_playing: self.scrobble_config.submit_now_playing,
                 scrobble_percent: self.scrobble_config.scrobble_percent,
@@ -519,6 +525,8 @@ impl App {
                 .active_queue()
                 .map(|q| (q.name.as_str(), q.len())),
             is_scanning: self.is_scanning,
+            scan_progress: self.scan_progress,
+            is_generating_thumbnails: self.is_generating_thumbnails,
         }
     }
 }

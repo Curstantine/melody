@@ -8,6 +8,7 @@ use core_engine::{
     SortField, Track, TrackFilter, TrackRow,
 };
 use crossbeam_channel::Receiver;
+use iced::futures::SinkExt;
 use iced::widget::image;
 use iced::widget::operation::scrollable::{snap_to, RelativeOffset};
 use iced::widget::operation::Animation;
@@ -88,6 +89,8 @@ pub struct App {
 
     // Global Scanning Telemetry
     pub(crate) is_scanning: bool,
+    pub(crate) scan_progress: Option<(usize, usize)>,
+    pub(crate) is_generating_thumbnails: bool,
 
     // Scrobbling Plugins
     pub(crate) listenbrainz_plugin: Arc<ListenBrainzPlugin>,
@@ -233,6 +236,8 @@ impl App {
             pending_gapless_next: None,
 
             is_scanning: false,
+            scan_progress: None,
+            is_generating_thumbnails: false,
 
             listenbrainz_plugin,
             lastfm_plugin,
@@ -937,21 +942,28 @@ impl App {
                 Some(path) => {
                     let path_str = path.to_string_lossy().to_string();
                     info!("Adding library folder: {}", path_str);
+                    self.is_scanning = true;
+                    self.scan_progress = None;
                     let db = self.db.clone();
-                    Task::perform(
-                        async move {
-                            let _ = db.add_library_folder(&path_str).await;
-                            let summary = db
-                                .scan_directory(&path, None::<fn(usize, usize)>)
-                                .await
-                                .unwrap_or_default();
-                            summary
-                        },
-                        Message::ScanFinished,
-                    )
+                    Task::stream(iced::stream::channel(100, async move |mut sender| {
+                        let _ = db.add_library_folder(&path_str).await;
+                        let mut cb_sender = sender.clone();
+                        let summary = db
+                            .scan_directory(
+                                &path,
+                                Some(move |current, total| {
+                                    let _ = cb_sender
+                                        .try_send(Message::ScanProgress { current, total });
+                                }),
+                            )
+                            .await
+                            .unwrap_or_default();
+                        let _ = sender.send(Message::ScanFinished(summary)).await;
+                    }))
                 }
                 None => {
                     self.is_scanning = false;
+                    self.scan_progress = None;
                     Task::none()
                 }
             },
@@ -975,46 +987,54 @@ impl App {
 
             Message::RescanLibraryFolder(path) => {
                 self.is_scanning = true;
+                self.scan_progress = None;
                 info!("Rescanning library folder: {:?}", path);
                 let db = self.db.clone();
-                Task::perform(
-                    async move {
-                        let summary = db
-                            .scan_directory(&path, None::<fn(usize, usize)>)
-                            .await
-                            .unwrap_or_default();
-                        summary
-                    },
-                    Message::ScanFinished,
-                )
+                Task::stream(iced::stream::channel(100, async move |mut sender| {
+                    let mut cb_sender = sender.clone();
+                    let summary = db
+                        .scan_directory(
+                            &path,
+                            Some(move |current, total| {
+                                let _ =
+                                    cb_sender.try_send(Message::ScanProgress { current, total });
+                            }),
+                        )
+                        .await
+                        .unwrap_or_default();
+                    let _ = sender.send(Message::ScanFinished(summary)).await;
+                }))
             }
 
             Message::ReindexLibrary => {
                 self.is_scanning = true;
+                self.scan_progress = None;
                 info!(
                     "Reindexing all library folders: {:?}",
                     self.settings.library_folders
                 );
                 let db = self.db.clone();
                 let folders = self.settings.library_folders.clone();
-                Task::perform(
-                    async move {
-                        let mut total_summary = core_engine::ScanSummary::default();
-                        for folder_str in folders {
-                            let path = PathBuf::from(folder_str);
-                            if let Ok(summary) =
-                                db.scan_directory(&path, None::<fn(usize, usize)>).await
-                            {
-                                total_summary.scanned_files += summary.scanned_files;
-                                total_summary.inserted_tracks += summary.inserted_tracks;
-                                total_summary.updated_tracks += summary.updated_tracks;
-                                total_summary.failed_files += summary.failed_files;
-                            }
-                        }
-                        total_summary
-                    },
-                    Message::ScanFinished,
-                )
+                Task::stream(iced::stream::channel(100, async move |mut sender| {
+                    let mut cb_sender = sender.clone();
+                    let paths: Vec<PathBuf> = folders.into_iter().map(PathBuf::from).collect();
+                    let summary = db
+                        .scan_directories(
+                            &paths,
+                            Some(move |current, total| {
+                                let _ =
+                                    cb_sender.try_send(Message::ScanProgress { current, total });
+                            }),
+                        )
+                        .await
+                        .unwrap_or_default();
+                    let _ = sender.send(Message::ScanFinished(summary)).await;
+                }))
+            }
+
+            Message::ScanProgress { current, total } => {
+                self.scan_progress = Some((current, total));
+                Task::none()
             }
 
             Message::ClearLibrary => {
@@ -1058,6 +1078,8 @@ impl App {
 
             Message::ScanFinished(_summary) => {
                 self.is_scanning = false;
+                self.scan_progress = None;
+                self.is_generating_thumbnails = true;
                 let db = self.db.clone();
                 Task::batch([
                     Task::perform(
@@ -1066,17 +1088,23 @@ impl App {
                     ),
                     self.reload_after_scan_task(),
                     self.load_storage_stats_task(),
+                    self.generate_thumbnails_task(),
                 ])
+            }
+
+            Message::ThumbnailsGenerated => {
+                self.is_generating_thumbnails = false;
+                let covers_task = if self.active_tab == ViewTab::Albums {
+                    self.load_visible_album_covers_task()
+                } else {
+                    Task::none()
+                };
+                Task::batch([self.load_storage_stats_task(), covers_task])
             }
 
             Message::StorageStatsLoaded(stats, db_size_bytes) => {
                 self.cache_stats = stats;
                 self.db_size_bytes = db_size_bytes;
-                Task::none()
-            }
-
-            Message::Settings(settings_msg) => {
-                self.settings.update(settings_msg);
                 Task::none()
             }
 
@@ -2539,6 +2567,33 @@ impl App {
                 results,
                 remaining,
             },
+        )
+    }
+
+    fn generate_thumbnails_task(&self) -> Task<Message> {
+        let db = self.db.clone();
+        Task::perform(
+            async move {
+                let albums = db.get_albums().await.unwrap_or_default();
+                let cover_ids: Vec<i64> = albums.iter().filter_map(|a| a.cover_track_id).collect();
+                let paths_map = db
+                    .get_track_paths_by_ids(&cover_ids)
+                    .await
+                    .unwrap_or_default();
+
+                tokio::task::spawn_blocking(move || {
+                    for path_str in paths_map.values() {
+                        let path = PathBuf::from(path_str);
+                        let _ = core_engine::get_or_create_thumbnail(
+                            &path,
+                            core_engine::THUMB_DIM_DEFAULT,
+                        );
+                    }
+                })
+                .await
+                .ok();
+            },
+            |_| Message::ThumbnailsGenerated,
         )
     }
 

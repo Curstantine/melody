@@ -317,26 +317,15 @@ pub fn settings_card<'a>(
     title: &'static str,
     content: Element<'a, Message>,
 ) -> Element<'a, Message> {
-    container(
-        column![
-            text(theme_cfg, title)
-                .size(11)
-                .color(theme_cfg.primary_color()),
-            content,
-        ]
-        .spacing(12)
-        .padding(16),
-    )
-    .style(move |_theme| container::Style {
-        background: Some(iced::Background::Color(theme_cfg.surface_color())),
-        border: Border {
-            radius: Radius::from(6.0),
-            color: theme_cfg.border_color(),
-            width: 1.0,
-        },
-        ..Default::default()
-    })
-    .width(Length::Fill)
+    column![
+        text(theme_cfg, title)
+            .size(11)
+            .color(theme_cfg.primary_color()),
+        Space::new().height(4),
+        border_vert(1.0, theme_cfg.border_color()),
+        Space::new().height(12),
+        content
+    ]
     .boxed()
 }
 
@@ -372,7 +361,34 @@ pub fn metric_box<'a>(
 }
 
 /// A self-contained scanning indicator component powered by the `Spinner` widget.
-pub fn scanning_indicator<'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+pub fn scanning_indicator<'a>(
+    theme_cfg: &'a ThemeConfig,
+    progress: Option<(usize, usize)>,
+) -> Element<'a, Message> {
+    let handle = iced::widget::svg::Handle::from_memory(icons::REFRESH_SVG.as_bytes());
+    let spinner = Spinner::new(handle)
+        .size(11.0)
+        .color(theme_cfg.text_muted_color());
+
+    let label = match progress {
+        Some((cur, tot)) if tot > 0 => format!("Scanning library... ({}/{})", cur, tot),
+        _ => "Scanning library...".to_string(),
+    };
+
+    row![
+        spinner,
+        text(theme_cfg, label)
+            .size(11)
+            .line_height(1.0)
+            .color(theme_cfg.text_muted_color()),
+    ]
+    .spacing(4)
+    .align_y(Alignment::Center)
+    .boxed()
+}
+
+/// A rotating indicator shown while background album thumbnails are being cached to disk.
+pub fn thumbnail_caching_indicator<'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
     let handle = iced::widget::svg::Handle::from_memory(icons::REFRESH_SVG.as_bytes());
     let spinner = Spinner::new(handle)
         .size(11.0)
@@ -380,8 +396,9 @@ pub fn scanning_indicator<'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, Message
 
     row![
         spinner,
-        text(theme_cfg, "Scanning library...")
+        text(theme_cfg, "Caching album artwork...")
             .size(11)
+            .line_height(1.0)
             .color(theme_cfg.text_muted_color()),
     ]
     .spacing(4)

@@ -531,7 +531,7 @@ pub fn volume_slider_style(
     move |_theme, status| {
         let handle_radius = match status {
             slider::Status::Hovered | slider::Status::Dragged => 6.0,
-            _ => 4.5,
+            _ => 5.0,
         };
         slider::Style {
             rail: slider::Rail {
@@ -539,7 +539,7 @@ pub fn volume_slider_style(
                     Background::Color(cfg.slider_active_color()),
                     Background::Color(cfg.slider_rail_color()),
                 ),
-                width: 3.5,
+                width: 4.0,
                 border: Border {
                     radius: Radius::from(2.0),
                     ..Border::default()

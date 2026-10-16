@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -953,44 +953,54 @@ impl LibraryDatabase {
         Ok(out)
     }
 
-    /// Recursively scan directory and index all supported audio files.
+    /// Recursively scan directories and index all supported audio files.
     ///
-    /// The directory walk is streamed lazily (so peak memory stays proportional
-    /// to a single batch rather than the whole library), while the blocking
-    /// per-file FFmpeg metadata probe runs on `spawn_blocking` workers so the
-    /// async runtime driving the UI is never stalled.
-    pub async fn scan_directory<P: AsRef<Path>, F: Fn(usize, usize)>(
+    /// Candidate audio files are gathered first to determine the total workload,
+    /// enabling the progress callback to report `(current, total)`. Metadata
+    /// extraction is dispatched to blocking threads to avoid stalling the async runtime.
+    pub async fn scan_directories<P: AsRef<Path>, F: FnMut(usize, usize)>(
         &self,
-        dir_path: P,
-        progress_cb: Option<F>,
+        dir_paths: &[P],
+        mut progress_cb: Option<F>,
     ) -> Result<ScanSummary, DbError> {
         let mut summary = ScanSummary::default();
         let supported_exts = [
             "mp3", "flac", "ogg", "oga", "wav", "m4a", "aac", "alac", "opus", "aiff",
         ];
 
+        let mut candidate_files: Vec<PathBuf> = Vec::new();
+        for dir_path in dir_paths {
+            for entry in WalkDir::new(dir_path)
+                .follow_links(true)
+                .into_iter()
+                .filter_map(|e| e.ok())
+            {
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
+                let Some(ext) = path.extension().and_then(|s| s.to_str()) else {
+                    continue;
+                };
+                let ext_lower = ext.to_lowercase();
+                if supported_exts.contains(&ext_lower.as_str()) {
+                    candidate_files.push(path.to_path_buf());
+                }
+            }
+        }
+
+        let total = candidate_files.len();
+        if let Some(ref mut cb) = progress_cb {
+            cb(0, total);
+        }
+
         let mut batch: Vec<NewTrack> = Vec::with_capacity(100);
+        let notify_interval = (total / 100).max(5);
 
-        for entry in WalkDir::new(dir_path)
-            .follow_links(true)
-            .into_iter()
-            .filter_map(|e| e.ok())
-        {
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
-            let Some(ext) = path.extension().and_then(|s| s.to_str()) else {
-                continue;
-            };
-            let ext_lower = ext.to_lowercase();
-            if !supported_exts.contains(&ext_lower.as_str()) {
-                continue;
-            }
-
+        for path in candidate_files {
             summary.scanned_files += 1;
 
-            let parse_path = path.to_path_buf();
+            let parse_path = path.clone();
             let parsed = tokio::task::spawn_blocking(move || extract_metadata(&parse_path)).await;
 
             match parsed {
@@ -999,9 +1009,6 @@ impl LibraryDatabase {
                     if batch.len() >= 100 {
                         self.flush_scan_batch(&batch, &mut summary).await;
                         batch.clear();
-                        if let Some(ref cb) = progress_cb {
-                            cb(summary.scanned_files, summary.inserted_tracks);
-                        }
                     }
                 }
                 Ok(Err(e)) => {
@@ -1013,13 +1020,23 @@ impl LibraryDatabase {
                     summary.failed_files += 1;
                 }
             }
+
+            if let Some(ref mut cb) = progress_cb {
+                if total <= 100
+                    || summary.scanned_files == total
+                    || summary.scanned_files % notify_interval == 0
+                {
+                    cb(summary.scanned_files, total);
+                }
+            }
         }
 
         if !batch.is_empty() {
             self.flush_scan_batch(&batch, &mut summary).await;
-            if let Some(ref cb) = progress_cb {
-                cb(summary.scanned_files, summary.inserted_tracks);
-            }
+        }
+
+        if let Some(ref mut cb) = progress_cb {
+            cb(summary.scanned_files, total);
         }
 
         info!(
@@ -1028,6 +1045,15 @@ impl LibraryDatabase {
         );
 
         Ok(summary)
+    }
+
+    /// Recursively scan directory and index all supported audio files.
+    pub async fn scan_directory<P: AsRef<Path>, F: FnMut(usize, usize)>(
+        &self,
+        dir_path: P,
+        progress_cb: Option<F>,
+    ) -> Result<ScanSummary, DbError> {
+        self.scan_directories(&[dir_path], progress_cb).await
     }
 
     /// Inserts a batch within a transaction, falling back to individual inserts
