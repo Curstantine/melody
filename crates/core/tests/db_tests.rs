@@ -398,6 +398,7 @@ async fn test_library_folders_and_clear_tracks() {
 }
 
 #[tokio::test]
+#[cfg(unix)]
 async fn test_scan_directory_symlink_traversal() {
     let base_temp = std::env::temp_dir().join(format!(
         "melody_test_scan_{}",
@@ -413,7 +414,6 @@ async fn test_scan_directory_symlink_traversal() {
 
     // Create a symlink to real_dir inside scan_dir
     let symlinked_folder = scan_dir.join("symlinked_artists");
-    #[cfg(unix)]
     std::os::unix::fs::symlink(&real_dir, &symlinked_folder).expect("symlink creation failed");
 
     // Put a dummy audio file in real_dir
