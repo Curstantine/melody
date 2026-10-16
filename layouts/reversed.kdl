@@ -1,4 +1,4 @@
-layout name="Default Reversed" description="Top player controls with clean view area" {
+layout name="Reversed" description="Top player controls with clean view area" {
     column {
         player-bar height=72
         divider orientation="horizontal"

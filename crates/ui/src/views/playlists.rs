@@ -398,7 +398,7 @@ impl PlaylistsView {
                 bar = bar.push(components::chip_with_icon(
                     theme_cfg,
                     icons::PLUS_SVG,
-                    "New Queue",
+                    "New queue",
                     false,
                     Message::QueueNew,
                 ));
@@ -437,7 +437,7 @@ impl PlaylistsView {
                 &[
                     ("Name", PlaylistSortField::Name),
                     ("Tracks", PlaylistSortField::TrackCount),
-                    ("Date Added", PlaylistSortField::DateAdded),
+                    ("Date added", PlaylistSortField::DateAdded),
                 ],
                 self.sort_field,
                 self.sort_dir,
@@ -787,7 +787,7 @@ impl PlaylistsView {
             components::chip_with_icon(
                 theme_cfg,
                 icons::QUEUE_SVG,
-                "Add to Queue",
+                "Add to queue",
                 false,
                 Message::PlaylistToQueue(playlist_id),
             ),
@@ -1064,14 +1064,14 @@ impl PlaylistsView {
             components::chip_with_icon(
                 theme_cfg,
                 icons::PLAYLIST_SVG,
-                "Save as Playlist",
+                "Save as playlist",
                 false,
                 Message::QueueSaveClicked,
             ),
             components::chip_with_icon(
                 theme_cfg,
                 icons::TRASH_SVG,
-                "Delete Queue",
+                "Delete queue",
                 false,
                 Message::QueueDelete(active_id),
             ),

@@ -147,7 +147,7 @@ impl NowPlayingView {
                 if let Some(ref alb_artist) = track.album_artist {
                     if !alb_artist.trim().is_empty() && alb_artist != &track.artist {
                         extra_tags = extra_tags.push(
-                            text(theme_cfg, format!("Album Artist: {}", alb_artist))
+                            text(theme_cfg, format!("Album artist: {}", alb_artist))
                                 .size(11)
                                 .color(theme_cfg.text_muted_color()),
                         );
@@ -191,7 +191,7 @@ impl NowPlayingView {
                 }
 
                 let up_next_header = row![
-                    text(theme_cfg, "Up Next")
+                    text(theme_cfg, "Up next")
                         .size(11)
                         .color(theme_cfg.primary_color()),
                     Space::new().width(Length::Fill),
@@ -284,7 +284,7 @@ impl NowPlayingView {
 
                     if tech.file_size_bytes > 0 {
                         prop_col = prop_col
-                            .push(make_prop_row("File Size", tech.formatted_file_size()).boxed());
+                            .push(make_prop_row("File size", tech.formatted_file_size()).boxed());
                     }
 
                     prop_col.boxed()
@@ -338,7 +338,7 @@ impl NowPlayingView {
             }
             None => components::empty_state(
                 theme_cfg,
-                "No Track Playing",
+                "No track playing",
                 "Select a song from the library to view track details and lyrics",
             ),
         };

@@ -117,7 +117,7 @@ impl StatusBar {
                         ),
                         text(
                             theme_cfg,
-                            format!("Now Playing: {} • {}", track.title, track.artist)
+                            format!("Now playing: {} • {}", track.title, track.artist)
                         )
                         .size(11)
                         .color(muted),
@@ -134,7 +134,7 @@ impl StatusBar {
                 } else {
                     row![
                         icons::icon(icons::DISC_SVG, 11.0, muted),
-                        text(theme_cfg, "Playback Idle").size(11).color(muted),
+                        text(theme_cfg, "Playback idle").size(11).color(muted),
                     ]
                     .spacing(6)
                     .align_y(Alignment::Center)

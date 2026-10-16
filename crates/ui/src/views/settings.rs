@@ -125,7 +125,7 @@ impl SettingsView {
             text(theme_cfg, "Preferences")
                 .size(11)
                 .color(theme_cfg.primary_color()),
-            text(theme_cfg, "System Configuration")
+            text(theme_cfg, "System configuration")
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
         ]
@@ -170,13 +170,13 @@ impl SettingsView {
                     SettingsTab::Appearance,
                     icons::PALETTE_SVG,
                     "Appearance",
-                    "Theme, Views, Fonts",
+                    "Theme, views, fonts",
                 ),
                 nav_item(
                     SettingsTab::Library,
                     icons::DATABASE_SVG,
                     "Library",
-                    "Folders, Indexes & Cache",
+                    "Folders, indexes & cache",
                 ),
                 nav_item(
                     SettingsTab::Scrobbling,
@@ -203,7 +203,7 @@ impl SettingsView {
         theme_cfg: &'a ThemeConfig,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let header = components::settings_header(theme_cfg, "Appearance & Interface", Some("Customize color palette, typography font family, default display modes, and layout density"));
+        let header = components::settings_header(theme_cfg, "Appearance & interface", Some("Customize color palette, typography font family, default display modes, and layout density"));
 
         // Theme chips
         let theme_buttons = {
@@ -230,22 +230,22 @@ impl SettingsView {
         let palette_preview = row![
             swatch_card(theme_cfg, "Background", theme_cfg.bg_color()),
             swatch_card(theme_cfg, "Surface", theme_cfg.surface_color()),
-            swatch_card(theme_cfg, "Surface Hover", theme_cfg.surface_hover_color()),
+            swatch_card(theme_cfg, "Surface hover", theme_cfg.surface_hover_color()),
             swatch_card(theme_cfg, "Border", theme_cfg.border_color()),
             swatch_card(theme_cfg, "Primary", theme_cfg.primary_color()),
             swatch_card(theme_cfg, "Accent", theme_cfg.accent_color()),
             swatch_card(theme_cfg, "Text", theme_cfg.text_color()),
-            swatch_card(theme_cfg, "Text Muted", theme_cfg.text_muted_color()),
+            swatch_card(theme_cfg, "Text muted", theme_cfg.text_muted_color()),
             swatch_card(theme_cfg, "Success", theme_cfg.success_color()),
             swatch_card(theme_cfg, "Danger", theme_cfg.danger_color()),
-            swatch_card(theme_cfg, "Player Bar", theme_cfg.player_bar_bg_color()),
+            swatch_card(theme_cfg, "Player bar", theme_cfg.player_bar_bg_color()),
             swatch_card(
                 theme_cfg,
-                "Player Bar Text",
+                "Player bar text",
                 theme_cfg.player_bar_text_color()
             ),
-            swatch_card(theme_cfg, "Slider Active", theme_cfg.slider_active_color()),
-            swatch_card(theme_cfg, "Slider Rail", theme_cfg.slider_rail_color()),
+            swatch_card(theme_cfg, "Slider active", theme_cfg.slider_active_color()),
+            swatch_card(theme_cfg, "Slider rail", theme_cfg.slider_rail_color()),
         ]
         .spacing(10)
         .wrap();
@@ -254,7 +254,7 @@ impl SettingsView {
             row![
                 icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text_color()),
                 Space::new().width(6),
-                text(theme_cfg, "Reload Themes from Disk")
+                text(theme_cfg, "Reload themes from disk")
                     .size(12)
                     .color(theme_cfg.text_color()),
             ]
@@ -266,7 +266,7 @@ impl SettingsView {
 
         let themes_card = components::settings_card(
             theme_cfg,
-            "Theme & Color Palette",
+            "Theme & color palette",
             column![
                 text(theme_cfg, "Installed theme")
                     .size(12)
@@ -310,7 +310,7 @@ impl SettingsView {
             row![
                 icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text_color()),
                 Space::new().width(6),
-                text(theme_cfg, "Reload Layouts from Disk")
+                text(theme_cfg, "Reload layouts from disk")
                     .size(12)
                     .color(theme_cfg.text_color()),
             ]
@@ -339,10 +339,10 @@ impl SettingsView {
         let active_font_family = ctx.primary_font.unwrap_or("Default").to_string();
 
         let font_metrics = row![
-            components::metric_box(theme_cfg, "Active Font Family", active_font_family.clone()),
+            components::metric_box(theme_cfg, "Active font family", active_font_family.clone()),
             components::metric_box(
                 theme_cfg,
-                "Discovered Font Files",
+                "Discovered font files",
                 format!("{} files", self.available_fonts.len()),
             ),
         ]
@@ -366,8 +366,12 @@ impl SettingsView {
         )
         .on_select(Message::SelectFont)
         .placeholder("Select a system font...")
-        .padding([8, 12])
+        .font(theme_cfg.font())
+        .padding([5, 8])
         .text_size(12)
+        .handle(pick_list::Handle::Arrow {
+            size: Some(11.0.into()),
+        })
         .width(Length::Fill)
         .style(styles::pick_list_style(theme_cfg))
         .menu_style(styles::menu_style(theme_cfg));
@@ -388,7 +392,7 @@ impl SettingsView {
                     }
                 ),
                 Space::new().width(4),
-                text(theme_cfg, "Apply Font")
+                text(theme_cfg, "Apply font")
                     .size(11)
                     .color(if has_custom_input {
                         theme_cfg.primary_color()
@@ -428,7 +432,7 @@ impl SettingsView {
 
         let sample_text_box = container(
             column![
-                text(theme_cfg, "Multilingual Glyph Rendering Preview:")
+                text(theme_cfg, "Multilingual glyph rendering preview:")
                     .size(11)
                     .color(theme_cfg.primary_color()),
                 Space::new().height(4),
@@ -474,7 +478,7 @@ impl SettingsView {
 
         let font_card = components::settings_card(
             theme_cfg,
-            "Typography & Font Configuration",
+            "Typography & font configuration",
             column![
                 text(
                     theme_cfg,
@@ -484,12 +488,12 @@ impl SettingsView {
                 .color(theme_cfg.text_muted_color()),
                 font_metrics,
                 Space::new().height(4),
-                text(theme_cfg, "Select Font Family:")
+                text(theme_cfg, "Select font family:")
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 font_selector,
                 Space::new().height(4),
-                text(theme_cfg, "Or Specify Custom Font:")
+                text(theme_cfg, "Or specify custom font:")
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 custom_font_row,
@@ -519,7 +523,7 @@ impl SettingsView {
 
         let library_tab_card = components::settings_card(
             theme_cfg,
-            "Library Tab",
+            "Library tab",
             column![
                 text(
                     theme_cfg,
@@ -528,7 +532,7 @@ impl SettingsView {
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
                 row![
-                    text(theme_cfg, "Page Limit:")
+                    text(theme_cfg, "Page limit:")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -559,7 +563,7 @@ impl SettingsView {
 
         let albums_tab_card = components::settings_card(
             theme_cfg,
-            "Albums Tab",
+            "Albums tab",
             column![
                 text(
                     theme_cfg,
@@ -568,7 +572,7 @@ impl SettingsView {
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
                 row![
-                    text(theme_cfg, "Catalog View Mode:")
+                    text(theme_cfg, "Catalog view mode:")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -580,7 +584,7 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
                 row![
-                    text(theme_cfg, "Tile Width:")
+                    text(theme_cfg, "Tile width:")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -625,7 +629,7 @@ impl SettingsView {
 
         let artists_tab_card = components::settings_card(
             theme_cfg,
-            "Artists Tab",
+            "Artists tab",
             column![
                 text(
                     theme_cfg,
@@ -634,7 +638,7 @@ impl SettingsView {
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
                 row![
-                    text(theme_cfg, "Catalog View Mode:")
+                    text(theme_cfg, "Catalog view mode:")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -646,7 +650,7 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
                 row![
-                    text(theme_cfg, "Tile Width:")
+                    text(theme_cfg, "Tile width:")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -691,13 +695,13 @@ impl SettingsView {
 
         let now_playing_card = components::settings_card(
             theme_cfg,
-            "Now Playing",
+            "Now playing",
             column![
                 text(theme_cfg, "Artwork dimensions and playback display options")
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 row![
-                    text(theme_cfg, "Cover Art Dimension:")
+                    text(theme_cfg, "Cover art dimension:")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -719,7 +723,7 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
                 row![
-                    text(theme_cfg, "Now Playing Notifications:")
+                    text(theme_cfg, "Now playing notifications:")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -741,7 +745,7 @@ impl SettingsView {
                 ]
                 .align_y(Alignment::Center),
                 row![
-                    text(theme_cfg, "Gapless Audio Playback:")
+                    text(theme_cfg, "Gapless audio playback:")
                         .size(12)
                         .color(theme_cfg.text_color())
                         .width(Length::Fixed(160.0)),
@@ -789,19 +793,19 @@ impl SettingsView {
         theme_cfg: &'a ThemeConfig,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let header = components::settings_header(theme_cfg, "Library & Storage", Some("Manage indexed audio directories, rescan metadata, monitor disk caches, or reset storage"));
+        let header = components::settings_header(theme_cfg, "Library & storage", Some("Manage indexed audio directories, rescan metadata, monitor disk caches, or reset storage"));
 
         // Storage and Index Metrics
         let storage_stats_row1 = row![
-            components::metric_box(theme_cfg, "Songs Indexed", format!("{}", ctx.total_tracks)),
+            components::metric_box(theme_cfg, "Songs indexed", format!("{}", ctx.total_tracks)),
             components::metric_box(
                 theme_cfg,
-                "Albums Cataloged",
+                "Albums cataloged",
                 format!("{}", ctx.total_albums)
             ),
             components::metric_box(
                 theme_cfg,
-                "Artists Cataloged",
+                "Artists cataloged",
                 format!("{}", ctx.total_artists)
             ),
         ]
@@ -810,12 +814,12 @@ impl SettingsView {
         let storage_stats_row2 = row![
             components::metric_box(
                 theme_cfg,
-                "Database File Size",
+                "Database file size",
                 format_file_size(ctx.db_size_bytes),
             ),
             components::metric_box(
                 theme_cfg,
-                "Disk Thumbnail Cache",
+                "Disk thumbnail cache",
                 format!(
                     "{} files ({})",
                     ctx.cache_file_count,
@@ -827,7 +831,7 @@ impl SettingsView {
 
         let stats_card = components::settings_card(
             theme_cfg,
-            "Storage & Index Metrics",
+            "Storage & index metrics",
             column![storage_stats_row1, storage_stats_row2]
                 .spacing(10)
                 .boxed(),
@@ -841,9 +845,9 @@ impl SettingsView {
                 text(
                     theme_cfg,
                     if ctx.is_scanning {
-                        "Scanning Library..."
+                        "Scanning library..."
                     } else {
-                        "Add Music Folder"
+                        "Add music folder"
                     }
                 )
                 .size(12)
@@ -867,7 +871,7 @@ impl SettingsView {
                         .color(theme_cfg.text_muted_color()),
                     text(
                         theme_cfg,
-                        "Click 'Add Music Folder' to choose a directory containing audio files."
+                        "Click 'Add music folder' to choose a directory containing audio files."
                     )
                     .size(11)
                     .color(theme_cfg.text_muted_color()),
@@ -963,7 +967,7 @@ impl SettingsView {
 
         let folders_card = components::settings_card(
             theme_cfg,
-            "Scanned Music Directories",
+            "Scanned music directories",
             column![
                 row![
                     text(
@@ -991,9 +995,9 @@ impl SettingsView {
                 text(
                     theme_cfg,
                     if ctx.is_scanning {
-                        "Reindexing Library..."
+                        "Reindexing library..."
                     } else {
-                        "Reindex Entire Library"
+                        "Reindex entire library"
                     }
                 )
                 .size(12)
@@ -1013,7 +1017,7 @@ impl SettingsView {
             row![
                 icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.text_color()),
                 Space::new().width(6),
-                text(theme_cfg, "Clear Thumbnail Cache")
+                text(theme_cfg, "Clear thumbnail cache")
                     .size(12)
                     .color(theme_cfg.text_color()),
             ]
@@ -1027,7 +1031,7 @@ impl SettingsView {
             row![
                 icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.danger_color()),
                 Space::new().width(6),
-                text(theme_cfg, "Delete Library Database")
+                text(theme_cfg, "Delete library database")
                     .size(12)
                     .color(theme_cfg.danger_color()),
             ]
@@ -1043,12 +1047,12 @@ impl SettingsView {
 
         let actions_card = components::settings_card(
             theme_cfg,
-            "Library Actions & Maintenance",
+            "Library actions & maintenance",
             column![
                 // Action 1: Reindex
                 row![
                     column![
-                        text(theme_cfg, "Full Reindex")
+                        text(theme_cfg, "Full reindex")
                             .size(13)
                             .color(theme_cfg.text_color()),
                         text(theme_cfg, "Scans all configured music folders, updates metadata tags, and repopulates the library.")
@@ -1063,7 +1067,7 @@ impl SettingsView {
                 // Action 2: Clear Thumbnail Cache
                 row![
                     column![
-                        text(theme_cfg, "Purge Thumbnail Cache")
+                        text(theme_cfg, "Purge thumbnail cache")
                             .size(13)
                             .color(theme_cfg.text_color()),
                         text(theme_cfg, format!(
@@ -1082,7 +1086,7 @@ impl SettingsView {
                 // Action 3: Clear / Reset Database
                 row![
                     column![
-                        text(theme_cfg, "Reset Library Database")
+                        text(theme_cfg, "Reset library database")
                             .size(13)
                             .color(theme_cfg.danger_color()),
                         text(theme_cfg, "Clears all indexed tracks, albums, and artist metadata from database. Your audio files on disk remain untouched.")
@@ -1115,19 +1119,19 @@ impl SettingsView {
         theme_cfg: &'a ThemeConfig,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let header = components::settings_header(theme_cfg, "Scrobbling & Social Audio", Some("Track your listening habits and broadcast live playback status to ListenBrainz and Last.fm"));
+        let header = components::settings_header(theme_cfg, "Scrobbling & social audio", Some("Track your listening habits and broadcast live playback status to ListenBrainz and Last.fm"));
 
         // 1. General Preferences Card
         let prefs_card = components::settings_card(
         theme_cfg,
-        "Scrobble Preferences",
+        "Scrobble preferences",
         column![
             text(theme_cfg, "Playback notification and logging thresholds")
                 .size(12)
                 .color(theme_cfg.text_muted_color()),
             row![
                 column![
-                    text(theme_cfg, "Now Playing Notifications")
+                    text(theme_cfg, "Now playing notifications")
                         .size(13)
                         .color(theme_cfg.text_color()),
                     text(
@@ -1157,7 +1161,7 @@ impl SettingsView {
             .align_y(Alignment::Center),
             Space::new().height(6),
             column![
-                text(theme_cfg, "Scrobble Threshold")
+                text(theme_cfg, "Scrobble threshold")
                     .size(13)
                     .color(theme_cfg.text_color()),
                 text(
@@ -1169,7 +1173,7 @@ impl SettingsView {
                 row![
                     components::chip(
                         theme_cfg,
-                        "50% (Standard)",
+                        "50% (standard)",
                         ctx.scrobble_percent == 50,
                         Message::SetScrobblePercent(50),
                     ),
@@ -1181,7 +1185,7 @@ impl SettingsView {
                     ),
                     components::chip(
                         theme_cfg,
-                        "100% (Complete)",
+                        "100% (complete)",
                         ctx.scrobble_percent == 100,
                         Message::SetScrobblePercent(100),
                     ),
@@ -1225,7 +1229,7 @@ impl SettingsView {
             row![
                 icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary_color()),
                 Space::new().width(6),
-                text(theme_cfg, "Test ListenBrainz Connection")
+                text(theme_cfg, "Test ListenBrainz connection")
                     .size(11)
                     .color(theme_cfg.primary_color()),
             ]
@@ -1259,9 +1263,9 @@ impl SettingsView {
                         icons::RADIO_SVG
                     },
                     if ctx.listenbrainz_enabled {
-                        "Plugin Active"
+                        "Plugin active"
                     } else {
-                        "Plugin Inactive"
+                        "Plugin inactive"
                     },
                     ctx.listenbrainz_enabled,
                     Message::ToggleListenBrainz(!ctx.listenbrainz_enabled),
@@ -1272,13 +1276,13 @@ impl SettingsView {
                 components::metric_box(theme_cfg, "Status", ctx.listenbrainz_status.to_string()),
                 components::metric_box(
                     theme_cfg,
-                    "Session Scrobbles",
+                    "Session scrobbles",
                     ctx.listenbrainz_scrobbles.to_string(),
                 ),
             ]
             .spacing(12),
             column![
-                text(theme_cfg, "User Token")
+                text(theme_cfg, "User token")
                     .size(12)
                     .color(theme_cfg.text_color()),
                 text_input("Enter ListenBrainz user token...", ctx.listenbrainz_token)
@@ -1294,7 +1298,7 @@ impl SettingsView {
             ]
             .spacing(4),
             column![
-                text(theme_cfg, "API Endpoint URL")
+                text(theme_cfg, "API endpoint URL")
                     .size(12)
                     .color(theme_cfg.text_color()),
                 text_input(
@@ -1315,7 +1319,7 @@ impl SettingsView {
         }
 
         let listenbrainz_card =
-            components::settings_card(theme_cfg, "ListenBrainz Plugin", lb_column.boxed());
+            components::settings_card(theme_cfg, "ListenBrainz plugin", lb_column.boxed());
 
         // 3. Last.fm Card
         let lastfm_test_banner = if let Some((plugins::scrobbler::ScrobbleService::LastFm, res)) =
@@ -1348,7 +1352,7 @@ impl SettingsView {
             row![
                 icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary_color()),
                 Space::new().width(6),
-                text(theme_cfg, "Test Last.fm Connection")
+                text(theme_cfg, "Test Last.fm connection")
                     .size(11)
                     .color(theme_cfg.primary_color()),
             ]
@@ -1363,7 +1367,7 @@ impl SettingsView {
         let mut lastfm_column = column![
             row![
                 column![
-                    text(theme_cfg, "Last.fm Scrobbler")
+                    text(theme_cfg, "Last.fm scrobbler")
                         .size(14)
                         .color(theme_cfg.text_color()),
                     text(
@@ -1382,9 +1386,9 @@ impl SettingsView {
                         icons::RADIO_SVG
                     },
                     if ctx.lastfm_enabled {
-                        "Plugin Active"
+                        "Plugin active"
                     } else {
-                        "Plugin Inactive"
+                        "Plugin inactive"
                     },
                     ctx.lastfm_enabled,
                     Message::ToggleLastFm(!ctx.lastfm_enabled),
@@ -1395,49 +1399,49 @@ impl SettingsView {
                 components::metric_box(theme_cfg, "Status", ctx.lastfm_status.to_string()),
                 components::metric_box(
                     theme_cfg,
-                    "Session Scrobbles",
+                    "Session scrobbles",
                     ctx.lastfm_scrobbles.to_string(),
                 ),
             ]
             .spacing(12),
             column![
-                text(theme_cfg, "API Key")
+                text(theme_cfg, "API key")
                     .size(12)
                     .color(theme_cfg.text_color()),
-                text_input("Enter Last.fm API Key...", ctx.lastfm_api_key)
+                text_input("Enter Last.fm API key...", ctx.lastfm_api_key)
                     .on_input(Message::LastFmApiKeyChanged)
                     .style(styles::search_input_style(theme_cfg))
                     .padding([7, 10]),
             ]
             .spacing(4),
             column![
-                text(theme_cfg, "Shared Secret")
+                text(theme_cfg, "Shared secret")
                     .size(12)
                     .color(theme_cfg.text_color()),
-                text_input("Enter Last.fm Shared Secret...", ctx.lastfm_api_secret)
+                text_input("Enter Last.fm shared secret...", ctx.lastfm_api_secret)
                     .on_input(Message::LastFmApiSecretChanged)
                     .style(styles::search_input_style(theme_cfg))
                     .padding([7, 10]),
             ]
             .spacing(4),
             column![
-                text(theme_cfg, "Session Key (sk)")
+                text(theme_cfg, "Session key (sk)")
                     .size(12)
                     .color(theme_cfg.text_color()),
-                text_input("Enter Last.fm Session Key (sk)...", ctx.lastfm_session_key)
+                text_input("Enter Last.fm session key (sk)...", ctx.lastfm_session_key)
                     .on_input(Message::LastFmSessionKeyChanged)
                     .style(styles::search_input_style(theme_cfg))
                     .padding([7, 10]),
                 text(
                     theme_cfg,
-                    "Obtain your API Key and Session Key from your Last.fm API account settings"
+                    "Obtain your API key and session key from your Last.fm API account settings"
                 )
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
             ]
             .spacing(4),
             column![
-                text(theme_cfg, "API Endpoint URL")
+                text(theme_cfg, "API endpoint URL")
                     .size(12)
                     .color(theme_cfg.text_color()),
                 text_input("https://ws.audioscrobbler.com/2.0/", ctx.lastfm_api_url)
@@ -1455,7 +1459,7 @@ impl SettingsView {
         }
 
         let lastfm_card =
-            components::settings_card(theme_cfg, "Last.fm Plugin", lastfm_column.boxed());
+            components::settings_card(theme_cfg, "Last.fm plugin", lastfm_column.boxed());
 
         column![
             header,

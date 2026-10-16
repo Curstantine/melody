@@ -58,7 +58,7 @@ impl ViewTab {
     pub fn label(&self) -> &'static str {
         match self {
             ViewTab::Tracks => "Library",
-            ViewTab::Lyrics => "Now Playing",
+            ViewTab::Lyrics => "Now playing",
             ViewTab::Albums => "Albums",
             ViewTab::Artists => "Artists",
             ViewTab::Playlists => "Playlists",

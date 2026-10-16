@@ -112,14 +112,21 @@ pub fn pick_list_style(
 ) -> impl Fn(&Theme, pick_list::Status) -> pick_list::Style + '_ {
     move |_theme, status| {
         let border_color = match status {
-            pick_list::Status::Active | pick_list::Status::Disabled => cfg.border_color(),
-            pick_list::Status::Hovered | pick_list::Status::Opened { .. } => cfg.primary_color(),
+            pick_list::Status::Opened { .. } => cfg.primary_color(),
+            pick_list::Status::Hovered => cfg.accent_color(),
+            _ => cfg.border_color(),
+        };
+
+        let handle_color = match status {
+            pick_list::Status::Opened { .. } => cfg.primary_color(),
+            pick_list::Status::Hovered => cfg.text_color(),
+            _ => cfg.text_muted_color(),
         };
 
         pick_list::Style {
             text_color: cfg.text_color(),
             placeholder_color: cfg.text_muted_color(),
-            handle_color: cfg.text_muted_color(),
+            handle_color,
             background: Background::Color(cfg.surface_color()),
             border: Border {
                 color: border_color,

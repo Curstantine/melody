@@ -924,7 +924,7 @@ impl App {
                 Task::perform(
                     async {
                         let folder = rfd::AsyncFileDialog::new()
-                            .set_title("Add Music Folder to Library")
+                            .set_title("Add music folder to library")
                             .pick_folder()
                             .await;
                         folder.map(|f| f.path().to_path_buf())
@@ -1459,7 +1459,7 @@ impl App {
             Message::ImportPlaylistsClicked => Task::perform(
                 async {
                     let files = rfd::AsyncFileDialog::new()
-                        .set_title("Import Playlists")
+                        .set_title("Import playlists")
                         .add_filter("Playlists", &["m3u", "m3u8"])
                         .pick_files()
                         .await;
