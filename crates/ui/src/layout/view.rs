@@ -2,7 +2,7 @@ use iced::widget::{button, column, container, mouse_area, row, stack, Space, Wid
 use iced::{Element, Length};
 
 use crate::app::App;
-use crate::components::{border_vert, text};
+use crate::components::text;
 use crate::icons;
 use crate::layout::schema::{ContainerStyle, LayoutComponent, LayoutNode, Orientation};
 use crate::message::{Message, ViewTab};
@@ -362,14 +362,11 @@ impl App {
                     nav_row = nav_row.push(settings_btn.boxed());
                 }
 
-                container(column![
-                    nav_row.padding([4, 12]).height(32),
-                    border_vert(1.0, theme_cfg.border_color()),
-                ])
-                .style(styles::top_bar_container(theme_cfg))
-                .width(Length::Fill)
-                .height(33)
-                .boxed()
+                container(nav_row.padding([4, 12]).height(32))
+                    .style(styles::top_bar_container(theme_cfg))
+                    .width(Length::Fill)
+                    .height(32)
+                    .boxed()
             }
 
             Orientation::Vertical => {

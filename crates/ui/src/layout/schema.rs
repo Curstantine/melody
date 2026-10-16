@@ -606,7 +606,7 @@ mod tests {
         let kdl = r#"
             layout name="Default" description="Standard layout" {
                 column {
-                    navbar height=33
+                    navbar height=32
                     main-view fill=true
                     player-bar height=72
                     status-bar height=24

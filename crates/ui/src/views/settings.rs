@@ -268,12 +268,12 @@ impl SettingsView {
             theme_cfg,
             "Theme & Color Palette",
             column![
-                text(theme_cfg, "Installed Theme Skins")
+                text(theme_cfg, "Installed theme")
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 theme_buttons,
                 Space::new().height(6),
-                text(theme_cfg, "Active Palette Color Swatches")
+                text(theme_cfg, "Current palette swatches")
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 palette_preview,
@@ -322,14 +322,11 @@ impl SettingsView {
 
         let layout_card = components::settings_card(
             theme_cfg,
-            "Window Layout",
+            "Layout",
             column![
-                text(
-                    theme_cfg,
-                    "Select a layout preset or author your own in KDL (~/.config/melody/layouts/<name>.kdl)"
-                )
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
+                text(theme_cfg, "Select a layout preset")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
                 layout_buttons,
                 Space::new().height(4),
                 reload_layouts_btn,

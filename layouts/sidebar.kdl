@@ -1,4 +1,4 @@
-layout name="Sidebar" description="Modern sidebar navigation with bottom player bar" {
+layout name="Sidebar" description="Sidebar with bottom player bar" {
     column {
         row fill=true {
             column width=180 {

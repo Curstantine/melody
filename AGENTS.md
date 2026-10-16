@@ -257,7 +257,7 @@ cargo test --workspace
     ```kdl
     layout name="My Layout" description="Custom player layout" {
         column {
-            navbar height=33
+            navbar height=32
             main-view fill=true
             player-bar height=72
             status-bar height=24

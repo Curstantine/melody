@@ -181,6 +181,6 @@ mod tests {
         let names = manager.layout_names();
         assert!(names.contains(&"Default".to_string()));
         assert!(names.contains(&"Sidebar".to_string()));
-        assert!(names.contains(&"Compact".to_string()));
+        assert!(names.contains(&"Default Reversed".to_string()));
     }
 }
