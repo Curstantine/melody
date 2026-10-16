@@ -169,15 +169,7 @@ impl Default for LayoutTemplate {
                         orientation: Orientation::Horizontal,
                         show_settings: true,
                     }),
-                    LayoutNode::Divider {
-                        orientation: Orientation::Horizontal,
-                        size: 1.0,
-                    },
                     LayoutNode::Component(LayoutComponent::MainView),
-                    LayoutNode::Divider {
-                        orientation: Orientation::Horizontal,
-                        size: 1.0,
-                    },
                     LayoutNode::Component(LayoutComponent::PlayerBar),
                     LayoutNode::Component(LayoutComponent::StatusBar),
                 ],
@@ -615,9 +607,7 @@ mod tests {
             layout name="Default" description="Standard layout" {
                 column {
                     navbar height=33
-                    divider orientation="horizontal"
                     main-view fill=true
-                    divider orientation="horizontal"
                     player-bar height=72
                     status-bar height=24
                 }
@@ -630,7 +620,7 @@ mod tests {
 
         match template.root {
             LayoutNode::Column { children, .. } => {
-                assert_eq!(children.len(), 6);
+                assert_eq!(children.len(), 4);
                 assert_eq!(
                     children[0],
                     LayoutNode::Component(LayoutComponent::Navbar {
@@ -640,21 +630,14 @@ mod tests {
                 );
                 assert_eq!(
                     children[1],
-                    LayoutNode::Divider {
-                        orientation: Orientation::Horizontal,
-                        size: 1.0,
-                    }
-                );
-                assert_eq!(
-                    children[2],
                     LayoutNode::Component(LayoutComponent::MainView)
                 );
                 assert_eq!(
-                    children[4],
+                    children[2],
                     LayoutNode::Component(LayoutComponent::PlayerBar)
                 );
                 assert_eq!(
-                    children[5],
+                    children[3],
                     LayoutNode::Component(LayoutComponent::StatusBar)
                 );
             }

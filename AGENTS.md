@@ -258,9 +258,7 @@ cargo test --workspace
     layout name="My Layout" description="Custom player layout" {
         column {
             navbar height=33
-            divider orientation="horizontal"
             main-view fill=true
-            divider orientation="horizontal"
             player-bar height=72
             status-bar height=24
         }

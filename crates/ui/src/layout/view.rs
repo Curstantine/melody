@@ -2,7 +2,7 @@ use iced::widget::{button, column, container, mouse_area, row, stack, Space, Wid
 use iced::{Element, Length};
 
 use crate::app::App;
-use crate::components::{border_hori, border_vert, text};
+use crate::components::{border_vert, text};
 use crate::icons;
 use crate::layout::schema::{ContainerStyle, LayoutComponent, LayoutNode, Orientation};
 use crate::message::{Message, ViewTab};
@@ -109,8 +109,22 @@ impl App {
             }
 
             LayoutNode::Divider { orientation, size } => match orientation {
-                Orientation::Horizontal => border_hori(*size, theme_cfg.border_color()),
-                Orientation::Vertical => border_vert(*size, theme_cfg.border_color()),
+                Orientation::Horizontal => container("")
+                    .width(Length::Fill)
+                    .height(Length::Fixed(*size))
+                    .style(move |_| container::Style {
+                        background: Some(iced::Background::Color(theme_cfg.border_color())),
+                        ..Default::default()
+                    })
+                    .boxed(),
+                Orientation::Vertical => container("")
+                    .width(Length::Fixed(*size))
+                    .height(Length::Fill)
+                    .style(move |_| container::Style {
+                        background: Some(iced::Background::Color(theme_cfg.border_color())),
+                        ..Default::default()
+                    })
+                    .boxed(),
             },
 
             LayoutNode::Spacer { width, height } => Space::new()
@@ -348,11 +362,14 @@ impl App {
                     nav_row = nav_row.push(settings_btn.boxed());
                 }
 
-                container(nav_row.padding([4, 12]).height(32))
-                    .style(styles::top_bar_container(theme_cfg))
-                    .width(Length::Fill)
-                    .height(33)
-                    .boxed()
+                container(column![
+                    nav_row.padding([4, 12]).height(32),
+                    border_vert(1.0, theme_cfg.border_color()),
+                ])
+                .style(styles::top_bar_container(theme_cfg))
+                .width(Length::Fill)
+                .height(33)
+                .boxed()
             }
 
             Orientation::Vertical => {
