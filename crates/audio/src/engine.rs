@@ -268,6 +268,9 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
 
                         if now >= deadline {
                             eof_deadline = None;
+                            if status.duration_ms() > 0 {
+                                status.set_position_ms(status.duration_ms());
+                            }
                             status.set_playing(false);
                             status.set_ended(true);
                             info!("Track finished playing");
@@ -351,18 +354,19 @@ fn flush_resampler(
 ) {
     while let Ok(Some(_)) = track.resampler.flush(&mut track.resampled_frame) {
         let samples_count = track.resampled_frame.samples();
-        if samples_count > 0 {
-            let total_floats = samples_count * device_channels;
-            let data_bytes = track.resampled_frame.data(0);
-            let byte_count = total_floats * std::mem::size_of::<f32>();
-            if data_bytes.len() >= byte_count {
-                let float_slice: &[f32] = unsafe {
-                    std::slice::from_raw_parts(data_bytes.as_ptr() as *const f32, total_floats)
-                };
+        if samples_count == 0 {
+            break;
+        }
+        let total_floats = samples_count * device_channels;
+        let data_bytes = track.resampled_frame.data(0);
+        let byte_count = total_floats * std::mem::size_of::<f32>();
+        if data_bytes.len() >= byte_count {
+            let float_slice: &[f32] = unsafe {
+                std::slice::from_raw_parts(data_bytes.as_ptr() as *const f32, total_floats)
+            };
 
-                if let Some(ref mut prod) = ring_producer {
-                    push_to_ring_buffer(prod, float_slice);
-                }
+            if let Some(ref mut prod) = ring_producer {
+                push_to_ring_buffer(prod, float_slice);
             }
         }
     }
@@ -370,10 +374,24 @@ fn flush_resampler(
 
 fn push_to_ring_buffer(prod: &mut ringbuf::HeapProd<f32>, samples: &[f32]) {
     let mut written = 0;
+    let mut retries = 0;
     while written < samples.len() {
         let n = prod.push_slice(&samples[written..]);
         written += n;
         if written < samples.len() {
+            if n == 0 {
+                retries += 1;
+                // If unable to push any samples for ~500ms (buffer full and consumer stalled),
+                // break to prevent hanging the worker thread indefinitely.
+                if retries > 500 {
+                    warn!(
+                        "Ring buffer full and not draining for 500ms, dropping remaining samples"
+                    );
+                    break;
+                }
+            } else {
+                retries = 0;
+            }
             // Buffer full — yield briefly and retry
             thread::sleep(Duration::from_millis(1));
         }
@@ -412,7 +430,10 @@ fn advance_position(
         let elapsed_ms = total / rate;
         *rem = total % rate;
         if elapsed_ms > 0 {
-            status.set_position_ms(status.position_ms() + elapsed_ms);
+            let dur = status.duration_ms();
+            let new_pos = status.position_ms() + elapsed_ms;
+            let clamped = if dur > 0 { new_pos.min(dur) } else { new_pos };
+            status.set_position_ms(clamped);
         }
     }
 }
@@ -698,17 +719,23 @@ fn handle_command(
         }
         AudioCommand::Seek(duration) => {
             if let Some(track) = loaded_track.as_mut() {
+                let dur_ms = status.duration_ms();
+                let target_dur = if dur_ms > 0 {
+                    duration.min(Duration::from_millis(dur_ms))
+                } else {
+                    duration
+                };
                 // ffmpeg-next input.seek passes stream_index = -1 to avformat_seek_file,
                 // which expects timestamp in AV_TIME_BASE units (microseconds).
-                let seek_micros = duration.as_micros() as i64;
+                let seek_micros = target_dur.as_micros() as i64;
 
                 match track.input.seek(seek_micros, ..) {
                     Ok(_) => {
                         track.decoder.flush();
                         track.reached_eof = false;
                         flush_audio_buffer(flush_flag);
-                        status.set_position_ms(duration.as_millis() as u64);
-                        info!("Seeked to {:?}", duration);
+                        status.set_position_ms(target_dur.as_millis() as u64);
+                        info!("Seeked to {:?}", target_dur);
                     }
                     Err(e) => {
                         warn!("Failed to seek: {}", e);

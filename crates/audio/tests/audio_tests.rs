@@ -143,3 +143,59 @@ fn test_ring_buffer_flush_synchronization() {
     assert_eq!(read, 128);
     assert_eq!(read_buf, new_samples);
 }
+
+#[test]
+fn test_track_decoding_to_eof() {
+    let path = std::path::Path::new(
+        "/home/curstantine/Music/Library/矢島舞依/The Un-Dead/01 Introduction.flac",
+    );
+    if !path.exists() {
+        return;
+    }
+    let engine = audio::AudioEngine::new();
+    let controller = engine.controller();
+    controller.load(path.to_path_buf(), true);
+
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    let dur = controller.status().duration_ms();
+    assert!(dur > 0, "Duration must be greater than 0");
+
+    // Seek to 1.5 seconds before end
+    controller.seek(std::time::Duration::from_millis(dur.saturating_sub(1500)));
+
+    let start = std::time::Instant::now();
+    let mut saw_ended = false;
+    while start.elapsed() < std::time::Duration::from_secs(5) {
+        let pos = controller.status().position_ms();
+        assert!(
+            pos <= dur,
+            "Position ({}) must never exceed duration ({})",
+            pos,
+            dur
+        );
+        if controller.status().is_ended() {
+            saw_ended = true;
+            assert_eq!(pos, dur, "When ended, position must equal duration");
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+
+    assert!(saw_ended, "Track must reach ended state");
+
+    // Test that a subsequent load command is immediately accepted and plays
+    controller.load(path.to_path_buf(), true);
+    let start2 = std::time::Instant::now();
+    let mut second_track_played = false;
+    while start2.elapsed() < std::time::Duration::from_secs(3) {
+        if controller.status().is_playing() && controller.status().position_ms() > 100 {
+            second_track_played = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert!(
+        second_track_played,
+        "Subsequent track load must play without hang"
+    );
+}

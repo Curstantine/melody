@@ -119,7 +119,12 @@ impl PlayerBar {
         } else {
             position_ms
         };
-        let cur_time_str = format_duration(active_pos);
+        let clamped_active_pos = if duration_ms > 0 {
+            active_pos.min(duration_ms)
+        } else {
+            active_pos
+        };
+        let cur_time_str = format_duration(clamped_active_pos);
         let total_time_str = format_duration(duration_ms);
 
         let time_info = text(theme_cfg, format!("{cur_time_str} / {total_time_str}"))
@@ -215,11 +220,15 @@ impl PlayerBar {
             100.0
         };
 
-        let seek_bar = slider(0.0..=seek_range_max, active_pos as f32, Message::Seek)
-            .on_release(Message::SeekFinished)
-            .style(styles::seek_slider_style(theme_cfg))
-            .width(Length::Fill)
-            .height(8);
+        let seek_bar = slider(
+            0.0..=seek_range_max,
+            clamped_active_pos as f32,
+            Message::Seek,
+        )
+        .on_release(Message::SeekFinished)
+        .style(styles::seek_slider_style(theme_cfg))
+        .width(Length::Fill)
+        .height(8);
 
         let top_right_timing = row![Space::new().width(Length::Fill), time_info,]
             .padding(iced::Padding {

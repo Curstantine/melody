@@ -323,18 +323,26 @@ impl App {
                         .on_playback_status_change(self.is_playing);
                 }
 
-                if !self.player_bar.is_seeking {
-                    self.position_ms = status.position_ms();
-                    self.plugin_manager.on_position_change(self.position_ms);
-                }
-
                 if status.duration_ms() > 0 {
                     self.duration_ms = status.duration_ms();
+                }
+
+                if !self.player_bar.is_seeking {
+                    let raw_pos = status.position_ms();
+                    self.position_ms = if self.duration_ms > 0 {
+                        raw_pos.min(self.duration_ms)
+                    } else {
+                        raw_pos
+                    };
+                    self.plugin_manager.on_position_change(self.position_ms);
                 }
 
                 // Check if track ended
                 if status.take_ended() {
                     info!("Playback ended, triggering next track");
+                    if self.duration_ms > 0 {
+                        self.position_ms = self.duration_ms;
+                    }
                     self.plugin_manager.on_playback_end();
                     return self.update(Message::NextTrack);
                 }
@@ -500,7 +508,6 @@ impl App {
                             self.snap_queue_to_current(),
                         ]);
                     }
-                    return Task::none();
                 }
 
                 if let Some(next) = self.get_next_track() {
@@ -541,7 +548,6 @@ impl App {
                             self.snap_queue_to_current(),
                         ]);
                     }
-                    return Task::none();
                 }
 
                 if let Some(cur_id) = self.current_track_id {
@@ -553,14 +559,25 @@ impl App {
             }
 
             Message::Seek(ms) => {
-                self.player_bar.on_seek(ms);
+                let clamped = if self.duration_ms > 0 {
+                    ms.min(self.duration_ms as f32)
+                } else {
+                    ms
+                };
+                self.player_bar.on_seek(clamped);
                 Task::none()
             }
 
             Message::SeekFinished => {
                 let seek_pos = self.player_bar.on_seek_finished();
-                self.audio_controller.seek(Duration::from_millis(seek_pos));
-                self.position_ms = seek_pos;
+                let clamped_pos = if self.duration_ms > 0 {
+                    seek_pos.min(self.duration_ms)
+                } else {
+                    seek_pos
+                };
+                self.audio_controller
+                    .seek(Duration::from_millis(clamped_pos));
+                self.position_ms = clamped_pos;
                 self.plugin_manager.on_seeked(self.position_ms);
                 Task::none()
             }
