@@ -12,12 +12,11 @@ mod message;
 mod theme;
 
 use config::AppConfig;
-use message::{AlbumSortField, ArtistSortField, PlaylistSortField, SettingsTab, ViewMode, ViewTab};
+use message::ViewTab;
 
 #[test]
 fn test_default_app_config() {
     let cfg = AppConfig::default();
-    assert_eq!(cfg.active_tab, ViewTab::Tracks);
     assert_eq!(
         cfg.tab_order,
         vec![
@@ -28,24 +27,13 @@ fn test_default_app_config() {
             ViewTab::Playlists
         ]
     );
-    assert_eq!(cfg.settings_tab, SettingsTab::Appearance);
     assert_eq!(cfg.theme_name, theme::DEFAULT_THEME_NAME);
     assert_eq!(cfg.primary_font, None);
-    assert_eq!(cfg.library_view_mode, ViewMode::List);
-    assert_eq!(cfg.albums_view_mode, ViewMode::Tile);
-    assert_eq!(cfg.artists_view_mode, ViewMode::Tile);
-    assert_eq!(cfg.playlists_view_mode, ViewMode::List);
     assert_eq!(cfg.page_size, 50);
     assert_eq!(cfg.tile_width, 140);
     assert_eq!(cfg.album_tile_width, 140);
     assert_eq!(cfg.artist_tile_width, 140);
     assert_eq!(cfg.now_playing_cover_size, 260);
-    assert_eq!(cfg.album_sort_field, AlbumSortField::Title);
-    assert_eq!(cfg.artist_sort_field, ArtistSortField::Artist);
-    assert_eq!(cfg.playlist_sort_field, PlaylistSortField::Name);
-    assert_eq!(cfg.volume, 1.0);
-    assert!(!cfg.is_shuffle);
-    assert!(!cfg.is_repeat);
     assert!(cfg.gapless);
     assert!(!cfg.scrobble.listenbrainz_enabled);
     assert!(!cfg.scrobble.lastfm_enabled);
@@ -55,7 +43,6 @@ fn test_default_app_config() {
 #[test]
 fn test_config_toml_roundtrip() {
     let custom = AppConfig {
-        active_tab: ViewTab::Albums,
         tab_order: vec![
             ViewTab::Albums,
             ViewTab::Tracks,
@@ -63,24 +50,13 @@ fn test_config_toml_roundtrip() {
             ViewTab::Lyrics,
             ViewTab::Playlists,
         ],
-        settings_tab: SettingsTab::Library,
         theme_name: "Nord".to_string(),
         primary_font: Some("Inter".to_string()),
-        library_view_mode: ViewMode::Tile,
-        albums_view_mode: ViewMode::List,
-        artists_view_mode: ViewMode::List,
-        playlists_view_mode: ViewMode::List,
         page_size: 100,
         tile_width: 190,
         album_tile_width: 190,
         artist_tile_width: 180,
         now_playing_cover_size: 260,
-        album_sort_field: AlbumSortField::Artist,
-        artist_sort_field: ArtistSortField::TrackCount,
-        playlist_sort_field: PlaylistSortField::TrackCount,
-        volume: 0.65,
-        is_shuffle: true,
-        is_repeat: true,
         gapless: false,
         scrobble: config::ScrobbleConfig {
             listenbrainz_enabled: true,
@@ -106,6 +82,22 @@ fn test_config_toml_roundtrip() {
     assert_eq!(custom, loaded);
 
     let _ = std::fs::remove_file(temp_file);
+}
+
+#[test]
+fn test_config_ignores_legacy_state_fields() {
+    let toml_with_state = r#"
+theme_name = "Nord"
+page_size = 75
+active_tab = "Albums"
+volume = 0.5
+is_shuffle = true
+is_repeat = true
+"#;
+    let cfg: AppConfig =
+        toml::from_str(toml_with_state).expect("Failed to parse config with legacy state");
+    assert_eq!(cfg.theme_name, "Nord");
+    assert_eq!(cfg.page_size, 75);
 }
 
 #[test]

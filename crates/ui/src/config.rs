@@ -3,9 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::{error, info};
 
-use crate::message::{
-    AlbumSortField, ArtistSortField, PlaylistSortField, SettingsTab, ViewMode, ViewTab,
-};
+use crate::message::ViewTab;
 
 pub const DEFAULT_PAGE_SIZE: usize = 50;
 pub const DEFAULT_TILE_WIDTH: u32 = 140;
@@ -39,28 +37,21 @@ pub fn sanitize_tab_order(order: &[ViewTab]) -> Vec<ViewTab> {
     sanitized
 }
 
+/// Persistent user configuration and preferences.
+///
+/// Unlike [`crate::state::AppState`], which stores ephemeral session and player state,
+/// [`AppConfig`] stores user preferences such as theme, font selection, tab ordering,
+/// tile sizes, and scrobbling credentials.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AppConfig {
-    #[serde(default)]
-    pub active_tab: ViewTab,
     #[serde(default = "default_tab_order")]
     pub tab_order: Vec<ViewTab>,
-    #[serde(default)]
-    pub settings_tab: SettingsTab,
 
     #[serde(default = "default_theme_name")]
     pub theme_name: String,
     #[serde(default)]
     pub primary_font: Option<String>,
 
-    #[serde(default)]
-    pub library_view_mode: ViewMode,
-    #[serde(default)]
-    pub albums_view_mode: ViewMode,
-    #[serde(default)]
-    pub artists_view_mode: ViewMode,
-    #[serde(default)]
-    pub playlists_view_mode: ViewMode,
     #[serde(default = "default_page_size")]
     pub page_size: usize,
     #[serde(default = "default_tile_width")]
@@ -71,19 +62,7 @@ pub struct AppConfig {
     pub artist_tile_width: u32,
     #[serde(default = "default_now_playing_cover_size")]
     pub now_playing_cover_size: u32,
-    #[serde(default)]
-    pub album_sort_field: AlbumSortField,
-    #[serde(default)]
-    pub artist_sort_field: ArtistSortField,
-    #[serde(default)]
-    pub playlist_sort_field: PlaylistSortField,
 
-    #[serde(default = "default_volume")]
-    pub volume: f32,
-    #[serde(default)]
-    pub is_shuffle: bool,
-    #[serde(default)]
-    pub is_repeat: bool,
     #[serde(default = "default_true")]
     pub gapless: bool,
 
@@ -198,33 +177,17 @@ fn default_now_playing_cover_size() -> u32 {
     DEFAULT_NOW_PLAYING_COVER_SIZE
 }
 
-fn default_volume() -> f32 {
-    1.0
-}
-
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            active_tab: ViewTab::Tracks,
             tab_order: default_tab_order(),
-            settings_tab: SettingsTab::Appearance,
             theme_name: default_theme_name(),
             primary_font: None,
-            library_view_mode: ViewMode::List,
-            albums_view_mode: ViewMode::Tile,
-            artists_view_mode: ViewMode::Tile,
-            playlists_view_mode: ViewMode::List,
             page_size: default_page_size(),
             tile_width: default_tile_width(),
             album_tile_width: default_album_tile_width(),
             artist_tile_width: default_artist_tile_width(),
             now_playing_cover_size: default_now_playing_cover_size(),
-            album_sort_field: AlbumSortField::Title,
-            artist_sort_field: ArtistSortField::Artist,
-            playlist_sort_field: PlaylistSortField::Name,
-            volume: default_volume(),
-            is_shuffle: false,
-            is_repeat: false,
             gapless: true,
             scrobble: ScrobbleConfig::default(),
         }

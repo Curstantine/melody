@@ -22,10 +22,10 @@ use crate::components::{border_vert, text};
 use crate::config::{AppConfig, ScrobbleConfig};
 use crate::icons;
 use crate::message::{
-    Message, PlaylistItem, PlaylistOpenIntent, PlaylistResolution, PlaylistSection, ViewMode,
-    ViewTab,
+    Message, PlaylistItem, PlaylistOpenIntent, PlaylistResolution, PlaylistSection, ViewTab,
 };
 use crate::queue::{queue_window_for_start, QueueSource, QueueStore, DEFAULT_QUEUE_NAME};
+use crate::state::AppState;
 use crate::theme::{styles, ThemeManager};
 use crate::views::{
     self, AlbumsView, ArtistsView, LibraryView, NowPlayingView, PlayerBar, PlaylistsView,
@@ -40,6 +40,7 @@ pub struct App {
     db: LibraryDatabase,
     db_path: PathBuf,
     config_path: PathBuf,
+    state_path: PathBuf,
     _audio_engine: AudioEngine,
     audio_controller: AudioController,
     plugin_manager: PluginManager,
@@ -95,6 +96,7 @@ pub struct App {
     scrobble_config: ScrobbleConfig,
 
     config_save_seq: u64,
+    state_save_seq: u64,
     search_seq: u64,
 
     // Storage telemetry (refreshed on demand, never per frame)
@@ -121,10 +123,11 @@ impl App {
         });
 
         let config = AppConfig::load();
+        let state = AppState::load();
 
         let audio_engine = AudioEngine::new();
         let audio_controller = audio_engine.controller();
-        audio_controller.set_volume(config.volume);
+        audio_controller.set_volume(state.volume);
 
         let plugin_manager = PluginManager::new();
 
@@ -154,21 +157,22 @@ impl App {
 
         let available_fonts = crate::font::list_font_families();
         let config_path = AppConfig::config_path();
+        let state_path = AppState::state_path();
 
         let library = LibraryView::new(config.page_size);
         let albums = AlbumsView::with_tile_width(
-            config.albums_view_mode,
-            config.album_sort_field,
+            state.albums_view_mode,
+            state.album_sort_field,
             config.album_tile_width,
         );
         let artists = ArtistsView::with_tile_width(
-            config.artists_view_mode,
-            config.artist_sort_field,
+            state.artists_view_mode,
+            state.artist_sort_field,
             config.artist_tile_width,
         );
         let now_playing = NowPlayingView::with_cover_size(config.now_playing_cover_size);
-        let playlists = PlaylistsView::new(config.playlists_view_mode, config.playlist_sort_field);
-        let settings = SettingsView::new(config.settings_tab, available_fonts);
+        let playlists = PlaylistsView::new(state.playlists_view_mode, state.playlist_sort_field);
+        let settings = SettingsView::new(state.settings_tab, available_fonts);
         let player_bar = PlayerBar::new();
 
         let mut queues = QueueStore::default();
@@ -184,12 +188,13 @@ impl App {
             db,
             db_path,
             config_path,
+            state_path,
             _audio_engine: audio_engine,
             audio_controller,
             plugin_manager,
             theme_manager,
 
-            active_tab: config.active_tab,
+            active_tab: state.active_tab,
             tab_order: config.tab_order.clone(),
             dragging_tab: None,
             hovered_tab: None,
@@ -218,9 +223,9 @@ impl App {
             is_playing: false,
             position_ms: 0,
             duration_ms: 0,
-            volume: config.volume,
-            is_shuffle: config.is_shuffle,
-            is_repeat: config.is_repeat,
+            volume: state.volume,
+            is_shuffle: state.is_shuffle,
+            is_repeat: state.is_repeat,
             gapless: config.gapless,
             pending_gapless_next: None,
 
@@ -230,6 +235,7 @@ impl App {
             lastfm_plugin,
             scrobble_config: config.scrobble,
             config_save_seq: 0,
+            state_save_seq: 0,
             search_seq: 0,
             cache_stats: core_engine::CacheStats::default(),
             db_size_bytes: 0,
@@ -594,7 +600,7 @@ impl App {
                 info!("Shuffle toggled: {}", self.is_shuffle);
                 self.plugin_manager.on_shuffle_change(self.is_shuffle);
                 self.queue_next_gapless_track();
-                self.save_config_task()
+                self.save_state_task()
             }
 
             Message::ToggleRepeat => {
@@ -602,7 +608,7 @@ impl App {
                 info!("Repeat toggled: {}", self.is_repeat);
                 self.plugin_manager.on_repeat_change(self.is_repeat);
                 self.queue_next_gapless_track();
-                self.save_config_task()
+                self.save_state_task()
             }
 
             Message::ToggleGapless(enabled) => {
@@ -668,7 +674,7 @@ impl App {
                 self.volume = vol;
                 self.audio_controller.set_volume(vol);
                 self.plugin_manager.on_volume_change(vol);
-                self.save_config_debounced()
+                self.save_state_debounced()
             }
 
             Message::MprisAction(action) => match action {
@@ -742,7 +748,7 @@ impl App {
 
             Message::SelectTab(tab) => {
                 self.active_tab = tab;
-                let save_task = self.save_config_task();
+                let save_task = self.save_state_task();
                 match tab {
                     ViewTab::Albums => {
                         let load_task = if self.albums.is_empty() {
@@ -871,12 +877,12 @@ impl App {
                 } else {
                     Task::none()
                 };
-                Task::batch([self.save_config_task(), covers])
+                Task::batch([self.save_state_task(), covers])
             }
 
             Message::SetArtistsViewMode(mode) => {
                 self.artists.set_view_mode(mode);
-                self.save_config_task()
+                self.save_state_task()
             }
 
             Message::SetAlbumTileWidth(width) => {
@@ -1073,7 +1079,7 @@ impl App {
 
             Message::SelectSettingsTab(tab) => {
                 self.settings.select_tab(tab);
-                Task::batch([self.save_config_task(), self.load_storage_stats_task()])
+                Task::batch([self.save_state_task(), self.load_storage_stats_task()])
             }
 
             Message::SelectAlbum(album_name) => {
@@ -1085,13 +1091,13 @@ impl App {
                 // Present the album in disc/track order rather than title order.
                 self.library.sort_field = SortField::TrackNum;
                 self.library.sort_dir = SortDirection::Ascending;
-                Task::batch([self.reload_tracks_task(), self.save_config_task()])
+                Task::batch([self.reload_tracks_task(), self.save_state_task()])
             }
 
             Message::SelectArtist(artist_name) => {
                 self.active_tab = ViewTab::Tracks;
                 self.library.set_filter(TrackFilter::artist(artist_name));
-                self.reload_tracks_task()
+                Task::batch([self.reload_tracks_task(), self.save_state_task()])
             }
 
             // ── Playlists ───────────────────────────────────────────────────
@@ -1439,12 +1445,12 @@ impl App {
 
             Message::PlaylistSortChanged(field) => {
                 self.playlists.set_sort_field(field);
-                self.save_config_task()
+                self.save_state_task()
             }
 
             Message::SetPlaylistsViewMode(mode) => {
                 self.playlists.set_view_mode(mode);
-                self.save_config_task()
+                self.save_state_task()
             }
 
             Message::ImportPlaylistsClicked => Task::perform(
@@ -1911,14 +1917,14 @@ impl App {
 
             Message::AlbumSortChanged(field) => {
                 self.albums.toggle_sort(field);
-                let save_task = self.save_config_task();
+                let save_task = self.save_state_task();
                 let covers_task = self.load_visible_album_covers_task();
                 Task::batch([save_task, covers_task])
             }
 
             Message::ArtistSortChanged(field) => {
                 self.artists.toggle_sort(field);
-                self.save_config_task()
+                self.save_state_task()
             }
 
             Message::AlbumsLoaded(albums) => {
@@ -2004,6 +2010,21 @@ impl App {
             }
 
             Message::ConfigSaved => Task::none(),
+
+            Message::SaveState => {
+                self.state_save_seq = self.state_save_seq.wrapping_add(1);
+                self.save_state_task()
+            }
+
+            Message::DebouncedStateSave(seq) => {
+                if seq == self.state_save_seq {
+                    self.save_state_task()
+                } else {
+                    Task::none()
+                }
+            }
+
+            Message::StateSaved => Task::none(),
         }
     }
 
@@ -2345,28 +2366,32 @@ impl App {
 
     pub fn to_config(&self) -> AppConfig {
         AppConfig {
-            active_tab: self.active_tab,
             tab_order: self.tab_order.clone(),
-            settings_tab: self.settings.active_tab,
             theme_name: self.theme_manager.active_theme_name.clone(),
             primary_font: self.theme_manager.current_config.font_family.clone(),
-            library_view_mode: ViewMode::List,
-            albums_view_mode: self.albums.view_mode,
-            artists_view_mode: self.artists.view_mode,
-            playlists_view_mode: self.playlists.view_mode,
             page_size: self.library.page_size,
             tile_width: self.albums.tile_width,
             album_tile_width: self.albums.tile_width,
             artist_tile_width: self.artists.tile_width,
             now_playing_cover_size: self.now_playing.cover_size,
-            album_sort_field: self.albums.sort_field,
-            artist_sort_field: self.artists.sort_field,
-            playlist_sort_field: self.playlists.sort_field,
+            gapless: self.gapless,
+            scrobble: self.scrobble_config.clone(),
+        }
+    }
+
+    pub fn to_state(&self) -> AppState {
+        AppState {
+            active_tab: self.active_tab,
+            settings_tab: self.settings.active_tab,
             volume: self.volume,
             is_shuffle: self.is_shuffle,
             is_repeat: self.is_repeat,
-            gapless: self.gapless,
-            scrobble: self.scrobble_config.clone(),
+            albums_view_mode: self.albums.view_mode,
+            artists_view_mode: self.artists.view_mode,
+            playlists_view_mode: self.playlists.view_mode,
+            album_sort_field: self.albums.sort_field,
+            artist_sort_field: self.artists.sort_field,
+            playlist_sort_field: self.playlists.sort_field,
         }
     }
 
@@ -2394,6 +2419,33 @@ impl App {
                 seq
             },
             Message::DebouncedConfigSave,
+        )
+    }
+
+    pub fn save_state_task(&self) -> Task<Message> {
+        let state = self.to_state();
+        let path = self.state_path.clone();
+        Task::perform(
+            async move {
+                tokio::task::spawn_blocking(move || {
+                    state.save_to_path(&path);
+                })
+                .await
+                .ok();
+            },
+            |_| Message::StateSaved,
+        )
+    }
+
+    pub fn save_state_debounced(&mut self) -> Task<Message> {
+        self.state_save_seq = self.state_save_seq.wrapping_add(1);
+        let seq = self.state_save_seq;
+        Task::perform(
+            async move {
+                tokio::time::sleep(Duration::from_millis(400)).await;
+                seq
+            },
+            Message::DebouncedStateSave,
         )
     }
 

@@ -5,6 +5,7 @@ mod font;
 mod icons;
 mod message;
 mod queue;
+pub mod state;
 mod theme;
 mod views;
 

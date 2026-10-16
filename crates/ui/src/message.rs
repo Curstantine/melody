@@ -297,6 +297,11 @@ pub enum Message {
     DebouncedConfigSave(u64),
     ConfigSaved,
 
+    // Runtime state persistence
+    SaveState,
+    DebouncedStateSave(u64),
+    StateSaved,
+
     // Scrobbling
     ToggleListenBrainz(bool),
     ListenBrainzTokenChanged(String),
@@ -563,6 +568,11 @@ impl std::fmt::Debug for Message {
                 f.debug_tuple("DebouncedConfigSave").field(seq).finish()
             }
             Self::ConfigSaved => write!(f, "ConfigSaved"),
+            Self::SaveState => write!(f, "SaveState"),
+            Self::DebouncedStateSave(seq) => {
+                f.debug_tuple("DebouncedStateSave").field(seq).finish()
+            }
+            Self::StateSaved => write!(f, "StateSaved"),
             Self::ToggleListenBrainz(b) => f.debug_tuple("ToggleListenBrainz").field(b).finish(),
             Self::ListenBrainzTokenChanged(s) => f
                 .debug_struct("ListenBrainzTokenChanged")

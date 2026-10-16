@@ -138,7 +138,7 @@ cargo test --workspace
 - Themes are external TOML files stored in [`themes/`](file:///home/curstantine/Code/Personal/melody/themes) and `~/.config/melody/themes/`.
 - [`ThemeConfig`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/theme/mod.rs#L68) deserializes hex color strings (`primary`, `background`, `surface`, `border`, `text`, `text_muted`, etc.).
 - [`ThemeManager`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/theme/mod.rs#L240) enables hot-swapping themes at runtime without recompiling.
-- Available system fonts are enumerated using [`list_font_families()`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/font.rs#L5) without loading full font files into RAM. The chosen font and view settings are persisted via [`AppConfig`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/config.rs#L13).
+- Available system fonts are enumerated using [`list_font_families()`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/font.rs#L5) without loading full font files into RAM. User configuration and settings are persisted via [`AppConfig`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/config.rs#L43), while runtime session state (active tab, volume, shuffle, repeat, view modes) is decoupled and persisted via [`AppState`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/state.rs#L19).
 
 ### 4.6 Playback Queues & Scoped Library Filtering
 
@@ -157,7 +157,8 @@ cargo test --workspace
 
 - [`crates/ui/src/main.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/main.rs): Application entry point; logging init, window configuration, and default font configuration.
 - [`crates/ui/src/app.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs): The central [`App`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs#L22-L83) struct, [`update`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs#L187) state machine, and [`view`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs#L1012) layout composition.
-- [`crates/ui/src/config.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/config.rs): Persistent configuration state (`active_tab`, `theme_name`, `primary_font`, `library_view_mode`, `page_size`, volume, etc.).
+- [`crates/ui/src/config.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/config.rs): Persistent configuration state (`theme_name`, `primary_font`, `tab_order`, `page_size`, tile dimensions, `gapless`, scrobbling credentials).
+- [`crates/ui/src/state.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/state.rs): Persistent runtime application and player state (`active_tab`, `settings_tab`, `volume`, `is_shuffle`, `is_repeat`, view modes, sort fields).
 - [`crates/ui/src/message.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/message.rs): [`Message`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/message.rs#L28-L77) enum representing all UI events and user interactions.
 
 ### Views Directory ([`crates/ui/src/views/`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views))

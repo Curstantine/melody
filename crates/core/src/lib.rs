@@ -18,7 +18,7 @@ pub use model::{
 };
 pub use paths::{
     cache_dir, config_dir, config_file, data_dir, database_file, playlists_dir, project_dirs,
-    thumbnail_cache_dir, user_themes_dir,
+    state_dir, state_file, thumbnail_cache_dir, user_themes_dir,
 };
 pub use playlist::{
     is_supported_playlist_file, parse_m3u, parse_m3u_str, playlist_name_from_path,

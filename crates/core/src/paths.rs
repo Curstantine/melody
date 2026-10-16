@@ -36,6 +36,24 @@ pub fn data_dir() -> PathBuf {
     }
 }
 
+/// Directory where persistent runtime state files (e.g. `state.toml`) reside.
+///
+/// On Linux: `~/.local/state/melody`
+/// On macOS: `~/Library/Application Support/moe.curstantine.melody`
+/// On Windows: `AppData/Roaming/curstantine/melody/data`
+pub fn state_dir() -> PathBuf {
+    if let Some(proj) = project_dirs() {
+        let dir = proj
+            .state_dir()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| proj.data_dir().to_path_buf());
+        let _ = std::fs::create_dir_all(&dir);
+        dir
+    } else {
+        PathBuf::from(".")
+    }
+}
+
 /// Directory where ephemeral caches (e.g. downscaled cover art thumbnails) reside.
 ///
 /// On Linux: `~/.cache/melody`
@@ -54,6 +72,11 @@ pub fn cache_dir() -> PathBuf {
 /// Path to the main application configuration file (`config.toml`).
 pub fn config_file() -> PathBuf {
     config_dir().join("config.toml")
+}
+
+/// Path to the application runtime state file (`state.toml`).
+pub fn state_file() -> PathBuf {
+    state_dir().join("state.toml")
 }
 
 /// Path to the SQLite / libSQL library database file (`library.db`).
