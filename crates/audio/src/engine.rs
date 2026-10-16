@@ -45,6 +45,7 @@ pub enum AudioEngineError {
 pub struct AudioController {
     cmd_tx: Sender<AudioCommand>,
     status: AudioStatus,
+    flush_flag: Arc<AtomicBool>,
 }
 
 impl AudioController {
@@ -65,14 +66,18 @@ impl AudioController {
     }
 
     pub fn stop(&self) {
+        self.flush_flag.store(true, Ordering::SeqCst);
         self.send(AudioCommand::Stop);
     }
 
     pub fn seek(&self, duration: Duration) {
+        self.status.set_position_ms(duration.as_millis() as u64);
+        self.flush_flag.store(true, Ordering::SeqCst);
         self.send(AudioCommand::Seek(duration));
     }
 
     pub fn load(&self, path: PathBuf, autoplay: bool) {
+        self.flush_flag.store(true, Ordering::SeqCst);
         self.send(AudioCommand::Load { path, autoplay });
     }
 
@@ -94,15 +99,17 @@ impl AudioEngine {
     pub fn new() -> Self {
         let (cmd_tx, cmd_rx) = unbounded::<AudioCommand>();
         let status = AudioStatus::new();
+        let flush_flag = Arc::new(AtomicBool::new(false));
         let controller = AudioController {
             cmd_tx,
             status: status.clone(),
+            flush_flag: flush_flag.clone(),
         };
 
         let worker_handle = thread::Builder::new()
             .name("audio-worker".to_string())
             .spawn(move || {
-                run_audio_worker(cmd_rx, status);
+                run_audio_worker(cmd_rx, status, flush_flag);
             })
             .ok();
 
@@ -153,7 +160,11 @@ fn target_channel_layout(channels: usize) -> ChannelLayout {
     }
 }
 
-fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
+fn run_audio_worker(
+    cmd_rx: Receiver<AudioCommand>,
+    status: AudioStatus,
+    flush_flag: Arc<AtomicBool>,
+) {
     info!("Starting audio worker thread");
 
     // Initialize CPAL device and output stream
@@ -161,13 +172,13 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
     let device = host.default_output_device();
 
     let (stream, device_sample_rate, device_channels) = match device {
-        Some(dev) => match setup_cpal_stream(&dev, status.clone()) {
-            Ok((st, sr, ch, flush_flag, latency_us)) => {
+        Some(dev) => match setup_cpal_stream(&dev, status.clone(), flush_flag.clone()) {
+            Ok((st, sr, ch, latency_us)) => {
                 info!(
                     "Audio output stream initialized successfully ({} Hz, {} ch)",
                     sr, ch
                 );
-                (Some((st, flush_flag, latency_us)), sr, ch)
+                (Some((st, latency_us)), sr, ch)
             }
             Err(e) => {
                 warn!(
@@ -183,9 +194,8 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
         }
     };
 
-    let flush_flag = stream.as_ref().map(|(_, f, _)| f.clone());
-    let output_latency_us = stream.as_ref().map(|(_, _, l)| l.clone());
-    let _active_stream = stream.map(|(s, _, _)| s);
+    let output_latency_us = stream.as_ref().map(|(_, l)| l.clone());
+    let _active_stream = stream.map(|(s, _)| s);
 
     let mut loaded_track: Option<LoadedTrack> = None;
 
@@ -229,20 +239,29 @@ fn run_audio_worker(cmd_rx: Receiver<AudioCommand>, status: AudioStatus) {
                                         track,
                                         &mut ring_producer,
                                         device_channels,
+                                        &flush_flag,
                                     );
                                 }
                             }
                         }
                         None => {
-                            // Demuxer reached end of packets, send EOF to flush decoder
                             track.reached_eof = true;
                             let _ = track.decoder.send_eof();
-                            drain_decoder_frames(track, &mut ring_producer, device_channels);
-                            flush_resampler(track, &mut ring_producer, device_channels);
+                            drain_decoder_frames(
+                                track,
+                                &mut ring_producer,
+                                device_channels,
+                                &flush_flag,
+                            );
+                            flush_resampler(
+                                track,
+                                &mut ring_producer,
+                                device_channels,
+                                &flush_flag,
+                            );
                         }
                     }
                 } else {
-                    // Reached EOF: wait until ring buffer is completely drained.
                     let is_empty = ring_producer
                         .as_ref()
                         .map(|p| p.occupied_len() == 0)
@@ -309,12 +328,17 @@ fn drain_decoder_frames(
     track: &mut LoadedTrack,
     ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
     device_channels: usize,
+    flush_flag: &Arc<AtomicBool>,
 ) {
     while track
         .decoder
         .receive_frame(&mut track.decoded_frame)
         .is_ok()
     {
+        if flush_flag.load(Ordering::Relaxed) {
+            break;
+        }
+
         // Resample decoded frame to destination format/rate/channels
         match track
             .resampler
@@ -335,7 +359,9 @@ fn drain_decoder_frames(
                         };
 
                         if let Some(ref mut prod) = ring_producer {
-                            push_to_ring_buffer(prod, float_slice);
+                            if !push_to_ring_buffer(prod, float_slice, flush_flag) {
+                                break;
+                            }
                         }
                     }
                 }
@@ -351,8 +377,13 @@ fn flush_resampler(
     track: &mut LoadedTrack,
     ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
     device_channels: usize,
+    flush_flag: &Arc<AtomicBool>,
 ) {
     while let Ok(Some(_)) = track.resampler.flush(&mut track.resampled_frame) {
+        if flush_flag.load(Ordering::Relaxed) {
+            break;
+        }
+
         let samples_count = track.resampled_frame.samples();
         if samples_count == 0 {
             break;
@@ -366,16 +397,26 @@ fn flush_resampler(
             };
 
             if let Some(ref mut prod) = ring_producer {
-                push_to_ring_buffer(prod, float_slice);
+                if !push_to_ring_buffer(prod, float_slice, flush_flag) {
+                    break;
+                }
             }
         }
     }
 }
 
-fn push_to_ring_buffer(prod: &mut ringbuf::HeapProd<f32>, samples: &[f32]) {
+fn push_to_ring_buffer(
+    prod: &mut ringbuf::HeapProd<f32>,
+    samples: &[f32],
+    flush_flag: &Arc<AtomicBool>,
+) -> bool {
     let mut written = 0;
     let mut retries = 0;
     while written < samples.len() {
+        if flush_flag.load(Ordering::Relaxed) {
+            return false;
+        }
+
         let n = prod.push_slice(&samples[written..]);
         written += n;
         if written < samples.len() {
@@ -396,6 +437,7 @@ fn push_to_ring_buffer(prod: &mut ringbuf::HeapProd<f32>, samples: &[f32]) {
             thread::sleep(Duration::from_millis(1));
         }
     }
+    true
 }
 
 // Global slot to transfer producer created in CPAL stream setup to worker thread
@@ -438,7 +480,7 @@ fn advance_position(
     }
 }
 
-type CpalStreamSetup = (cpal::Stream, u32, usize, Arc<AtomicBool>, Arc<AtomicU64>);
+type CpalStreamSetup = (cpal::Stream, u32, usize, Arc<AtomicU64>);
 
 /// Shared, per-stream state handed to the realtime output callbacks.
 struct CallbackState<'a> {
@@ -453,6 +495,7 @@ struct CallbackState<'a> {
 fn setup_cpal_stream(
     device: &cpal::Device,
     status: AudioStatus,
+    flush_flag: Arc<AtomicBool>,
 ) -> Result<CpalStreamSetup, AudioEngineError> {
     let config = device.default_output_config()?;
     let sample_rate = config.sample_rate();
@@ -463,7 +506,6 @@ fn setup_cpal_stream(
 
     *WORKER_PRODUCER.lock().unwrap() = Some(producer);
 
-    let flush_flag = Arc::new(AtomicBool::new(false));
     let flush_cb = flush_flag.clone();
     let status_cb = status.clone();
 
@@ -544,12 +586,13 @@ fn setup_cpal_stream(
 
     stream.play().map_err(AudioEngineError::CpalPlay)?;
 
-    Ok((stream, sample_rate, channels, flush_flag, latency_us))
+    Ok((stream, sample_rate, channels, latency_us))
 }
 
 fn audio_callback_f32(data: &mut [f32], state: &mut CallbackState) {
     if state.flush_flag.swap(false, Ordering::SeqCst) {
         state.consumer.clear();
+        *state.pos_rem = 0;
     }
 
     if !state.status.is_playing() {
@@ -581,6 +624,7 @@ fn audio_callback_f32(data: &mut [f32], state: &mut CallbackState) {
 fn audio_callback_i16(data: &mut [i16], scratch: &mut Vec<f32>, state: &mut CallbackState) {
     if state.flush_flag.swap(false, Ordering::SeqCst) {
         state.consumer.clear();
+        *state.pos_rem = 0;
     }
 
     if !state.status.is_playing() {
@@ -615,6 +659,7 @@ fn audio_callback_i16(data: &mut [i16], scratch: &mut Vec<f32>, state: &mut Call
 fn audio_callback_u16(data: &mut [u16], scratch: &mut Vec<f32>, state: &mut CallbackState) {
     if state.flush_flag.swap(false, Ordering::SeqCst) {
         state.consumer.clear();
+        *state.pos_rem = 0;
     }
 
     if !state.status.is_playing() {
@@ -646,17 +691,15 @@ fn audio_callback_u16(data: &mut [u16], scratch: &mut Vec<f32>, state: &mut Call
     );
 }
 
-fn flush_audio_buffer(flush_flag: &Option<Arc<AtomicBool>>) {
-    if let Some(ref f) = flush_flag {
-        f.store(true, Ordering::SeqCst);
-        let start = std::time::Instant::now();
-        while f.load(Ordering::SeqCst) {
-            std::thread::sleep(Duration::from_millis(1));
-            if start.elapsed() > Duration::from_millis(100) {
-                warn!("Audio buffer flush timed out after 100ms");
-                f.store(false, Ordering::SeqCst);
-                break;
-            }
+fn flush_audio_buffer(flush_flag: &Arc<AtomicBool>) {
+    flush_flag.store(true, Ordering::SeqCst);
+    let start = std::time::Instant::now();
+    while flush_flag.load(Ordering::SeqCst) {
+        std::thread::sleep(Duration::from_millis(1));
+        if start.elapsed() > Duration::from_millis(100) {
+            warn!("Audio buffer flush timed out after 100ms");
+            flush_flag.store(false, Ordering::SeqCst);
+            break;
         }
     }
 }
@@ -665,7 +708,7 @@ fn handle_command(
     cmd: AudioCommand,
     status: &AudioStatus,
     loaded_track: &mut Option<LoadedTrack>,
-    flush_flag: &Option<Arc<AtomicBool>>,
+    flush_flag: &Arc<AtomicBool>,
     _ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
     device_sample_rate: u32,
     device_channels: usize,
@@ -713,6 +756,11 @@ fn handle_command(
             if let Some(track) = loaded_track.as_mut() {
                 let _ = track.input.seek(0, ..);
                 track.decoder.flush();
+                while let Ok(Some(_)) = track.resampler.flush(&mut track.resampled_frame) {
+                    if track.resampled_frame.samples() == 0 {
+                        break;
+                    }
+                }
                 track.reached_eof = false;
             }
             flush_audio_buffer(flush_flag);
@@ -732,6 +780,11 @@ fn handle_command(
                 match track.input.seek(seek_micros, ..) {
                     Ok(_) => {
                         track.decoder.flush();
+                        while let Ok(Some(_)) = track.resampler.flush(&mut track.resampled_frame) {
+                            if track.resampled_frame.samples() == 0 {
+                                break;
+                            }
+                        }
                         track.reached_eof = false;
                         flush_audio_buffer(flush_flag);
                         status.set_position_ms(target_dur.as_millis() as u64);
