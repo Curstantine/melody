@@ -251,6 +251,24 @@ cargo test --workspace
 3. For library-derived scopes, extend [`queue_source_for_filter`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs)
    and the `TrackFilter::queue_name` rules.
 
+### Recipe 7: Adding a Custom KDL Layout
+
+1. Create `layouts/my-layout.kdl` or `~/.config/melody/layouts/my-layout.kdl`:
+    ```kdl
+    layout name="My Layout" description="Custom player layout" {
+        column {
+            navbar height=33
+            divider orientation="horizontal"
+            main-view fill=true
+            divider orientation="horizontal"
+            player-bar height=72
+            status-bar height=24
+        }
+    }
+    ```
+2. The layout will be automatically discovered at launch from `./layouts/` or `~/.config/melody/layouts/`.
+3. In **Settings → Appearance**, select the new layout or click **Reload Layouts from Disk**.
+
 ---
 
 ## 7. Strict Rules & Anti-Patterns to Avoid

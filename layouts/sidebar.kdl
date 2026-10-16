@@ -1,0 +1,18 @@
+layout name="Sidebar" description="Modern sidebar navigation with bottom player bar" {
+    column {
+        row fill=true {
+            column width=180 {
+                navbar orientation="vertical" fill=true
+                divider orientation="horizontal"
+                track-info height=64
+            }
+            divider orientation="vertical"
+            column fill=true {
+                main-view fill=true
+            }
+        }
+        divider orientation="horizontal"
+        player-bar height=72
+        status-bar height=24
+    }
+}

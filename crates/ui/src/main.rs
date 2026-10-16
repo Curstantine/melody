@@ -3,6 +3,7 @@ mod components;
 pub mod config;
 mod font;
 mod icons;
+pub mod layout;
 mod message;
 mod queue;
 pub mod state;

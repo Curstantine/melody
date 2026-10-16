@@ -1,0 +1,10 @@
+layout name="Default" description="Standard layout with top navigation bar and bottom player" {
+    column {
+        navbar height=33
+        divider orientation="horizontal"
+        main-view fill=true
+        divider orientation="horizontal"
+        player-bar height=72
+        status-bar height=24
+    }
+}

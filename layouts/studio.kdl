@@ -1,0 +1,20 @@
+layout name="Studio" description="Split view with tracks on left and queue/lyrics on right" {
+    column {
+        navbar height=33
+        divider orientation="horizontal"
+        row fill=true {
+            column fill=3 {
+                tracks fill=true
+            }
+            divider orientation="vertical"
+            column fill=2 {
+                lyrics fill=true
+                divider orientation="horizontal"
+                queue height=250
+            }
+        }
+        divider orientation="horizontal"
+        player-bar height=72
+        status-bar height=24
+    }
+}

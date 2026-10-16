@@ -49,9 +49,12 @@ fn test_settings_views_render_without_panicking() {
         };
 
         let theme_names_vec = vec![DEFAULT_THEME_NAME.to_string(), "Nord".to_string()];
+        let layout_names_vec = vec!["Default".to_string(), "Sidebar".to_string()];
         let ctx = settings::SettingsContext {
             theme_names: &theme_names_vec,
             active_theme_name: DEFAULT_THEME_NAME,
+            layout_names: &layout_names_vec,
+            active_layout_name: "Default",
             albums_view_mode: ViewMode::Tile,
             artists_view_mode: ViewMode::Tile,
             page_size: 50,

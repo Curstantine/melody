@@ -14,6 +14,8 @@ use crate::theme::{styles, ThemeConfig};
 pub struct SettingsContext<'a> {
     pub theme_names: &'a [String],
     pub active_theme_name: &'a str,
+    pub layout_names: &'a [String],
+    pub active_layout_name: &'a str,
     pub albums_view_mode: ViewMode,
     pub artists_view_mode: ViewMode,
     pub page_size: usize,
@@ -277,6 +279,60 @@ impl SettingsView {
                 palette_preview,
                 Space::new().height(4),
                 reload_themes_btn,
+            ]
+            .spacing(8)
+            .boxed(),
+        );
+
+        // Window Layout Card
+        let layout_buttons = {
+            let mut row_wrap = row![].spacing(6);
+            for name in ctx.layout_names {
+                let is_active = name == ctx.active_layout_name;
+                let icon_svg = if is_active {
+                    icons::CHECK_SVG
+                } else {
+                    icons::ALBUM_SVG
+                };
+                let btn = components::chip_with_icon(
+                    theme_cfg,
+                    icon_svg,
+                    name.clone(),
+                    is_active,
+                    Message::SelectLayout(name.clone()),
+                );
+                row_wrap = row_wrap.push(btn);
+            }
+            row_wrap.wrap()
+        };
+
+        let reload_layouts_btn = button(
+            row![
+                icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text_color()),
+                Space::new().width(6),
+                text(theme_cfg, "Reload Layouts from Disk")
+                    .size(12)
+                    .color(theme_cfg.text_color()),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .padding([6, 12])
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press(Message::ReloadLayouts);
+
+        let layout_card = components::settings_card(
+            theme_cfg,
+            "Window Layout",
+            column![
+                text(
+                    theme_cfg,
+                    "Select a layout preset or author your own in KDL (~/.config/melody/layouts/<name>.kdl)"
+                )
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+                layout_buttons,
+                Space::new().height(4),
+                reload_layouts_btn,
             ]
             .spacing(8)
             .boxed(),
@@ -713,6 +769,7 @@ impl SettingsView {
         column![
             header,
             themes_card,
+            layout_card,
             font_card,
             library_tab_card,
             albums_tab_card,

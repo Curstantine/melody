@@ -292,6 +292,8 @@ pub enum Message {
     SelectSettingsTab(SettingsTab),
     SelectTheme(String),
     ReloadThemes,
+    SelectLayout(String),
+    ReloadLayouts,
     SelectFont(String),
     SaveConfig,
     DebouncedConfigSave(u64),
@@ -562,6 +564,8 @@ impl std::fmt::Debug for Message {
             Self::SelectSettingsTab(t) => f.debug_tuple("SelectSettingsTab").field(t).finish(),
             Self::SelectTheme(s) => f.debug_tuple("SelectTheme").field(s).finish(),
             Self::ReloadThemes => write!(f, "ReloadThemes"),
+            Self::SelectLayout(s) => f.debug_tuple("SelectLayout").field(s).finish(),
+            Self::ReloadLayouts => write!(f, "ReloadLayouts"),
             Self::SelectFont(s) => f.debug_tuple("SelectFont").field(s).finish(),
             Self::SaveConfig => write!(f, "SaveConfig"),
             Self::DebouncedConfigSave(seq) => {

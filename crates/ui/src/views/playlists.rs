@@ -881,7 +881,7 @@ impl PlaylistsView {
 
     // ── Queues ──────────────────────────────────────────────────────────────
 
-    fn view_queues<'a>(
+    pub(crate) fn view_queues<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
         store: &'a QueueStore,

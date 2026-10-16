@@ -28,6 +28,7 @@ fn test_default_app_config() {
         ]
     );
     assert_eq!(cfg.theme_name, theme::DEFAULT_THEME_NAME);
+    assert_eq!(cfg.layout_name, config::DEFAULT_LAYOUT_NAME);
     assert_eq!(cfg.primary_font, None);
     assert_eq!(cfg.page_size, 50);
     assert_eq!(cfg.tile_width, 140);
@@ -51,6 +52,7 @@ fn test_config_toml_roundtrip() {
             ViewTab::Playlists,
         ],
         theme_name: "Nord".to_string(),
+        layout_name: "Sidebar".to_string(),
         primary_font: Some("Inter".to_string()),
         page_size: 100,
         tile_width: 190,
