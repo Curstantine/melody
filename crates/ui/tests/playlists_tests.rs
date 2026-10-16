@@ -108,7 +108,27 @@ fn detail_click_needs_same_row_twice_quickly() {
 
 #[test]
 fn reordered_entries_round_trip_through_m3u_file() {
-    let mut view = detail_view();
+    let temp_music = std::env::temp_dir().join(format!("melody-test-music-{}", std::process::id()));
+    let t1 = temp_music.join("1.flac");
+    let tx = temp_music.join("x.flac");
+    let t3 = temp_music.join("3.flac");
+
+    let mut view = PlaylistsView::new(ViewMode::List, PlaylistSortField::Name);
+    view.set_detail(
+        7,
+        "Mixtape".to_string(),
+        "/playlists/mixtape.m3u8".to_string(),
+        vec![
+            item("One", Some(1)),
+            item("Missing", None),
+            item("Three", Some(3)),
+        ],
+        vec![
+            entry(&t1.to_string_lossy()),
+            entry(&tx.to_string_lossy()),
+            entry(&t3.to_string_lossy()),
+        ],
+    );
     assert!(view.move_detail_entry(2, 0));
 
     let path = std::env::temp_dir().join(format!(
@@ -117,9 +137,9 @@ fn reordered_entries_round_trip_through_m3u_file() {
     ));
     write_m3u(&path, &view.detail_entries).expect("write reordered playlist");
     let content = std::fs::read_to_string(&path).expect("read reordered playlist");
-    assert!(content.contains("/music/3.flac"));
-    assert!(content.contains("/music/1.flac"));
-    assert!(content.contains("/music/x.flac"));
+    assert!(content.contains(&t3.to_string_lossy().to_string()));
+    assert!(content.contains(&t1.to_string_lossy().to_string()));
+    assert!(content.contains(&tx.to_string_lossy().to_string()));
 
     let parsed = parse_m3u(&path).expect("parse reordered playlist");
     let _ = std::fs::remove_file(&path);
@@ -128,13 +148,9 @@ fn reordered_entries_round_trip_through_m3u_file() {
         parsed
             .entries
             .iter()
-            .map(|e| e.resolved_path.to_string_lossy().to_string())
+            .map(|e| e.resolved_path.clone())
             .collect::<Vec<_>>(),
-        vec![
-            "/music/3.flac".to_string(),
-            "/music/1.flac".to_string(),
-            "/music/x.flac".to_string(),
-        ]
+        vec![t3, t1, tx]
     );
 }
 
