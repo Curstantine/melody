@@ -26,6 +26,7 @@ image = { version = "0.25", default-features = false }
 kdl = { version = "6.7.1", features = ["v1-fallback"] }
 md-5 = "0.11.0"
 mpris-server = "0.10.0"
+notify = "8.0.0"
 rfd = "0.17"
 ringbuf = "0.5"
 rubato = "5.0"

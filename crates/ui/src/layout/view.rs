@@ -501,6 +501,7 @@ impl App {
                 submit_now_playing: self.scrobble_config.submit_now_playing,
                 scrobble_percent: self.scrobble_config.scrobble_percent,
                 gapless: self.gapless,
+                watch_library: self.watch_library,
             },
         )
     }

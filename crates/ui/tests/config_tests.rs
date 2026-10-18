@@ -36,6 +36,7 @@ fn test_default_app_config() {
     assert_eq!(cfg.artist_tile_width, 140);
     assert_eq!(cfg.now_playing_cover_size, 260);
     assert!(cfg.gapless);
+    assert!(cfg.watch_library);
     assert!(!cfg.scrobble.listenbrainz_enabled);
     assert!(!cfg.scrobble.lastfm_enabled);
     assert_eq!(cfg.scrobble.scrobble_percent, 50);
@@ -60,6 +61,7 @@ fn test_config_toml_roundtrip() {
         artist_tile_width: 180,
         now_playing_cover_size: 260,
         gapless: false,
+        watch_library: false,
         scrobble: config::ScrobbleConfig {
             listenbrainz_enabled: true,
             listenbrainz_token: "test_token".to_string(),

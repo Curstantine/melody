@@ -68,6 +68,9 @@ pub struct AppConfig {
     #[serde(default = "default_true")]
     pub gapless: bool,
 
+    #[serde(default = "default_true")]
+    pub watch_library: bool,
+
     #[serde(default)]
     pub scrobble: ScrobbleConfig,
 }
@@ -198,6 +201,7 @@ impl Default for AppConfig {
             artist_tile_width: default_artist_tile_width(),
             now_playing_cover_size: default_now_playing_cover_size(),
             gapless: true,
+            watch_library: true,
             scrobble: ScrobbleConfig::default(),
         }
     }

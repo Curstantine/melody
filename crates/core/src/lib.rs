@@ -6,8 +6,11 @@ pub mod paths;
 pub mod playlist;
 pub mod search;
 pub mod thumbnail;
+pub mod watcher;
 
-pub use db::{DbError, LibraryDatabase, ScanSummary};
+pub use db::{
+    is_supported_audio_path, DbError, LibraryDatabase, ScanSummary, SUPPORTED_AUDIO_EXTENSIONS,
+};
 pub use intern::InternedStr;
 pub use metadata::{
     extract_cover_art, extract_metadata, extract_technical_info, AudioTechnicalInfo, MetadataError,
@@ -31,3 +34,4 @@ pub use thumbnail::{
     get_or_create_thumbnail, get_thumbnail_cache_stats, CacheStats, THUMB_DIM_DEFAULT,
     THUMB_DIM_HIGH,
 };
+pub use watcher::{LibraryWatcher, WatcherError};

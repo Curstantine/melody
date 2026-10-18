@@ -21,6 +21,8 @@ directories.workspace = true
 turso.workspace = true
 encoding_rs.workspace = true
 tokio = { workspace = true, features = ["rt"] }
+notify.workspace = true
+crossbeam-channel.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

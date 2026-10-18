@@ -84,6 +84,7 @@ fn test_settings_views_render_without_panicking() {
             submit_now_playing: true,
             scrobble_percent: 50,
             gapless: true,
+            watch_library: true,
         };
 
         // Render each view and verify it builds valid Iced elements without panic
@@ -122,4 +123,15 @@ fn test_status_bar_indicators_render() {
         ..ctx
     };
     let _el2 = status_bar::StatusBar::view(&theme_cfg, ctx_thumbs);
+}
+
+#[test]
+fn test_watch_library_and_scan_new_messages() {
+    let msg1 = message::Message::ScanLibraryForNewFiles;
+    let msg2 = message::Message::ToggleWatchLibrary(true);
+    let msg3 = message::Message::ToggleWatchLibrary(false);
+
+    assert_eq!(format!("{:?}", msg1), "ScanLibraryForNewFiles");
+    assert_eq!(format!("{:?}", msg2), "ToggleWatchLibrary(true)");
+    assert_eq!(format!("{:?}", msg3), "ToggleWatchLibrary(false)");
 }

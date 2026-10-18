@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -110,6 +110,12 @@ pub struct App {
     pub(crate) is_scanning: bool,
     pub(crate) scan_progress: Option<(usize, usize)>,
     pub(crate) is_generating_thumbnails: bool,
+
+    // Library Watcher and Directory Monitoring
+    pub(crate) watch_library: bool,
+    pub(crate) library_watcher: Option<core_engine::LibraryWatcher>,
+    pub(crate) watcher_rx: Option<crossbeam_channel::Receiver<Vec<PathBuf>>>,
+    pub(crate) pending_watcher_paths: Vec<PathBuf>,
 
     // Scrobbling Plugins
     pub(crate) listenbrainz_plugin: Arc<ListenBrainzPlugin>,
@@ -261,6 +267,11 @@ impl App {
             is_scanning: false,
             scan_progress: None,
             is_generating_thumbnails: false,
+
+            watch_library: config.watch_library,
+            library_watcher: None,
+            watcher_rx: None,
+            pending_watcher_paths: Vec::new(),
 
             listenbrainz_plugin,
             lastfm_plugin,
@@ -519,6 +530,41 @@ impl App {
                 }
                 if let Some(action) = mpris_action {
                     return self.update(Message::MprisAction(action));
+                }
+
+                // Drain any incoming library watcher events
+                let mut watcher_paths = Vec::new();
+                if let Some(ref rx) = self.watcher_rx {
+                    while let Ok(paths) = rx.try_recv() {
+                        watcher_paths.extend(paths);
+                    }
+                }
+                if !watcher_paths.is_empty() {
+                    if self.is_scanning {
+                        self.pending_watcher_paths.extend(watcher_paths);
+                    } else {
+                        self.is_scanning = true;
+                        self.scan_progress = None;
+                        let db = self.db.clone();
+                        let paths = watcher_paths;
+                        return Task::stream(iced::stream::channel(
+                            100,
+                            async move |mut sender| {
+                                let mut cb_sender = sender.clone();
+                                let summary = db
+                                    .scan_new_files(
+                                        &paths,
+                                        Some(move |current, total| {
+                                            let _ = cb_sender
+                                                .try_send(Message::ScanProgress { current, total });
+                                        }),
+                                    )
+                                    .await
+                                    .unwrap_or_default();
+                                let _ = sender.send(Message::ScanFinished(summary)).await;
+                            },
+                        ));
+                    }
                 }
 
                 Task::none()
@@ -1337,6 +1383,9 @@ impl App {
                 Some(path) => {
                     let path_str = path.to_string_lossy().to_string();
                     info!("Adding library folder: {}", path_str);
+                    if let Some(ref mut watcher) = self.library_watcher {
+                        let _ = watcher.watch_folder(&path);
+                    }
                     self.is_scanning = true;
                     self.scan_progress = None;
                     let db = self.db.clone();
@@ -1365,6 +1414,9 @@ impl App {
 
             Message::RemoveLibraryFolder(path_str) => {
                 info!("Removing library folder: {}", path_str);
+                if let Some(ref mut watcher) = self.library_watcher {
+                    let _ = watcher.unwatch_folder(Path::new(&path_str));
+                }
                 let db = self.db.clone();
                 Task::perform(
                     async move {
@@ -1376,7 +1428,24 @@ impl App {
             }
 
             Message::LibraryFoldersLoaded(folders) => {
-                self.settings.set_library_folders(folders);
+                self.settings.set_library_folders(folders.clone());
+                if self.watch_library {
+                    if let Some(ref mut watcher) = self.library_watcher {
+                        let _ = watcher.update_folders(&folders);
+                    } else {
+                        let (tx, rx) = crossbeam_channel::unbounded();
+                        match core_engine::LibraryWatcher::new(tx, Duration::from_millis(1000)) {
+                            Ok(mut watcher) => {
+                                let _ = watcher.update_folders(&folders);
+                                self.library_watcher = Some(watcher);
+                                self.watcher_rx = Some(rx);
+                            }
+                            Err(e) => {
+                                warn!("Failed to initialize library directory watcher: {}", e);
+                            }
+                        }
+                    }
+                }
                 Task::none()
             }
 
@@ -1425,6 +1494,60 @@ impl App {
                         .unwrap_or_default();
                     let _ = sender.send(Message::ScanFinished(summary)).await;
                 }))
+            }
+
+            Message::ScanLibraryForNewFiles => {
+                self.is_scanning = true;
+                self.scan_progress = None;
+                info!(
+                    "Scanning for new files in library folders: {:?}",
+                    self.settings.library_folders
+                );
+                let db = self.db.clone();
+                let folders = self.settings.library_folders.clone();
+                Task::stream(iced::stream::channel(100, async move |mut sender| {
+                    let mut cb_sender = sender.clone();
+                    let paths: Vec<PathBuf> = folders.into_iter().map(PathBuf::from).collect();
+                    let summary = db
+                        .scan_directories_new(
+                            &paths,
+                            Some(move |current, total| {
+                                let _ =
+                                    cb_sender.try_send(Message::ScanProgress { current, total });
+                            }),
+                        )
+                        .await
+                        .unwrap_or_default();
+                    let _ = sender.send(Message::ScanFinished(summary)).await;
+                }))
+            }
+
+            Message::ToggleWatchLibrary(enabled) => {
+                self.watch_library = enabled;
+                if enabled {
+                    if self.library_watcher.is_none() {
+                        let (tx, rx) = crossbeam_channel::unbounded();
+                        match core_engine::LibraryWatcher::new(tx, Duration::from_millis(1000)) {
+                            Ok(mut watcher) => {
+                                let _ = watcher.update_folders(&self.settings.library_folders);
+                                self.library_watcher = Some(watcher);
+                                self.watcher_rx = Some(rx);
+                            }
+                            Err(e) => {
+                                warn!("Failed to initialize library directory watcher: {}", e);
+                            }
+                        }
+                    } else if let Some(ref mut watcher) = self.library_watcher {
+                        let _ = watcher.update_folders(&self.settings.library_folders);
+                    }
+                } else {
+                    if let Some(mut watcher) = self.library_watcher.take() {
+                        watcher.stop();
+                    }
+                    self.watcher_rx = None;
+                    self.pending_watcher_paths.clear();
+                }
+                self.save_config_task()
             }
 
             Message::ScanProgress { current, total } => {
@@ -1476,7 +1599,7 @@ impl App {
                 self.scan_progress = None;
                 self.is_generating_thumbnails = true;
                 let db = self.db.clone();
-                Task::batch([
+                let mut tasks = vec![
                     Task::perform(
                         async move { db.get_library_folders().await.unwrap_or_default() },
                         Message::LibraryFoldersLoaded,
@@ -1484,7 +1607,32 @@ impl App {
                     self.reload_after_scan_task(),
                     self.load_storage_stats_task(),
                     self.generate_thumbnails_task(),
-                ])
+                ];
+
+                if !self.pending_watcher_paths.is_empty() {
+                    let pending = std::mem::take(&mut self.pending_watcher_paths);
+                    self.is_scanning = true;
+                    let db_scan = self.db.clone();
+                    tasks.push(Task::stream(iced::stream::channel(
+                        100,
+                        async move |mut sender| {
+                            let mut cb_sender = sender.clone();
+                            let summary = db_scan
+                                .scan_new_files(
+                                    &pending,
+                                    Some(move |current, total| {
+                                        let _ = cb_sender
+                                            .try_send(Message::ScanProgress { current, total });
+                                    }),
+                                )
+                                .await
+                                .unwrap_or_default();
+                            let _ = sender.send(Message::ScanFinished(summary)).await;
+                        },
+                    )));
+                }
+
+                Task::batch(tasks)
             }
 
             Message::ThumbnailsGenerated => {
@@ -2831,6 +2979,7 @@ impl App {
             artist_tile_width: self.artists.tile_width,
             now_playing_cover_size: self.now_playing.cover_size,
             gapless: self.gapless,
+            watch_library: self.watch_library,
             scrobble: self.scrobble_config.clone(),
         }
     }

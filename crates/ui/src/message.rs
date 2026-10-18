@@ -376,7 +376,9 @@ pub enum Message {
     LibraryFolderAdded(Option<PathBuf>),
     RemoveLibraryFolder(String),
     RescanLibraryFolder(PathBuf),
+    ScanLibraryForNewFiles,
     ReindexLibrary,
+    ToggleWatchLibrary(bool),
     ClearLibrary,
     ClearThumbnailCache,
 
@@ -754,7 +756,9 @@ impl std::fmt::Debug for Message {
             Self::LibraryFolderAdded(p) => f.debug_tuple("LibraryFolderAdded").field(p).finish(),
             Self::RemoveLibraryFolder(s) => f.debug_tuple("RemoveLibraryFolder").field(s).finish(),
             Self::RescanLibraryFolder(p) => f.debug_tuple("RescanLibraryFolder").field(p).finish(),
+            Self::ScanLibraryForNewFiles => write!(f, "ScanLibraryForNewFiles"),
             Self::ReindexLibrary => write!(f, "ReindexLibrary"),
+            Self::ToggleWatchLibrary(b) => f.debug_tuple("ToggleWatchLibrary").field(b).finish(),
             Self::ClearLibrary => write!(f, "ClearLibrary"),
             Self::ClearThumbnailCache => write!(f, "ClearThumbnailCache"),
             Self::TracksLoaded(rows, total) => f

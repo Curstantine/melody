@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -7,6 +7,20 @@ use thiserror::Error;
 use tracing::{info, warn};
 use turso::{params, Connection, Database, Error as TursoError, Row};
 use walkdir::WalkDir;
+
+/// Supported audio file extensions for library indexing.
+pub const SUPPORTED_AUDIO_EXTENSIONS: &[&str] = &[
+    "mp3", "flac", "ogg", "oga", "wav", "m4a", "aac", "alac", "opus", "aiff",
+];
+
+/// Returns `true` if the given path has a supported audio file extension.
+pub fn is_supported_audio_path<P: AsRef<Path>>(path: P) -> bool {
+    let path = path.as_ref();
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| SUPPORTED_AUDIO_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
+        .unwrap_or(false)
+}
 
 use crate::intern;
 use crate::metadata::extract_metadata;
@@ -964,10 +978,6 @@ impl LibraryDatabase {
         mut progress_cb: Option<F>,
     ) -> Result<ScanSummary, DbError> {
         let mut summary = ScanSummary::default();
-        let supported_exts = [
-            "mp3", "flac", "ogg", "oga", "wav", "m4a", "aac", "alac", "opus", "aiff",
-        ];
-
         let mut candidate_files: Vec<PathBuf> = Vec::new();
         for dir_path in dir_paths {
             for entry in WalkDir::new(dir_path)
@@ -976,14 +986,7 @@ impl LibraryDatabase {
                 .filter_map(|e| e.ok())
             {
                 let path = entry.path();
-                if !path.is_file() {
-                    continue;
-                }
-                let Some(ext) = path.extension().and_then(|s| s.to_str()) else {
-                    continue;
-                };
-                let ext_lower = ext.to_lowercase();
-                if supported_exts.contains(&ext_lower.as_str()) {
+                if path.is_file() && is_supported_audio_path(path) {
                     candidate_files.push(path.to_path_buf());
                 }
             }
@@ -1054,6 +1057,162 @@ impl LibraryDatabase {
         progress_cb: Option<F>,
     ) -> Result<ScanSummary, DbError> {
         self.scan_directories(&[dir_path], progress_cb).await
+    }
+
+    /// Filters a list of file paths, returning only those that do NOT currently exist in the database.
+    pub async fn filter_new_paths<P: AsRef<Path>>(
+        &self,
+        paths: &[P],
+    ) -> Result<Vec<PathBuf>, DbError> {
+        if paths.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let string_paths: Vec<String> = paths
+            .iter()
+            .map(|p| p.as_ref().to_string_lossy().to_string())
+            .collect();
+
+        let mut existing_set = HashSet::new();
+        for chunk in string_paths.chunks(SQL_IN_CLAUSE_CHUNK_SIZE) {
+            let placeholders = std::iter::repeat_n("?", chunk.len())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let query = format!(
+                "SELECT file_path FROM tracks WHERE file_path IN ({})",
+                placeholders
+            );
+            let mut rows = self
+                .conn
+                .query(&query, turso::params_from_iter(chunk.iter().cloned()))
+                .await?;
+            while let Some(row) = rows.next().await? {
+                let p: String = row.get(0)?;
+                existing_set.insert(p);
+            }
+        }
+
+        let mut new_paths = Vec::new();
+        for path in paths {
+            let p_ref = path.as_ref();
+            let p_str = p_ref.to_string_lossy();
+            if !existing_set.contains(p_str.as_ref()) {
+                new_paths.push(p_ref.to_path_buf());
+            }
+        }
+
+        new_paths.sort();
+        new_paths.dedup();
+        Ok(new_paths)
+    }
+
+    /// Recursively scans candidate paths (files or directories) and indexes ONLY new supported audio files.
+    ///
+    /// Candidate files that are already indexed are skipped without extracting metadata,
+    /// avoiding redundant FFmpeg demuxing and database writes.
+    pub async fn scan_new_files<P: AsRef<Path>, F: FnMut(usize, usize)>(
+        &self,
+        paths: &[P],
+        mut progress_cb: Option<F>,
+    ) -> Result<ScanSummary, DbError> {
+        let mut candidate_files: Vec<PathBuf> = Vec::new();
+
+        for p in paths {
+            let path = p.as_ref();
+            if path.is_dir() {
+                for entry in WalkDir::new(path)
+                    .follow_links(true)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                {
+                    let entry_path = entry.path();
+                    if entry_path.is_file() && is_supported_audio_path(entry_path) {
+                        candidate_files.push(entry_path.to_path_buf());
+                    }
+                }
+            } else if path.is_file() && is_supported_audio_path(path) {
+                candidate_files.push(path.to_path_buf());
+            }
+        }
+
+        candidate_files.sort();
+        candidate_files.dedup();
+
+        let new_files = self.filter_new_paths(&candidate_files).await?;
+        let total = new_files.len();
+
+        if let Some(ref mut cb) = progress_cb {
+            cb(0, total);
+        }
+
+        if new_files.is_empty() {
+            return Ok(ScanSummary::default());
+        }
+
+        let mut summary = ScanSummary::default();
+        let mut batch: Vec<NewTrack> = Vec::with_capacity(100);
+        let notify_interval = (total / 100).max(5);
+
+        for path in new_files {
+            summary.scanned_files += 1;
+
+            let parse_path = path.clone();
+            let parsed = tokio::task::spawn_blocking(move || extract_metadata(&parse_path)).await;
+
+            match parsed {
+                Ok(Ok(track)) => {
+                    batch.push(track);
+                    if batch.len() >= 100 {
+                        self.flush_scan_batch(&batch, &mut summary).await;
+                        batch.clear();
+                    }
+                }
+                Ok(Err(e)) => {
+                    warn!("Failed to extract metadata for {:?}: {}", path, e);
+                    summary.failed_files += 1;
+                }
+                Err(e) => {
+                    warn!("Metadata task failed for {:?}: {}", path, e);
+                    summary.failed_files += 1;
+                }
+            }
+
+            if let Some(ref mut cb) = progress_cb {
+                if total <= 100
+                    || summary.scanned_files == total
+                    || summary.scanned_files % notify_interval == 0
+                {
+                    cb(summary.scanned_files, total);
+                }
+            }
+        }
+
+        if !batch.is_empty() {
+            self.flush_scan_batch(&batch, &mut summary).await;
+        }
+
+        if let Some(ref mut cb) = progress_cb {
+            cb(summary.scanned_files, total);
+        }
+
+        info!(
+            "New files scan finished: {} candidate files checked, {} new files scanned, {} tracks inserted, {} errors",
+            candidate_files.len(),
+            summary.scanned_files,
+            summary.inserted_tracks,
+            summary.failed_files
+        );
+
+        Ok(summary)
+    }
+
+    /// Recursively scan directories and index ONLY new supported audio files.
+    pub async fn scan_directories_new<P: AsRef<Path>, F: FnMut(usize, usize)>(
+        &self,
+        dir_paths: &[P],
+        progress_cb: Option<F>,
+    ) -> Result<ScanSummary, DbError> {
+        self.scan_new_files(dir_paths, progress_cb).await
     }
 
     /// Inserts a batch within a transaction, falling back to individual inserts

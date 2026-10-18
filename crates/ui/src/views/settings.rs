@@ -78,6 +78,7 @@ pub struct SettingsContext<'a> {
     pub submit_now_playing: bool,
     pub scrobble_percent: u32,
     pub gapless: bool,
+    pub watch_library: bool,
 }
 
 /// Self-contained state and view component for the Settings preferences screen.
@@ -915,15 +916,71 @@ impl SettingsView {
             col.boxed()
         };
 
+        let watch_dirs_row = row![
+            column![
+                text(theme_cfg, "Watch library folders")
+                    .size(12)
+                    .color(theme_cfg.text_color()),
+                text(
+                    theme_cfg,
+                    "Automatically monitor directories and scan for new audio files"
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .width(Length::Fill),
+            components::chip_with_icon(
+                theme_cfg,
+                if ctx.watch_library {
+                    icons::CHECK_SVG
+                } else {
+                    icons::RADIO_SVG
+                },
+                if ctx.watch_library {
+                    "Enabled"
+                } else {
+                    "Disabled"
+                },
+                ctx.watch_library,
+                Message::ToggleWatchLibrary(!ctx.watch_library),
+            ),
+        ]
+        .align_y(Alignment::Center);
+
         let folders_card = components::settings_card(
             theme_cfg,
             "Scanned directories",
-            column![folders_content, add_folder_btn]
+            column![watch_dirs_row, folders_content, add_folder_btn]
                 .spacing(CARD_SPACING)
                 .boxed(),
         );
 
         // Maintenance & Actions Card
+        let scan_new_btn = button(
+            row![
+                icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.primary_color()),
+                Space::new().width(SPACE_MD),
+                text(
+                    theme_cfg,
+                    if ctx.is_scanning {
+                        "Scanning new files..."
+                    } else {
+                        "Scan for new files"
+                    }
+                )
+                .size(12)
+                .color(theme_cfg.primary_color()),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .padding(BUTTON_PADDING_MD)
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press_maybe(if ctx.is_scanning {
+            None
+        } else {
+            Some(Message::ScanLibraryForNewFiles)
+        });
+
         let reindex_all_btn = button(
             row![
                 icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.primary_color()),
@@ -985,7 +1042,22 @@ impl SettingsView {
             theme_cfg,
             "Library actions & maintenance",
             column![
-                // Action 1: Reindex
+                // Action 1: Scan for new files
+                row![
+                    column![
+                        text(theme_cfg, "Scan for new files")
+                            .size(12)
+                            .color(theme_cfg.text_muted_color()),
+                        text(theme_cfg, "Quickly checks library folders and indexes newly added files without rescanning unchanged tracks.")
+                            .size(11)
+                            .color(theme_cfg.text_muted_color()),
+                    ]
+                    .width(Length::Fill),
+                    scan_new_btn,
+                ]
+                .align_y(Alignment::Center),
+                Space::new().height(SPACE_MD),
+                // Action 2: Reindex
                 row![
                     column![
                         text(theme_cfg, "Full reindex")
