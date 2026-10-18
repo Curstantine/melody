@@ -779,7 +779,6 @@ impl SettingsView {
             components::settings_card(theme_cfg, "Audio transitions", column![gapless_row].boxed());
 
         // 2. Playback Behavior Card
-        let volume_pct = (ctx.volume * 100.0).round() as u32;
         let volume_row = row![
             column![
                 text(theme_cfg, "Master output volume")
@@ -794,17 +793,9 @@ impl SettingsView {
             ]
             .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
-            row![
-                slider(0.0..=1.0, ctx.volume, Message::VolumeChanged)
-                    .style(styles::settings_slider_style(theme_cfg))
-                    .width(Length::Fixed(SETTING_LABEL_WIDTH)),
-                Space::new().width(SPACE_LG),
-                text(theme_cfg, format!("{}%", volume_pct))
-                    .size(12)
-                    .color(theme_cfg.primary_color())
-                    .width(Length::Fixed(45.0)),
-            ]
-            .align_y(Alignment::Center),
+            slider(0.0..=1.0, ctx.volume, Message::VolumeChanged)
+                .style(styles::settings_slider_style(theme_cfg))
+                .width(Length::Fixed(SETTING_LABEL_WIDTH)),
         ]
         .align_y(Alignment::Center);
 
