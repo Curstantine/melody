@@ -989,8 +989,8 @@ impl SettingsView {
                 row![
                     column![
                         text(theme_cfg, "Full reindex")
-                            .size(13)
-                            .color(theme_cfg.text_color()),
+                            .size(12)
+                            .color(theme_cfg.text_muted_color()),
                         text(theme_cfg, "Scans all configured music folders, updates metadata tags, and repopulates the library.")
                             .size(11)
                             .color(theme_cfg.text_muted_color()),
@@ -1004,8 +1004,8 @@ impl SettingsView {
                 row![
                     column![
                         text(theme_cfg, "Purge thumbnail cache")
-                            .size(13)
-                            .color(theme_cfg.text_color()),
+                            .size(12)
+                            .color(theme_cfg.text_muted_color()),
                         text(theme_cfg, format!(
                             "Deletes all {} cached thumbnail images ({}) from disk and evicts active decoded cover textures from memory. Thumbnails will regenerate when viewed.",
                             ctx.cache_file_count,
@@ -1023,7 +1023,7 @@ impl SettingsView {
                 row![
                     column![
                         text(theme_cfg, "Reset library database")
-                            .size(13)
+                            .size(12)
                             .color(theme_cfg.danger_color()),
                         text(theme_cfg, "Clears all indexed tracks, albums, and artist metadata from database. Your audio files on disk remain untouched.")
                             .size(11)
@@ -1137,8 +1137,8 @@ impl SettingsView {
         let mut lb_column = column![
             row![
                 text(theme_cfg, "Enable")
-                    .size(13)
-                    .color(theme_cfg.text_color())
+                    .size(12)
+                    .color(theme_cfg.text_muted_color())
                     .width(Length::Fill),
                 toggler(ctx.listenbrainz_enabled)
                     .on_toggle(Message::ToggleListenBrainz)
@@ -1149,7 +1149,7 @@ impl SettingsView {
             column![
                 text(theme_cfg, "User token")
                     .size(12)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_muted_color()),
                 text_input("Enter ListenBrainz user token...", ctx.listenbrainz_token)
                     .size(12)
                     .padding(INPUT_PADDING)
@@ -1167,7 +1167,7 @@ impl SettingsView {
             column![
                 text(theme_cfg, "API endpoint URL")
                     .size(12)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_muted_color()),
                 text_input(
                     "https://api.listenbrainz.org/1/submit-listens",
                     ctx.listenbrainz_api_url,
@@ -1236,8 +1236,8 @@ impl SettingsView {
         let mut lastfm_column = column![
             row![
                 text(theme_cfg, "Enable")
-                    .size(13)
-                    .color(theme_cfg.text_color())
+                    .size(12)
+                    .color(theme_cfg.text_muted_color())
                     .width(Length::Fill),
                 toggler(ctx.lastfm_enabled)
                     .on_toggle(Message::ToggleLastFm)
@@ -1248,7 +1248,7 @@ impl SettingsView {
             column![
                 text(theme_cfg, "API key")
                     .size(12)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_muted_color()),
                 text_input("Enter Last.fm API key...", ctx.lastfm_api_key)
                     .size(12)
                     .padding(INPUT_PADDING)
@@ -1260,7 +1260,7 @@ impl SettingsView {
             column![
                 text(theme_cfg, "Shared secret")
                     .size(12)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_muted_color()),
                 text_input("Enter Last.fm shared secret...", ctx.lastfm_api_secret)
                     .size(12)
                     .padding(INPUT_PADDING)
@@ -1272,7 +1272,7 @@ impl SettingsView {
             column![
                 text(theme_cfg, "Session key (sk)")
                     .size(12)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_muted_color()),
                 text_input("Enter Last.fm session key (sk)...", ctx.lastfm_session_key)
                     .size(12)
                     .padding(INPUT_PADDING)
@@ -1290,7 +1290,7 @@ impl SettingsView {
             column![
                 text(theme_cfg, "API endpoint URL")
                     .size(12)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_muted_color()),
                 text_input("https://ws.audioscrobbler.com/2.0/", ctx.lastfm_api_url)
                     .size(12)
                     .padding(INPUT_PADDING)
