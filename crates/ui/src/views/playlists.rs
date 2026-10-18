@@ -1,10 +1,12 @@
-use core_engine::{PlaylistEntry, PlaylistSummary, SortDirection};
+use core_engine::{PlaylistEntry, PlaylistSummary, SortDirection, TrackRow};
 use iced::border::Radius;
-use iced::widget::{button, column, container, row, scrollable, text_input, Space, Widget};
+use iced::widget::{
+    button, column, container, mouse_area, row, scrollable, text_input, Space, Widget,
+};
 use iced::{Alignment, Element, Length};
 use std::time::Instant;
 
-use crate::components::{self, text};
+use crate::components::{self, text, TrackMenuContext};
 use crate::icons;
 use crate::message::{Message, PlaylistItem, PlaylistSection, PlaylistSortField, ViewMode};
 use crate::queue::{queue_window_for_start, queue_window_start, QueueStore, QUEUE_ROW_HEIGHT};
@@ -28,6 +30,8 @@ pub struct PlaylistsView {
     pub detail_name: String,
     pub detail_path: String,
     pub detail_items: Vec<PlaylistItem>,
+    /// Matched indexed tracks for the open playlist.
+    pub detail_tracks: Vec<TrackRow>,
     /// Raw M3U entries 1:1 with `detail_items` (including unmatched lines),
     /// kept so a drag-reorder can rewrite the file without losing data.
     pub detail_entries: Vec<PlaylistEntry>,
@@ -71,6 +75,7 @@ impl PlaylistsView {
             detail_name: String::new(),
             detail_path: String::new(),
             detail_items: Vec::new(),
+            detail_tracks: Vec::new(),
             detail_entries: Vec::new(),
             last_detail_click: None,
             selected_detail_track: None,
@@ -179,12 +184,14 @@ impl PlaylistsView {
         name: String,
         file_path: String,
         items: Vec<PlaylistItem>,
+        tracks: Vec<TrackRow>,
         entries: Vec<PlaylistEntry>,
     ) {
         self.selected_id = Some(playlist_id);
         self.detail_name = name;
         self.detail_path = file_path;
         self.detail_items = items;
+        self.detail_tracks = tracks;
         self.detail_entries = entries;
         self.renaming = false;
         self.rename_input.clear();
@@ -198,6 +205,7 @@ impl PlaylistsView {
         self.detail_name.clear();
         self.detail_path.clear();
         self.detail_items.clear();
+        self.detail_tracks.clear();
         self.detail_entries.clear();
         self.last_detail_click = None;
         self.selected_detail_track = None;
@@ -516,11 +524,14 @@ impl PlaylistsView {
                     left: 16.0,
                 });
 
-            let open_row = button(row_content)
-                .style(styles::tile(theme_cfg))
-                .width(Length::Fill)
-                .padding(0)
-                .on_press(Message::SelectPlaylist(playlist.id));
+            let open_row = mouse_area(
+                button(row_content)
+                    .style(styles::tile(theme_cfg))
+                    .width(Length::Fill)
+                    .padding(0)
+                    .on_press(Message::SelectPlaylist(playlist.id)),
+            )
+            .on_right_press(Message::OpenPlaylistContextMenu(playlist.clone()));
 
             let play_btn = button(icons::icon(
                 icons::PLAY_SVG,
@@ -609,10 +620,13 @@ impl PlaylistsView {
                 .clip(true)
                 .boxed();
 
-            let select_btn = button(card_content)
-                .style(styles::tile(theme_cfg))
-                .padding(0)
-                .on_press(Message::SelectPlaylist(playlist.id));
+            let select_btn = mouse_area(
+                button(card_content)
+                    .style(styles::tile(theme_cfg))
+                    .padding(0)
+                    .on_press(Message::SelectPlaylist(playlist.id)),
+            )
+            .on_right_press(Message::OpenPlaylistContextMenu(playlist.clone()));
 
             let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text_color()))
                 .style(styles::icon_control_button(theme_cfg))
@@ -843,6 +857,26 @@ impl PlaylistsView {
             };
             for (index, item) in self.detail_items.iter().enumerate() {
                 let available = item.is_available();
+                let on_right_press = item.track_id.map(|track_id| {
+                    let track_row = self
+                        .detail_tracks
+                        .iter()
+                        .find(|t| t.id == track_id)
+                        .cloned()
+                        .unwrap_or_else(|| TrackRow {
+                            id: track_id,
+                            title: item.title.clone(),
+                            artist: item.artist.as_str().into(),
+                            album: "".into(),
+                            duration_ms: 0,
+                            file_path: String::new(),
+                            duration_label: item.duration_label.clone(),
+                        });
+                    Message::OpenTrackContextMenu {
+                        track: track_row,
+                        context: TrackMenuContext::Playlist { playlist_id, index },
+                    }
+                });
                 list = list.push(
                     components::TrackRow {
                         theme: theme_cfg,
@@ -856,6 +890,7 @@ impl PlaylistsView {
                             || self.hovered_detail_row == Some((playlist_id, index)),
                         on_press: available
                             .then_some(Message::PlaylistDetailClicked { playlist_id, index }),
+                        on_right_press,
                         drag_start: Message::PlaylistDetailDragStarted { playlist_id, index },
                         drag_release: Message::PlaylistDetailDragReleased,
                         hover_enter: row_hover_enter(index),
@@ -899,11 +934,17 @@ impl PlaylistsView {
         let mut chips = row![].spacing(6).align_y(Alignment::Center);
         for queue in &store.summaries {
             let is_active = store.active == Some(queue.id);
-            chips = chips.push(components::chip(
+            let chip_btn = components::chip(
                 theme_cfg,
                 format!("{} ({})", queue.name, queue.track_count),
                 is_active,
                 Message::QueueSelect(queue.id),
+            );
+            chips = chips.push(mouse_area(chip_btn).on_right_press(
+                Message::OpenQueueContextMenu {
+                    id: queue.id,
+                    name: queue.name.clone(),
+                },
             ));
         }
         let chips = chips.wrap();
@@ -1001,6 +1042,13 @@ impl PlaylistsView {
                         on_press: Some(Message::QueueClicked {
                             queue_id: active_id,
                             index,
+                        }),
+                        on_right_press: Some(Message::OpenTrackContextMenu {
+                            track: track.clone(),
+                            context: TrackMenuContext::Queue {
+                                queue_id: active_id,
+                                index,
+                            },
                         }),
                         drag_start: Message::QueueDragStarted {
                             queue_id: active_id,

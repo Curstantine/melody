@@ -587,6 +587,7 @@ impl AlbumsView {
                             name: album.album.as_ref().to_string(),
                             shuffle: true,
                         },
+                        on_right_press: Some(Message::OpenAlbumContextMenu(album.clone())),
                     }
                     .view(),
                 );
@@ -654,6 +655,7 @@ impl AlbumsView {
                         name: album.album.as_ref().to_string(),
                         shuffle: true,
                     },
+                    on_right_press: Some(Message::OpenAlbumContextMenu(album.clone())),
                     width: Length::Fill,
                     height: Length::Fixed(row_h),
                 }

@@ -14,6 +14,7 @@ mod message;
 mod theme;
 
 use core_engine::{AlbumSummary, ArtistSummary};
+use iced::widget::Widget;
 use message::{AlbumSortField, ArtistSortField, Message, ViewMode};
 use theme::ThemeConfig;
 
@@ -430,4 +431,40 @@ fn test_artists_view_is_virtualized() {
 
     let theme_cfg = ThemeConfig::default();
     let _rendered = view.view(&theme_cfg);
+}
+
+#[test]
+fn test_catalog_tile_renders_with_ellipsis() {
+    let theme_cfg = ThemeConfig::default();
+    let tile = components::CatalogTile {
+        theme: &theme_cfg,
+        tile_width: 180.0,
+        leading: iced::widget::Space::new().boxed(),
+        title: "Very Long Album Title That Exceeds The Normal Card Boundaries And Needs Ellipsis",
+        mid_left: "Very Long Artist Name That Exceeds The Subtitle Row Width And Needs Ellipsis",
+        mid_right: "2024",
+        bottom_left: "12 tracks",
+        bottom_right: "45:00",
+        on_select: Message::CloseContextMenu,
+        on_play: Message::CloseContextMenu,
+        on_shuffle: Message::CloseContextMenu,
+        on_right_press: None,
+    };
+    let _rendered = tile.view();
+
+    let row = components::CatalogRow {
+        theme: &theme_cfg,
+        leading: iced::widget::Space::new().boxed(),
+        title: "Very Long Album Title That Exceeds The Normal Row Width",
+        subtitle_left: "Very Long Artist Name",
+        subtitle_right: "2024",
+        details: Some(("12 tracks", "45:00")),
+        on_select: Message::CloseContextMenu,
+        on_play: Message::CloseContextMenu,
+        on_shuffle: Message::CloseContextMenu,
+        on_right_press: None,
+        width: iced::Length::Fill,
+        height: iced::Length::Fixed(56.0),
+    };
+    let _rendered_row = row.view();
 }

@@ -94,6 +94,20 @@ impl TrackRow {
     }
 }
 
+impl From<&Track> for TrackRow {
+    fn from(t: &Track) -> Self {
+        TrackRow {
+            id: t.id,
+            title: t.title.clone(),
+            artist: InternedStr::from(t.display_artist()),
+            album: InternedStr::from(t.album.as_str()),
+            duration_ms: t.duration_ms,
+            file_path: t.file_path.clone(),
+            duration_label: t.formatted_duration(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct NewTrack {
     pub file_path: String,

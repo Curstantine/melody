@@ -9,24 +9,26 @@ use core_engine::{
 };
 use crossbeam_channel::Receiver;
 use iced::futures::SinkExt;
-use iced::widget::image;
 use iced::widget::operation::scrollable::{snap_to, RelativeOffset};
 use iced::widget::operation::Animation;
-use iced::{Element, Subscription, Task, Theme};
+use iced::widget::{button, column, container, image, mouse_area, row, Space, Widget};
+use iced::{Alignment, Background, Color, Element, Length, Subscription, Task, Theme};
 use plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 #[cfg(target_os = "linux")]
 use plugins::MprisPlugin;
 use plugins::{PlayerAction, PluginManager, TrackMetadata};
 use tracing::{error, info, warn};
 
+use crate::components;
 use crate::config::{AppConfig, ScrobbleConfig};
+use crate::icons;
 use crate::layout::LayoutManager;
 use crate::message::{
     Message, PlaylistItem, PlaylistOpenIntent, PlaylistResolution, PlaylistSection, ViewTab,
 };
 use crate::queue::{queue_window_for_start, QueueSource, QueueStore, DEFAULT_QUEUE_NAME};
 use crate::state::AppState;
-use crate::theme::ThemeManager;
+use crate::theme::{styles, ThemeConfig, ThemeManager};
 use crate::views::{
     AlbumsView, ArtistsView, LibraryView, NowPlayingView, PlayerBar, PlaylistsView, SettingsView,
 };
@@ -34,6 +36,23 @@ use crate::views::{
 /// Album covers resolved per background chunk. Bounds the `IN (...)` lookup
 /// and the `spawn_blocking` downscale batch behind album/artist scrolling.
 pub const ALBUM_COVER_LOAD_CHUNK_SIZE: usize = 16;
+
+#[derive(Clone, Debug)]
+pub enum DuplicateTarget {
+    Playlist {
+        track: TrackRow,
+        playlist_id: i64,
+        playlist_name: String,
+    },
+    Queue {
+        track: TrackRow,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub struct DuplicatePromptState {
+    pub target: DuplicateTarget,
+}
 
 pub struct App {
     pub(crate) db: LibraryDatabase,
@@ -101,11 +120,15 @@ pub struct App {
     pub(crate) state_save_seq: u64,
     pub(crate) search_seq: u64,
 
-    // Storage telemetry (refreshed on demand, never per frame)
     pub(crate) cache_stats: core_engine::CacheStats,
     pub(crate) db_size_bytes: u64,
 
     pub(crate) mpris_rx: Option<Receiver<PlayerAction>>,
+
+    pub(crate) context_menu: Option<components::ContextMenuState>,
+    pub(crate) duplicate_prompt: Option<DuplicatePromptState>,
+    pub(crate) window_size: iced::Size,
+    pub(crate) pending_playlist_tracks: Vec<TrackRow>,
 }
 
 impl App {
@@ -249,6 +272,11 @@ impl App {
             db_size_bytes: 0,
 
             mpris_rx,
+
+            context_menu: None,
+            duplicate_prompt: None,
+            window_size: iced::Size::new(1130.0, 740.0),
+            pending_playlist_tracks: Vec::new(),
         };
 
         let mut initial_tasks = vec![
@@ -313,6 +341,13 @@ impl App {
         self.theme_manager.theme()
     }
 
+    pub(crate) fn cursor_position(&self) -> iced::Point {
+        LAST_CURSOR_POS
+            .lock()
+            .map(|p| *p)
+            .unwrap_or(iced::Point::new(100.0, 100.0))
+    }
+
     pub fn subscription(&self) -> Subscription<Message> {
         // Poll audio playback status at 50ms intervals (~20 FPS smooth seekbar)
         let ticker = iced::time::every(Duration::from_millis(50)).map(|_| Message::AudioTick);
@@ -326,6 +361,13 @@ impl App {
         {
             subscriptions.push(iced::event::listen_with(handle_drag_event));
         }
+
+        subscriptions.push(iced::event::listen_with(handle_cursor_and_window_event));
+
+        if self.context_menu.is_some() || self.duplicate_prompt.is_some() {
+            subscriptions.push(iced::event::listen_with(handle_escape_key));
+        }
+
         Subscription::batch(subscriptions)
     }
 
@@ -924,6 +966,359 @@ impl App {
                 }
             }
 
+            Message::WindowResized(size) => {
+                self.window_size = size;
+                Task::none()
+            }
+
+            Message::OpenTrackContextMenu { track, context } => {
+                let position = self.cursor_position();
+                self.context_menu = Some(components::ContextMenuState {
+                    position,
+                    target: components::ContextMenuTarget::Track { track, context },
+                    submenu: None,
+                });
+                Task::none()
+            }
+
+            Message::OpenAlbumContextMenu(album) => {
+                let position = self.cursor_position();
+                self.context_menu = Some(components::ContextMenuState {
+                    position,
+                    target: components::ContextMenuTarget::Album(album),
+                    submenu: None,
+                });
+                Task::none()
+            }
+
+            Message::OpenArtistContextMenu(artist) => {
+                let position = self.cursor_position();
+                self.context_menu = Some(components::ContextMenuState {
+                    position,
+                    target: components::ContextMenuTarget::Artist(artist),
+                    submenu: None,
+                });
+                Task::none()
+            }
+
+            Message::OpenPlaylistContextMenu(playlist) => {
+                let position = self.cursor_position();
+                self.context_menu = Some(components::ContextMenuState {
+                    position,
+                    target: components::ContextMenuTarget::Playlist(playlist),
+                    submenu: None,
+                });
+                Task::none()
+            }
+
+            Message::OpenQueueContextMenu { id, name } => {
+                let position = self.cursor_position();
+                self.context_menu = Some(components::ContextMenuState {
+                    position,
+                    target: components::ContextMenuTarget::Queue { id, name },
+                    submenu: None,
+                });
+                Task::none()
+            }
+
+            Message::OpenPlayerBarContextMenu => {
+                if let Some(ref track) = self.current_track {
+                    let track_row = TrackRow::from(track);
+                    let position = self.cursor_position();
+                    self.context_menu = Some(components::ContextMenuState {
+                        position,
+                        target: components::ContextMenuTarget::Track {
+                            track: track_row,
+                            context: components::TrackMenuContext::PlayerBar,
+                        },
+                        submenu: None,
+                    });
+                }
+                Task::none()
+            }
+
+            Message::CloseContextMenu => {
+                self.context_menu = None;
+                Task::none()
+            }
+
+            Message::ToggleContextMenuSubmenu(sub) => {
+                if let Some(ref mut menu) = self.context_menu {
+                    menu.submenu = sub;
+                }
+                Task::none()
+            }
+
+            Message::ContextPlayTrack(id) => {
+                self.context_menu = None;
+                self.start_library_playback(id)
+            }
+
+            Message::ContextPlayNext(track) => {
+                self.context_menu = None;
+                if self.queues.active.is_none() {
+                    self.queues.create(DEFAULT_QUEUE_NAME);
+                }
+                if let Some(queue) = self.queues.active_queue_mut() {
+                    queue.insert_next(track);
+                }
+                self.queues.touch_active_summary();
+                self.persist_active_queue_task()
+            }
+
+            Message::ContextAddToQueue(track) => {
+                self.context_menu = None;
+                if self.queue_contains_track(&track) {
+                    self.duplicate_prompt = Some(DuplicatePromptState {
+                        target: DuplicateTarget::Queue { track },
+                    });
+                    Task::none()
+                } else {
+                    self.execute_add_track_to_queue(track)
+                }
+            }
+
+            Message::ContextAddTracksToQueue(tracks) => {
+                self.context_menu = None;
+                if !tracks.is_empty() {
+                    if self.queues.active.is_none() {
+                        self.queues.create(DEFAULT_QUEUE_NAME);
+                    }
+                    if let Some(queue) = self.queues.active_queue_mut() {
+                        queue.append_many(tracks);
+                    }
+                    self.queues.touch_active_summary();
+                    return self.persist_active_queue_task();
+                }
+                Task::none()
+            }
+
+            Message::ContextAddAlbumToQueue(album) => {
+                self.context_menu = None;
+                let db = self.db.clone();
+                let filter = TrackFilter::album(album.album.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::ContextAddTracksToQueue,
+                )
+            }
+
+            Message::ContextAddArtistToQueue(artist) => {
+                self.context_menu = None;
+                let db = self.db.clone();
+                let filter = TrackFilter::artist(artist.artist.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::ContextAddTracksToQueue,
+                )
+            }
+
+            Message::ContextAddTrackToPlaylist { track, playlist_id } => {
+                self.context_menu = None;
+                if self.playlist_contains_track(playlist_id, &track) {
+                    let playlist_name = self
+                        .playlist_by_id(playlist_id)
+                        .map(|p| p.name.clone())
+                        .unwrap_or_else(|| "Playlist".to_string());
+                    self.duplicate_prompt = Some(DuplicatePromptState {
+                        target: DuplicateTarget::Playlist {
+                            track,
+                            playlist_id,
+                            playlist_name,
+                        },
+                    });
+                    Task::none()
+                } else {
+                    self.execute_add_track_to_playlist(track, playlist_id)
+                }
+            }
+
+            Message::ContextAddAlbumToPlaylist { album, playlist_id } => {
+                self.context_menu = None;
+                let playlist = self.playlist_by_id(playlist_id);
+                if let Some(p) = playlist {
+                    let path = PathBuf::from(&p.file_path);
+                    let file_path = p.file_path.clone();
+                    let name = p.name.clone();
+                    let db = self.db.clone();
+                    let filter = TrackFilter::album(album.album.as_ref());
+                    let is_open = self.playlists.selected_id == Some(playlist_id);
+                    let reload_detail = if is_open {
+                        self.resolve_playlist_intent(playlist_id, PlaylistOpenIntent::View)
+                    } else {
+                        Task::none()
+                    };
+
+                    let save_task = Task::perform(
+                        async move {
+                            let tracks = db
+                                .get_all_track_rows_filtered(
+                                    Some(&filter),
+                                    SortField::TrackNum,
+                                    SortDirection::Ascending,
+                                )
+                                .await
+                                .unwrap_or_default();
+
+                            let wrote = tokio::task::spawn_blocking(move || {
+                                core_engine::append_tracks_to_m3u(&path, &tracks)
+                            })
+                            .await
+                            .ok()
+                            .and_then(|r| r.ok());
+
+                            if let Some(count) = wrote {
+                                let _ = db.upsert_playlist_file(&file_path, &name, count).await;
+                            }
+                            db.get_playlists().await.unwrap_or_default()
+                        },
+                        Message::PlaylistsLoaded,
+                    );
+                    Task::batch([save_task, reload_detail])
+                } else {
+                    Task::none()
+                }
+            }
+
+            Message::ContextAddArtistToPlaylist {
+                artist,
+                playlist_id,
+            } => {
+                self.context_menu = None;
+                let playlist = self.playlist_by_id(playlist_id);
+                if let Some(p) = playlist {
+                    let path = PathBuf::from(&p.file_path);
+                    let file_path = p.file_path.clone();
+                    let name = p.name.clone();
+                    let db = self.db.clone();
+                    let filter = TrackFilter::artist(artist.artist.as_ref());
+                    let is_open = self.playlists.selected_id == Some(playlist_id);
+                    let reload_detail = if is_open {
+                        self.resolve_playlist_intent(playlist_id, PlaylistOpenIntent::View)
+                    } else {
+                        Task::none()
+                    };
+
+                    let save_task = Task::perform(
+                        async move {
+                            let tracks = db
+                                .get_all_track_rows_filtered(
+                                    Some(&filter),
+                                    SortField::TrackNum,
+                                    SortDirection::Ascending,
+                                )
+                                .await
+                                .unwrap_or_default();
+
+                            let wrote = tokio::task::spawn_blocking(move || {
+                                core_engine::append_tracks_to_m3u(&path, &tracks)
+                            })
+                            .await
+                            .ok()
+                            .and_then(|r| r.ok());
+
+                            if let Some(count) = wrote {
+                                let _ = db.upsert_playlist_file(&file_path, &name, count).await;
+                            }
+                            db.get_playlists().await.unwrap_or_default()
+                        },
+                        Message::PlaylistsLoaded,
+                    );
+                    Task::batch([save_task, reload_detail])
+                } else {
+                    Task::none()
+                }
+            }
+
+            Message::ContextNewPlaylistWithTracks(tracks) => {
+                self.context_menu = None;
+                self.active_tab = ViewTab::Playlists;
+                self.playlists.set_section(PlaylistSection::Playlists);
+                self.playlists.creating = true;
+                self.playlists.new_name_input.clear();
+                self.pending_playlist_tracks = tracks;
+                Task::none()
+            }
+
+            Message::ContextNewPlaylistWithAlbum(album) => {
+                self.context_menu = None;
+                let db = self.db.clone();
+                let filter = TrackFilter::album(album.album.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::ContextNewPlaylistWithTracks,
+                )
+            }
+
+            Message::ContextNewPlaylistWithArtist(artist) => {
+                self.context_menu = None;
+                let db = self.db.clone();
+                let filter = TrackFilter::artist(artist.artist.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::ContextNewPlaylistWithTracks,
+                )
+            }
+
+            Message::ConfirmDuplicatePrompt => {
+                if let Some(prompt) = self.duplicate_prompt.take() {
+                    match prompt.target {
+                        DuplicateTarget::Playlist {
+                            track, playlist_id, ..
+                        } => self.execute_add_track_to_playlist(track, playlist_id),
+                        DuplicateTarget::Queue { track } => self.execute_add_track_to_queue(track),
+                    }
+                } else {
+                    Task::none()
+                }
+            }
+
+            Message::CancelDuplicatePrompt => {
+                self.duplicate_prompt = None;
+                Task::none()
+            }
+
+            Message::EscapePressed => {
+                if self.duplicate_prompt.is_some() {
+                    self.duplicate_prompt = None;
+                } else if self.context_menu.is_some() {
+                    self.context_menu = None;
+                }
+                Task::none()
+            }
+
             Message::AddLibraryFolderClicked => {
                 self.is_scanning = true;
                 Task::perform(
@@ -1176,6 +1571,7 @@ impl App {
                             playlist.name,
                             playlist.file_path,
                             resolution.items,
+                            resolution.tracks,
                             resolution.entries,
                         );
                     }
@@ -1376,15 +1772,30 @@ impl App {
                 }
                 self.playlists.creating = false;
                 self.playlists.new_name_input.clear();
+                let pending_tracks = std::mem::take(&mut self.pending_playlist_tracks);
                 let db = self.db.clone();
                 Task::perform(
                     async move {
                         let path = unique_playlist_path(&name);
-                        if let Err(e) = write_m3u(&path, &[]) {
-                            warn!("Failed to create playlist file {:?}: {}", path, e);
-                        }
+                        let count = if !pending_tracks.is_empty() {
+                            match core_engine::append_tracks_to_m3u(&path, &pending_tracks) {
+                                Ok(c) => c,
+                                Err(e) => {
+                                    warn!(
+                                        "Failed to create playlist with tracks {:?}: {}",
+                                        path, e
+                                    );
+                                    0
+                                }
+                            }
+                        } else {
+                            if let Err(e) = write_m3u(&path, &[]) {
+                                warn!("Failed to create playlist file {:?}: {}", path, e);
+                            }
+                            0
+                        };
                         let path_str = path.to_string_lossy().to_string();
-                        let _ = db.upsert_playlist_file(&path_str, &name, 0).await;
+                        let _ = db.upsert_playlist_file(&path_str, &name, count).await;
                         db.get_playlists().await.unwrap_or_default()
                     },
                     Message::PlaylistsLoaded,
@@ -2689,9 +3100,198 @@ impl App {
         )
     }
 
+    fn playlist_contains_track(&self, playlist_id: i64, track: &TrackRow) -> bool {
+        if self.playlists.selected_id == Some(playlist_id) {
+            return self
+                .playlists
+                .detail_tracks
+                .iter()
+                .any(|t| t.id == track.id || t.file_path == track.file_path)
+                || self.playlists.detail_entries.iter().any(|e| {
+                    e.resolved_path.to_string_lossy() == track.file_path
+                        || e.raw_path == track.file_path
+                });
+        }
+
+        if let Some(p) = self.playlist_by_id(playlist_id) {
+            if let Ok(parsed) = core_engine::parse_m3u(&p.file_path) {
+                return parsed.entries.iter().any(|e| {
+                    e.resolved_path.to_string_lossy() == track.file_path
+                        || e.raw_path == track.file_path
+                });
+            }
+        }
+
+        false
+    }
+
+    fn queue_contains_track(&self, track: &TrackRow) -> bool {
+        self.queues
+            .active_queue()
+            .map(|q| {
+                q.tracks
+                    .iter()
+                    .any(|t| t.id == track.id || t.file_path == track.file_path)
+            })
+            .unwrap_or(false)
+    }
+
+    fn execute_add_track_to_playlist(
+        &mut self,
+        track: TrackRow,
+        playlist_id: i64,
+    ) -> Task<Message> {
+        let playlist = self.playlist_by_id(playlist_id);
+        if let Some(p) = playlist {
+            let path = PathBuf::from(&p.file_path);
+            let file_path = p.file_path.clone();
+            let name = p.name.clone();
+            let db = self.db.clone();
+            let is_open = self.playlists.selected_id == Some(playlist_id);
+            let reload_detail = if is_open {
+                self.resolve_playlist_intent(playlist_id, PlaylistOpenIntent::View)
+            } else {
+                Task::none()
+            };
+
+            let save_task = Task::perform(
+                async move {
+                    let wrote = tokio::task::spawn_blocking(move || {
+                        core_engine::append_tracks_to_m3u(&path, &[track])
+                    })
+                    .await
+                    .ok()
+                    .and_then(|r| r.ok());
+
+                    if let Some(count) = wrote {
+                        let _ = db.upsert_playlist_file(&file_path, &name, count).await;
+                    }
+                    db.get_playlists().await.unwrap_or_default()
+                },
+                Message::PlaylistsLoaded,
+            );
+            Task::batch([save_task, reload_detail])
+        } else {
+            Task::none()
+        }
+    }
+
+    fn execute_add_track_to_queue(&mut self, track: TrackRow) -> Task<Message> {
+        if self.queues.active.is_none() {
+            self.queues.create(DEFAULT_QUEUE_NAME);
+        }
+        if let Some(queue) = self.queues.active_queue_mut() {
+            queue.append_many([track]);
+        }
+        self.queues.touch_active_summary();
+        self.persist_active_queue_task()
+    }
+
+    fn render_duplicate_prompt<'a>(
+        &'a self,
+        prompt: &'a DuplicatePromptState,
+        theme_cfg: &'a ThemeConfig,
+    ) -> Element<'a, Message> {
+        let (header, message_text) = match &prompt.target {
+            DuplicateTarget::Playlist {
+                track,
+                playlist_name,
+                ..
+            } => (
+                "Track Already in Playlist",
+                format!(
+                    "\"{}\" by {} is already in playlist \"{}\". Do you want to add it again?",
+                    track.title,
+                    track.display_artist(),
+                    playlist_name
+                ),
+            ),
+            DuplicateTarget::Queue { track } => (
+                "Track Already in Queue",
+                format!(
+                    "\"{}\" by {} is already in the playback queue. Do you want to add it again?",
+                    track.title,
+                    track.display_artist()
+                ),
+            ),
+        };
+
+        let backdrop = mouse_area(
+            container(Space::new())
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(|_| container::Style {
+                    background: Some(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.6))),
+                    ..Default::default()
+                }),
+        )
+        .on_press(Message::CancelDuplicatePrompt);
+
+        let dialog_content = column![
+            row![
+                icons::icon(icons::DISC_SVG, 16.0, theme_cfg.primary_color()),
+                Space::new().width(8),
+                components::text(theme_cfg, header)
+                    .size(14)
+                    .color(theme_cfg.text_color()),
+            ]
+            .align_y(Alignment::Center),
+            Space::new().height(12),
+            components::text(theme_cfg, message_text)
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+            Space::new().height(20),
+            row![
+                Space::new().width(Length::Fill),
+                button(
+                    components::text(theme_cfg, "Cancel")
+                        .size(12)
+                        .color(theme_cfg.text_muted_color())
+                )
+                .padding([6, 14])
+                .style(styles::ghost_button(theme_cfg, false))
+                .on_press(Message::CancelDuplicatePrompt),
+                Space::new().width(8),
+                button(
+                    components::text(theme_cfg, "Add anyway")
+                        .size(12)
+                        .color(Color::WHITE)
+                )
+                .padding([6, 14])
+                .style(styles::primary_button(theme_cfg))
+                .on_press(Message::ConfirmDuplicatePrompt),
+            ]
+            .align_y(Alignment::Center),
+        ]
+        .width(Length::Fixed(380.0));
+
+        let dialog_box = container(dialog_content)
+            .padding(20)
+            .style(styles::dialog_container(theme_cfg));
+
+        let centered_dialog = iced::widget::center(dialog_box)
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+        iced::widget::stack([backdrop.boxed(), centered_dialog.boxed()]).boxed()
+    }
+
     pub fn view(&self) -> Element<'_, Message> {
         let theme_cfg = &self.theme_manager.current_config;
-        self.render_layout(theme_cfg)
+        let base_view = self.render_layout(theme_cfg);
+        let mut layers = vec![base_view];
+        if let Some(ref menu) = self.context_menu {
+            layers.push(components::render_context_menu(
+                menu,
+                &self.playlists.playlists,
+                theme_cfg,
+                self.window_size,
+            ));
+        }
+        if let Some(ref prompt) = self.duplicate_prompt {
+            layers.push(self.render_duplicate_prompt(prompt, theme_cfg));
+        }
+        iced::widget::stack(layers).boxed()
     }
 }
 
@@ -2841,5 +3441,43 @@ fn handle_drag_event(
             iced::touch::Event::FingerLifted { .. } | iced::touch::Event::FingerLost { .. },
         ) => Some(Message::TabDragReleased),
         _ => None,
+    }
+}
+
+static LAST_CURSOR_POS: std::sync::Mutex<iced::Point> =
+    std::sync::Mutex::new(iced::Point { x: 100.0, y: 100.0 });
+
+fn handle_cursor_and_window_event(
+    event: iced::Event,
+    _status: iced::event::Status,
+    _id: iced::window::Id,
+) -> Option<Message> {
+    match event {
+        iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
+            if let Ok(mut guard) = LAST_CURSOR_POS.lock() {
+                *guard = position;
+            }
+            None
+        }
+        iced::Event::Window(iced::window::Event::Resized(size)) => {
+            Some(Message::WindowResized(size))
+        }
+        _ => None,
+    }
+}
+
+fn handle_escape_key(
+    event: iced::Event,
+    _status: iced::event::Status,
+    _id: iced::window::Id,
+) -> Option<Message> {
+    if let iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
+        key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape),
+        ..
+    }) = event
+    {
+        Some(Message::EscapePressed)
+    } else {
+        None
     }
 }

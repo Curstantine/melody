@@ -1,4 +1,4 @@
-use iced::widget::text::Wrapping;
+use iced::widget::text::{Ellipsis, Wrapping};
 use iced::widget::{button, column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length, Padding};
 
@@ -42,6 +42,7 @@ pub struct CatalogRow<'a> {
     pub on_select: Message,
     pub on_play: Message,
     pub on_shuffle: Message,
+    pub on_right_press: Option<Message>,
     pub width: Length,
     pub height: Length,
 }
@@ -60,6 +61,7 @@ impl<'a> CatalogRow<'a> {
             on_select,
             on_play,
             on_shuffle,
+            on_right_press,
             width,
             height,
         } = self;
@@ -86,7 +88,9 @@ impl<'a> CatalogRow<'a> {
         let title_block = column![
             text(theme_cfg, title)
                 .size(13)
-                .color(theme_cfg.text_color()),
+                .color(theme_cfg.text_color())
+                .wrapping(Wrapping::None)
+                .ellipsis(Ellipsis::End),
             subtitle,
         ]
         .spacing(2)
@@ -120,6 +124,13 @@ impl<'a> CatalogRow<'a> {
             .height(Length::Fill)
             .on_press(on_select);
 
+        let select_element: Element<'a, Message> = match on_right_press {
+            Some(msg) => iced::widget::mouse_area(select_btn)
+                .on_right_press(msg)
+                .boxed(),
+            None => select_btn.boxed(),
+        };
+
         let play_btn = button(icons::icon(
             icons::PLAY_SVG,
             14.0,
@@ -142,7 +153,7 @@ impl<'a> CatalogRow<'a> {
             .spacing(4)
             .align_y(Alignment::Center);
 
-        row![select_btn, actions]
+        row![select_element, actions]
             .spacing(4)
             .align_y(Alignment::Center)
             .width(width)
@@ -173,6 +184,7 @@ pub struct CatalogTile<'a> {
     pub on_select: Message,
     pub on_play: Message,
     pub on_shuffle: Message,
+    pub on_right_press: Option<Message>,
 }
 
 impl<'a> CatalogTile<'a> {
@@ -190,23 +202,27 @@ impl<'a> CatalogTile<'a> {
             on_select,
             on_play,
             on_shuffle,
+            on_right_press,
         } = self;
 
         let meta = container(
             column![
-                // Single-line title: width-bounded with no wrapping so long
-                // Latin and CJK titles truncate at the tile edge instead of
-                // wrapping (glyph-measured by the renderer, not char-counted).
+                // Single-line title: width-bounded with no wrapping and ellipsis
+                // so long Latin and CJK titles truncate with an ellipsis at the
+                // tile edge instead of wrapping or hard clipping.
                 text(theme_cfg, title)
                     .size(13)
                     .color(theme_cfg.text_color())
                     .width(Length::Fill)
-                    .wrapping(Wrapping::None),
+                    .wrapping(Wrapping::None)
+                    .ellipsis(Ellipsis::End),
                 row![
                     text(theme_cfg, mid_left)
                         .size(11)
                         .color(theme_cfg.text_muted_color())
-                        .width(Length::Fill),
+                        .width(Length::Fill)
+                        .wrapping(Wrapping::None)
+                        .ellipsis(Ellipsis::End),
                     text(theme_cfg, mid_right)
                         .size(11)
                         .color(theme_cfg.text_muted_color()),
@@ -239,6 +255,13 @@ impl<'a> CatalogTile<'a> {
             .padding(0)
             .on_press(on_select);
 
+        let select_element: Element<'a, Message> = match on_right_press {
+            Some(msg) => iced::widget::mouse_area(select_btn)
+                .on_right_press(msg)
+                .boxed(),
+            None => select_btn.boxed(),
+        };
+
         let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text_color()))
             .style(styles::icon_control_button(theme_cfg))
             .padding(4)
@@ -260,7 +283,7 @@ impl<'a> CatalogTile<'a> {
             .align_y(Alignment::End)
             .padding(6);
 
-        iced::widget::stack([select_btn.boxed(), actions.boxed()]).boxed()
+        iced::widget::stack([select_element, actions.boxed()]).boxed()
     }
 }
 
@@ -297,6 +320,7 @@ pub struct TrackRow<'a> {
     /// entry: muted title with no click action (still draggable and
     /// removable).
     pub on_press: Option<Message>,
+    pub on_right_press: Option<Message>,
     pub drag_start: Message,
     pub drag_release: Message,
     pub hover_enter: Message,
@@ -317,6 +341,7 @@ impl<'a> TrackRow<'a> {
             dragging,
             show_handle,
             on_press,
+            on_right_press,
             drag_start,
             drag_release,
             hover_enter,
@@ -374,11 +399,15 @@ impl<'a> TrackRow<'a> {
             text(theme_cfg, title)
                 .size(13)
                 .color(title_color)
-                .width(Length::FillPortion(5)),
+                .width(Length::FillPortion(5))
+                .wrapping(Wrapping::None)
+                .ellipsis(Ellipsis::End),
             text(theme_cfg, artist)
                 .size(11)
                 .color(theme_cfg.text_muted_color())
-                .width(Length::FillPortion(4)),
+                .width(Length::FillPortion(4))
+                .wrapping(Wrapping::None)
+                .ellipsis(Ellipsis::End),
             text(theme_cfg, duration)
                 .size(12)
                 .color(theme_cfg.text_muted_color())
@@ -394,18 +423,18 @@ impl<'a> TrackRow<'a> {
 
         // Single click selects (arming double-click to play). Unavailable rows
         // stay unclickable for playback but remain draggable via the handle.
-        let body: Element<'_, Message> = match on_press {
-            Some(message) => iced::widget::mouse_area(row_container)
+        let mut area = iced::widget::mouse_area(row_container)
+            .on_enter(hover_enter)
+            .on_exit(hover_exit);
+        if let Some(message) = on_press {
+            area = area
                 .on_press(message)
-                .on_enter(hover_enter)
-                .on_exit(hover_exit)
-                .interaction(iced::mouse::Interaction::Pointer)
-                .boxed(),
-            None => iced::widget::mouse_area(row_container)
-                .on_enter(hover_enter)
-                .on_exit(hover_exit)
-                .boxed(),
-        };
+                .interaction(iced::mouse::Interaction::Pointer);
+        }
+        if let Some(message) = on_right_press {
+            area = area.on_right_press(message);
+        }
+        let body: Element<'_, Message> = area.boxed();
 
         let remove_btn = button(icons::icon(
             icons::TRASH_SVG,

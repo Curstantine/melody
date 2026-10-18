@@ -716,3 +716,120 @@ pub fn toggler_style(cfg: &ThemeConfig) -> impl Fn(&Theme, toggler::Status) -> t
         }
     }
 }
+
+pub fn context_menu_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
+    move |_theme| container::Style {
+        background: Some(Background::Color(cfg.surface_color())),
+        text_color: Some(cfg.text_color()),
+        border: Border {
+            color: cfg.border_color(),
+            width: 1.0,
+            radius: Radius::from(6.0),
+        },
+        shadow: Shadow {
+            color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
+            offset: iced::Vector::new(0.0, 4.0),
+            blur_radius: 12.0,
+        },
+        snap: true,
+    }
+}
+
+pub fn context_menu_item(
+    cfg: &ThemeConfig,
+    is_danger: bool,
+) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
+    move |_theme, status| {
+        let hover_bg = cfg.surface_hover_color();
+        let normal_fg = if is_danger {
+            Color::from_rgb(0.95, 0.3, 0.3)
+        } else {
+            cfg.text_color()
+        };
+        let hover_fg = if is_danger {
+            Color::from_rgb(1.0, 0.4, 0.4)
+        } else {
+            cfg.primary_color()
+        };
+
+        match status {
+            button::Status::Active => button::Style {
+                background: Some(Background::Color(Color::TRANSPARENT)),
+                text_color: normal_fg,
+                border: Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            button::Status::Hovered => button::Style {
+                background: Some(Background::Color(hover_bg)),
+                text_color: hover_fg,
+                border: Border {
+                    radius: Radius::from(4.0),
+                    ..Default::default()
+                },
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            button::Status::Pressed => button::Style {
+                background: Some(Background::Color(blend_color(
+                    hover_bg,
+                    cfg.primary_color(),
+                    0.15,
+                ))),
+                text_color: hover_fg,
+                border: Border {
+                    radius: Radius::from(4.0),
+                    ..Default::default()
+                },
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            button::Status::Disabled => button::Style {
+                background: Some(Background::Color(Color::TRANSPARENT)),
+                text_color: cfg.text_muted_color(),
+                border: Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+        }
+    }
+}
+
+pub fn primary_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
+    move |_theme, status| {
+        let bg = match status {
+            button::Status::Active => cfg.primary_color(),
+            button::Status::Hovered => blend_color(cfg.primary_color(), Color::WHITE, 0.15),
+            button::Status::Pressed => blend_color(cfg.primary_color(), Color::BLACK, 0.15),
+            button::Status::Disabled => cfg.surface_hover_color(),
+        };
+
+        button::Style {
+            background: Some(Background::Color(bg)),
+            text_color: Color::WHITE,
+            border: Border {
+                radius: Radius::from(6.0),
+                ..Border::default()
+            },
+            shadow: Shadow::default(),
+            snap: true,
+        }
+    }
+}
+
+pub fn dialog_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
+    move |_| container::Style {
+        background: Some(Background::Color(cfg.surface_color())),
+        border: Border {
+            color: cfg.border_color(),
+            width: 1.0,
+            radius: Radius::from(10.0),
+        },
+        shadow: Shadow {
+            color: Color::from_rgba(0.0, 0.0, 0.0, 0.45),
+            offset: iced::Vector::new(0.0, 8.0),
+            blur_radius: 20.0,
+        },
+        ..Default::default()
+    }
+}

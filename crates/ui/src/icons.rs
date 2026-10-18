@@ -61,6 +61,9 @@ pub const CHEVRON_UP_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" view
 /// Boxicons `chevron-down`.
 pub const CHEVRON_DOWN_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m12 15.41l5.71-5.7l-1.42-1.42l-4.29 4.3l-4.29-4.3l-1.42 1.42z"/></svg>"#;
 
+/// Boxicons `chevron-right`.
+pub const CHEVRON_RIGHT_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m9.71 17.71l5.7-5.71l-5.7-5.71L8.29 7.71L12.59 12l-4.3 4.29z"/></svg>"#;
+
 /// Boxicons `disc`.
 pub const DISC_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 10c-1.1 0-2 .9-2 2s.9 2 2 2s2-.9 2-2s-.9-2-2-2"/><path fill="currentColor" d="M12 2C6.49 2 2 6.49 2 12s4.49 10 10 10s10-4.49 10-10S17.51 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8s8 3.59 8 8s-3.59 8-8 8"/><path fill="currentColor" d="M12 6c-3.31 0-6 2.69-6 6h2c0-2.21 1.79-4 4-4z"/></svg>"#;
 

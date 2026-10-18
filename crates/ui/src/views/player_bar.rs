@@ -1,6 +1,8 @@
 use core_engine::{format_duration, Track};
 use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, slider, stack, Space, Widget};
+use iced::widget::{
+    button, column, container, image, mouse_area, row, slider, stack, Space, Widget,
+};
 use iced::{Alignment, Element, Length};
 
 use crate::components::{self, text};
@@ -68,11 +70,18 @@ impl PlayerBar {
         .spacing(2)
         .width(Length::Fill);
 
-        row![cover_art, Space::new().width(10), track_details]
+        let content = row![cover_art, Space::new().width(10), track_details]
             .spacing(2)
             .align_y(Alignment::Center)
-            .width(Length::Fill)
-            .boxed()
+            .width(Length::Fill);
+
+        if current_track.is_some() {
+            mouse_area(content)
+                .on_right_press(Message::OpenPlayerBarContextMenu)
+                .boxed()
+        } else {
+            content.boxed()
+        }
     }
 
     pub fn view_controls<'a>(

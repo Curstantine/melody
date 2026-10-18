@@ -400,6 +400,7 @@ impl ArtistsView {
                             name: artist.artist.as_ref().to_string(),
                             shuffle: true,
                         },
+                        on_right_press: Some(Message::OpenArtistContextMenu(artist.clone())),
                     }
                     .view(),
                 );
@@ -470,6 +471,7 @@ impl ArtistsView {
                         name: artist.artist.as_ref().to_string(),
                         shuffle: true,
                     },
+                    on_right_press: Some(Message::OpenArtistContextMenu(artist.clone())),
                     width: Length::Fill,
                     height: Length::Fixed(row_h),
                 }

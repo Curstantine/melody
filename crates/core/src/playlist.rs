@@ -18,6 +18,8 @@ use std::path::{Component, Path, PathBuf};
 
 use thiserror::Error;
 
+use crate::model::TrackRow;
+
 #[derive(Error, Debug)]
 pub enum PlaylistError {
     #[error("I/O error: {0}")]
@@ -277,6 +279,32 @@ pub fn write_m3u<P: AsRef<Path>>(path: P, entries: &[PlaylistEntry]) -> Result<(
     Ok(())
 }
 
+/// Appends tracks to a playlist file on disk (creating the file if it does not exist).
+/// Returns the new total count of playlist entries.
+pub fn append_tracks_to_m3u<P: AsRef<Path>>(
+    path: P,
+    tracks: &[TrackRow],
+) -> Result<usize, PlaylistError> {
+    let path = path.as_ref();
+    let mut entries = if path.exists() {
+        parse_m3u(path)?.entries
+    } else {
+        Vec::new()
+    };
+
+    for track in tracks {
+        entries.push(PlaylistEntry {
+            raw_path: track.file_path.clone(),
+            resolved_path: PathBuf::from(&track.file_path),
+            title: Some(track.title.clone()),
+            duration_ms: Some(track.duration_ms),
+        });
+    }
+
+    write_m3u(path, &entries)?;
+    Ok(entries.len())
+}
+
 /// Normalizes path components lexically without touching the filesystem.
 pub fn normalize_path(path: &Path) -> PathBuf {
     let mut normalized = PathBuf::new();
@@ -411,5 +439,50 @@ mod tests {
             "../../../../Music/song.mp3",
         );
         assert_eq!(resolved, PathBuf::from("/home/user/Music/song.mp3"));
+    }
+
+    #[test]
+    fn appends_tracks_roundtrip() {
+        let dir = std::env::temp_dir().join(format!(
+            "melody-test-append-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("test_playlist.m3u8");
+        let track1 = TrackRow {
+            id: 1,
+            title: "First Song".to_string(),
+            artist: "Artist 1".into(),
+            album: "Album 1".into(),
+            duration_ms: 180000,
+            file_path: "/music/song1.mp3".to_string(),
+            duration_label: "3:00".to_string(),
+        };
+        let track2 = TrackRow {
+            id: 2,
+            title: "Second Song".to_string(),
+            artist: "Artist 2".into(),
+            album: "Album 2".into(),
+            duration_ms: 240000,
+            file_path: "/music/song2.mp3".to_string(),
+            duration_label: "4:00".to_string(),
+        };
+
+        // First append creates file with 1 track
+        let count1 = append_tracks_to_m3u(&path, &[track1]).unwrap();
+        assert_eq!(count1, 1);
+
+        // Second append adds track2 so count is 2
+        let count2 = append_tracks_to_m3u(&path, &[track2]).unwrap();
+        assert_eq!(count2, 2);
+
+        let parsed = parse_m3u(&path).unwrap();
+        assert_eq!(parsed.entries.len(), 2);
+        assert_eq!(parsed.entries[0].title.as_deref(), Some("First Song"));
+        assert_eq!(parsed.entries[1].title.as_deref(), Some("Second Song"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

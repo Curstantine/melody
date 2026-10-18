@@ -48,6 +48,7 @@ fn detail_view() -> PlaylistsView {
             item("Missing", None),
             item("Three", Some(3)),
         ],
+        Vec::new(),
         vec![
             entry("/music/1.flac"),
             entry("/music/x.flac"),
@@ -123,6 +124,7 @@ fn reordered_entries_round_trip_through_m3u_file() {
             item("Missing", None),
             item("Three", Some(3)),
         ],
+        Vec::new(),
         vec![
             entry(&t1.to_string_lossy()),
             entry(&tx.to_string_lossy()),
@@ -187,6 +189,7 @@ fn shared_track_row_renders_without_panicking() {
             playlist_id: 7,
             index: 0,
         },
+        on_right_press: None,
     }
     .view();
 
@@ -212,6 +215,7 @@ fn shared_track_row_renders_without_panicking() {
             playlist_id: 7,
             index: 1,
         },
+        on_right_press: None,
     }
     .view();
 
@@ -240,6 +244,7 @@ fn shared_track_row_renders_without_panicking() {
             queue_id: 1,
             index: 2,
         },
+        on_right_press: None,
     }
     .view();
 }

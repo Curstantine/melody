@@ -6,7 +6,7 @@ use iced::widget::{
 };
 use iced::{Alignment, Element, Length};
 
-use crate::components::{self, text};
+use crate::components::{self, text, TrackMenuContext};
 use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
@@ -408,8 +408,12 @@ impl LibraryView {
                     .width(Length::Fill)
                     .height(self.row_height);
 
-                let interactive_row =
-                    mouse_area(row_container).on_press(Message::TrackClicked(track.id));
+                let interactive_row = mouse_area(row_container)
+                    .on_press(Message::TrackClicked(track.id))
+                    .on_right_press(Message::OpenTrackContextMenu {
+                        track: track.clone(),
+                        context: TrackMenuContext::Library,
+                    });
 
                 items = items.push(interactive_row.boxed());
             }

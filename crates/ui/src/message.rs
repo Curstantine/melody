@@ -7,6 +7,19 @@ use core_engine::{
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TrackMenuContext {
+    Library,
+    Playlist { playlist_id: i64, index: usize },
+    Queue { queue_id: u64, index: usize },
+    PlayerBar,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ContextMenuSubmenu {
+    Playlists,
+}
+
 /// A single row in an opened playlist's detail list.
 #[derive(Debug, Clone)]
 pub struct PlaylistItem {
@@ -160,6 +173,47 @@ pub enum Message {
 
     // Track interactions
     TrackClicked(i64),
+
+    // Context Menus
+    OpenTrackContextMenu {
+        track: TrackRow,
+        context: TrackMenuContext,
+    },
+    OpenAlbumContextMenu(AlbumSummary),
+    OpenArtistContextMenu(ArtistSummary),
+    OpenPlaylistContextMenu(PlaylistSummary),
+    OpenQueueContextMenu {
+        id: u64,
+        name: String,
+    },
+    OpenPlayerBarContextMenu,
+    CloseContextMenu,
+    ToggleContextMenuSubmenu(Option<ContextMenuSubmenu>),
+    ContextPlayTrack(i64),
+    ContextPlayNext(TrackRow),
+    ContextAddToQueue(TrackRow),
+    ContextAddTracksToQueue(Vec<TrackRow>),
+    ContextAddAlbumToQueue(AlbumSummary),
+    ContextAddArtistToQueue(ArtistSummary),
+    ContextAddTrackToPlaylist {
+        track: TrackRow,
+        playlist_id: i64,
+    },
+    ContextAddAlbumToPlaylist {
+        album: AlbumSummary,
+        playlist_id: i64,
+    },
+    ContextAddArtistToPlaylist {
+        artist: ArtistSummary,
+        playlist_id: i64,
+    },
+    ContextNewPlaylistWithTracks(Vec<TrackRow>),
+    ContextNewPlaylistWithAlbum(AlbumSummary),
+    ContextNewPlaylistWithArtist(ArtistSummary),
+    WindowResized(iced::Size),
+    CancelDuplicatePrompt,
+    ConfirmDuplicatePrompt,
+    EscapePressed,
 
     // Library & Pagination
     SearchInputChanged(String),
@@ -384,6 +438,89 @@ impl std::fmt::Debug for Message {
                 f.debug_tuple("SetNowPlayingCoverSize").field(s).finish()
             }
             Self::TrackClicked(id) => f.debug_tuple("TrackClicked").field(id).finish(),
+            Self::OpenTrackContextMenu { track, context } => f
+                .debug_struct("OpenTrackContextMenu")
+                .field("track_id", &track.id)
+                .field("context", context)
+                .finish(),
+            Self::OpenAlbumContextMenu(a) => f
+                .debug_struct("OpenAlbumContextMenu")
+                .field("artist", &a.artist)
+                .field("album", &a.album)
+                .finish(),
+            Self::OpenArtistContextMenu(a) => f
+                .debug_struct("OpenArtistContextMenu")
+                .field("artist", &a.artist)
+                .finish(),
+            Self::OpenPlaylistContextMenu(p) => f
+                .debug_struct("OpenPlaylistContextMenu")
+                .field("id", &p.id)
+                .field("name", &p.name)
+                .finish(),
+            Self::OpenQueueContextMenu { id, name } => f
+                .debug_struct("OpenQueueContextMenu")
+                .field("id", id)
+                .field("name", name)
+                .finish(),
+            Self::OpenPlayerBarContextMenu => write!(f, "OpenPlayerBarContextMenu"),
+            Self::CloseContextMenu => write!(f, "CloseContextMenu"),
+            Self::ToggleContextMenuSubmenu(sub) => f
+                .debug_tuple("ToggleContextMenuSubmenu")
+                .field(sub)
+                .finish(),
+            Self::ContextPlayTrack(id) => f.debug_tuple("ContextPlayTrack").field(id).finish(),
+            Self::ContextPlayNext(track) => {
+                f.debug_tuple("ContextPlayNext").field(&track.id).finish()
+            }
+            Self::ContextAddToQueue(track) => {
+                f.debug_tuple("ContextAddToQueue").field(&track.id).finish()
+            }
+            Self::ContextAddTracksToQueue(tracks) => f
+                .debug_struct("ContextAddTracksToQueue")
+                .field("len", &tracks.len())
+                .finish(),
+            Self::ContextAddAlbumToQueue(a) => f
+                .debug_struct("ContextAddAlbumToQueue")
+                .field("album", &a.album)
+                .finish(),
+            Self::ContextAddArtistToQueue(a) => f
+                .debug_struct("ContextAddArtistToQueue")
+                .field("artist", &a.artist)
+                .finish(),
+            Self::ContextAddTrackToPlaylist { track, playlist_id } => f
+                .debug_struct("ContextAddTrackToPlaylist")
+                .field("track_id", &track.id)
+                .field("playlist_id", playlist_id)
+                .finish(),
+            Self::ContextAddAlbumToPlaylist { album, playlist_id } => f
+                .debug_struct("ContextAddAlbumToPlaylist")
+                .field("album", &album.album)
+                .field("playlist_id", playlist_id)
+                .finish(),
+            Self::ContextAddArtistToPlaylist {
+                artist,
+                playlist_id,
+            } => f
+                .debug_struct("ContextAddArtistToPlaylist")
+                .field("artist", &artist.artist)
+                .field("playlist_id", playlist_id)
+                .finish(),
+            Self::ContextNewPlaylistWithTracks(tracks) => f
+                .debug_struct("ContextNewPlaylistWithTracks")
+                .field("len", &tracks.len())
+                .finish(),
+            Self::ContextNewPlaylistWithAlbum(a) => f
+                .debug_struct("ContextNewPlaylistWithAlbum")
+                .field("album", &a.album)
+                .finish(),
+            Self::ContextNewPlaylistWithArtist(a) => f
+                .debug_struct("ContextNewPlaylistWithArtist")
+                .field("artist", &a.artist)
+                .finish(),
+            Self::WindowResized(size) => f.debug_tuple("WindowResized").field(size).finish(),
+            Self::CancelDuplicatePrompt => write!(f, "CancelDuplicatePrompt"),
+            Self::ConfirmDuplicatePrompt => write!(f, "ConfirmDuplicatePrompt"),
+            Self::EscapePressed => write!(f, "EscapePressed"),
             Self::SearchInputChanged(s) => f
                 .debug_struct("SearchInputChanged")
                 .field("len", &s.len())
