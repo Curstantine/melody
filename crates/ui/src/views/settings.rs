@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use iced::border::Radius;
 use iced::widget::{
-    button, center, column, container, pick_list, row, scrollable, slider, text_input, toggler,
-    Space, Widget,
+    button, column, container, pick_list, row, scrollable, slider, text_input, toggler, Space,
+    Widget,
 };
 use iced::{Alignment, Border, Color, Element, Length};
 
@@ -32,7 +32,6 @@ pub const CHIP_ROW_SPACING: f32 = 4.0;
 
 pub const BUTTON_PADDING_SM: [f32; 2] = [4.0, 8.0];
 pub const BUTTON_PADDING_MD: [f32; 2] = [6.0, 12.0];
-pub const BUTTON_PADDING_LG: [f32; 2] = [8.0, 16.0];
 pub const INPUT_PADDING: [f32; 2] = [5.0, 8.0];
 pub const BANNER_PADDING: [f32; 2] = [6.0, 10.0];
 pub const ROW_ITEM_PADDING: [f32; 2] = [5.0, 8.0];
@@ -771,7 +770,7 @@ impl SettingsView {
                 format!("{}", ctx.total_artists)
             ),
         ]
-        .spacing(SECTION_SPACING);
+        .spacing(CHIP_ROW_SPACING);
 
         let storage_stats_row2 = row![
             components::metric_box(
@@ -789,7 +788,7 @@ impl SettingsView {
                 ),
             ),
         ]
-        .spacing(SECTION_SPACING);
+        .spacing(CHIP_ROW_SPACING);
 
         let stats_card = components::settings_card(
             theme_cfg,
@@ -799,9 +798,10 @@ impl SettingsView {
                 .boxed(),
         );
 
-        let add_folder_btn = button(center(
+        let add_folder_btn = button(
             row![
                 icons::icon(icons::PLUS_SVG, 13.0, theme_cfg.primary_color()),
+                Space::new().width(SPACE_MD),
                 text(
                     theme_cfg,
                     if ctx.is_scanning {
@@ -813,10 +813,9 @@ impl SettingsView {
                 .size(12)
                 .color(theme_cfg.text_color()),
             ]
-            .spacing(CHIP_ROW_SPACING)
             .align_y(Alignment::Center),
-        ))
-        .width(Length::Fill)
+        )
+        .padding(BUTTON_PADDING_MD)
         .style(styles::ghost_button(theme_cfg, false))
         .on_press_maybe(if ctx.is_scanning {
             None
@@ -942,7 +941,7 @@ impl SettingsView {
             ]
             .align_y(Alignment::Center),
         )
-        .padding(BUTTON_PADDING_LG)
+        .padding(BUTTON_PADDING_MD)
         .style(styles::ghost_button(theme_cfg, false))
         .on_press_maybe(if ctx.is_scanning {
             None
@@ -960,7 +959,7 @@ impl SettingsView {
             ]
             .align_y(Alignment::Center),
         )
-        .padding(BUTTON_PADDING_LG)
+        .padding(BUTTON_PADDING_MD)
         .style(styles::ghost_button(theme_cfg, false))
         .on_press(Message::ClearThumbnailCache);
 
@@ -974,7 +973,7 @@ impl SettingsView {
             ]
             .align_y(Alignment::Center),
         )
-        .padding(BUTTON_PADDING_LG)
+        .padding(BUTTON_PADDING_MD)
         .style(styles::danger_button(theme_cfg))
         .on_press_maybe(if ctx.is_scanning {
             None
@@ -1064,14 +1063,8 @@ impl SettingsView {
             "Scrobble preferences",
             column![
                 text(theme_cfg, "Scrobble threshold")
-                    .size(13)
-                    .color(theme_cfg.text_color()),
-                text(
-                    theme_cfg,
-                    "Percentage of track length to listen to before logging a scrobble (capped at 4 minutes)"
-                )
-                .size(11)
-                .color(theme_cfg.text_muted_color()),
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
                 row![
                     components::chip(
                         theme_cfg,
