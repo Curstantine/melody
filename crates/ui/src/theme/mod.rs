@@ -288,6 +288,12 @@ impl ThemeManager {
 
         // Load from disk: local themes/ folder and config_dir themes/ folder
         self.load_from_folder(Path::new("themes"));
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                self.load_from_folder(&exe_dir.join("themes"));
+                self.load_from_folder(&exe_dir.join("../themes"));
+            }
+        }
         let cfg_dir = Self::theme_dir();
         self.load_from_folder(&cfg_dir);
 

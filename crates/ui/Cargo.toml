@@ -1,5 +1,6 @@
 [package]
 name = "ui"
+workspace = "../.."
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -9,6 +10,22 @@ default-run = "melody"
 [[bin]]
 name = "melody"
 path = "src/main.rs"
+
+[package.metadata.appimage]
+name = "Melody"
+icon = "assets/melody.png"
+desktop_entry = "assets/melody.desktop"
+assets = [
+    "../../themes",
+    "../../layouts",
+]
+auto_link = false
+
+[package.metadata.wix]
+name = "Melody"
+path-guid = "0750FF61-7342-4681-8E6B-A349D2D293F6"
+upgrade-guid = "37AEE279-1BDE-4A0F-96B1-7145E5003745"
+product-icon = "wix/Product.ico"
 
 [dependencies]
 core_engine.workspace = true

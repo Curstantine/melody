@@ -60,6 +60,12 @@ impl LayoutManager {
         ] {
             self.load_from_folder(candidate);
         }
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                self.load_from_folder(&exe_dir.join("layouts"));
+                self.load_from_folder(&exe_dir.join("../layouts"));
+            }
+        }
         let cfg_dir = Self::layout_dir();
         self.load_from_folder(&cfg_dir);
 

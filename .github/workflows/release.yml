@@ -68,6 +68,7 @@ jobs:
             libswscale-dev \
             libavfilter-dev \
             libavdevice-dev \
+            libfuse2 \
             ffmpeg
 
       # --- Windows Dependencies ---
@@ -102,32 +103,53 @@ jobs:
           "$binDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           "ffmpeg-bin=$binDir" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
+          # Ensure WiX toolset bin directory is in PATH if present
+          if ($env:WIX -and (Test-Path "$env:WIX\bin")) {
+            "$env:WIX\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
+
       # --- Build Release Binary ---
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }} -p ui --bin melody
 
-      # --- Package Artifacts ---
-      - name: Package Linux release archive
+      # --- Package Linux Artifacts (AppImage installer + portable tar.gz) ---
+      - name: Package Linux release artifacts
         if: runner.os == 'Linux'
         run: |
           RELEASE_TAG="${{ github.ref_name }}"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             RELEASE_TAG="${{ inputs.tag }}"
           fi
-          
+
+          mkdir -p dist-pkg
+
+          # 1. Install AppImage packaging tools
+          cargo install cargo-appimage
+          sudo wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
+          sudo chmod +x /usr/local/bin/appimagetool
+
+          # 2. Build Linux AppImage
+          (cd crates/ui && APPIMAGE_EXTRACT_AND_RUN=1 cargo appimage --target ${{ matrix.target }})
+
+          # Locate built AppImage
+          APPIMAGE_FILE=$(find target -name "*.AppImage" -type f | head -n 1)
+          if [ -n "$APPIMAGE_FILE" ]; then
+            APPIMAGE_DEST="dist-pkg/melody-${RELEASE_TAG}-${{ matrix.target }}.AppImage"
+            cp "$APPIMAGE_FILE" "$APPIMAGE_DEST"
+            chmod +x "$APPIMAGE_DEST"
+          fi
+
+          # 3. Create portable tar.gz archive
           ARCHIVE_DIR="melody-${RELEASE_TAG}-${{ matrix.target }}"
           mkdir -p "$ARCHIVE_DIR"
-          
           cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$ARCHIVE_DIR/"
           cp -r themes "$ARCHIVE_DIR/"
           cp -r layouts "$ARCHIVE_DIR/"
           cp README.md AGENTS.md "$ARCHIVE_DIR/" 2>/dev/null || true
-          
-          tar -czvf "${ARCHIVE_DIR}.tar.gz" "$ARCHIVE_DIR"
-          echo "ASSET_PATH=${ARCHIVE_DIR}.tar.gz" >> $GITHUB_ENV
-          echo "ASSET_NAME=${ARCHIVE_DIR}.tar.gz" >> $GITHUB_ENV
+          tar -czvf "dist-pkg/${ARCHIVE_DIR}.tar.gz" "$ARCHIVE_DIR"
 
-      - name: Package Windows release archive
+      # --- Package Windows Artifacts (MSI installer + portable zip) ---
+      - name: Package Windows release artifacts
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -135,30 +157,59 @@ jobs:
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
             $tag = "${{ inputs.tag }}"
           }
-          
+
+          New-Item -ItemType Directory -Path "dist-pkg" -Force
+
+          # 1. Install cargo-wix
+          cargo install cargo-wix
+
+          # 2. Populate WiX FFmpeg fragment dynamically with all bundled FFmpeg DLLs
+          $binDir = "${{ steps.setup-ffmpeg.outputs.ffmpeg-bin }}"
+          $dlls = Get-ChildItem -Path $binDir -Filter "*.dll"
+          $xml = @"
+          <?xml version='1.0' encoding='utf-8'?>
+          <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+            <Fragment>
+              <ComponentGroup Id='FFmpegDlls' Directory='Bin'>
+          "@
+          foreach ($dll in $dlls) {
+              $id = "dll_" + [System.Guid]::NewGuid().ToString("N")
+              $cmpId = "cmp_" + [System.Guid]::NewGuid().ToString("N")
+              $src = $dll.FullName.Replace("&", "&amp;")
+              $xml += @"
+                <Component Id='$cmpId' Guid='*'>
+                  <File Id='$id' Source='$src' KeyPath='yes' />
+                </Component>
+          "@
+          }
+          $xml += @"
+              </ComponentGroup>
+            </Fragment>
+          </Wix>
+          "@
+          Set-Content -Path "crates/ui/wix/ffmpeg.wxs" -Value $xml
+
+          # 3. Build Windows MSI installer via cargo-wix
+          $msiName = "melody-$tag-${{ matrix.target }}.msi"
+          cargo wix -p ui --no-build --nocapture --target ${{ matrix.target }} --target-bin-dir "target\${{ matrix.target }}\release" -o "dist-pkg\$msiName"
+
+          # 4. Create portable zip archive
           $archiveDir = "melody-$tag-${{ matrix.target }}"
           New-Item -ItemType Directory -Path $archiveDir -Force
-          
           Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" -Destination $archiveDir
           Copy-Item -Recurse "themes" -Destination $archiveDir
           Copy-Item -Recurse "layouts" -Destination $archiveDir
           if (Test-Path "README.md") { Copy-Item "README.md" -Destination $archiveDir }
-          
-          # Bundle the necessary FFmpeg runtime DLLs with the Windows binary
-          $binDir = "${{ steps.setup-ffmpeg.outputs.ffmpeg-bin }}"
           Get-ChildItem -Path $binDir -Filter "*.dll" | ForEach-Object {
             Copy-Item $_.FullName -Destination $archiveDir
           }
-          
-          Compress-Archive -Path "$archiveDir\*" -DestinationPath "$archiveDir.zip"
-          "ASSET_PATH=$archiveDir.zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "ASSET_NAME=$archiveDir.zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Compress-Archive -Path "$archiveDir\*" -DestinationPath "dist-pkg\$archiveDir.zip"
 
-      - name: Upload artifact to GitHub Actions
+      - name: Upload artifacts to GitHub Actions
         uses: actions/upload-artifact@v4
         with:
           name: melody-${{ matrix.target }}
-          path: ${{ env.ASSET_PATH }}
+          path: dist-pkg/*
 
   publish-release:
     name: Publish GitHub Release
@@ -178,7 +229,7 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p dist
-          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} dist/ \;
+          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.msi" -o -name "*.AppImage" \) -exec cp {} dist/ \;
           ls -la dist/
 
       - name: Determine tag
