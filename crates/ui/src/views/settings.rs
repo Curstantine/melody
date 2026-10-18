@@ -749,98 +749,42 @@ impl SettingsView {
     ) -> Element<'a, Message> {
         let header = components::settings_header(
             theme_cfg,
-            "Playback & audio engine",
-            Some("Configure audio transitions, output engine, and playback behavior"),
+            "Playback preferences",
+            Some("Configure audio transitions and playback behavior"),
         );
 
-        // 1. Audio Engine Specifications
-        let engine_stats_row1 = row![
-            components::metric_box(theme_cfg, "Audio pipeline", "Lock-free SPSC".to_string()),
-            components::metric_box(theme_cfg, "Resampling engine", "Linear Dynamic".to_string()),
-            components::metric_box(
-                theme_cfg,
-                "Decoding backend",
-                "FFmpeg / Symphonia".to_string()
-            ),
-        ]
-        .spacing(CHIP_ROW_SPACING);
-
-        let engine_stats_row2 = row![
-            components::metric_box(
-                theme_cfg,
-                "Ring buffer capacity",
-                "262,144 samples".to_string()
-            ),
-            components::metric_box(theme_cfg, "Sample format", "32-bit Float (f32)".to_string()),
-            components::metric_box(theme_cfg, "Output backend", "CPAL Stream".to_string()),
-        ]
-        .spacing(CHIP_ROW_SPACING);
-
-        let stats_card = components::settings_card(
-            theme_cfg,
-            "Audio engine specifications",
-            column![engine_stats_row1, engine_stats_row2]
-                .spacing(CARD_SPACING)
-                .boxed(),
-        );
-
-        // 2. Audio Transitions & Pipeline Card
+        // 1. Audio Transitions Card
         let gapless_row = row![
             column![
                 text(theme_cfg, "Gapless audio playback")
                     .size(12)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_muted_color()),
                 text(
                     theme_cfg,
-                    "Preload upcoming tracks in memory for seamless, uninterrupted transitions without silence between songs",
+                    "Preload upcoming tracks in memory for seamless, uninterrupted transitions",
                 )
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
             ]
+            .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
-            components::chip_with_icon(
-                theme_cfg,
-                if ctx.gapless {
-                    icons::CHECK_SVG
-                } else {
-                    icons::RADIO_SVG
-                },
-                if ctx.gapless { "Enabled" } else { "Disabled" },
-                ctx.gapless,
-                Message::ToggleGapless(!ctx.gapless),
-            ),
+            toggler(ctx.gapless)
+                .on_toggle(Message::ToggleGapless)
+                .size(TOGGLER_SIZE)
+                .style(styles::toggler_style(theme_cfg)),
         ]
         .align_y(Alignment::Center);
 
-        let transitions_card = components::settings_card(
-            theme_cfg,
-            "Audio transitions & stream",
-            column![gapless_row].spacing(CARD_SPACING).boxed(),
-        );
+        let transitions_card =
+            components::settings_card(theme_cfg, "Audio transitions", column![gapless_row].boxed());
 
-        // 3. Playback Controls & Defaults Card
+        // 2. Playback Behavior Card
         let volume_pct = (ctx.volume * 100.0).round() as u32;
-        let volume_presets = [25, 50, 75, 100];
-        let volume_preset_buttons = {
-            let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
-            for &pct in &volume_presets {
-                let is_sel = volume_pct == pct;
-                let btn = components::chip(
-                    theme_cfg,
-                    format!("{}%", pct),
-                    is_sel,
-                    Message::VolumeChanged(pct as f32 / 100.0),
-                );
-                r = r.push(btn);
-            }
-            r
-        };
-
         let volume_row = row![
             column![
                 text(theme_cfg, "Master output volume")
                     .size(12)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_muted_color()),
                 text(
                     theme_cfg,
                     "Default master volume multiplier applied to audio stream playback",
@@ -848,6 +792,7 @@ impl SettingsView {
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
             ]
+            .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
             row![
                 slider(0.0..=1.0, ctx.volume, Message::VolumeChanged)
@@ -858,7 +803,6 @@ impl SettingsView {
                     .size(12)
                     .color(theme_cfg.primary_color())
                     .width(Length::Fixed(45.0)),
-                volume_preset_buttons,
             ]
             .align_y(Alignment::Center),
         ]
@@ -868,7 +812,7 @@ impl SettingsView {
             column![
                 text(theme_cfg, "Shuffle playback")
                     .size(12)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_muted_color()),
                 text(
                     theme_cfg,
                     "Randomize track selection and playback order within active queue",
@@ -876,22 +820,12 @@ impl SettingsView {
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
             ]
+            .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
-            components::chip_with_icon(
-                theme_cfg,
-                if ctx.is_shuffle {
-                    icons::CHECK_SVG
-                } else {
-                    icons::RADIO_SVG
-                },
-                if ctx.is_shuffle {
-                    "Enabled"
-                } else {
-                    "Disabled"
-                },
-                ctx.is_shuffle,
-                Message::ToggleShuffle,
-            ),
+            toggler(ctx.is_shuffle)
+                .on_toggle(|_| Message::ToggleShuffle)
+                .size(TOGGLER_SIZE)
+                .style(styles::toggler_style(theme_cfg)),
         ]
         .align_y(Alignment::Center);
 
@@ -899,7 +833,7 @@ impl SettingsView {
             column![
                 text(theme_cfg, "Repeat playback")
                     .size(12)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_muted_color()),
                 text(
                     theme_cfg,
                     "Loop the active queue continuously when the final track completes",
@@ -907,26 +841,20 @@ impl SettingsView {
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
             ]
+            .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
-            components::chip_with_icon(
-                theme_cfg,
-                if ctx.is_repeat {
-                    icons::CHECK_SVG
-                } else {
-                    icons::RADIO_SVG
-                },
-                if ctx.is_repeat { "Enabled" } else { "Disabled" },
-                ctx.is_repeat,
-                Message::ToggleRepeat,
-            ),
+            toggler(ctx.is_repeat)
+                .on_toggle(|_| Message::ToggleRepeat)
+                .size(TOGGLER_SIZE)
+                .style(styles::toggler_style(theme_cfg)),
         ]
         .align_y(Alignment::Center);
 
         let behavior_card = components::settings_card(
             theme_cfg,
-            "Playback behavior & controls",
+            "Playback behavior",
             column![volume_row, shuffle_row, repeat_row]
-                .spacing(CARD_SPACING)
+                .spacing(SECTION_SPACING)
                 .boxed(),
         );
 
@@ -934,7 +862,6 @@ impl SettingsView {
             header,
             transitions_card,
             behavior_card,
-            stats_card,
             Space::new().height(PAGE_BOTTOM_SPACER),
         ]
         .spacing(PAGE_SPACING)
