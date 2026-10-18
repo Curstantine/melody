@@ -451,7 +451,7 @@ impl ArtistsView {
                         theme_cfg,
                         None,
                         components::CATALOG_LIST_ART_SIZE,
-                        Radius::from(4.0),
+                        theme_cfg.radius_sm(),
                         icons::USER_AVATAR_SVG,
                         20.0,
                         theme_cfg.primary_color(),

@@ -355,7 +355,7 @@ pub fn metric_box<'a>(
     .style(move |_theme| container::Style {
         background: Some(iced::Background::Color(theme_cfg.surface_color())),
         border: Border {
-            radius: Radius::from(4.0),
+            radius: theme_cfg.radius_sm(),
             color: theme_cfg.border_color(),
             width: 1.0,
         },

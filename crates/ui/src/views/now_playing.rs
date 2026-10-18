@@ -73,7 +73,7 @@ impl NowPlayingView {
                     theme_cfg,
                     current_cover,
                     cover_size,
-                    Radius::from(6.0),
+                    theme_cfg.radius_md(),
                     icons::ALBUM_SVG,
                     cover_icon_size,
                     theme_cfg.primary_color(),
@@ -318,7 +318,7 @@ impl NowPlayingView {
                 .style(move |_| container::Style {
                     background: Some(iced::Background::Color(theme_cfg.surface_color())),
                     border: iced::Border {
-                        radius: Radius::from(6.0),
+                        radius: theme_cfg.radius_md(),
                         color: theme_cfg.border_color(),
                         width: 1.0,
                     },

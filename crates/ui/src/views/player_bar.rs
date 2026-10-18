@@ -1,5 +1,4 @@
 use core_engine::{format_duration, Track};
-use iced::border::Radius;
 use iced::widget::{
     button, column, container, image, mouse_area, row, slider, stack, Space, Widget,
 };
@@ -45,7 +44,7 @@ impl PlayerBar {
             theme_cfg,
             current_cover,
             46.0,
-            Radius::from(3.0),
+            theme_cfg.radius_xs(),
             icons::DISC_SVG,
             22.0,
             bar_fg,

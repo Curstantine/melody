@@ -13,3 +13,10 @@ player_bar_bg = "#191919"
 player_bar_text = "#f0f0f0"
 slider_active = "#ffffff"
 slider_rail = "#363636"
+
+[border_radius]
+xs = 2.0
+sm = 4.0
+md = 6.0
+lg = 8.0
+xl = 16.0

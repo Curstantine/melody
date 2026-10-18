@@ -66,6 +66,174 @@ mod opt_hex_color {
     }
 }
 
+use iced::border::Radius;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserializer, Serializer};
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BorderRadiusConfig {
+    pub xs: f32,
+    pub sm: f32,
+    pub md: f32,
+    pub lg: f32,
+    pub xl: f32,
+}
+
+pub fn default_radius_xs() -> f32 {
+    2.0
+}
+pub fn default_radius_sm() -> f32 {
+    4.0
+}
+pub fn default_radius_md() -> f32 {
+    6.0
+}
+pub fn default_radius_lg() -> f32 {
+    8.0
+}
+pub fn default_radius_xl() -> f32 {
+    16.0
+}
+
+impl Default for BorderRadiusConfig {
+    fn default() -> Self {
+        Self {
+            xs: default_radius_xs(),
+            sm: default_radius_sm(),
+            md: default_radius_md(),
+            lg: default_radius_lg(),
+            xl: default_radius_xl(),
+        }
+    }
+}
+
+impl BorderRadiusConfig {
+    pub fn xs(&self) -> Radius {
+        Radius::from(self.xs)
+    }
+
+    pub fn sm(&self) -> Radius {
+        Radius::from(self.sm)
+    }
+
+    pub fn md(&self) -> Radius {
+        Radius::from(self.md)
+    }
+
+    pub fn lg(&self) -> Radius {
+        Radius::from(self.lg)
+    }
+
+    pub fn xl(&self) -> Radius {
+        Radius::from(self.xl)
+    }
+}
+
+impl Serialize for BorderRadiusConfig {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut s = serializer.serialize_struct("BorderRadiusConfig", 5)?;
+        s.serialize_field("xs", &self.xs)?;
+        s.serialize_field("sm", &self.sm)?;
+        s.serialize_field("md", &self.md)?;
+        s.serialize_field("lg", &self.lg)?;
+        s.serialize_field("xl", &self.xl)?;
+        s.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for BorderRadiusConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct BorderRadiusVisitor;
+
+        impl<'de> Visitor<'de> for BorderRadiusVisitor {
+            type Value = BorderRadiusConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a number or a border radius map with xs, sm, md, lg, xl")
+            }
+
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                self.visit_f64(v as f64)
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                self.visit_f64(v as f64)
+            }
+
+            fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                let r = v as f32;
+                if r <= 0.0 {
+                    Ok(BorderRadiusConfig {
+                        xs: 0.0,
+                        sm: 0.0,
+                        md: 0.0,
+                        lg: 0.0,
+                        xl: 0.0,
+                    })
+                } else {
+                    Ok(BorderRadiusConfig {
+                        xs: (r * 0.5).round(),
+                        sm: r,
+                        md: (r * 1.5).round(),
+                        lg: (r * 2.0).round(),
+                        xl: (r * 4.0).round(),
+                    })
+                }
+            }
+
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut xs = None;
+                let mut sm = None;
+                let mut md = None;
+                let mut lg = None;
+                let mut xl = None;
+
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "xs" => xs = Some(map.next_value::<f32>()?),
+                        "sm" => sm = Some(map.next_value::<f32>()?),
+                        "md" => md = Some(map.next_value::<f32>()?),
+                        "lg" => lg = Some(map.next_value::<f32>()?),
+                        "xl" => xl = Some(map.next_value::<f32>()?),
+                        _ => {
+                            let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                        }
+                    }
+                }
+
+                Ok(BorderRadiusConfig {
+                    xs: xs.unwrap_or_else(default_radius_xs),
+                    sm: sm.unwrap_or_else(default_radius_sm),
+                    md: md.unwrap_or_else(default_radius_md),
+                    lg: lg.unwrap_or_else(default_radius_lg),
+                    xl: xl.unwrap_or_else(default_radius_xl),
+                })
+            }
+        }
+
+        deserializer.deserialize_any(BorderRadiusVisitor)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeConfig {
     pub name: String,
@@ -97,6 +265,8 @@ pub struct ThemeConfig {
     pub slider_active: Option<Color>,
     #[serde(default, with = "opt_hex_color")]
     pub slider_rail: Option<Color>,
+    #[serde(default, alias = "radius")]
+    pub border_radius: BorderRadiusConfig,
     #[serde(default)]
     pub font_family: Option<String>,
     /// Cached resolved font. Kept in sync with `font_family` via
@@ -124,6 +294,7 @@ impl Default for ThemeConfig {
             player_bar_text: Some(parse_hex("#f0f0f0")),
             slider_active: Some(parse_hex("#ffffff")),
             slider_rail: Some(parse_hex("#363636")),
+            border_radius: BorderRadiusConfig::default(),
             font_family: None,
             font: iced::Font::DEFAULT,
         }
@@ -135,6 +306,25 @@ pub fn parse_hex(hex: &str) -> Color {
 }
 
 impl ThemeConfig {
+    pub fn radius_xs(&self) -> Radius {
+        self.border_radius.xs()
+    }
+
+    pub fn radius_sm(&self) -> Radius {
+        self.border_radius.sm()
+    }
+
+    pub fn radius_md(&self) -> Radius {
+        self.border_radius.md()
+    }
+
+    pub fn radius_lg(&self) -> Radius {
+        self.border_radius.lg()
+    }
+
+    pub fn radius_xl(&self) -> Radius {
+        self.border_radius.xl()
+    }
     pub fn bg_color(&self) -> Color {
         self.background
     }

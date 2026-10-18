@@ -226,6 +226,13 @@ cargo test --workspace
     accent = "#BD93F9"
     slider_active = "#FF79C6"
     slider_rail = "#44475A"
+
+    [border_radius]
+    xs = 2.0
+    sm = 4.0
+    md = 6.0
+    lg = 8.0
+    xl = 16.0
     ```
 2. The theme will be automatically discovered at launch from `./themes/` or `~/.config/melody/themes/`.
 

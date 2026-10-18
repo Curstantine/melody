@@ -1,4 +1,3 @@
-use iced::border::Radius;
 use iced::overlay::menu;
 use iced::widget::{button, container, pick_list, scrollable, slider, text_input, toggler};
 use iced::{Background, Border, Color, Shadow, Theme};
@@ -62,7 +61,7 @@ pub fn header_tab_container(
                 Border {
                     color: cfg.primary_color(),
                     width: 1.0,
-                    radius: Radius::from(4.0),
+                    radius: cfg.radius_sm(),
                 },
             )
         } else if is_active {
@@ -72,7 +71,7 @@ pub fn header_tab_container(
                 Border {
                     color: Color::TRANSPARENT,
                     width: 1.0,
-                    radius: Radius::from(4.0),
+                    radius: cfg.radius_sm(),
                 },
             )
         } else if is_hovered {
@@ -82,7 +81,7 @@ pub fn header_tab_container(
                 Border {
                     color: Color::TRANSPARENT,
                     width: 1.0,
-                    radius: Radius::from(4.0),
+                    radius: cfg.radius_sm(),
                 },
             )
         } else {
@@ -92,7 +91,7 @@ pub fn header_tab_container(
                 Border {
                     color: Color::TRANSPARENT,
                     width: 1.0,
-                    radius: Radius::from(4.0),
+                    radius: cfg.radius_sm(),
                 },
             )
         };
@@ -131,7 +130,7 @@ pub fn pick_list_style(
             border: Border {
                 color: border_color,
                 width: 1.0,
-                radius: Radius::from(4.0),
+                radius: cfg.radius_sm(),
             },
         }
     }
@@ -144,7 +143,7 @@ pub fn menu_style(cfg: &ThemeConfig) -> impl Fn(&Theme) -> menu::Style + '_ {
         border: Border {
             color: cfg.border_color(),
             width: 1.0,
-            radius: Radius::from(4.0),
+            radius: cfg.radius_sm(),
         },
         selected_text_color: cfg.primary_color(),
         selected_background: Background::Color(cfg.surface_hover_color()),
@@ -188,7 +187,7 @@ pub fn player_bar_button(
             background: Some(Background::Color(bg)),
             text_color: text,
             border: Border {
-                radius: Radius::from(16.0),
+                radius: cfg.radius_xl(),
                 ..Border::default()
             },
             shadow: Shadow::default(),
@@ -215,7 +214,7 @@ pub fn player_bar_play_button(
             background: Some(Background::Color(bg)),
             text_color: fg,
             border: Border {
-                radius: Radius::from(18.0),
+                radius: cfg.radius_xl(),
                 ..Border::default()
             },
             shadow: Shadow::default(),
@@ -264,7 +263,7 @@ pub fn queue_row_container(
                 border: Border {
                     color: cfg.border_color(),
                     width: 1.0,
-                    radius: Radius::from(4.0),
+                    radius: cfg.radius_sm(),
                 },
                 shadow: Shadow::default(),
                 snap: true,
@@ -327,7 +326,7 @@ pub fn ghost_button(
             background: Some(Background::Color(bg)),
             text_color: text,
             border: Border {
-                radius: Radius::from(6.0),
+                radius: cfg.radius_md(),
                 ..Border::default()
             },
             shadow: Shadow::default(),
@@ -391,7 +390,7 @@ pub fn icon_control_button(
             background: Some(Background::Color(bg)),
             text_color: text,
             border: Border {
-                radius: Radius::from(16.0),
+                radius: cfg.radius_xl(),
                 ..Border::default()
             },
             shadow: Shadow::default(),
@@ -464,7 +463,7 @@ pub fn danger_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> bu
             background: Some(Background::Color(bg)),
             text_color: text,
             border: Border {
-                radius: Radius::from(5.0),
+                radius: cfg.radius_sm(),
                 color: border_color,
                 width: 1.0,
             },
@@ -489,7 +488,7 @@ pub fn search_input_style(
             border: Border {
                 color: border_color,
                 width: 1.0,
-                radius: Radius::from(4.0),
+                radius: cfg.radius_sm(),
             },
             placeholder: cfg.text_muted_color(),
             value: cfg.text_color(),
@@ -511,7 +510,10 @@ pub fn seek_slider_style(
                     Background::Color(cfg.slider_rail_color()),
                 ),
                 width: if is_hovered { 3.0 } else { 2.0 },
-                border: Border::default(),
+                border: Border {
+                    radius: cfg.radius_xs(),
+                    ..Border::default()
+                },
             },
             handle: slider::Handle {
                 shape: slider::HandleShape::Circle {
@@ -541,7 +543,7 @@ pub fn volume_slider_style(
                 ),
                 width: 4.0,
                 border: Border {
-                    radius: Radius::from(2.0),
+                    radius: cfg.radius_xs(),
                     ..Border::default()
                 },
             },
@@ -573,7 +575,7 @@ pub fn settings_slider_style(
                 ),
                 width: 4.0,
                 border: Border {
-                    radius: Radius::from(2.0),
+                    radius: cfg.radius_xs(),
                     ..Border::default()
                 },
             },
@@ -654,7 +656,7 @@ pub fn scrollable_style(
                 border: Border {
                     color: cfg.border_color(),
                     width: 1.0,
-                    radius: Radius::from(8.0),
+                    radius: cfg.radius_lg(),
                 },
                 shadow: Shadow::default(),
                 icon: cfg.text_muted_color(),
@@ -724,7 +726,7 @@ pub fn context_menu_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container
         border: Border {
             color: cfg.border_color(),
             width: 1.0,
-            radius: Radius::from(6.0),
+            radius: cfg.radius_md(),
         },
         shadow: Shadow {
             color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
@@ -764,7 +766,7 @@ pub fn context_menu_item(
                 background: Some(Background::Color(hover_bg)),
                 text_color: hover_fg,
                 border: Border {
-                    radius: Radius::from(4.0),
+                    radius: cfg.radius_sm(),
                     ..Default::default()
                 },
                 shadow: Shadow::default(),
@@ -778,7 +780,7 @@ pub fn context_menu_item(
                 ))),
                 text_color: hover_fg,
                 border: Border {
-                    radius: Radius::from(4.0),
+                    radius: cfg.radius_sm(),
                     ..Default::default()
                 },
                 shadow: Shadow::default(),
@@ -808,7 +810,7 @@ pub fn primary_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> b
             background: Some(Background::Color(bg)),
             text_color: Color::WHITE,
             border: Border {
-                radius: Radius::from(6.0),
+                radius: cfg.radius_md(),
                 ..Border::default()
             },
             shadow: Shadow::default(),
@@ -823,7 +825,7 @@ pub fn dialog_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Styl
         border: Border {
             color: cfg.border_color(),
             width: 1.0,
-            radius: Radius::from(10.0),
+            radius: cfg.radius_lg(),
         },
         shadow: Shadow {
             color: Color::from_rgba(0.0, 0.0, 0.0, 0.45),

@@ -635,7 +635,7 @@ impl AlbumsView {
                         theme_cfg,
                         self.album_covers.get(&key),
                         components::CATALOG_LIST_ART_SIZE,
-                        Radius::from(4.0),
+                        theme_cfg.radius_sm(),
                         icons::DISC_SVG,
                         20.0,
                         theme_cfg.primary_color(),

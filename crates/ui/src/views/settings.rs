@@ -285,6 +285,39 @@ impl SettingsView {
         .style(styles::ghost_button(theme_cfg, false))
         .on_press(Message::ReloadThemes);
 
+        let radius_item = |label: &'static str, val: f32, r: Radius| {
+            let border = theme_cfg.border_color();
+            column![
+                container(Space::new().width(48).height(24)).style(move |_theme| {
+                    container::Style {
+                        background: Some(iced::Background::Color(theme_cfg.surface_hover_color())),
+                        border: Border {
+                            radius: r,
+                            color: border,
+                            width: 1.0,
+                        },
+                        ..Default::default()
+                    }
+                }),
+                text(theme_cfg, format!("{label} ({}px)", val as u32))
+                    .size(10)
+                    .color(theme_cfg.text_muted_color()),
+            ]
+            .spacing(FORM_FIELD_SPACING)
+            .align_x(Alignment::Center)
+            .boxed()
+        };
+
+        let radius_preview = row![
+            radius_item("xs", theme_cfg.border_radius.xs, theme_cfg.radius_xs()),
+            radius_item("sm", theme_cfg.border_radius.sm, theme_cfg.radius_sm()),
+            radius_item("md", theme_cfg.border_radius.md, theme_cfg.radius_md()),
+            radius_item("lg", theme_cfg.border_radius.lg, theme_cfg.radius_lg()),
+            radius_item("xl", theme_cfg.border_radius.xl, theme_cfg.radius_xl()),
+        ]
+        .spacing(CARD_SPACING)
+        .wrap();
+
         let themes_card = components::settings_card(
             theme_cfg,
             "Theme & color palette",
@@ -298,6 +331,11 @@ impl SettingsView {
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 palette_preview,
+                Space::new().height(SPACE_MD),
+                text(theme_cfg, "Border radius variants")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                radius_preview,
                 Space::new().height(SPACE_SM),
                 reload_themes_btn,
             ]
@@ -428,7 +466,7 @@ impl SettingsView {
         .style(move |_theme| container::Style {
             background: Some(iced::Background::Color(theme_cfg.surface_color())),
             border: Border {
-                radius: Radius::from(4.0),
+                radius: theme_cfg.radius_sm(),
                 color: theme_cfg.border_color(),
                 width: 1.0,
             },
@@ -808,7 +846,7 @@ impl SettingsView {
             .style(move |_theme| container::Style {
                 background: Some(iced::Background::Color(theme_cfg.surface_color())),
                 border: Border {
-                    radius: Radius::from(4.0),
+                    radius: theme_cfg.radius_sm(),
                     color: theme_cfg.border_color(),
                     width: 1.0,
                 },
@@ -876,7 +914,7 @@ impl SettingsView {
                 .style(move |_theme| container::Style {
                     background: Some(iced::Background::Color(theme_cfg.surface_color())),
                     border: Border {
-                        radius: Radius::from(4.0),
+                        radius: theme_cfg.radius_sm(),
                         color: theme_cfg.border_color(),
                         width: 1.0,
                     },
@@ -1038,14 +1076,12 @@ impl SettingsView {
                 text(theme_cfg, "Scrobble threshold")
                     .size(13)
                     .color(theme_cfg.text_color()),
-                Space::new().height(SPACE_SM),
                 text(
                     theme_cfg,
                     "Percentage of track length to listen to before logging a scrobble (capped at 4 minutes)"
                 )
                 .size(11)
                 .color(theme_cfg.text_muted_color()),
-                Space::new().height(SPACE_MD),
                 row![
                     components::chip(
                         theme_cfg,
@@ -1088,7 +1124,7 @@ impl SettingsView {
                             color.r, color.g, color.b, 0.1,
                         ))),
                         border: Border {
-                            radius: Radius::from(4.0),
+                            radius: theme_cfg.radius_sm(),
                             color,
                             width: 1.0,
                         },
@@ -1187,7 +1223,7 @@ impl SettingsView {
                             color.r, color.g, color.b, 0.1,
                         ))),
                         border: Border {
-                            radius: Radius::from(4.0),
+                            radius: theme_cfg.radius_sm(),
                             color,
                             width: 1.0,
                         },
@@ -1310,7 +1346,7 @@ impl SettingsView {
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn swatch_card<'a>(
-    theme_cfg: &ThemeConfig,
+    theme_cfg: &'a ThemeConfig,
     label: &'static str,
     color: iced::Color,
 ) -> Element<'a, Message> {
@@ -1319,7 +1355,7 @@ fn swatch_card<'a>(
         container(Space::new().width(52).height(22)).style(move |_theme| container::Style {
             background: Some(iced::Background::Color(color)),
             border: Border {
-                radius: Radius::from(4.0),
+                radius: theme_cfg.radius_sm(),
                 color: border,
                 width: 1.0,
             },
