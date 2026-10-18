@@ -26,6 +26,10 @@ fn test_default_app_state() {
     assert_eq!(st.album_sort_field, AlbumSortField::Title);
     assert_eq!(st.artist_sort_field, ArtistSortField::Artist);
     assert_eq!(st.playlist_sort_field, PlaylistSortField::Name);
+    assert_eq!(st.window_size, None);
+    assert_eq!(st.window_size(), None);
+    assert_eq!(st.queue_id, None);
+    assert_eq!(st.playing_seq, None);
 }
 
 #[test]
@@ -42,6 +46,11 @@ fn test_state_toml_roundtrip() {
         album_sort_field: AlbumSortField::Artist,
         artist_sort_field: ArtistSortField::TrackCount,
         playlist_sort_field: PlaylistSortField::TrackCount,
+        window_size: Some((1280.0, 800.0)),
+        window_width: None,
+        window_height: None,
+        queue_id: Some(12),
+        playing_seq: Some(5),
     };
 
     let temp_dir = std::env::temp_dir();
@@ -52,6 +61,7 @@ fn test_state_toml_roundtrip() {
 
     let loaded = AppState::load_from_path(&temp_file);
     assert_eq!(custom, loaded);
+    assert_eq!(loaded.window_size(), Some((1280.0, 800.0)));
 
     let _ = std::fs::remove_file(temp_file);
 }
@@ -91,4 +101,37 @@ playlist_sort_field = "DateAdded"
     assert_eq!(state.album_sort_field, AlbumSortField::Year);
     assert_eq!(state.artist_sort_field, ArtistSortField::AlbumCount);
     assert_eq!(state.playlist_sort_field, PlaylistSortField::DateAdded);
+    assert_eq!(state.window_size, None);
+    assert_eq!(state.queue_id, None);
+    assert_eq!(state.playing_seq, None);
+}
+
+#[test]
+fn test_window_size_fallback_from_width_height() {
+    let toml = r#"
+window_width = 1440.0
+window_height = 900.0
+"#;
+    let state: AppState =
+        toml::from_str(toml).expect("Failed to parse state with width and height");
+    assert_eq!(state.window_size(), Some((1440.0, 900.0)));
+}
+
+#[test]
+fn test_queue_state_aliases() {
+    let toml = r#"
+active_queue_id = 42
+current_seq = 7
+"#;
+    let state: AppState = toml::from_str(toml).expect("Failed to parse state with aliases");
+    assert_eq!(state.queue_id, Some(42));
+    assert_eq!(state.playing_seq, Some(7));
+
+    let toml2 = r#"
+queue_id = 99
+queue_seq = 3
+"#;
+    let state2: AppState = toml::from_str(toml2).expect("Failed to parse state with queue_seq");
+    assert_eq!(state2.queue_id, Some(99));
+    assert_eq!(state2.playing_seq, Some(3));
 }

@@ -42,6 +42,28 @@ pub struct AppState {
     pub artist_sort_field: ArtistSortField,
     #[serde(default)]
     pub playlist_sort_field: PlaylistSortField,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window_size: Option<(f32, f32)>,
+    #[serde(default, skip_serializing)]
+    pub window_width: Option<f32>,
+    #[serde(default, skip_serializing)]
+    pub window_height: Option<f32>,
+
+    #[serde(
+        default,
+        alias = "active_queue_id",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub queue_id: Option<u64>,
+    #[serde(
+        default,
+        alias = "queue_seq",
+        alias = "current_seq",
+        alias = "active_queue_seq",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub playing_seq: Option<usize>,
 }
 
 impl Default for AppState {
@@ -58,11 +80,25 @@ impl Default for AppState {
             album_sort_field: AlbumSortField::Title,
             artist_sort_field: ArtistSortField::Artist,
             playlist_sort_field: PlaylistSortField::Name,
+            window_size: None,
+            window_width: None,
+            window_height: None,
+            queue_id: None,
+            playing_seq: None,
         }
     }
 }
 
 impl AppState {
+    pub fn window_size(&self) -> Option<(f32, f32)> {
+        if let Some(size) = self.window_size {
+            Some(size)
+        } else if let (Some(w), Some(h)) = (self.window_width, self.window_height) {
+            Some((w, h))
+        } else {
+            None
+        }
+    }
     pub fn state_path() -> PathBuf {
         core_engine::state_file()
     }

@@ -216,7 +216,18 @@ impl App {
             (records, active)
         });
         queues.load_summaries(queue_records);
-        queues.set_active_id(active_queue_id.map(|id| id as u64));
+
+        let active_id = state
+            .queue_id
+            .filter(|&id| queues.summaries.iter().any(|s| s.id == id))
+            .or_else(|| active_queue_id.map(|id| id as u64))
+            .filter(|&id| queues.summaries.iter().any(|s| s.id == id));
+        queues.set_active_id(active_id);
+        if let (Some(active_id), Some(seq)) = (active_id, state.playing_seq) {
+            if let Some(summary) = queues.summaries.iter_mut().find(|s| s.id == active_id) {
+                summary.current = seq;
+            }
+        }
 
         let app = Self {
             db,
@@ -286,7 +297,10 @@ impl App {
 
             context_menu: None,
             duplicate_prompt: None,
-            window_size: iced::Size::new(1130.0, 740.0),
+            window_size: {
+                let (w, h) = state.window_size().unwrap_or((1130.0, 740.0));
+                iced::Size::new(w.max(1000.0), h.max(520.0))
+            },
             pending_playlist_tracks: Vec::new(),
         };
 
@@ -322,12 +336,15 @@ impl App {
             ));
         }
 
-        if let Some(active_id) = active_queue_id {
+        if let Some(active_id) = active_id {
             let db = app.db.clone();
             initial_tasks.push(Task::perform(
                 async move {
-                    let tracks = db.load_queue_tracks(active_id).await.unwrap_or_default();
-                    (active_id, tracks)
+                    let tracks = db
+                        .load_queue_tracks(active_id as i64)
+                        .await
+                        .unwrap_or_default();
+                    (active_id as i64, tracks)
                 },
                 |(id, tracks)| Message::QueueActivated {
                     id: id as u64,
@@ -504,8 +521,15 @@ impl App {
                         );
 
                         self.queue_next_gapless_track();
+                        let save_state = self.save_state_debounced();
 
-                        return Task::batch([load_assets, persist, snap, fetch_details]);
+                        return Task::batch([
+                            load_assets,
+                            persist,
+                            snap,
+                            fetch_details,
+                            save_state,
+                        ]);
                     } else {
                         return self.update(Message::NextTrack);
                     }
@@ -615,6 +639,38 @@ impl App {
                         duration_ms,
                         file_path,
                     });
+
+                    self.queue_next_gapless_track();
+                    let load_assets =
+                        self.load_track_assets_task(track_id, path, artist, title, duration_ms);
+                    let save_state = self.save_state_debounced();
+                    Task::batch([load_assets, save_state])
+                } else {
+                    Task::none()
+                }
+            }
+
+            Message::TrackResolvedForRestore(maybe_track) => {
+                if let Some(track) = *maybe_track {
+                    info!("Restoring player track: {} (ID {})", track.title, track.id);
+                    let path = PathBuf::from(&track.file_path);
+
+                    self.audio_controller.load(path.clone(), false);
+                    let track_id = track.id;
+                    let duration_ms = track.duration_ms;
+                    let title = track.title.clone();
+                    let artist = track.artist.clone();
+
+                    self.current_track = Some(track);
+                    self.current_track_id = Some(track_id);
+                    self.position_ms = 0;
+                    self.duration_ms = duration_ms;
+
+                    self.current_cover = None;
+                    self.current_blurred_cover = None;
+                    self.current_next_cover = None;
+                    self.current_tech_info = None;
+                    self.now_playing.set_lyrics(None);
 
                     self.queue_next_gapless_track();
                     self.load_track_assets_task(track_id, path, artist, title, duration_ms)
@@ -1014,7 +1070,7 @@ impl App {
 
             Message::WindowResized(size) => {
                 self.window_size = size;
-                Task::none()
+                self.save_state_debounced()
             }
 
             Message::OpenTrackContextMenu { track, context } => {
@@ -2124,7 +2180,8 @@ impl App {
                     },
                     |(id, tracks)| Message::QueueActivated { id, tracks },
                 );
-                Task::batch([persist, load, snap_queue_scroll_top()])
+                let save_state = self.save_state_debounced();
+                Task::batch([persist, load, snap_queue_scroll_top(), save_state])
             }
             Message::QueueDelete(id) => {
                 let was_active = self.queues.active == Some(id);
@@ -2154,6 +2211,7 @@ impl App {
                     },
                     |_| Message::QueuesPersisted,
                 );
+                let save_state = self.save_state_debounced();
                 if let Some(next) = fallback {
                     let load = Task::perform(
                         async move {
@@ -2163,15 +2221,31 @@ impl App {
                         },
                         |(id, tracks)| Message::QueueActivated { id, tracks },
                     );
-                    Task::batch([persist, load, snap_queue_scroll_top()])
+                    Task::batch([persist, load, snap_queue_scroll_top(), save_state])
                 } else {
-                    Task::batch([persist, snap_queue_scroll_top()])
+                    Task::batch([persist, snap_queue_scroll_top(), save_state])
                 }
             }
             Message::QueueActivated { id, tracks } => {
                 self.queues.activate_with_tracks(id, tracks);
                 self.playlists.reset_queue_window();
-                snap_queue_scroll_top()
+                let snap = self.snap_queue_to_current();
+                if self.current_track.is_none() {
+                    if let Some(track_row) = self
+                        .queues
+                        .active_queue()
+                        .and_then(|q| q.current_track())
+                        .cloned()
+                    {
+                        let db = self.db.clone();
+                        let restore_track = Task::perform(
+                            async move { db.get_track_by_id(track_row.id).await.unwrap_or(None) },
+                            |res| Message::TrackResolvedForRestore(Box::new(res)),
+                        );
+                        return Task::batch([snap, restore_track]);
+                    }
+                }
+                snap
             }
             Message::QueueScrolled(viewport) => {
                 let scroll_y = viewport.absolute_offset().y;
@@ -2205,6 +2279,7 @@ impl App {
                     play,
                     self.persist_active_queue_task(),
                     self.snap_queue_to_current(),
+                    self.save_state_debounced(),
                 ])
             }
             Message::PlayScope {
@@ -2248,7 +2323,10 @@ impl App {
                     }
                 }
                 self.queues.touch_active_summary();
-                self.persist_active_queue_task()
+                Task::batch([
+                    self.persist_active_queue_task(),
+                    self.save_state_debounced(),
+                ])
             }
             Message::QueueClicked { queue_id, index } => {
                 // Single click selects (arming double-click to play, like the
@@ -2820,7 +2898,9 @@ impl App {
             self.playlists.hovered_queue_row = Some(pos);
         }
         if released.is_some() && order_changed {
-            self.persist_active_queue_task()
+            let persist = self.persist_active_queue_task();
+            let save_state = self.save_state_debounced();
+            Task::batch([persist, save_state])
         } else {
             Task::none()
         }
@@ -2985,6 +3065,25 @@ impl App {
     }
 
     pub fn to_state(&self) -> AppState {
+        let (queue_id, playing_seq) = if let Some(queue) = self.queues.active_queue() {
+            (Some(queue.id), queue.current_index())
+        } else if let Some(active_id) = self.queues.active {
+            if let Some(summary) = self.queues.summary(active_id) {
+                (
+                    Some(summary.id),
+                    if summary.track_count > 0 {
+                        Some(summary.current)
+                    } else {
+                        None
+                    },
+                )
+            } else {
+                (Some(active_id), None)
+            }
+        } else {
+            (None, None)
+        };
+
         AppState {
             active_tab: self.active_tab,
             settings_tab: self.settings.active_tab,
@@ -2997,6 +3096,11 @@ impl App {
             album_sort_field: self.albums.sort_field,
             artist_sort_field: self.artists.sort_field,
             playlist_sort_field: self.playlists.sort_field,
+            window_size: Some((self.window_size.width, self.window_size.height)),
+            window_width: None,
+            window_height: None,
+            queue_id,
+            playing_seq,
         }
     }
 

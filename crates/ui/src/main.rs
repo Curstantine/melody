@@ -25,12 +25,17 @@ fn main() -> iced::Result {
         )
         .try_init();
 
+    let state = state::AppState::load();
+    let (width, height) = state.window_size().unwrap_or((1130.0, 740.0));
+    let width = width.max(1000.0);
+    let height = height.max(520.0);
+
     let mut builder = iced::application(App::new, App::update, App::view)
         .title(App::title)
         .theme(App::theme)
         .subscription(App::subscription)
         .window(window::Settings {
-            size: iced::Size::new(1130.0, 740.0),
+            size: iced::Size::new(width, height),
             min_size: Some(iced::Size::new(1000.0, 520.0)),
             position: window::Position::Centered,
             ..Default::default()

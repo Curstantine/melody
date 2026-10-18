@@ -388,6 +388,7 @@ pub enum Message {
     ArtistsLoaded(Vec<ArtistSummary>),
     LibraryFoldersLoaded(Vec<String>),
     TrackResolvedForPlayback(Box<Option<Track>>),
+    TrackResolvedForRestore(Box<Option<Track>>),
     TrackDetailsLoaded(Box<Option<Track>>),
     PlaybackAssetsLoaded {
         track_id: i64,
@@ -780,6 +781,10 @@ impl std::fmt::Debug for Message {
                 .finish(),
             Self::TrackResolvedForPlayback(t) => f
                 .debug_struct("TrackResolvedForPlayback")
+                .field("is_some", &t.is_some())
+                .finish(),
+            Self::TrackResolvedForRestore(t) => f
+                .debug_struct("TrackResolvedForRestore")
                 .field("is_some", &t.is_some())
                 .finish(),
             Self::TrackDetailsLoaded(t) => f
