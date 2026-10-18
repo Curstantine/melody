@@ -257,7 +257,8 @@ pub fn cover_art<'a>(
             image(handle.clone())
                 .width(Length::Fixed(size))
                 .height(Length::Fixed(size))
-                .content_fit(ContentFit::Cover),
+                .content_fit(ContentFit::Cover)
+                .border_radius(radius),
         )
         .width(size)
         .height(size)
@@ -322,7 +323,8 @@ pub fn catalog_cover_art<'a>(
                 image(handle.clone())
                     .width(Length::Fixed(size))
                     .height(Length::Fixed(size))
-                    .content_fit(ContentFit::Cover),
+                    .content_fit(ContentFit::Cover)
+                    .border_radius(radius),
             )
             .width(size)
             .height(size)
@@ -345,7 +347,7 @@ pub fn catalog_cover_art<'a>(
                 .style(move |_theme, status| {
                     let bg = match status {
                         button::Status::Active => Color::TRANSPARENT,
-                        button::Status::Hovered => Color::from_rgba(0.0, 0.0, 0.0, 0.28),
+                        button::Status::Hovered => Color::from_rgba(0.0, 0.0, 0.0, 0.42),
                         button::Status::Pressed => Color::from_rgba(0.0, 0.0, 0.0, 0.42),
                         button::Status::Disabled => Color::TRANSPARENT,
                     };
