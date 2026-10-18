@@ -343,24 +343,20 @@ pub fn catalog_cover_art<'a>(
             let overlay_btn = button(Space::new().width(Length::Fill).height(Length::Fill))
                 .width(size)
                 .height(size)
-                .padding(0)
                 .style(move |_theme, status| {
                     let bg = match status {
                         button::Status::Active => Color::TRANSPARENT,
-                        button::Status::Hovered => Color::from_rgba(0.0, 0.0, 0.0, 0.42),
-                        button::Status::Pressed => Color::from_rgba(0.0, 0.0, 0.0, 0.42),
+                        button::Status::Hovered => Color::from_rgba(0.0, 0.0, 0.0, 0.5),
+                        button::Status::Pressed => Color::from_rgba(0.0, 0.0, 0.0, 0.5),
                         button::Status::Disabled => Color::TRANSPARENT,
                     };
                     button::Style {
                         background: Some(Background::Color(bg)),
                         border: Border {
                             radius,
-                            color: border_color,
-                            width: 1.0,
+                            ..Default::default()
                         },
-                        shadow: Shadow::default(),
-                        snap: true,
-                        text_color: Color::TRANSPARENT,
+                        ..Default::default()
                     }
                 })
                 .on_press(on_press);
