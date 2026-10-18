@@ -25,17 +25,17 @@ pub const SIDEBAR_PADDING: [f32; 2] = [8.0, 12.0];
 pub const SIDEBAR_HEADER_SPACING: f32 = 2.0;
 pub const SIDEBAR_ITEM_SPACING: f32 = 1.0;
 
-pub const CARD_SPACING: f32 = 10.0;
+pub const CARD_SPACING: f32 = 4.0;
 pub const SECTION_SPACING: f32 = 12.0;
 pub const FORM_FIELD_SPACING: f32 = 4.0;
-pub const CHIP_ROW_SPACING: f32 = 6.0;
+pub const CHIP_ROW_SPACING: f32 = 4.0;
 
 pub const BUTTON_PADDING_SM: [f32; 2] = [4.0, 8.0];
 pub const BUTTON_PADDING_MD: [f32; 2] = [6.0, 12.0];
 pub const BUTTON_PADDING_LG: [f32; 2] = [8.0, 16.0];
 pub const INPUT_PADDING: [f32; 2] = [5.0, 8.0];
 pub const BANNER_PADDING: [f32; 2] = [6.0, 10.0];
-pub const ROW_ITEM_PADDING: [f32; 2] = [8.0, 12.0];
+pub const ROW_ITEM_PADDING: [f32; 2] = [5.0, 8.0];
 pub const EMPTY_STATE_PADDING: f32 = 20.0;
 pub const PREVIEW_BOX_PADDING: f32 = 12.0;
 
@@ -859,16 +859,11 @@ impl SettingsView {
                 let path_clone = folder_path.clone();
                 let path_buf = PathBuf::from(folder_path);
 
-                let rescan_btn = button(
-                    row![
-                        icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.text_color()),
-                        Space::new().width(SPACE_SM),
-                        text(theme_cfg, "Rescan")
-                            .size(11)
-                            .color(theme_cfg.text_color()),
-                    ]
-                    .align_y(Alignment::Center),
-                )
+                let rescan_btn = button(icons::icon(
+                    icons::REFRESH_SVG,
+                    12.0,
+                    theme_cfg.text_color(),
+                ))
                 .padding(BUTTON_PADDING_SM)
                 .style(styles::ghost_button(theme_cfg, false))
                 .on_press_maybe(if ctx.is_scanning {
@@ -877,16 +872,11 @@ impl SettingsView {
                     Some(Message::RescanLibraryFolder(path_buf))
                 });
 
-                let remove_btn = button(
-                    row![
-                        icons::icon(icons::TRASH_SVG, 12.0, theme_cfg.danger_color()),
-                        Space::new().width(SPACE_SM),
-                        text(theme_cfg, "Remove")
-                            .size(11)
-                            .color(theme_cfg.danger_color()),
-                    ]
-                    .align_y(Alignment::Center),
-                )
+                let remove_btn = button(icons::icon(
+                    icons::TRASH_SVG,
+                    12.0,
+                    theme_cfg.danger_color(),
+                ))
                 .padding(BUTTON_PADDING_SM)
                 .style(styles::ghost_button(theme_cfg, false))
                 .on_press_maybe(if ctx.is_scanning {
