@@ -10,6 +10,9 @@ use iced::{Color, Length, Theme};
 /// Boxicons `play-filled`.
 pub const PLAY_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M6.51 18.87c.15.09.32.13.49.13s.36-.05.51-.14l10-6c.3-.18.49-.51.49-.86s-.18-.68-.49-.86l-10-6a.99.99 0 0 0-1.01-.01c-.31.18-.51.51-.51.87v12c0 .36.19.69.51.87Z"/></svg>"#;
 
+/// Boxicons `play-circle`.
+pub const PLAY_CIRCLE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/><path fill="currentColor" d="M10 16.5l6-4.5-6-4.5z"/></svg>"#;
+
 /// Boxicons `pause-filled`.
 pub const PAUSE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="5" height="12" x="6" y="6" fill="currentColor" rx="1" ry="1"/><rect width="5" height="12" x="13" y="6" fill="currentColor" rx="1" ry="1"/></svg>"#;
 

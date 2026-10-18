@@ -23,12 +23,14 @@ fn test_settings_tab_variants_and_defaults() {
 
     let tabs = [
         SettingsTab::Appearance,
+        SettingsTab::Playback,
         SettingsTab::Library,
         SettingsTab::Scrobbling,
     ];
     assert_ne!(tabs[0], tabs[1]);
     assert_ne!(tabs[1], tabs[2]);
-    assert_ne!(tabs[0], tabs[2]);
+    assert_ne!(tabs[2], tabs[3]);
+    assert_ne!(tabs[0], tabs[3]);
 }
 
 #[test]
@@ -39,6 +41,7 @@ fn test_settings_views_render_without_panicking() {
 
     for tab in [
         SettingsTab::Appearance,
+        SettingsTab::Playback,
         SettingsTab::Library,
         SettingsTab::Scrobbling,
     ] {
@@ -85,6 +88,9 @@ fn test_settings_views_render_without_panicking() {
             scrobble_percent: 50,
             gapless: true,
             watch_library: true,
+            volume: 1.0,
+            is_shuffle: false,
+            is_repeat: false,
         };
 
         // Render each view and verify it builds valid Iced elements without panic

@@ -168,7 +168,7 @@ cargo test --workspace
 - [`artists.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/artists.rs): Artist catalog with track count and duration summaries plus Play / Shuffle All actions.
 - [`playlists.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/playlists.rs): Playlist catalog/detail (M3U) and the Queues section rendered from [`QueueStore`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/queue.rs).
 - [`now_playing.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/now_playing.rs): Now Playing view with large cover art, track metadata, and scrollable lyrics.
-- [`settings.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/settings.rs): Dedicated settings tabs for Appearance, Library management, and Scrobbling.
+- [`settings.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/settings.rs): Dedicated settings tabs for Appearance, Playback, Library management, and Scrobbling.
 - [`player_bar.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/player_bar.rs): Persistent bottom player bar with cover thumbnail, track info, seek slider, playback buttons, shuffle, repeat, favorite toggle, and volume control.
 - [`status_bar.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/status_bar.rs): Bottom status bar displaying track and catalog counts, active filter indicators, and library scanning status.
 

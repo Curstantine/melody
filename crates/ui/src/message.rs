@@ -137,6 +137,7 @@ pub enum ArtistSortField {
 pub enum SettingsTab {
     #[default]
     Appearance,
+    Playback,
     Library,
     Scrobbling,
 }

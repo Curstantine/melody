@@ -79,6 +79,9 @@ pub struct SettingsContext<'a> {
     pub scrobble_percent: u32,
     pub gapless: bool,
     pub watch_library: bool,
+    pub volume: f32,
+    pub is_shuffle: bool,
+    pub is_repeat: bool,
 }
 
 /// Self-contained state and view component for the Settings preferences screen.
@@ -126,6 +129,7 @@ impl SettingsView {
 
         let content = match self.active_tab {
             SettingsTab::Appearance => self.view_appearance(theme_cfg, &ctx),
+            SettingsTab::Playback => self.view_playback(theme_cfg, &ctx),
             SettingsTab::Library => self.view_library(theme_cfg, &ctx),
             SettingsTab::Scrobbling => self.view_scrobbling(theme_cfg, &ctx),
         };
@@ -192,6 +196,12 @@ impl SettingsView {
                     icons::PALETTE_SVG,
                     "Appearance",
                     "Theme, views, fonts",
+                ),
+                nav_item(
+                    SettingsTab::Playback,
+                    icons::PLAY_CIRCLE_SVG,
+                    "Playback",
+                    "Audio engine & transitions",
                 ),
                 nav_item(
                     SettingsTab::Library,
@@ -706,24 +716,6 @@ impl SettingsView {
                     ),
                 ]
                 .align_y(Alignment::Center),
-                row![
-                    text(theme_cfg, "Gapless audio playback")
-                        .size(12)
-                        .color(theme_cfg.text_color())
-                        .width(Length::Fixed(SETTING_LABEL_WIDTH)),
-                    components::chip_with_icon(
-                        theme_cfg,
-                        if ctx.gapless {
-                            icons::CHECK_SVG
-                        } else {
-                            icons::RADIO_SVG
-                        },
-                        if ctx.gapless { "Enabled" } else { "Disabled" },
-                        ctx.gapless,
-                        Message::ToggleGapless(!ctx.gapless),
-                    ),
-                ]
-                .align_y(Alignment::Center),
             ]
             .spacing(CARD_SPACING)
             .boxed(),
@@ -747,7 +739,212 @@ impl SettingsView {
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // 2. Library Section
+    // 2. Playback Section
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    fn view_playback<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        ctx: &SettingsContext<'a>,
+    ) -> Element<'a, Message> {
+        let header = components::settings_header(
+            theme_cfg,
+            "Playback & audio engine",
+            Some("Configure audio transitions, output engine, and playback behavior"),
+        );
+
+        // 1. Audio Engine Specifications
+        let engine_stats_row1 = row![
+            components::metric_box(theme_cfg, "Audio pipeline", "Lock-free SPSC".to_string()),
+            components::metric_box(theme_cfg, "Resampling engine", "Linear Dynamic".to_string()),
+            components::metric_box(
+                theme_cfg,
+                "Decoding backend",
+                "FFmpeg / Symphonia".to_string()
+            ),
+        ]
+        .spacing(CHIP_ROW_SPACING);
+
+        let engine_stats_row2 = row![
+            components::metric_box(
+                theme_cfg,
+                "Ring buffer capacity",
+                "262,144 samples".to_string()
+            ),
+            components::metric_box(theme_cfg, "Sample format", "32-bit Float (f32)".to_string()),
+            components::metric_box(theme_cfg, "Output backend", "CPAL Stream".to_string()),
+        ]
+        .spacing(CHIP_ROW_SPACING);
+
+        let stats_card = components::settings_card(
+            theme_cfg,
+            "Audio engine specifications",
+            column![engine_stats_row1, engine_stats_row2]
+                .spacing(CARD_SPACING)
+                .boxed(),
+        );
+
+        // 2. Audio Transitions & Pipeline Card
+        let gapless_row = row![
+            column![
+                text(theme_cfg, "Gapless audio playback")
+                    .size(12)
+                    .color(theme_cfg.text_color()),
+                text(
+                    theme_cfg,
+                    "Preload upcoming tracks in memory for seamless, uninterrupted transitions without silence between songs",
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .width(Length::Fill),
+            components::chip_with_icon(
+                theme_cfg,
+                if ctx.gapless {
+                    icons::CHECK_SVG
+                } else {
+                    icons::RADIO_SVG
+                },
+                if ctx.gapless { "Enabled" } else { "Disabled" },
+                ctx.gapless,
+                Message::ToggleGapless(!ctx.gapless),
+            ),
+        ]
+        .align_y(Alignment::Center);
+
+        let transitions_card = components::settings_card(
+            theme_cfg,
+            "Audio transitions & stream",
+            column![gapless_row].spacing(CARD_SPACING).boxed(),
+        );
+
+        // 3. Playback Controls & Defaults Card
+        let volume_pct = (ctx.volume * 100.0).round() as u32;
+        let volume_presets = [25, 50, 75, 100];
+        let volume_preset_buttons = {
+            let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
+            for &pct in &volume_presets {
+                let is_sel = volume_pct == pct;
+                let btn = components::chip(
+                    theme_cfg,
+                    format!("{}%", pct),
+                    is_sel,
+                    Message::VolumeChanged(pct as f32 / 100.0),
+                );
+                r = r.push(btn);
+            }
+            r
+        };
+
+        let volume_row = row![
+            column![
+                text(theme_cfg, "Master output volume")
+                    .size(12)
+                    .color(theme_cfg.text_color()),
+                text(
+                    theme_cfg,
+                    "Default master volume multiplier applied to audio stream playback",
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .width(Length::Fill),
+            row![
+                slider(0.0..=1.0, ctx.volume, Message::VolumeChanged)
+                    .style(styles::settings_slider_style(theme_cfg))
+                    .width(Length::Fixed(SETTING_LABEL_WIDTH)),
+                Space::new().width(SPACE_LG),
+                text(theme_cfg, format!("{}%", volume_pct))
+                    .size(12)
+                    .color(theme_cfg.primary_color())
+                    .width(Length::Fixed(45.0)),
+                volume_preset_buttons,
+            ]
+            .align_y(Alignment::Center),
+        ]
+        .align_y(Alignment::Center);
+
+        let shuffle_row = row![
+            column![
+                text(theme_cfg, "Shuffle playback")
+                    .size(12)
+                    .color(theme_cfg.text_color()),
+                text(
+                    theme_cfg,
+                    "Randomize track selection and playback order within active queue",
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .width(Length::Fill),
+            components::chip_with_icon(
+                theme_cfg,
+                if ctx.is_shuffle {
+                    icons::CHECK_SVG
+                } else {
+                    icons::RADIO_SVG
+                },
+                if ctx.is_shuffle {
+                    "Enabled"
+                } else {
+                    "Disabled"
+                },
+                ctx.is_shuffle,
+                Message::ToggleShuffle,
+            ),
+        ]
+        .align_y(Alignment::Center);
+
+        let repeat_row = row![
+            column![
+                text(theme_cfg, "Repeat playback")
+                    .size(12)
+                    .color(theme_cfg.text_color()),
+                text(
+                    theme_cfg,
+                    "Loop the active queue continuously when the final track completes",
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .width(Length::Fill),
+            components::chip_with_icon(
+                theme_cfg,
+                if ctx.is_repeat {
+                    icons::CHECK_SVG
+                } else {
+                    icons::RADIO_SVG
+                },
+                if ctx.is_repeat { "Enabled" } else { "Disabled" },
+                ctx.is_repeat,
+                Message::ToggleRepeat,
+            ),
+        ]
+        .align_y(Alignment::Center);
+
+        let behavior_card = components::settings_card(
+            theme_cfg,
+            "Playback behavior & controls",
+            column![volume_row, shuffle_row, repeat_row]
+                .spacing(CARD_SPACING)
+                .boxed(),
+        );
+
+        column![
+            header,
+            transitions_card,
+            behavior_card,
+            stats_card,
+            Space::new().height(PAGE_BOTTOM_SPACER),
+        ]
+        .spacing(PAGE_SPACING)
+        .padding(PAGE_PADDING)
+        .width(Length::Fill)
+        .boxed()
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 3. Library Section
     // ─────────────────────────────────────────────────────────────────────────────
 
     fn view_library<'a>(
