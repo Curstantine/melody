@@ -468,3 +468,48 @@ fn test_catalog_tile_renders_with_ellipsis() {
     };
     let _rendered_row = row.view();
 }
+
+#[test]
+fn test_catalog_cover_art_renders_placeholder_and_with_cover() {
+    let theme_cfg = ThemeConfig::default();
+
+    // 1. Placeholder fallback (None cover)
+    let placeholder = components::catalog_cover_art(
+        &theme_cfg,
+        None,
+        160.0,
+        theme_cfg.radius_md(),
+        icons::DISC_SVG,
+        50.0,
+        theme_cfg.primary_color(),
+        Message::CloseContextMenu,
+    );
+    let _rendered_placeholder = placeholder;
+
+    // 2. Tile using catalog_cover_art
+    let leading = components::catalog_cover_art(
+        &theme_cfg,
+        None,
+        140.0,
+        theme_cfg.radius_md(),
+        icons::USER_AVATAR_SVG,
+        45.0,
+        theme_cfg.primary_color(),
+        Message::CloseContextMenu,
+    );
+    let tile = components::CatalogTile {
+        theme: &theme_cfg,
+        tile_width: 140.0,
+        leading,
+        title: "Artist Name",
+        mid_left: "5 albums",
+        mid_right: "",
+        bottom_left: "",
+        bottom_right: "",
+        on_select: Message::CloseContextMenu,
+        on_play: Message::CloseContextMenu,
+        on_shuffle: Message::CloseContextMenu,
+        on_right_press: Some(Message::CloseContextMenu),
+    };
+    let _rendered_tile = tile.view();
+}

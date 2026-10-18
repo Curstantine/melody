@@ -119,7 +119,7 @@ impl<'a> CatalogRow<'a> {
             .padding([0, 8]);
 
         let select_btn = button(row_content)
-            .style(styles::tile(theme_cfg))
+            .style(styles::list_row(theme_cfg))
             .width(Length::Fill)
             .height(Length::Fill)
             .on_press(on_select);
@@ -212,7 +212,6 @@ impl<'a> CatalogTile<'a> {
                 // tile edge instead of wrapping or hard clipping.
                 text(theme_cfg, title)
                     .size(13)
-                    .color(theme_cfg.text_color())
                     .width(Length::Fill)
                     .wrapping(Wrapping::None)
                     .ellipsis(Ellipsis::End),
@@ -245,22 +244,10 @@ impl<'a> CatalogTile<'a> {
         .width(tile_w)
         .height(CATALOG_TILE_META_HEIGHT);
 
-        let card_content = container(column![leading, meta])
-            .width(tile_w)
-            .height(tile_w + CATALOG_TILE_META_HEIGHT)
-            .clip(true);
-
-        let select_btn = button(card_content)
+        let meta_btn = button(meta)
             .style(styles::tile(theme_cfg))
             .padding(0)
             .on_press(on_select);
-
-        let select_element: Element<'a, Message> = match on_right_press {
-            Some(msg) => iced::widget::mouse_area(select_btn)
-                .on_right_press(msg)
-                .boxed(),
-            None => select_btn.boxed(),
-        };
 
         let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text_color()))
             .style(styles::icon_control_button(theme_cfg))
@@ -283,7 +270,18 @@ impl<'a> CatalogTile<'a> {
             .align_y(Alignment::End)
             .padding(6);
 
-        iced::widget::stack([select_element, actions.boxed()]).boxed()
+        let cover_block = iced::widget::stack([leading, actions.boxed()]);
+
+        let card_content = column![cover_block, meta_btn]
+            .width(tile_w)
+            .height(tile_w + CATALOG_TILE_META_HEIGHT);
+
+        match on_right_press {
+            Some(msg) => iced::widget::mouse_area(card_content)
+                .on_right_press(msg)
+                .boxed(),
+            None => card_content.boxed(),
+        }
     }
 }
 

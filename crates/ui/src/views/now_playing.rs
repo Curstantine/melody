@@ -1,5 +1,4 @@
 use core_engine::{AudioTechnicalInfo, Track, TrackRow};
-use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, scrollable, stack, Space, Widget};
 use iced::{Alignment, ContentFit, Element, Length};
 
@@ -211,7 +210,7 @@ impl NowPlayingView {
                             theme_cfg,
                             next_cover,
                             32.0,
-                            Radius::default(),
+                            theme_cfg.radius_sm(),
                             icons::DISC_SVG,
                             16.0,
                             theme_cfg.primary_color(),

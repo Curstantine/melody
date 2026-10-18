@@ -1,7 +1,7 @@
 use core_engine::SortDirection;
 use iced::border::Radius;
 use iced::widget::{button, column, container, image, row, Space, Widget};
-use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length};
+use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length, Shadow};
 
 use crate::icons;
 use crate::message::{Message, ViewMode};
@@ -292,6 +292,119 @@ pub fn cover_art<'a>(
             ..Default::default()
         })
         .boxed(),
+    }
+}
+
+/// An interactive catalog cover displaying artwork or a placeholder icon.
+///
+/// On hover:
+/// - If artwork image is present: darkens the cover with a semi-transparent overlay.
+/// - If fallback placeholder: transitions the background from `surface` to `surface_hover`.
+///
+/// Clicks trigger the provided `on_press` message.
+#[allow(clippy::too_many_arguments)]
+pub fn catalog_cover_art<'a>(
+    theme_cfg: &'a ThemeConfig,
+    cover: Option<&image::Handle>,
+    size: f32,
+    radius: impl Into<Radius>,
+    fallback_icon_svg: &'static str,
+    fallback_icon_size: f32,
+    fallback_icon_color: iced::Color,
+    on_press: Message,
+) -> Element<'a, Message> {
+    let radius: Radius = radius.into();
+    let border_color = theme_cfg.border_color();
+
+    match cover {
+        Some(handle) => {
+            let image_layer = container(
+                image(handle.clone())
+                    .width(Length::Fixed(size))
+                    .height(Length::Fixed(size))
+                    .content_fit(ContentFit::Cover),
+            )
+            .width(size)
+            .height(size)
+            .center_x(size)
+            .center_y(size)
+            .clip(true)
+            .style(move |_theme| container::Style {
+                border: Border {
+                    radius,
+                    color: border_color,
+                    width: 1.0,
+                },
+                ..Default::default()
+            });
+
+            let overlay_btn = button(Space::new().width(Length::Fill).height(Length::Fill))
+                .width(size)
+                .height(size)
+                .padding(0)
+                .style(move |_theme, status| {
+                    let bg = match status {
+                        button::Status::Active => Color::TRANSPARENT,
+                        button::Status::Hovered => Color::from_rgba(0.0, 0.0, 0.0, 0.28),
+                        button::Status::Pressed => Color::from_rgba(0.0, 0.0, 0.0, 0.42),
+                        button::Status::Disabled => Color::TRANSPARENT,
+                    };
+                    button::Style {
+                        background: Some(Background::Color(bg)),
+                        border: Border {
+                            radius,
+                            color: border_color,
+                            width: 1.0,
+                        },
+                        shadow: Shadow::default(),
+                        snap: true,
+                        text_color: Color::TRANSPARENT,
+                    }
+                })
+                .on_press(on_press);
+
+            iced::widget::stack([image_layer.boxed(), overlay_btn.boxed()]).boxed()
+        }
+        None => {
+            let placeholder_bg = theme_cfg.surface_color();
+            let placeholder_hover_bg = theme_cfg.surface_hover_color();
+
+            let placeholder_content = container(icons::icon(
+                fallback_icon_svg,
+                fallback_icon_size,
+                fallback_icon_color,
+            ))
+            .width(size)
+            .height(size)
+            .center_x(size)
+            .center_y(size);
+
+            button(placeholder_content)
+                .width(size)
+                .height(size)
+                .padding(0)
+                .style(move |_theme, status| {
+                    let bg = match status {
+                        button::Status::Active => placeholder_bg,
+                        button::Status::Hovered => placeholder_hover_bg,
+                        button::Status::Pressed => placeholder_hover_bg,
+                        button::Status::Disabled => placeholder_bg,
+                    };
+                    button::Style {
+                        background: Some(Background::Color(bg)),
+                        border: Border {
+                            radius,
+                            color: border_color,
+                            width: 1.0,
+                        },
+                        shadow: Shadow::default(),
+                        snap: true,
+                        text_color: Color::TRANSPARENT,
+                    }
+                })
+                .on_press(on_press)
+                .boxed()
+        }
     }
 }
 

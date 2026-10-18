@@ -287,6 +287,25 @@ pub fn queue_row_container(
 
 pub fn tile(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
+        let text = match status {
+            button::Status::Active => cfg.text_color(),
+            button::Status::Hovered => cfg.primary_color(),
+            button::Status::Pressed => cfg.text_color(),
+            button::Status::Disabled => cfg.text_muted_color(),
+        };
+
+        button::Style {
+            background: Some(Background::Color(Color::TRANSPARENT)),
+            text_color: text,
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: true,
+        }
+    }
+}
+
+pub fn list_row(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
+    move |_theme, status| {
         let (bg, text) = match status {
             button::Status::Active => (Color::TRANSPARENT, cfg.text_color()),
             button::Status::Hovered => (cfg.surface_hover_color(), cfg.primary_color()),
@@ -297,7 +316,10 @@ pub fn tile(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Sty
         button::Style {
             background: Some(Background::Color(bg)),
             text_color: text,
-            border: Border::default(),
+            border: Border {
+                radius: cfg.radius_xs(),
+                ..Border::default()
+            },
             shadow: Shadow::default(),
             snap: true,
         }

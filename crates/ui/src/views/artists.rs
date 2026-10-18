@@ -1,5 +1,4 @@
 use core_engine::{ArtistSummary, SortDirection, TrackFilter};
-use iced::border::Radius;
 use iced::widget::{column, container, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length, Padding};
 
@@ -369,14 +368,15 @@ impl ArtistsView {
                 .align_y(Alignment::Start);
 
             for artist in chunk {
-                let leading = components::cover_art(
+                let leading = components::catalog_cover_art(
                     theme_cfg,
                     None,
                     tile_w,
-                    Radius::default(),
+                    theme_cfg.radius_md(),
                     icons::USER_AVATAR_SVG,
                     avatar_icon_size,
                     theme_cfg.primary_color(),
+                    Message::SelectArtist(artist.artist.to_string()),
                 );
 
                 tile_row = tile_row.push(

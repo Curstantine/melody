@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
 use core_engine::{AlbumSummary, SortDirection, TrackFilter};
-use iced::border::Radius;
 use iced::widget::{column, container, image, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length};
 
@@ -556,14 +555,15 @@ impl AlbumsView {
 
             for album in chunk {
                 let key = cover_key(album);
-                let leading = components::cover_art(
+                let leading = components::catalog_cover_art(
                     theme_cfg,
                     self.album_covers.get(&key),
                     tile_w,
-                    Radius::default(),
+                    theme_cfg.radius_md(),
                     icons::DISC_SVG,
                     disc_icon_size,
                     theme_cfg.primary_color(),
+                    Message::SelectAlbum(album.album.to_string()),
                 );
 
                 tile_row = tile_row.push(

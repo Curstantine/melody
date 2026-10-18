@@ -1,5 +1,4 @@
 use core_engine::{PlaylistEntry, PlaylistSummary, SortDirection, TrackRow};
-use iced::border::Radius;
 use iced::widget::{
     button, column, container, mouse_area, row, scrollable, text_input, Space, Widget,
 };
@@ -587,24 +586,20 @@ impl PlaylistsView {
         for idx in self.sorted_indices() {
             let playlist = &self.playlists[idx];
 
-            // Same cover renderer as the album tile (square corners, 1px
-            // border); playlists have no artwork, so the icon fallback
-            // always shows.
-            let icon = components::cover_art(
+            let icon = components::catalog_cover_art(
                 theme_cfg,
                 None,
                 PLAYLIST_TILE_SIZE,
-                Radius::default(),
+                theme_cfg.radius_md(),
                 icons::PLAYLIST_SVG,
                 PLAYLIST_TILE_SIZE * 0.34,
                 theme_cfg.primary_color(),
+                Message::SelectPlaylist(playlist.id),
             );
 
             let meta = container(
                 column![
-                    text(theme_cfg, playlist.name.as_str())
-                        .size(12)
-                        .color(theme_cfg.text_color()),
+                    text(theme_cfg, playlist.name.as_str()).size(12),
                     text(theme_cfg, playlist.tracks_label.as_str())
                         .size(10)
                         .color(theme_cfg.text_muted_color()),
@@ -615,18 +610,10 @@ impl PlaylistsView {
             .width(PLAYLIST_TILE_SIZE)
             .height(48);
 
-            let card_content: Element<'_, Message> = container(column![icon, meta])
-                .width(PLAYLIST_TILE_SIZE)
-                .clip(true)
-                .boxed();
-
-            let select_btn = mouse_area(
-                button(card_content)
-                    .style(styles::tile(theme_cfg))
-                    .padding(0)
-                    .on_press(Message::SelectPlaylist(playlist.id)),
-            )
-            .on_right_press(Message::OpenPlaylistContextMenu(playlist.clone()));
+            let meta_btn = button(meta)
+                .style(styles::tile(theme_cfg))
+                .padding(0)
+                .on_press(Message::SelectPlaylist(playlist.id));
 
             let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text_color()))
                 .style(styles::icon_control_button(theme_cfg))
@@ -648,7 +635,12 @@ impl PlaylistsView {
                 .align_y(Alignment::End)
                 .padding(6);
 
-            let tile = iced::widget::stack([select_btn.boxed(), actions.boxed()]);
+            let cover_block = iced::widget::stack([icon, actions.boxed()]);
+
+            let card_content = column![cover_block, meta_btn].width(PLAYLIST_TILE_SIZE);
+
+            let tile = mouse_area(card_content)
+                .on_right_press(Message::OpenPlaylistContextMenu(playlist.clone()));
 
             tile_row = tile_row.push(tile);
             columns += 1;
