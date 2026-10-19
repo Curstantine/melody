@@ -61,3 +61,6 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "time"] }
 url.workspace = true
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"

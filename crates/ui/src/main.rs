@@ -30,12 +30,15 @@ fn main() -> iced::Result {
     let width = width.max(1000.0);
     let height = height.max(520.0);
 
+    let app_icon =
+        iced::window::icon::from_file_data(include_bytes!("../../../assets/melody.png"), None).ok();
+
     let mut builder = iced::application(App::new, App::update, App::view)
         .title(App::title)
         .theme(App::theme)
         .subscription(App::subscription)
         .window(window::Settings {
-            icon: { let () = (); None },
+            icon: app_icon,
             size: iced::Size::new(width, height),
             min_size: Some(iced::Size::new(1000.0, 520.0)),
             position: window::Position::Centered,
