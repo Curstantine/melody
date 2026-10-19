@@ -129,7 +129,7 @@ jobs:
           sudo chmod +x /usr/local/bin/appimagetool
 
           # 2. Build Linux AppImage
-          (cd crates/ui && APPIMAGE_EXTRACT_AND_RUN=1 cargo appimage --target ${{ matrix.target }})
+          (cd crates/ui && APPIMAGE_EXTRACT_AND_RUN=1 cargo appimage --target=${{ matrix.target }})
 
           # Locate built AppImage
           APPIMAGE_FILE=$(find target -name "*.AppImage" -type f | head -n 1)
@@ -191,7 +191,15 @@ jobs:
 
           # 3. Build Windows MSI installer via cargo-wix
           $msiName = "melody-$tag-${{ matrix.target }}.msi"
-          cargo wix -p ui --no-build --nocapture --target ${{ matrix.target }} --target-bin-dir "target\${{ matrix.target }}\release" -o "dist-pkg\$msiName"
+          $targetBinDir = (Resolve-Path "target/${{ matrix.target }}/release").Path
+          $msiOut = Join-Path (Resolve-Path "dist-pkg").Path $msiName
+          try {
+            Push-Location crates/ui
+            cargo wix -p ui --no-build --nocapture --target ${{ matrix.target }} --target-bin-dir "$targetBinDir" -o "$msiOut"
+            if ($LASTEXITCODE -ne 0) { throw "cargo-wix failed with exit code $LASTEXITCODE" }
+          } finally {
+            Pop-Location
+          }
 
           # 4. Create portable zip archive
           $archiveDir = "melody-$tag-${{ matrix.target }}"
