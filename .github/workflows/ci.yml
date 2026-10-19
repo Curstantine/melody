@@ -51,11 +51,7 @@ jobs:
             libavcodec-dev \
             libavformat-dev \
             libavutil-dev \
-            libswresample-dev \
-            libswscale-dev \
-            libavfilter-dev \
-            libavdevice-dev \
-            ffmpeg
+            libswresample-dev
 
       # --- Windows Dependencies ---
       - name: Set up FFmpeg (Windows)

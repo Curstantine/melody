@@ -65,11 +65,7 @@ jobs:
             libavformat-dev \
             libavutil-dev \
             libswresample-dev \
-            libswscale-dev \
-            libavfilter-dev \
-            libavdevice-dev \
-            libfuse2 \
-            ffmpeg
+            libfuse2
 
       # --- Windows Dependencies ---
       - name: Set up FFmpeg (Windows)
@@ -125,21 +121,24 @@ jobs:
 
           # 1. Install AppImage packaging tools
           cargo install cargo-appimage
-          sudo wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool.bin
+          sudo wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool.bin
           sudo chmod +x /usr/local/bin/appimagetool.bin
-          printf '#!/bin/sh\nexec /usr/local/bin/appimagetool.bin --comp zstd "$@"\n' | sudo tee /usr/local/bin/appimagetool > /dev/null
+          printf '#!/bin/sh\nexport APPIMAGE_EXTRACT_AND_RUN=1\nunset SOURCE_DATE_EPOCH\nexec /usr/local/bin/appimagetool.bin --comp zstd "$@"\n' | sudo tee /usr/local/bin/appimagetool > /dev/null
           sudo chmod +x /usr/local/bin/appimagetool
 
           # 2. Build Linux AppImage
           (cd crates/ui && APPIMAGE_EXTRACT_AND_RUN=1 cargo appimage --target=${{ matrix.target }})
 
-          # Locate built AppImage
-          APPIMAGE_FILE=$(find target -name "*.AppImage" -type f | head -n 1)
-          if [ -n "$APPIMAGE_FILE" ]; then
-            APPIMAGE_DEST="dist-pkg/melody-${RELEASE_TAG}-${{ matrix.target }}.AppImage"
-            cp "$APPIMAGE_FILE" "$APPIMAGE_DEST"
-            chmod +x "$APPIMAGE_DEST"
+          # Locate built AppImage (cargo-appimage outputs in the crate root or target)
+          APPIMAGE_FILE=$(find crates/ui target . -maxdepth 3 -name "*.AppImage" -not -path "*/dist-pkg/*" -type f | head -n 1)
+          if [ -z "$APPIMAGE_FILE" ]; then
+            echo "::error::AppImage was not generated"
+            exit 1
           fi
+          echo "Found AppImage at: $APPIMAGE_FILE"
+          APPIMAGE_DEST="dist-pkg/melody-${RELEASE_TAG}-${{ matrix.target }}.AppImage"
+          cp "$APPIMAGE_FILE" "$APPIMAGE_DEST"
+          chmod +x "$APPIMAGE_DEST"
 
           # 3. Create portable tar.gz archive
           ARCHIVE_DIR="melody-${RELEASE_TAG}-${{ matrix.target }}"
@@ -165,9 +164,9 @@ jobs:
           # 1. Install cargo-wix
           cargo install cargo-wix
 
-          # 2. Populate WiX FFmpeg fragment dynamically with all bundled FFmpeg DLLs
+          # 2. Populate WiX FFmpeg fragment dynamically with only the required FFmpeg DLLs
           $binDir = "${{ steps.setup-ffmpeg.outputs.ffmpeg-bin }}"
-          $dlls = Get-ChildItem -Path $binDir -Filter "*.dll"
+          $dlls = Get-ChildItem -Path $binDir -Filter "*.dll" | Where-Object { $_.Name -match '^(avcodec|avformat|avutil|swresample)' }
           $xml = @"
           <?xml version='1.0' encoding='utf-8'?>
           <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
@@ -210,7 +209,7 @@ jobs:
           Copy-Item -Recurse "themes" -Destination $archiveDir
           Copy-Item -Recurse "layouts" -Destination $archiveDir
           if (Test-Path "README.md") { Copy-Item "README.md" -Destination $archiveDir }
-          Get-ChildItem -Path $binDir -Filter "*.dll" | ForEach-Object {
+          $dlls | ForEach-Object {
             Copy-Item $_.FullName -Destination $archiveDir
           }
           Compress-Archive -Path "$archiveDir\*" -DestinationPath "dist-pkg\$archiveDir.zip"
