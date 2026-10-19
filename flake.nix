@@ -78,6 +78,6 @@
       };
 
       nixosModules.default = import ./nix/module.nix;
-      nixosModules.melody = self.nixosModules.default;
+      homeModules.default = import ./nix/home-module.nix;
     };
 }

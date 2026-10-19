@@ -214,6 +214,30 @@ impl AppConfig {
 
     pub fn load() -> Self {
         let path = Self::config_path();
+        if path.exists() {
+            return Self::load_from_path(&path);
+        }
+
+        // Check system-wide XDG configuration directories as fallback
+        if let Ok(dirs) = std::env::var("XDG_CONFIG_DIRS") {
+            for dir in dirs.split(':') {
+                let sys_cfg = Path::new(dir).join("melody").join("config.toml");
+                if sys_cfg.exists() {
+                    info!("Found system configuration at {:?}", sys_cfg);
+                    return Self::load_from_path(&sys_cfg);
+                }
+            }
+        }
+        for fallback in &[
+            Path::new("/etc/xdg/melody/config.toml"),
+            Path::new("/etc/melody/config.toml"),
+        ] {
+            if fallback.exists() {
+                info!("Found system configuration at {:?}", fallback);
+                return Self::load_from_path(fallback);
+            }
+        }
+
         Self::load_from_path(&path)
     }
 

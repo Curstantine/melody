@@ -10,7 +10,10 @@
   vulkan-loader,
   wayland,
   libxkbcommon,
-  xorg,
+  libx11,
+  libxcursor,
+  libxi,
+  libxrandr,
 }:
 
 let
@@ -20,10 +23,10 @@ let
     vulkan-loader
     wayland
     libxkbcommon
-    xorg.libX11
-    xorg.libXcursor
-    xorg.libXi
-    xorg.libXrandr
+    libx11
+    libxcursor
+    libxi
+    libxrandr
     fontconfig
     freetype
     ffmpeg
@@ -31,12 +34,18 @@ let
 in
 rustPlatform.buildRustPackage {
   pname = "melody";
-  version = "0.1.0";
+  version = "0.2.2";
 
   src = lib.cleanSource ./..;
 
   cargoLock = {
     lockFile = ../Cargo.lock;
+    outputHashes = {
+      "cosmic-text-0.19.0" = "sha256-93zdZ04BRwQTKqsdwYtFOaQkOsTzp2Aq4VQhNwFE8cQ=";
+      "cryoglyph-0.1.0" = "sha256-KOKHPv+PZkwdMkGoR2nNixUAatUR23VYPW0hLHFQ08M=";
+      "iced-0.15.0-dev" = "sha256-E6+9mw/IzTZtLFfFANw63Tt4M/JwXuA6RndiMBHkB6I=";
+      "winit-0.30.13" = "sha256-XoB5tbWXkynHe8s5ZSkQRbQb3Lmq+RPi2UtLqh53Q/M=";
+    };
   };
 
   nativeBuildInputs = [
@@ -52,11 +61,21 @@ rustPlatform.buildRustPackage {
   ] ++ runtimeLibs;
 
   postInstall = ''
-    # Install built-in themes to share directory
-    mkdir -p $out/share/melody/themes
+    # Install built-in themes and layouts
+    mkdir -p $out/share/melody/themes $out/share/melody/layouts $out/themes $out/layouts
     if [ -d themes ]; then
       cp -r themes/* $out/share/melody/themes/
+      cp -r themes/* $out/themes/
     fi
+    if [ -d layouts ]; then
+      cp -r layouts/* $out/share/melody/layouts/
+      cp -r layouts/* $out/layouts/
+    fi
+
+    # Install desktop file and icons
+    install -Dm644 assets/melody.desktop $out/share/applications/melody.desktop
+    install -Dm644 assets/melody.svg $out/share/icons/hicolor/scalable/apps/melody.svg
+    install -Dm644 assets/melody.png $out/share/icons/hicolor/256x256/apps/melody.png
   '';
 
   postFixup = ''

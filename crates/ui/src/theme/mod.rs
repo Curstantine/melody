@@ -482,10 +482,18 @@ impl ThemeManager {
             if let Some(exe_dir) = exe_path.parent() {
                 self.load_from_folder(&exe_dir.join("themes"));
                 self.load_from_folder(&exe_dir.join("../themes"));
+                self.load_from_folder(&exe_dir.join("../share/melody/themes"));
             }
         }
         let cfg_dir = Self::theme_dir();
         self.load_from_folder(&cfg_dir);
+        if let Ok(xdg_dirs) = std::env::var("XDG_CONFIG_DIRS") {
+            for dir in xdg_dirs.split(':') {
+                self.load_from_folder(&Path::new(dir).join("melody").join("themes"));
+            }
+        }
+        self.load_from_folder(Path::new("/etc/xdg/melody/themes"));
+        self.load_from_folder(Path::new("/etc/melody/themes"));
 
         let saved_font = self.current_config.font_family.clone();
         if let Some(active) = self.themes.get(&self.active_theme_name) {

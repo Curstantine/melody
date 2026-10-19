@@ -64,10 +64,18 @@ impl LayoutManager {
             if let Some(exe_dir) = exe_path.parent() {
                 self.load_from_folder(&exe_dir.join("layouts"));
                 self.load_from_folder(&exe_dir.join("../layouts"));
+                self.load_from_folder(&exe_dir.join("../share/melody/layouts"));
             }
         }
         let cfg_dir = Self::layout_dir();
         self.load_from_folder(&cfg_dir);
+        if let Ok(xdg_dirs) = std::env::var("XDG_CONFIG_DIRS") {
+            for dir in xdg_dirs.split(':') {
+                self.load_from_folder(&Path::new(dir).join("melody").join("layouts"));
+            }
+        }
+        self.load_from_folder(Path::new("/etc/xdg/melody/layouts"));
+        self.load_from_folder(Path::new("/etc/melody/layouts"));
 
         // 3. Refresh active layout template
         if let Some(active) = self.layouts.get(&self.active_layout_name) {
