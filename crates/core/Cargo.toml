@@ -20,7 +20,7 @@ image = { workspace = true, features = ["jpeg", "png"] }
 directories.workspace = true
 turso.workspace = true
 encoding_rs.workspace = true
-tokio = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, features = ["rt", "sync"] }
 notify.workspace = true
 crossbeam-channel.workspace = true
 

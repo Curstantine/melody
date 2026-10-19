@@ -3246,13 +3246,28 @@ impl App {
                     .unwrap_or_default();
 
                 tokio::task::spawn_blocking(move || {
-                    for path_str in paths_map.values() {
-                        let path = PathBuf::from(path_str);
-                        let _ = core_engine::get_or_create_thumbnail(
-                            &path,
-                            core_engine::THUMB_DIM_DEFAULT,
-                        );
+                    let paths: Vec<PathBuf> = paths_map.values().map(PathBuf::from).collect();
+                    if paths.is_empty() {
+                        return;
                     }
+                    let num_workers = std::thread::available_parallelism()
+                        .map(|n| n.get())
+                        .unwrap_or(4)
+                        .clamp(1, 8)
+                        .min(paths.len());
+                    let chunk_size = paths.len().div_ceil(num_workers);
+                    std::thread::scope(|s| {
+                        for chunk in paths.chunks(chunk_size.max(1)) {
+                            s.spawn(move || {
+                                for path in chunk {
+                                    let _ = core_engine::get_or_create_thumbnail(
+                                        path,
+                                        core_engine::THUMB_DIM_DEFAULT,
+                                    );
+                                }
+                            });
+                        }
+                    });
                 })
                 .await
                 .ok();

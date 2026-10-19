@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -967,59 +968,75 @@ impl LibraryDatabase {
         Ok(out)
     }
 
-    /// Recursively scan directories and index all supported audio files.
+    /// Extracts metadata and indexes audio files in parallel using a bounded worker pool.
     ///
-    /// Candidate audio files are gathered first to determine the total workload,
-    /// enabling the progress callback to report `(current, total)`. Metadata
-    /// extraction is dispatched to blocking threads to avoid stalling the async runtime.
-    pub async fn scan_directories<P: AsRef<Path>, F: FnMut(usize, usize)>(
+    /// The workload is dynamically distributed across worker threads matching system parallelism,
+    /// while database writes are batched and executed sequentially on the async connection.
+    pub async fn index_files_parallel<F: FnMut(usize, usize)>(
         &self,
-        dir_paths: &[P],
+        files: &[PathBuf],
         mut progress_cb: Option<F>,
     ) -> Result<ScanSummary, DbError> {
-        let mut summary = ScanSummary::default();
-        let mut candidate_files: Vec<PathBuf> = Vec::new();
-        for dir_path in dir_paths {
-            for entry in WalkDir::new(dir_path)
-                .follow_links(true)
-                .into_iter()
-                .filter_map(|e| e.ok())
-            {
-                let path = entry.path();
-                if path.is_file() && is_supported_audio_path(path) {
-                    candidate_files.push(path.to_path_buf());
-                }
-            }
-        }
-
-        let total = candidate_files.len();
+        let total = files.len();
         if let Some(ref mut cb) = progress_cb {
             cb(0, total);
         }
 
+        if files.is_empty() {
+            return Ok(ScanSummary::default());
+        }
+
+        let num_workers = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+            .clamp(2, 16)
+            .min(total);
+
+        let files = Arc::new(files.to_vec());
+        let next_idx = Arc::new(AtomicUsize::new(0));
+        let (tx, mut rx) = tokio::sync::mpsc::channel(128);
+
+        let mut handles = Vec::with_capacity(num_workers);
+        for w in 0..num_workers {
+            let files = Arc::clone(&files);
+            let next_idx = Arc::clone(&next_idx);
+            let tx = tx.clone();
+            let handle = std::thread::Builder::new()
+                .name(format!("melody-indexer-{}", w))
+                .spawn(move || loop {
+                    let idx = next_idx.fetch_add(1, Ordering::Relaxed);
+                    if idx >= files.len() {
+                        break;
+                    }
+                    let path = &files[idx];
+                    let parsed = extract_metadata(path);
+                    if tx.blocking_send((path.clone(), parsed)).is_err() {
+                        break;
+                    }
+                });
+            if let Ok(h) = handle {
+                handles.push(h);
+            }
+        }
+        drop(tx);
+
+        let mut summary = ScanSummary::default();
         let mut batch: Vec<NewTrack> = Vec::with_capacity(100);
         let notify_interval = (total / 100).max(5);
 
-        for path in candidate_files {
+        while let Some((path, parsed)) = rx.recv().await {
             summary.scanned_files += 1;
 
-            let parse_path = path.clone();
-            let parsed = tokio::task::spawn_blocking(move || extract_metadata(&parse_path)).await;
-
             match parsed {
-                Ok(Ok(track)) => {
+                Ok(track) => {
                     batch.push(track);
                     if batch.len() >= 100 {
                         self.flush_scan_batch(&batch, &mut summary).await;
                         batch.clear();
                     }
                 }
-                Ok(Err(e)) => {
-                    warn!("Failed to extract metadata for {:?}: {}", path, e);
-                    summary.failed_files += 1;
-                }
                 Err(e) => {
-                    warn!("Metadata task failed for {:?}: {}", path, e);
+                    warn!("Failed to extract metadata for {:?}: {}", path, e);
                     summary.failed_files += 1;
                 }
             }
@@ -1038,9 +1055,47 @@ impl LibraryDatabase {
             self.flush_scan_batch(&batch, &mut summary).await;
         }
 
+        for h in handles {
+            let _ = h.join();
+        }
+
         if let Some(ref mut cb) = progress_cb {
             cb(summary.scanned_files, total);
         }
+
+        Ok(summary)
+    }
+
+    /// Recursively scan directories and index all supported audio files.
+    ///
+    /// Candidate audio files are gathered first to determine the total workload,
+    /// enabling the progress callback to report `(current, total)`. Metadata
+    /// extraction is dispatched to parallel worker threads to maximize CPU utilization.
+    pub async fn scan_directories<P: AsRef<Path>, F: FnMut(usize, usize)>(
+        &self,
+        dir_paths: &[P],
+        progress_cb: Option<F>,
+    ) -> Result<ScanSummary, DbError> {
+        let mut candidate_files: Vec<PathBuf> = Vec::new();
+        for dir_path in dir_paths {
+            for entry in WalkDir::new(dir_path)
+                .follow_links(true)
+                .into_iter()
+                .filter_map(|e| e.ok())
+            {
+                let path = entry.path();
+                if path.is_file() && is_supported_audio_path(path) {
+                    candidate_files.push(path.to_path_buf());
+                }
+            }
+        }
+
+        candidate_files.sort();
+        candidate_files.dedup();
+
+        let summary = self
+            .index_files_parallel(&candidate_files, progress_cb)
+            .await?;
 
         info!(
             "Directory scan finished: {} files scanned, {} tracks indexed, {} errors",
@@ -1113,7 +1168,7 @@ impl LibraryDatabase {
     pub async fn scan_new_files<P: AsRef<Path>, F: FnMut(usize, usize)>(
         &self,
         paths: &[P],
-        mut progress_cb: Option<F>,
+        progress_cb: Option<F>,
     ) -> Result<ScanSummary, DbError> {
         let mut candidate_files: Vec<PathBuf> = Vec::new();
 
@@ -1139,61 +1194,7 @@ impl LibraryDatabase {
         candidate_files.dedup();
 
         let new_files = self.filter_new_paths(&candidate_files).await?;
-        let total = new_files.len();
-
-        if let Some(ref mut cb) = progress_cb {
-            cb(0, total);
-        }
-
-        if new_files.is_empty() {
-            return Ok(ScanSummary::default());
-        }
-
-        let mut summary = ScanSummary::default();
-        let mut batch: Vec<NewTrack> = Vec::with_capacity(100);
-        let notify_interval = (total / 100).max(5);
-
-        for path in new_files {
-            summary.scanned_files += 1;
-
-            let parse_path = path.clone();
-            let parsed = tokio::task::spawn_blocking(move || extract_metadata(&parse_path)).await;
-
-            match parsed {
-                Ok(Ok(track)) => {
-                    batch.push(track);
-                    if batch.len() >= 100 {
-                        self.flush_scan_batch(&batch, &mut summary).await;
-                        batch.clear();
-                    }
-                }
-                Ok(Err(e)) => {
-                    warn!("Failed to extract metadata for {:?}: {}", path, e);
-                    summary.failed_files += 1;
-                }
-                Err(e) => {
-                    warn!("Metadata task failed for {:?}: {}", path, e);
-                    summary.failed_files += 1;
-                }
-            }
-
-            if let Some(ref mut cb) = progress_cb {
-                if total <= 100
-                    || summary.scanned_files == total
-                    || summary.scanned_files % notify_interval == 0
-                {
-                    cb(summary.scanned_files, total);
-                }
-            }
-        }
-
-        if !batch.is_empty() {
-            self.flush_scan_batch(&batch, &mut summary).await;
-        }
-
-        if let Some(ref mut cb) = progress_cb {
-            cb(summary.scanned_files, total);
-        }
+        let summary = self.index_files_parallel(&new_files, progress_cb).await?;
 
         info!(
             "New files scan finished: {} candidate files checked, {} new files scanned, {} tracks inserted, {} errors",
