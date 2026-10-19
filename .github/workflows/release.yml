@@ -146,7 +146,6 @@ jobs:
           cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$ARCHIVE_DIR/"
           cp -r themes "$ARCHIVE_DIR/"
           cp -r layouts "$ARCHIVE_DIR/"
-          cp README.md AGENTS.md "$ARCHIVE_DIR/" 2>/dev/null || true
           tar -czvf "dist-pkg/${ARCHIVE_DIR}.tar.gz" "$ARCHIVE_DIR"
 
       # --- Package Windows Artifacts (MSI installer + portable zip) ---
@@ -208,7 +207,6 @@ jobs:
           Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" -Destination $archiveDir
           Copy-Item -Recurse "themes" -Destination $archiveDir
           Copy-Item -Recurse "layouts" -Destination $archiveDir
-          if (Test-Path "README.md") { Copy-Item "README.md" -Destination $archiveDir }
           $dlls | ForEach-Object {
             Copy-Item $_.FullName -Destination $archiveDir
           }
