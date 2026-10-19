@@ -49,7 +49,6 @@ iced = { workspace = true, features = [
   "svg",
   "image",
   "advanced",
-  "debug",
 ] }
 crossbeam-channel.workspace = true
 kdl.workspace = true
