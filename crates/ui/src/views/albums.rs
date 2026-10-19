@@ -478,6 +478,23 @@ impl AlbumsView {
         self.albums.is_empty()
     }
 
+    pub fn get_album_cover(&self, album: &AlbumSummary) -> Option<&image::Handle> {
+        let artist = album.artist.as_bytes();
+        let album_name = album.album.as_bytes();
+        let total_len = artist.len() + 1 + album_name.len();
+        if total_len <= 1024 {
+            let mut buf = [0u8; 1024];
+            buf[..artist.len()].copy_from_slice(artist);
+            buf[artist.len()] = 0x1f;
+            buf[artist.len() + 1..total_len].copy_from_slice(album_name);
+            if let Ok(key) = std::str::from_utf8(&buf[..total_len]) {
+                return self.album_covers.get(key);
+            }
+        }
+        let key = cover_key(album);
+        self.album_covers.get(&key)
+    }
+
     pub fn view<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
         if self.albums.is_empty() {
             return components::empty_state(
@@ -554,10 +571,9 @@ impl AlbumsView {
                 .align_y(Alignment::Start);
 
             for album in chunk {
-                let key = cover_key(album);
                 let leading = components::catalog_cover_art(
                     theme_cfg,
-                    self.album_covers.get(&key),
+                    self.get_album_cover(album),
                     tile_w,
                     theme_cfg.radius_md(),
                     icons::DISC_SVG,
@@ -627,13 +643,12 @@ impl AlbumsView {
         }
 
         for album in self.visible_albums() {
-            let key = cover_key(album);
             content = content.push(
                 components::CatalogRow {
                     theme: theme_cfg,
                     leading: components::cover_art(
                         theme_cfg,
-                        self.album_covers.get(&key),
+                        self.get_album_cover(album),
                         components::CATALOG_LIST_ART_SIZE,
                         theme_cfg.radius_sm(),
                         icons::DISC_SVG,

@@ -849,25 +849,9 @@ impl PlaylistsView {
             };
             for (index, item) in self.detail_items.iter().enumerate() {
                 let available = item.is_available();
-                let on_right_press = item.track_id.map(|track_id| {
-                    let track_row = self
-                        .detail_tracks
-                        .iter()
-                        .find(|t| t.id == track_id)
-                        .cloned()
-                        .unwrap_or_else(|| TrackRow {
-                            id: track_id,
-                            title: item.title.clone(),
-                            artist: item.artist.as_str().into(),
-                            album: "".into(),
-                            duration_ms: 0,
-                            file_path: String::new(),
-                            duration_label: item.duration_label.clone(),
-                        });
-                    Message::OpenTrackContextMenu {
-                        track: track_row,
-                        context: TrackMenuContext::Playlist { playlist_id, index },
-                    }
+                let on_right_press = item.track_id.map(|track_id| Message::OpenTrackContextMenu {
+                    track_id,
+                    context: TrackMenuContext::Playlist { playlist_id, index },
                 });
                 list = list.push(
                     components::TrackRow {
@@ -1036,7 +1020,7 @@ impl PlaylistsView {
                             index,
                         }),
                         on_right_press: Some(Message::OpenTrackContextMenu {
-                            track: track.clone(),
+                            track_id: track.id,
                             context: TrackMenuContext::Queue {
                                 queue_id: active_id,
                                 index,

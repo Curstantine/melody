@@ -177,8 +177,13 @@ pub enum Message {
 
     // Context Menus
     OpenTrackContextMenu {
+        track_id: i64,
+        context: TrackMenuContext,
+    },
+    TrackContextMenuReady {
         track: TrackRow,
         context: TrackMenuContext,
+        position: iced::Point,
     },
     OpenAlbumContextMenu(AlbumSummary),
     OpenArtistContextMenu(ArtistSummary),
@@ -349,6 +354,7 @@ pub enum Message {
     SelectLayout(String),
     ReloadLayouts,
     SelectFont(String),
+    FontsLoaded(Vec<String>),
     SaveConfig,
     DebouncedConfigSave(u64),
     ConfigSaved,
@@ -442,8 +448,13 @@ impl std::fmt::Debug for Message {
                 f.debug_tuple("SetNowPlayingCoverSize").field(s).finish()
             }
             Self::TrackClicked(id) => f.debug_tuple("TrackClicked").field(id).finish(),
-            Self::OpenTrackContextMenu { track, context } => f
+            Self::OpenTrackContextMenu { track_id, context } => f
                 .debug_struct("OpenTrackContextMenu")
+                .field("track_id", track_id)
+                .field("context", context)
+                .finish(),
+            Self::TrackContextMenuReady { track, context, .. } => f
+                .debug_struct("TrackContextMenuReady")
                 .field("track_id", &track.id)
                 .field("context", context)
                 .finish(),
@@ -712,6 +723,10 @@ impl std::fmt::Debug for Message {
             Self::SelectLayout(s) => f.debug_tuple("SelectLayout").field(s).finish(),
             Self::ReloadLayouts => write!(f, "ReloadLayouts"),
             Self::SelectFont(s) => f.debug_tuple("SelectFont").field(s).finish(),
+            Self::FontsLoaded(fonts) => f
+                .debug_struct("FontsLoaded")
+                .field("count", &fonts.len())
+                .finish(),
             Self::SaveConfig => write!(f, "SaveConfig"),
             Self::DebouncedConfigSave(seq) => {
                 f.debug_tuple("DebouncedConfigSave").field(seq).finish()

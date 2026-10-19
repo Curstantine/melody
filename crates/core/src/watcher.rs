@@ -61,26 +61,35 @@ impl LibraryWatcher {
             .spawn(move || {
                 let mut pending: HashMap<PathBuf, Instant> = HashMap::new();
                 while !thread_stop.load(Ordering::Relaxed) {
-                    let timeout = if let Some(min_instant) = pending.values().min() {
+                    let recv_result = if let Some(min_instant) = pending.values().min() {
                         let elapsed = min_instant.elapsed();
-                        if elapsed >= debounce_duration {
+                        let timeout = if elapsed >= debounce_duration {
                             Duration::from_millis(0)
                         } else {
                             debounce_duration - elapsed
-                        }
+                        };
+                        raw_rx.recv_timeout(timeout).map_err(|e| match e {
+                            crossbeam_channel::RecvTimeoutError::Timeout => true,
+                            crossbeam_channel::RecvTimeoutError::Disconnected => false,
+                        })
                     } else {
-                        Duration::from_millis(200)
+                        raw_rx
+                            .recv_timeout(Duration::from_millis(500))
+                            .map_err(|e| match e {
+                                crossbeam_channel::RecvTimeoutError::Timeout => true,
+                                crossbeam_channel::RecvTimeoutError::Disconnected => false,
+                            })
                     };
 
-                    match raw_rx.recv_timeout(timeout) {
+                    match recv_result {
                         Ok(paths) => {
                             let now = Instant::now();
                             for path in paths {
                                 pending.insert(path, now);
                             }
                         }
-                        Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
-                        Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
+                        Err(true) => {}
+                        Err(false) => {
                             break;
                         }
                     }

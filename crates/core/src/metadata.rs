@@ -323,6 +323,12 @@ pub fn sanitize_tag_string(raw: &str) -> String {
 }
 
 pub fn sanitize_tag_bytes(bytes: &[u8]) -> String {
+    if !bytes.contains(&0) {
+        if let Ok(valid) = std::str::from_utf8(bytes) {
+            return valid.trim().to_string();
+        }
+    }
+
     let filtered: Vec<u8> = bytes.iter().copied().filter(|&b| b != 0).collect();
 
     if let Ok(valid) = std::str::from_utf8(&filtered) {

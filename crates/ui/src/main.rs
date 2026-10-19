@@ -35,6 +35,7 @@ fn main() -> iced::Result {
         .theme(App::theme)
         .subscription(App::subscription)
         .window(window::Settings {
+            icon: { let () = (); None },
             size: iced::Size::new(width, height),
             min_size: Some(iced::Size::new(1000.0, 520.0)),
             position: window::Position::Centered,

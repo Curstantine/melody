@@ -411,7 +411,7 @@ impl LibraryView {
                 let interactive_row = mouse_area(row_container)
                     .on_press(Message::TrackClicked(track.id))
                     .on_right_press(Message::OpenTrackContextMenu {
-                        track: track.clone(),
+                        track_id: track.id,
                         context: TrackMenuContext::Library,
                     });
 

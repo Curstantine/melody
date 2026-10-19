@@ -172,14 +172,19 @@ fn target_channel_layout(channels: usize) -> ChannelLayout {
     }
 }
 
-fn run_audio_worker(
-    cmd_rx: Receiver<AudioCommand>,
-    status: AudioStatus,
-    flush_flag: Arc<AtomicBool>,
-) {
-    info!("Starting audio worker thread");
+struct AudioStreamContext {
+    _active_stream: Option<cpal::Stream>,
+    output_latency_us: Option<Arc<AtomicU64>>,
+    device_sample_rate: u32,
+    device_channels: usize,
+    ring_producer: Option<ringbuf::HeapProd<f32>>,
+    boundary_producer: Option<ringbuf::HeapProd<TrackBoundary>>,
+}
 
-    // Initialize CPAL device and output stream
+fn init_cpal_output_stream(
+    status: &AudioStatus,
+    flush_flag: &Arc<AtomicBool>,
+) -> AudioStreamContext {
     let host = cpal::default_host();
     let device = host.default_output_device();
 
@@ -207,40 +212,81 @@ fn run_audio_worker(
     };
 
     let output_latency_us = stream.as_ref().map(|(_, l)| l.clone());
-    let _active_stream = stream.map(|(s, _)| s);
+    let active_stream = stream.map(|(s, _)| s);
+    let ring_producer = WORKER_PRODUCER.lock().unwrap().take();
+    let boundary_producer = WORKER_BOUNDARY_PRODUCER.lock().unwrap().take();
 
+    AudioStreamContext {
+        _active_stream: active_stream,
+        output_latency_us,
+        device_sample_rate,
+        device_channels,
+        ring_producer,
+        boundary_producer,
+    }
+}
+
+fn ensure_stream<'a>(
+    ctx: &'a mut Option<AudioStreamContext>,
+    status: &AudioStatus,
+    flush_flag: &Arc<AtomicBool>,
+) -> &'a mut AudioStreamContext {
+    ctx.get_or_insert_with(|| init_cpal_output_stream(status, flush_flag))
+}
+
+fn run_audio_worker(
+    cmd_rx: Receiver<AudioCommand>,
+    status: AudioStatus,
+    flush_flag: Arc<AtomicBool>,
+) {
+    info!("Starting audio worker thread");
+
+    let mut stream_ctx: Option<AudioStreamContext> = None;
     let mut loaded_track: Option<LoadedTrack> = None;
     let mut next_track: Option<LoadedTrack> = None;
     let mut written_samples: u64 = 0;
-
-    // When the decoder has hit EOF and the ring buffer has emptied, the last
-    // callback buffer and the device's output latency are still in flight.
-    // This holds the instant at which playback has genuinely finished.
     let mut eof_deadline: Option<Instant> = None;
-
-    // SPSC ring buffer for decoding worker -> cpal callback
-    // Note: The producer is held by the worker
-    let mut ring_producer = WORKER_PRODUCER.lock().unwrap().take();
-    let mut boundary_producer = WORKER_BOUNDARY_PRODUCER.lock().unwrap().take();
 
     loop {
         // 1. Process all pending commands
         while let Ok(cmd) = cmd_rx.try_recv() {
+            let is_playback_cmd = matches!(
+                cmd,
+                AudioCommand::Load { .. }
+                    | AudioCommand::Play
+                    | AudioCommand::TogglePlayPause
+                    | AudioCommand::Seek(_)
+                    | AudioCommand::SetNextTrack(_)
+            );
+            let (sr, ch, prod) = if is_playback_cmd || stream_ctx.is_some() {
+                let ctx = ensure_stream(&mut stream_ctx, &status, &flush_flag);
+                (
+                    ctx.device_sample_rate,
+                    ctx.device_channels,
+                    &mut ctx.ring_producer,
+                )
+            } else {
+                (44100, 2, &mut None)
+            };
             handle_command(
                 cmd,
                 &status,
                 &mut loaded_track,
                 &mut next_track,
                 &flush_flag,
-                &mut ring_producer,
+                prod,
                 &mut written_samples,
-                device_sample_rate,
-                device_channels,
+                sr,
+                ch,
             );
         }
 
         // 2. Decode audio if playing and loaded
         if status.is_playing() {
+            let ctx = ensure_stream(&mut stream_ctx, &status, &flush_flag);
+            let device_channels = ctx.device_channels;
+            let output_latency_us = &ctx.output_latency_us;
+
             let mut transition_to = None;
             if let Some(track) = loaded_track.as_mut() {
                 if !track.reached_eof {
@@ -255,7 +301,7 @@ fn run_audio_worker(
                                 } else {
                                     drain_decoder_frames(
                                         track,
-                                        &mut ring_producer,
+                                        &mut ctx.ring_producer,
                                         device_channels,
                                         &flush_flag,
                                         &mut written_samples,
@@ -268,14 +314,14 @@ fn run_audio_worker(
                             let _ = track.decoder.send_eof();
                             drain_decoder_frames(
                                 track,
-                                &mut ring_producer,
+                                &mut ctx.ring_producer,
                                 device_channels,
                                 &flush_flag,
                                 &mut written_samples,
                             );
                             flush_resampler(
                                 track,
-                                &mut ring_producer,
+                                &mut ctx.ring_producer,
                                 device_channels,
                                 &flush_flag,
                                 &mut written_samples,
@@ -289,7 +335,8 @@ fn run_audio_worker(
                 } else if let Some(next) = next_track.take() {
                     transition_to = Some(next);
                 } else {
-                    let is_empty = ring_producer
+                    let is_empty = ctx
+                        .ring_producer
                         .as_ref()
                         .map(|p| p.occupied_len() == 0)
                         .unwrap_or(true);
@@ -338,7 +385,7 @@ fn run_audio_worker(
                     "Transitioning gaplessly to next track {:?} (switch at sample {})",
                     next.path, written_samples
                 );
-                if let Some(ref mut bp) = boundary_producer {
+                if let Some(ref mut bp) = ctx.boundary_producer {
                     let _ = bp.try_push(TrackBoundary {
                         switch_at_sample: written_samples,
                         next_duration_ms: next.duration_ms,
@@ -350,19 +397,43 @@ fn run_audio_worker(
         } else {
             eof_deadline = None;
 
-            // Not playing: block or wait briefly for next command
-            if let Ok(cmd) = cmd_rx.recv_timeout(Duration::from_millis(50)) {
-                handle_command(
-                    cmd,
-                    &status,
-                    &mut loaded_track,
-                    &mut next_track,
-                    &flush_flag,
-                    &mut ring_producer,
-                    &mut written_samples,
-                    device_sample_rate,
-                    device_channels,
-                );
+            // Not playing: block until next command or clean channel disconnection
+            match cmd_rx.recv() {
+                Ok(cmd) => {
+                    let is_playback_cmd = matches!(
+                        cmd,
+                        AudioCommand::Load { .. }
+                            | AudioCommand::Play
+                            | AudioCommand::TogglePlayPause
+                            | AudioCommand::Seek(_)
+                            | AudioCommand::SetNextTrack(_)
+                    );
+                    let (sr, ch, prod) = if is_playback_cmd || stream_ctx.is_some() {
+                        let ctx = ensure_stream(&mut stream_ctx, &status, &flush_flag);
+                        (
+                            ctx.device_sample_rate,
+                            ctx.device_channels,
+                            &mut ctx.ring_producer,
+                        )
+                    } else {
+                        (44100, 2, &mut None)
+                    };
+                    handle_command(
+                        cmd,
+                        &status,
+                        &mut loaded_track,
+                        &mut next_track,
+                        &flush_flag,
+                        prod,
+                        &mut written_samples,
+                        sr,
+                        ch,
+                    );
+                }
+                Err(_) => {
+                    // Channel disconnected, audio engine shut down
+                    break;
+                }
             }
         }
     }
@@ -459,7 +530,7 @@ fn push_to_ring_buffer(
     written_samples: &mut u64,
 ) -> bool {
     let mut written = 0;
-    let mut retries = 0;
+    let mut stalled_since: Option<Instant> = None;
     while written < samples.len() {
         if flush_flag.load(Ordering::Relaxed) {
             return false;
@@ -470,20 +541,20 @@ fn push_to_ring_buffer(
         *written_samples += n as u64;
         if written < samples.len() {
             if n == 0 {
-                retries += 1;
-                // If unable to push any samples for ~500ms (buffer full and consumer stalled),
+                let start = *stalled_since.get_or_insert_with(Instant::now);
+                // If unable to push any samples for >= 500ms (buffer full and consumer stalled),
                 // break to prevent hanging the worker thread indefinitely.
-                if retries > 500 {
+                if start.elapsed() >= Duration::from_millis(500) {
                     warn!(
                         "Ring buffer full and not draining for 500ms, dropping remaining samples"
                     );
                     break;
                 }
             } else {
-                retries = 0;
+                stalled_since = None;
             }
             // Buffer full — yield briefly and retry
-            thread::sleep(Duration::from_millis(1));
+            thread::sleep(Duration::from_millis(8));
         }
     }
     true

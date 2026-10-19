@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -253,18 +254,18 @@ impl LibraryDatabase {
                     sanitize_db_text(&track.file_path),
                     sanitize_db_text(&track.title),
                     sanitize_db_text(&track.artist),
-                    track.album_artist.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(track.album_artist.as_deref()),
                     sanitize_db_text(&track.album),
-                    track.genre.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(track.genre.as_deref()),
                     track.duration_ms as i64,
                     track.track_num.map(|n| n as i64),
                     track.disc_num.map(|n| n as i64),
                     track.year.map(|n| n as i64),
-                    track.composer.as_deref().map(sanitize_db_text),
-                    track.label.as_deref().map(sanitize_db_text),
-                    track.musicbrainz_track_id.as_deref().map(sanitize_db_text),
-                    track.musicbrainz_artist_id.as_deref().map(sanitize_db_text),
-                    track.musicbrainz_album_id.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(track.composer.as_deref()),
+                    sanitize_db_opt(track.label.as_deref()),
+                    sanitize_db_opt(track.musicbrainz_track_id.as_deref()),
+                    sanitize_db_opt(track.musicbrainz_artist_id.as_deref()),
+                    sanitize_db_opt(track.musicbrainz_album_id.as_deref()),
                     now,
                 ],
             )
@@ -315,18 +316,18 @@ impl LibraryDatabase {
                     sanitize_db_text(&track.file_path),
                     sanitize_db_text(&track.title),
                     sanitize_db_text(&track.artist),
-                    track.album_artist.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(track.album_artist.as_deref()),
                     sanitize_db_text(&track.album),
-                    track.genre.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(track.genre.as_deref()),
                     track.duration_ms as i64,
                     track.track_num.map(|n| n as i64),
                     track.disc_num.map(|n| n as i64),
                     track.year.map(|n| n as i64),
-                    track.composer.as_deref().map(sanitize_db_text),
-                    track.label.as_deref().map(sanitize_db_text),
-                    track.musicbrainz_track_id.as_deref().map(sanitize_db_text),
-                    track.musicbrainz_artist_id.as_deref().map(sanitize_db_text),
-                    track.musicbrainz_album_id.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(track.composer.as_deref()),
+                    sanitize_db_opt(track.label.as_deref()),
+                    sanitize_db_opt(track.musicbrainz_track_id.as_deref()),
+                    sanitize_db_opt(track.musicbrainz_artist_id.as_deref()),
+                    sanitize_db_opt(track.musicbrainz_album_id.as_deref()),
                     now,
                 ],
             )
@@ -1324,8 +1325,8 @@ impl LibraryDatabase {
                     sanitize_db_text(&record.name),
                     record.current,
                     sanitize_db_text(&record.source_kind),
-                    record.source_value.as_deref().map(sanitize_db_text),
-                    record.source_playlist.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(record.source_value.as_deref()),
+                    sanitize_db_opt(record.source_playlist.as_deref()),
                     now,
                 ],
             )
@@ -1548,15 +1549,22 @@ fn map_track_row_summary(row: &Row) -> Result<TrackRow, DbError> {
     })
 }
 
-fn sanitize_db_text(s: &str) -> String {
+fn sanitize_db_text(s: &str) -> Cow<'_, str> {
     let bytes = s.as_bytes();
     if !bytes.contains(&0) {
-        return s.to_string();
+        return Cow::Borrowed(s);
     }
     let filtered: Vec<u8> = bytes.iter().copied().filter(|&b| b != 0).collect();
-    if let Ok(v) = std::str::from_utf8(&filtered) {
-        v.to_string()
+    if let Ok(v) = String::from_utf8(filtered.clone()) {
+        Cow::Owned(v)
     } else {
-        String::from_utf8_lossy(&filtered).to_string()
+        Cow::Owned(String::from_utf8_lossy(&filtered).into_owned())
     }
+}
+
+fn sanitize_db_opt(s: Option<&str>) -> Option<turso::Value> {
+    s.map(|v| match sanitize_db_text(v) {
+        Cow::Borrowed(b) => turso::Value::from(b),
+        Cow::Owned(o) => turso::Value::from(o),
+    })
 }

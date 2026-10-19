@@ -50,6 +50,7 @@ fn test_settings_views_render_without_panicking() {
             available_fonts: available_fonts.clone(),
             library_folders: folders.clone(),
             scrobble_test_status: None,
+            fonts_loaded: true,
         };
 
         let theme_names_vec = vec![DEFAULT_THEME_NAME.to_string(), "Nord".to_string()];
@@ -140,4 +141,22 @@ fn test_watch_library_and_scan_new_messages() {
     assert_eq!(format!("{:?}", msg1), "ScanLibraryForNewFiles");
     assert_eq!(format!("{:?}", msg2), "ToggleWatchLibrary(true)");
     assert_eq!(format!("{:?}", msg3), "ToggleWatchLibrary(false)");
+}
+
+#[test]
+fn test_settings_lazy_fonts() {
+    let mut view = settings::SettingsView::new(SettingsTab::Appearance, Vec::new());
+    assert!(!view.fonts_loaded);
+    assert_eq!(view.available_fonts, vec!["Default".to_string()]);
+
+    view.set_available_fonts(vec!["Inter".to_string(), "Roboto".to_string()]);
+    assert!(view.fonts_loaded);
+    assert_eq!(
+        view.available_fonts,
+        vec![
+            "Default".to_string(),
+            "Inter".to_string(),
+            "Roboto".to_string()
+        ]
+    );
 }

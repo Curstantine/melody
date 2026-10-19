@@ -30,12 +30,6 @@ impl Interner {
             return Arc::from("");
         }
 
-        if let Ok(pool) = self.pool.lock() {
-            if let Some(existing) = pool.get(s) {
-                return existing.clone();
-            }
-        }
-
         let mut pool = match self.pool.lock() {
             Ok(pool) => pool,
             Err(poisoned) => poisoned.into_inner(),

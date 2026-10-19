@@ -14,11 +14,19 @@ use crate::theme::{styles, ThemeConfig};
 pub struct PlayerBar {
     pub is_seeking: bool,
     pub seek_pos_ms: u64,
+    pub artist_album: String,
 }
 
 impl PlayerBar {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn update_track(&mut self, track: Option<&Track>) {
+        self.artist_album = match track {
+            Some(t) => format!("{} • {}", t.artist, t.album),
+            None => String::new(),
+        };
     }
 
     pub fn on_seek(&mut self, ms: f32) {
@@ -36,6 +44,7 @@ impl PlayerBar {
         theme_cfg: &'a ThemeConfig,
         current_track: Option<&'a Track>,
         current_cover: Option<&'a image::Handle>,
+        is_playing: bool,
     ) -> Element<'a, Message> {
         let bar_fg = theme_cfg.player_bar_text_color();
         let bar_muted = iced::Color { a: 0.6, ..bar_fg };
@@ -55,11 +64,13 @@ impl PlayerBar {
                 components::Marquee::new(&track.title)
                     .size(13.0)
                     .color(bar_fg)
-                    .font(theme_cfg.font()),
-                components::Marquee::new(format!("{} • {}", track.artist, track.album))
+                    .font(theme_cfg.font())
+                    .animating(is_playing),
+                components::Marquee::new(&self.artist_album)
                     .size(11.0)
                     .color(bar_muted)
-                    .font(theme_cfg.font()),
+                    .font(theme_cfg.font())
+                    .animating(is_playing),
             ],
             None => column![
                 text(theme_cfg, "No track playing").size(13).color(bar_fg),
@@ -266,7 +277,8 @@ impl PlayerBar {
         let bar_muted = iced::Color { a: 0.6, ..bar_fg };
 
         // 1. Left: Track Info & Cover Thumbnail
-        let track_section = self.view_track_info(theme_cfg, current_track, current_cover);
+        let track_section =
+            self.view_track_info(theme_cfg, current_track, current_cover, is_playing);
 
         // 2. Center: Controls
         let buttons = self.view_controls(theme_cfg, is_playing);

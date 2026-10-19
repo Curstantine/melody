@@ -20,6 +20,7 @@ pub struct Marquee {
     gap: f32,
     pause_start_ms: u64,
     pause_end_ms: u64,
+    animating: bool,
 }
 
 impl Marquee {
@@ -33,7 +34,13 @@ impl Marquee {
             gap: 50.0,
             pause_start_ms: 2500,
             pause_end_ms: 3000,
+            animating: true,
         }
+    }
+
+    pub fn animating(mut self, animating: bool) -> Self {
+        self.animating = animating;
+        self
     }
 
     pub fn size(mut self, size: impl Into<Pixels>) -> Self {
@@ -150,15 +157,17 @@ where
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
     ) {
-        if let Event::Window(window::Event::RedrawRequested(_)) = event {
-            // Only keep the frame loop alive while the text actually overflows
-            // its bounds and needs to animate. When the text fits, staying
-            // quiet lets iced 0.14's reactive rendering idle instead of
-            // re-rendering the whole scene at display rate (which starves
-            // scrollable updates on large lists).
-            let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
-            if state.paragraph.raw().min_width() > layout.bounds().width {
-                shell.request_redraw();
+        if self.animating {
+            if let Event::Window(window::Event::RedrawRequested(_)) = event {
+                // Only keep the frame loop alive while the text actually overflows
+                // its bounds and needs to animate. When the text fits, staying
+                // quiet lets iced 0.14's reactive rendering idle instead of
+                // re-rendering the whole scene at display rate (which starves
+                // scrollable updates on large lists).
+                let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
+                if state.paragraph.raw().min_width() > layout.bounds().width {
+                    shell.request_redraw();
+                }
             }
         }
     }
@@ -183,8 +192,8 @@ where
         let text_h = paragraph.min_height().max(self.size.0);
         let y_pos = bounds.y + (bounds.height - text_h) / 2.0;
 
-        if text_w <= bounds.width {
-            // Text fits cleanly without overflowing
+        if !self.animating || text_w <= bounds.width {
+            // Text fits cleanly without overflowing, or animation is paused
             renderer.fill_paragraph(
                 paragraph,
                 Point::new(bounds.x, y_pos),

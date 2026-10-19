@@ -90,10 +90,12 @@ pub struct SettingsView {
     pub available_fonts: Vec<String>,
     pub library_folders: Vec<String>,
     pub scrobble_test_status: Option<(plugins::scrobbler::ScrobbleService, Result<String, String>)>,
+    pub fonts_loaded: bool,
 }
 
 impl SettingsView {
     pub fn new(active_tab: SettingsTab, mut available_fonts: Vec<String>) -> Self {
+        let fonts_loaded = !available_fonts.is_empty();
         if !available_fonts.iter().any(|f| f == "Default") {
             available_fonts.insert(0, "Default".to_string());
         }
@@ -102,7 +104,16 @@ impl SettingsView {
             available_fonts,
             library_folders: Vec::new(),
             scrobble_test_status: None,
+            fonts_loaded,
         }
+    }
+
+    pub fn set_available_fonts(&mut self, mut fonts: Vec<String>) {
+        if !fonts.iter().any(|f| f == "Default") {
+            fonts.insert(0, "Default".to_string());
+        }
+        self.available_fonts = fonts;
+        self.fonts_loaded = true;
     }
 
     pub fn select_tab(&mut self, tab: SettingsTab) {

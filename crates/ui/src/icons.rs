@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
 use iced::widget::svg::Handle;
 use iced::widget::Svg;
 use iced::{Color, Length, Theme};
@@ -109,8 +112,24 @@ pub const RADIO_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="
 /// Boxicons `chevron-left`.
 pub const ARROW_LEFT_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M14.29 6.29L8.59 12l5.7 5.71l1.42-1.42l-4.3-4.29l4.3-4.29z"/></svg>"#;
 
+static SVG_CACHE: OnceLock<Mutex<HashMap<&'static str, Handle>>> = OnceLock::new();
+
+pub fn handle_for_svg(svg_str: &'static str) -> Handle {
+    let cache = SVG_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Ok(guard) = cache.lock() {
+        if let Some(handle) = guard.get(svg_str) {
+            return handle.clone();
+        }
+    }
+    let handle = Handle::from_memory(svg_str.as_bytes());
+    if let Ok(mut guard) = cache.lock() {
+        guard.insert(svg_str, handle.clone());
+    }
+    handle
+}
+
 pub fn icon<'a>(svg_str: &'static str, size: f32, color: Color) -> Svg<'a, Theme> {
-    iced::widget::svg(Handle::from_memory(svg_str.as_bytes()))
+    iced::widget::svg(handle_for_svg(svg_str))
         .width(Length::Fixed(size))
         .height(Length::Fixed(size))
         .style(move |_theme, _status| iced::widget::svg::Style { color: Some(color) })

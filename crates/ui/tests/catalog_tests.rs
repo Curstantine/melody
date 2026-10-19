@@ -513,3 +513,64 @@ fn test_catalog_cover_art_renders_placeholder_and_with_cover() {
     };
     let _rendered_tile = tile.view();
 }
+
+#[test]
+fn test_get_album_cover_lookup() {
+    let mut view = albums::AlbumsView::new(ViewMode::Tile, AlbumSortField::Title);
+
+    let long_artist = "A".repeat(600);
+    let long_album = "B".repeat(600);
+    let test_cases = vec![
+        ("Artist 1", "Album 1"),
+        ("宇多田ヒカル", "First Love"),
+        ("周杰伦", "范特西"),
+        ("아이유 🎶", "Palette ✨"),
+        (long_artist.as_str(), long_album.as_str()), // > 1024 bytes fallback
+    ];
+
+    let mut summaries = Vec::new();
+    for (i, (artist, album)) in test_cases.into_iter().enumerate() {
+        let key = format!("{}\u{1f}{}", artist, album);
+        // Create 1x1 RGBA dummy image
+        let handle = iced::widget::image::Handle::from_rgba(1, 1, vec![255, 0, 0, 255]);
+        view.album_covers.insert(key, handle);
+
+        summaries.push(AlbumSummary {
+            album: album.into(),
+            artist: artist.into(),
+            track_count: 1,
+            total_duration_ms: 60_000,
+            year: Some(2024),
+            cover_track_id: Some(i as i64 + 1),
+            added_timestamp: 0,
+            year_label: "2024".to_string(),
+            tracks_label: "1 track".to_string(),
+            duration_label: "1:00".to_string(),
+        });
+    }
+
+    // Verify all covers resolve correctly via get_album_cover
+    for summary in &summaries {
+        assert!(
+            view.get_album_cover(summary).is_some(),
+            "Cover lookup failed for artist='{}', album='{}'",
+            summary.artist,
+            summary.album
+        );
+    }
+
+    // Verify missing cover returns None
+    let missing_summary = AlbumSummary {
+        album: "Nonexistent".into(),
+        artist: "Nobody".into(),
+        track_count: 1,
+        total_duration_ms: 60_000,
+        year: None,
+        cover_track_id: None,
+        added_timestamp: 0,
+        year_label: "".to_string(),
+        tracks_label: "1 track".to_string(),
+        duration_label: "1:00".to_string(),
+    };
+    assert!(view.get_album_cover(&missing_summary).is_none());
+}
