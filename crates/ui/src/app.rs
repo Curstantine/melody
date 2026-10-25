@@ -1805,7 +1805,13 @@ impl App {
             }
 
             Message::PlaylistsLoaded(playlists) => {
+                let load_covers_task = self.load_playlist_covers_task(&playlists);
                 self.playlists.set_playlists(playlists);
+                load_covers_task
+            }
+
+            Message::PlaylistCoversLoaded(covers) => {
+                self.playlists.set_playlist_covers(covers);
                 Task::none()
             }
 
@@ -3116,6 +3122,48 @@ impl App {
                 intent,
                 resolution,
             },
+        )
+    }
+
+    /// Asynchronously extracts preview cover art thumbnails for the given playlists.
+    /// Reads up to 4 track file paths from each playlist's M3U file, downscaling/caching
+    /// cover art thumbnails off the main thread.
+    fn load_playlist_covers_task(&self, playlists: &[PlaylistSummary]) -> Task<Message> {
+        if playlists.is_empty() {
+            return Task::none();
+        }
+
+        let targets: Vec<(i64, PathBuf)> = playlists
+            .iter()
+            .map(|p| (p.id, PathBuf::from(&p.file_path)))
+            .collect();
+
+        Task::perform(
+            async move {
+                tokio::task::spawn_blocking(move || {
+                    let mut results = Vec::with_capacity(targets.len());
+                    for (id, m3u_path) in targets {
+                        let track_paths =
+                            core_engine::parse_m3u_preview_paths(&m3u_path, 4).unwrap_or_default();
+                        let mut covers = Vec::with_capacity(track_paths.len());
+                        for track_path in track_paths {
+                            if let Ok(bytes) = core_engine::get_or_create_thumbnail(
+                                &track_path,
+                                core_engine::THUMB_DIM_DEFAULT,
+                            ) {
+                                if !bytes.is_empty() {
+                                    covers.push(bytes);
+                                }
+                            }
+                        }
+                        results.push((id, covers));
+                    }
+                    results
+                })
+                .await
+                .unwrap_or_default()
+            },
+            Message::PlaylistCoversLoaded,
         )
     }
 

@@ -257,6 +257,7 @@ pub enum Message {
     // Playlists
     PlaylistSectionChanged(PlaylistSection),
     PlaylistsLoaded(Vec<PlaylistSummary>),
+    PlaylistCoversLoaded(Vec<(i64, Vec<Vec<u8>>)>),
     ImportPlaylistsClicked,
     PlaylistsImported(Option<Vec<PathBuf>>),
     NewPlaylistClicked,
@@ -582,6 +583,10 @@ impl std::fmt::Debug for Message {
             Self::PlaylistsLoaded(v) => f
                 .debug_struct("PlaylistsLoaded")
                 .field("len", &v.len())
+                .finish(),
+            Self::PlaylistCoversLoaded(v) => f
+                .debug_struct("PlaylistCoversLoaded")
+                .field("playlists_len", &v.len())
                 .finish(),
             Self::ImportPlaylistsClicked => write!(f, "ImportPlaylistsClicked"),
             Self::PlaylistsImported(p) => f.debug_tuple("PlaylistsImported").field(p).finish(),

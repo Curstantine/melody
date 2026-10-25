@@ -1,8 +1,9 @@
 use core_engine::{PlaylistEntry, PlaylistSummary, SortDirection, TrackRow};
 use iced::widget::{
-    button, column, container, mouse_area, row, scrollable, text_input, Space, Widget,
+    button, column, container, image, mouse_area, row, scrollable, text_input, Space, Widget,
 };
-use iced::{Alignment, Element, Length};
+use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length};
+use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::components::{self, text, TrackMenuContext};
@@ -60,6 +61,8 @@ pub struct PlaylistsView {
     /// window around the visible scroll range is built each frame, mirroring
     /// the library view; spacers keep the scrollbar proportional.
     pub queue_window_start: usize,
+    /// Cached cover handles for playlist preview tiles (up to 4 tracks per playlist).
+    pub playlist_covers: HashMap<i64, Vec<image::Handle>>,
 }
 
 impl PlaylistsView {
@@ -70,6 +73,7 @@ impl PlaylistsView {
             sort_field,
             sort_dir: SortDirection::Ascending,
             playlists: Vec::new(),
+            playlist_covers: HashMap::new(),
             selected_id: None,
             detail_name: String::new(),
             detail_path: String::new(),
@@ -165,15 +169,32 @@ impl PlaylistsView {
 
     pub fn set_playlists(&mut self, playlists: Vec<PlaylistSummary>) {
         self.playlists = playlists;
+        let valid_ids: std::collections::HashSet<i64> = self.playlists.iter().map(|p| p.id).collect();
+        self.playlist_covers.retain(|id, _| valid_ids.contains(id));
         if self
             .selected_id
-            .is_some_and(|id| !self.playlists.iter().any(|p| p.id == id))
+            .is_some_and(|id| !valid_ids.contains(&id))
         {
             self.selected_id = None;
             self.detail_items.clear();
             self.detail_entries.clear();
             self.detail_name.clear();
             self.detail_path.clear();
+        }
+    }
+
+    pub fn set_playlist_covers(&mut self, covers: Vec<(i64, Vec<Vec<u8>>)>) {
+        for (id, track_bytes) in covers {
+            let handles: Vec<image::Handle> = track_bytes
+                .into_iter()
+                .filter(|b| !b.is_empty())
+                .map(image::Handle::from_bytes)
+                .collect();
+            if !handles.is_empty() {
+                self.playlist_covers.insert(id, handles);
+            } else {
+                self.playlist_covers.remove(&id);
+            }
         }
     }
 
@@ -585,15 +606,12 @@ impl PlaylistsView {
 
         for idx in self.sorted_indices() {
             let playlist = &self.playlists[idx];
+            let covers = self.playlist_covers.get(&playlist.id);
 
-            let icon = components::catalog_cover_art(
+            let icon = render_playlist_tile_cover(
                 theme_cfg,
-                None,
+                covers,
                 PLAYLIST_TILE_SIZE,
-                theme_cfg.radius_md(),
-                icons::PLAYLIST_SVG,
-                PLAYLIST_TILE_SIZE * 0.34,
-                theme_cfg.primary_color(),
                 Message::SelectPlaylist(playlist.id),
             );
 
@@ -1159,4 +1177,110 @@ fn case_insensitive(a: &str, b: &str) -> std::cmp::Ordering {
     let a_chars = a.chars().flat_map(|c| c.to_lowercase());
     let b_chars = b.chars().flat_map(|c| c.to_lowercase());
     a_chars.cmp(b_chars)
+}
+
+/// Renders either a 2x2 grid of track album covers, a single full-size cover,
+/// or a fallback icon inside the playlist tile.
+fn render_playlist_tile_cover<'a>(
+    theme_cfg: &'a ThemeConfig,
+    covers: Option<&Vec<image::Handle>>,
+    size: f32,
+    on_press: Message,
+) -> Element<'a, Message> {
+    let radius = theme_cfg.radius_md();
+    let border_color = theme_cfg.border_color();
+
+    match covers {
+        Some(list) if list.len() >= 4 => {
+            let half = (size / 2.0).floor();
+            let mut top_row = row![].spacing(0);
+            top_row = top_row.push(
+                image(list[0].clone())
+                    .width(Length::Fixed(half))
+                    .height(Length::Fixed(half))
+                    .content_fit(ContentFit::Cover),
+            );
+            top_row = top_row.push(
+                image(list[1].clone())
+                    .width(Length::Fixed(half))
+                    .height(Length::Fixed(half))
+                    .content_fit(ContentFit::Cover),
+            );
+
+            let mut bottom_row = row![].spacing(0);
+            bottom_row = bottom_row.push(
+                image(list[2].clone())
+                    .width(Length::Fixed(half))
+                    .height(Length::Fixed(half))
+                    .content_fit(ContentFit::Cover),
+            );
+            bottom_row = bottom_row.push(
+                image(list[3].clone())
+                    .width(Length::Fixed(half))
+                    .height(Length::Fixed(half))
+                    .content_fit(ContentFit::Cover),
+            );
+
+            let grid_content = column![top_row, bottom_row].spacing(0);
+            let image_layer = container(grid_content)
+                .width(size)
+                .height(size)
+                .clip(true)
+                .style(move |_theme| container::Style {
+                    border: Border {
+                        radius: radius.into(),
+                        color: border_color,
+                        width: 1.0,
+                    },
+                    ..Default::default()
+                });
+
+            let overlay_btn = button(Space::new().width(Length::Fill).height(Length::Fill))
+                .width(size)
+                .height(size)
+                .style(move |_theme, status| {
+                    let bg = match status {
+                        button::Status::Active => Color::TRANSPARENT,
+                        button::Status::Hovered | button::Status::Pressed => {
+                            Color::from_rgba(0.0, 0.0, 0.0, 0.5)
+                        }
+                        button::Status::Disabled => Color::TRANSPARENT,
+                    };
+                    button::Style {
+                        background: Some(Background::Color(bg)),
+                        border: Border {
+                            radius: radius.into(),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }
+                })
+                .on_press(on_press);
+
+            iced::widget::stack([image_layer.boxed(), overlay_btn.boxed()]).boxed()
+        }
+        Some(list) if !list.is_empty() => {
+            // 1 to 3 covers: render first cover full size (classic music player behavior)
+            components::catalog_cover_art(
+                theme_cfg,
+                Some(&list[0]),
+                size,
+                radius,
+                icons::PLAYLIST_SVG,
+                size * 0.34,
+                theme_cfg.primary_color(),
+                on_press,
+            )
+        }
+        _ => components::catalog_cover_art(
+            theme_cfg,
+            None,
+            size,
+            radius,
+            icons::PLAYLIST_SVG,
+            size * 0.34,
+            theme_cfg.primary_color(),
+            on_press,
+        ),
+    }
 }

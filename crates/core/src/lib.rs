@@ -24,9 +24,9 @@ pub use paths::{
     state_dir, state_file, thumbnail_cache_dir, user_layouts_dir, user_themes_dir,
 };
 pub use playlist::{
-    append_tracks_to_m3u, is_supported_playlist_file, normalize_path, parse_m3u, parse_m3u_str,
-    playlist_name_from_path, resolve_entry_path, sanitize_playlist_filename, write_m3u,
-    ParsedPlaylist, PlaylistEntry, PlaylistError,
+    append_tracks_to_m3u, is_supported_playlist_file, normalize_path, parse_m3u,
+    parse_m3u_preview_paths, parse_m3u_str, playlist_name_from_path, resolve_entry_path,
+    sanitize_playlist_filename, write_m3u, ParsedPlaylist, PlaylistEntry, PlaylistError,
 };
 pub use search::TrackFilter;
 pub use thumbnail::{
