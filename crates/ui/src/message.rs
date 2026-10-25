@@ -54,6 +54,7 @@ pub enum PlaylistOpenIntent {
     View,
     Play { start_index: usize },
     AddToQueue,
+    PlayNext,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -199,7 +200,10 @@ pub enum Message {
     ContextPlayNext(TrackRow),
     ContextAddToQueue(TrackRow),
     ContextAddTracksToQueue(Vec<TrackRow>),
+    ContextPlayTracksNext(Vec<TrackRow>),
+    ContextPlayAlbumNext(AlbumSummary),
     ContextAddAlbumToQueue(AlbumSummary),
+    ContextPlayArtistNext(ArtistSummary),
     ContextAddArtistToQueue(ArtistSummary),
     ContextAddTrackToPlaylist {
         track: TrackRow,
@@ -273,6 +277,7 @@ pub enum Message {
     PlayPlaylist(i64),
     PlayPlaylistItem(i64, usize),
     PlaylistToQueue(i64),
+    PlaylistPlayNext(i64),
     PlaylistDetailClicked {
         playlist_id: i64,
         index: usize,
@@ -495,9 +500,21 @@ impl std::fmt::Debug for Message {
                 .debug_struct("ContextAddTracksToQueue")
                 .field("len", &tracks.len())
                 .finish(),
+            Self::ContextPlayTracksNext(tracks) => f
+                .debug_struct("ContextPlayTracksNext")
+                .field("len", &tracks.len())
+                .finish(),
+            Self::ContextPlayAlbumNext(a) => f
+                .debug_struct("ContextPlayAlbumNext")
+                .field("album", &a.album)
+                .finish(),
             Self::ContextAddAlbumToQueue(a) => f
                 .debug_struct("ContextAddAlbumToQueue")
                 .field("album", &a.album)
+                .finish(),
+            Self::ContextPlayArtistNext(a) => f
+                .debug_struct("ContextPlayArtistNext")
+                .field("artist", &a.artist)
                 .finish(),
             Self::ContextAddArtistToQueue(a) => f
                 .debug_struct("ContextAddArtistToQueue")
@@ -618,6 +635,7 @@ impl std::fmt::Debug for Message {
                 .field(i)
                 .finish(),
             Self::PlaylistToQueue(id) => f.debug_tuple("PlaylistToQueue").field(id).finish(),
+            Self::PlaylistPlayNext(id) => f.debug_tuple("PlaylistPlayNext").field(id).finish(),
             Self::PlaylistDetailClicked { playlist_id, index } => f
                 .debug_struct("PlaylistDetailClicked")
                 .field("playlist_id", playlist_id)

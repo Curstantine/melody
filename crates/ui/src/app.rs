@@ -1256,6 +1256,39 @@ impl App {
                 Task::none()
             }
 
+            Message::ContextPlayTracksNext(tracks) => {
+                self.context_menu = None;
+                if !tracks.is_empty() {
+                    if self.queues.active.is_none() {
+                        self.queues.create(DEFAULT_QUEUE_NAME);
+                    }
+                    if let Some(queue) = self.queues.active_queue_mut() {
+                        queue.insert_many_next(tracks);
+                    }
+                    self.queues.touch_active_summary();
+                    return self.persist_active_queue_task();
+                }
+                Task::none()
+            }
+
+            Message::ContextPlayAlbumNext(album) => {
+                self.context_menu = None;
+                let db = self.db.clone();
+                let filter = TrackFilter::album(album.album.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::ContextPlayTracksNext,
+                )
+            }
+
             Message::ContextAddAlbumToQueue(album) => {
                 self.context_menu = None;
                 let db = self.db.clone();
@@ -1271,6 +1304,24 @@ impl App {
                         .unwrap_or_default()
                     },
                     Message::ContextAddTracksToQueue,
+                )
+            }
+
+            Message::ContextPlayArtistNext(artist) => {
+                self.context_menu = None;
+                let db = self.db.clone();
+                let filter = TrackFilter::artist(artist.artist.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::ContextPlayTracksNext,
                 )
             }
 
@@ -1910,10 +1961,27 @@ impl App {
                     self.queues.touch_active_summary();
                     self.persist_active_queue_task()
                 }
+                PlaylistOpenIntent::PlayNext => {
+                    let tracks = resolution.tracks;
+                    if tracks.is_empty() {
+                        return Task::none();
+                    }
+                    if self.queues.active.is_none() {
+                        self.queues.create(DEFAULT_QUEUE_NAME);
+                    }
+                    if let Some(queue) = self.queues.active_queue_mut() {
+                        queue.insert_many_next(tracks);
+                    }
+                    self.queues.touch_active_summary();
+                    self.persist_active_queue_task()
+                }
             },
 
             Message::PlayPlaylist(id) => self.open_playlist(id, 0),
             Message::PlayPlaylistItem(id, index) => self.open_playlist(id, index),
+            Message::PlaylistPlayNext(id) => {
+                self.resolve_playlist_intent(id, PlaylistOpenIntent::PlayNext)
+            }
             Message::PlaylistToQueue(id) => {
                 self.resolve_playlist_intent(id, PlaylistOpenIntent::AddToQueue)
             }

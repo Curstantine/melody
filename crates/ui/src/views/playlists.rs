@@ -169,12 +169,10 @@ impl PlaylistsView {
 
     pub fn set_playlists(&mut self, playlists: Vec<PlaylistSummary>) {
         self.playlists = playlists;
-        let valid_ids: std::collections::HashSet<i64> = self.playlists.iter().map(|p| p.id).collect();
+        let valid_ids: std::collections::HashSet<i64> =
+            self.playlists.iter().map(|p| p.id).collect();
         self.playlist_covers.retain(|id, _| valid_ids.contains(id));
-        if self
-            .selected_id
-            .is_some_and(|id| !valid_ids.contains(&id))
-        {
+        if self.selected_id.is_some_and(|id| !valid_ids.contains(&id)) {
             self.selected_id = None;
             self.detail_items.clear();
             self.detail_entries.clear();
@@ -807,6 +805,13 @@ impl PlaylistsView {
                 "Play",
                 false,
                 Message::PlayPlaylist(playlist_id),
+            ),
+            components::chip_with_icon(
+                theme_cfg,
+                icons::NEXT_SVG,
+                "Play next",
+                false,
+                Message::PlaylistPlayNext(playlist_id),
             ),
             components::chip_with_icon(
                 theme_cfg,

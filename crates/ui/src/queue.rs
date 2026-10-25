@@ -176,11 +176,20 @@ impl Queue {
     }
 
     /// Inserts `track` immediately after the current track (Musicolet "play next").
-    #[allow(dead_code)]
     pub fn insert_next(&mut self, track: TrackRow) {
         let index = self.current_index().map(|i| i + 1).unwrap_or(0);
         let index = index.min(self.tracks.len());
         self.tracks.insert(index, track);
+    }
+
+    /// Inserts multiple `tracks` in order immediately after the current track.
+    pub fn insert_many_next(&mut self, tracks: impl IntoIterator<Item = TrackRow>) {
+        let mut index = self.current_index().map(|i| i + 1).unwrap_or(0);
+        index = index.min(self.tracks.len());
+        for track in tracks {
+            self.tracks.insert(index, track);
+            index += 1;
+        }
     }
 
     pub fn remove(&mut self, index: usize) -> Option<TrackRow> {

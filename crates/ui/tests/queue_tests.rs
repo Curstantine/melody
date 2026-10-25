@@ -56,6 +56,12 @@ fn queue_navigation_and_shuffle_boundaries() {
     q.insert_next(track(99));
     assert_eq!(q.tracks[1].id, 99);
 
+    // insert_many_next places multiple tracks in order right after the cursor
+    q.insert_many_next(vec![track(100), track(101)]);
+    assert_eq!(q.tracks[1].id, 100);
+    assert_eq!(q.tracks[2].id, 101);
+    assert_eq!(q.tracks[3].id, 99);
+
     // removing the current track clamps the cursor back onto a valid slot
     q.set_current(1);
     q.remove(1);
