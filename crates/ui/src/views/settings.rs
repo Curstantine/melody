@@ -534,7 +534,7 @@ impl SettingsView {
             row![
                 text(theme_cfg, "Page limit")
                     .size(12)
-                    .color(theme_cfg.text_color())
+                    .color(theme_cfg.text_muted_color())
                     .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                 page_size_buttons,
             ]
@@ -566,7 +566,7 @@ impl SettingsView {
                 row![
                     text(theme_cfg, "Catalog view mode")
                         .size(12)
-                        .color(theme_cfg.text_color())
+                        .color(theme_cfg.text_muted_color())
                         .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                     components::view_mode_toggle(
                         theme_cfg,
@@ -578,7 +578,7 @@ impl SettingsView {
                 row![
                     text(theme_cfg, "Tile width")
                         .size(12)
-                        .color(theme_cfg.text_color())
+                        .color(theme_cfg.text_muted_color())
                         .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                     row![
                         slider(120.0..=300.0, ctx.album_tile_width as f32, |val| {
@@ -626,7 +626,7 @@ impl SettingsView {
                 row![
                     text(theme_cfg, "Catalog view mode")
                         .size(12)
-                        .color(theme_cfg.text_color())
+                        .color(theme_cfg.text_muted_color())
                         .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                     components::view_mode_toggle(
                         theme_cfg,
@@ -638,7 +638,7 @@ impl SettingsView {
                 row![
                     text(theme_cfg, "Tile width")
                         .size(12)
-                        .color(theme_cfg.text_color())
+                        .color(theme_cfg.text_muted_color())
                         .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                     row![
                         slider(120.0..=280.0, ctx.artist_tile_width as f32, |val| {
@@ -686,7 +686,7 @@ impl SettingsView {
                 row![
                     text(theme_cfg, "Cover art dimension")
                         .size(12)
-                        .color(theme_cfg.text_color())
+                        .color(theme_cfg.text_muted_color())
                         .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                     row![
                         slider(160.0..=320.0, ctx.now_playing_cover_size as f32, |val| {
@@ -708,7 +708,7 @@ impl SettingsView {
                 row![
                     text(theme_cfg, "Now playing notifications")
                         .size(12)
-                        .color(theme_cfg.text_color())
+                        .color(theme_cfg.text_muted_color())
                         .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                     components::chip_with_icon(
                         theme_cfg,
@@ -1013,8 +1013,6 @@ impl SettingsView {
 
                 let item_row = container(
                     row![
-                        icons::icon(icons::FOLDER_SVG, 15.0, theme_cfg.primary_color()),
-                        Space::new().width(SPACE_LG),
                         text(theme_cfg, folder_path.as_str())
                             .size(12)
                             .color(theme_cfg.text_color())
@@ -1046,7 +1044,8 @@ impl SettingsView {
             column![
                 text(theme_cfg, "Watch library folders")
                     .size(12)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_muted_color()),
+                Space::new().height(SPACE_SM),
                 text(
                     theme_cfg,
                     "Automatically monitor directories and scan for new audio files"
@@ -1055,21 +1054,10 @@ impl SettingsView {
                 .color(theme_cfg.text_muted_color()),
             ]
             .width(Length::Fill),
-            components::chip_with_icon(
-                theme_cfg,
-                if ctx.watch_library {
-                    icons::CHECK_SVG
-                } else {
-                    icons::RADIO_SVG
-                },
-                if ctx.watch_library {
-                    "Enabled"
-                } else {
-                    "Disabled"
-                },
-                ctx.watch_library,
-                Message::ToggleWatchLibrary(!ctx.watch_library),
-            ),
+            toggler(ctx.watch_library)
+                .on_toggle(Message::ToggleWatchLibrary)
+                .size(TOGGLER_SIZE)
+                .style(styles::toggler_style(theme_cfg)),
         ]
         .align_y(Alignment::Center);
 
