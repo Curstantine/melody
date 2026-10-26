@@ -1,4 +1,6 @@
-use core_engine::{PlaylistEntry, PlaylistSummary, SortDirection, TrackRow};
+use core_engine::{
+    format_template, FieldLookup, PlaylistEntry, PlaylistSummary, SortDirection, TrackRow,
+};
 use iced::widget::{
     button, column, container, image, mouse_area, row, scrollable, text_input, Space, Widget,
 };
@@ -347,17 +349,21 @@ impl PlaylistsView {
         store: &'a QueueStore,
         dragging_track: Option<(u64, usize)>,
         dragging_detail: Option<(i64, usize)>,
+        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
+        queue_fmt: &'a crate::layout::QueueFormatConfig,
     ) -> Element<'a, Message> {
         let toolbar = self.view_toolbar(theme_cfg);
         let content: Element<'a, Message> = match self.section {
             PlaylistSection::Playlists => {
                 if self.selected_id.is_some() {
-                    self.view_detail(theme_cfg, dragging_detail)
+                    self.view_detail(theme_cfg, dragging_detail, playlists_fmt)
                 } else {
-                    self.view_catalog(theme_cfg)
+                    self.view_catalog(theme_cfg, playlists_fmt)
                 }
             }
-            PlaylistSection::Queues => self.view_queues(theme_cfg, store, dragging_track),
+            PlaylistSection::Queues => {
+                self.view_queues(theme_cfg, store, dragging_track, queue_fmt)
+            }
         };
 
         column![toolbar, content]
@@ -444,7 +450,11 @@ impl PlaylistsView {
 
     // ── Playlist catalog ────────────────────────────────────────────────────
 
-    fn view_catalog<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_catalog<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
+    ) -> Element<'a, Message> {
         if self.creating {
             return self.view_new_playlist_form(theme_cfg);
         }
@@ -482,8 +492,8 @@ impl PlaylistsView {
         });
 
         let content = match self.view_mode {
-            ViewMode::List => self.view_catalog_list(theme_cfg),
-            ViewMode::Tile => self.view_catalog_tiles(theme_cfg),
+            ViewMode::List => self.view_catalog_list(theme_cfg, playlists_fmt),
+            ViewMode::Tile => self.view_catalog_tiles(theme_cfg, playlists_fmt),
         };
 
         column![header, content]
@@ -493,19 +503,27 @@ impl PlaylistsView {
             .boxed()
     }
 
-    fn view_catalog_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_catalog_list<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
+    ) -> Element<'a, Message> {
         let mut list = column![].spacing(2).width(Length::Fill);
 
         for idx in self.sorted_indices() {
             let playlist = &self.playlists[idx];
             let is_selected = self.selected_id == Some(playlist.id);
 
-            let subtitle = text(theme_cfg, playlist.file_path.as_str())
+            let line1 = format_template(&playlists_fmt.list_line1, playlist);
+            let line2 = format_template(&playlists_fmt.list_line2, playlist);
+            let details_label = format_template(&playlists_fmt.list_details, playlist);
+
+            let subtitle = text(theme_cfg, line2.as_str())
                 .size(11)
                 .color(theme_cfg.text_muted_color());
 
             let title_block = column![
-                text(theme_cfg, playlist.name.as_str())
+                text(theme_cfg, line1.as_str())
                     .size(13)
                     .color(theme_cfg.text_color()),
                 subtitle,
@@ -514,7 +532,7 @@ impl PlaylistsView {
             .width(Length::Fill);
 
             let details = column![
-                text(theme_cfg, playlist.tracks_label.as_str())
+                text(theme_cfg, details_label.as_str())
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 text(
@@ -597,7 +615,11 @@ impl PlaylistsView {
             .boxed()
     }
 
-    fn view_catalog_tiles<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_catalog_tiles<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
+    ) -> Element<'a, Message> {
         let mut grid = column![].spacing(12).width(Length::Fill);
         let mut tile_row = row![].spacing(12).align_y(Alignment::Start);
         let mut columns = 0;
@@ -613,10 +635,13 @@ impl PlaylistsView {
                 Message::SelectPlaylist(playlist.id),
             );
 
+            let line1 = format_template(&playlists_fmt.tile_line1, playlist);
+            let line2 = format_template(&playlists_fmt.tile_line2, playlist);
+
             let meta = container(
                 column![
-                    text(theme_cfg, playlist.name.as_str()).size(12),
-                    text(theme_cfg, playlist.tracks_label.as_str())
+                    text(theme_cfg, line1.as_str()).size(12),
+                    text(theme_cfg, line2.as_str())
                         .size(10)
                         .color(theme_cfg.text_muted_color()),
                 ]
@@ -746,6 +771,7 @@ impl PlaylistsView {
         &'a self,
         theme_cfg: &'a ThemeConfig,
         dragging_detail: Option<(i64, usize)>,
+        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
         let playlist_id = self.selected_id.unwrap_or(-1);
 
@@ -876,13 +902,36 @@ impl PlaylistsView {
                     track_id,
                     context: TrackMenuContext::Playlist { playlist_id, index },
                 });
+
+                let track_row = item
+                    .track_id
+                    .and_then(|tid| self.detail_tracks.iter().find(|t| t.id == tid));
+                let lookup = |key: &str| -> Option<String> {
+                    if let Some(t) = track_row {
+                        if let Some(v) = t.lookup(key) {
+                            return Some(v.into_owned());
+                        }
+                    }
+                    match key {
+                        "title" => Some(item.title.clone()),
+                        "artist" => Some(item.artist.clone()),
+                        "duration_label" | "duration" => Some(item.duration_label.clone()),
+                        "id" => item.track_id.map(|id| id.to_string()),
+                        _ => None,
+                    }
+                };
+
+                let primary = format_template(&playlists_fmt.detail_primary, &lookup);
+                let secondary = format_template(&playlists_fmt.detail_secondary, &lookup);
+                let details = format_template(&playlists_fmt.detail_details, &lookup);
+
                 list = list.push(
                     components::TrackRow {
                         theme: theme_cfg,
                         index,
-                        title: item.title.as_str(),
-                        artist: item.artist.as_str(),
-                        duration: item.duration_label.as_str(),
+                        title: &primary,
+                        artist: &secondary,
+                        duration: &details,
                         highlighted: self.selected_detail_track == Some((playlist_id, index)),
                         dragging: dragging_detail == Some((playlist_id, index)),
                         show_handle: dragging_detail == Some((playlist_id, index))
@@ -920,6 +969,7 @@ impl PlaylistsView {
         theme_cfg: &'a ThemeConfig,
         store: &'a QueueStore,
         dragging_track: Option<(u64, usize)>,
+        queue_fmt: &'a crate::layout::QueueFormatConfig,
     ) -> Element<'a, Message> {
         if store.is_empty() {
             return components::empty_state(
@@ -933,9 +983,10 @@ impl PlaylistsView {
         let mut chips = row![].spacing(6).align_y(Alignment::Center);
         for queue in &store.summaries {
             let is_active = store.active == Some(queue.id);
+            let chip_label = format_template(&queue_fmt.chip_format, queue);
             let chip_btn = components::chip(
                 theme_cfg,
-                format!("{} ({})", queue.name, queue.track_count),
+                chip_label,
                 is_active,
                 Message::QueueSelect(queue.id),
             );
@@ -1026,13 +1077,16 @@ impl PlaylistsView {
             for (offset, track) in active.tracks[start..end].iter().enumerate() {
                 let index = start + offset;
                 let is_current = current == Some(index);
+                let primary = format_template(&queue_fmt.track_primary, track);
+                let secondary = format_template(&queue_fmt.track_secondary, track);
+                let details = format_template(&queue_fmt.track_details, track);
                 list = list.push(
                     components::TrackRow {
                         theme: theme_cfg,
                         index,
-                        title: track.title.as_str(),
-                        artist: track.display_artist(),
-                        duration: track.formatted_duration(),
+                        title: &primary,
+                        artist: &secondary,
+                        duration: &details,
                         highlighted: is_current
                             || self.selected_queue_track == Some((active_id, index)),
                         dragging: dragging_track == Some((active_id, index)),

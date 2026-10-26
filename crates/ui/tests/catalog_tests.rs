@@ -8,6 +8,8 @@ mod artists;
 mod components;
 #[path = "../src/icons.rs"]
 mod icons;
+#[path = "../src/layout/mod.rs"]
+mod layout;
 #[path = "../src/message.rs"]
 mod message;
 #[path = "../src/theme/mod.rs"]
@@ -15,6 +17,7 @@ mod theme;
 
 use core_engine::{AlbumSummary, ArtistSummary};
 use iced::widget::Widget;
+use layout::{AlbumsFormatConfig, ArtistsFormatConfig};
 use message::{AlbumSortField, ArtistSortField, Message, ViewMode};
 use theme::ThemeConfig;
 
@@ -285,22 +288,25 @@ fn test_album_and_artist_views_render_sliced() {
         .collect();
 
     // Sliced view for albums (first 60 items)
+    let albums_fmt = AlbumsFormatConfig::default();
+    let artists_fmt = ArtistsFormatConfig::default();
+
     let mut albums_view_tile = albums::AlbumsView::new(ViewMode::Tile, AlbumSortField::Title);
     albums_view_tile.set_albums(albums_list.clone());
-    let _album_tile = albums_view_tile.view(&theme_cfg);
+    let _album_tile = albums_view_tile.view(&theme_cfg, &albums_fmt);
 
     let mut albums_view_list = albums::AlbumsView::new(ViewMode::List, AlbumSortField::Title);
     albums_view_list.set_albums(albums_list);
-    let _album_list = albums_view_list.view(&theme_cfg);
+    let _album_list = albums_view_list.view(&theme_cfg, &albums_fmt);
 
     // Sliced view for artists (first 60 items)
     let mut artists_view_tile = artists::ArtistsView::new(ViewMode::Tile, ArtistSortField::Artist);
     artists_view_tile.set_artists(artists_list.clone());
-    let _artist_tile = artists_view_tile.view(&theme_cfg);
+    let _artist_tile = artists_view_tile.view(&theme_cfg, &artists_fmt);
 
     let mut artists_view_list = artists::ArtistsView::new(ViewMode::List, ArtistSortField::Artist);
     artists_view_list.set_artists(artists_list);
-    let _artist_list = artists_view_list.view(&theme_cfg);
+    let _artist_list = artists_view_list.view(&theme_cfg, &artists_fmt);
 }
 
 #[test]
@@ -375,7 +381,8 @@ fn test_albums_view_component_state() {
     assert!(albums_view.cover_order.is_empty());
 
     let theme_cfg = ThemeConfig::default();
-    let _rendered = albums_view.view(&theme_cfg);
+    let albums_fmt = AlbumsFormatConfig::default();
+    let _rendered = albums_view.view(&theme_cfg, &albums_fmt);
 }
 
 #[test]
@@ -404,7 +411,8 @@ fn test_artists_view_component_state() {
     artists_view.set_view_mode(ViewMode::Tile);
 
     let theme_cfg = ThemeConfig::default();
-    let _rendered = artists_view.view(&theme_cfg);
+    let artists_fmt = ArtistsFormatConfig::default();
+    let _rendered = artists_view.view(&theme_cfg, &artists_fmt);
 }
 
 #[test]
@@ -430,7 +438,8 @@ fn test_artists_view_is_virtualized() {
     assert!(view.window_len() < 200, "window_len={}", view.window_len());
 
     let theme_cfg = ThemeConfig::default();
-    let _rendered = view.view(&theme_cfg);
+    let artists_fmt = ArtistsFormatConfig::default();
+    let _rendered = view.view(&theme_cfg, &artists_fmt);
 }
 
 #[test]

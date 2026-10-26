@@ -1,4 +1,4 @@
-use core_engine::{ArtistSummary, SortDirection, TrackFilter};
+use core_engine::{format_template, ArtistSummary, SortDirection, TrackFilter};
 use iced::widget::{column, container, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length, Padding};
 
@@ -295,7 +295,11 @@ impl ArtistsView {
         self.artists.is_empty()
     }
 
-    pub fn view<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        format_cfg: &'a crate::layout::ArtistsFormatConfig,
+    ) -> Element<'a, Message> {
         if self.artists.is_empty() {
             return components::empty_state(
                 theme_cfg,
@@ -329,8 +333,8 @@ impl ArtistsView {
         });
 
         let content_area: Element<'a, Message> = match self.view_mode {
-            ViewMode::Tile => self.view_tiles(theme_cfg),
-            ViewMode::List => self.view_list(theme_cfg),
+            ViewMode::Tile => self.view_tiles(theme_cfg, format_cfg),
+            ViewMode::List => self.view_list(theme_cfg, format_cfg),
         };
 
         column![header_bar, content_area]
@@ -346,7 +350,11 @@ impl ArtistsView {
             .boxed()
     }
 
-    fn view_tiles<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_tiles<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        format_cfg: &'a crate::layout::ArtistsFormatConfig,
+    ) -> Element<'a, Message> {
         let per_row = self.items_per_row();
         let total_rows = self.total_rows();
         let start_row = self.window_start / per_row;
@@ -379,13 +387,16 @@ impl ArtistsView {
                     Message::SelectArtist(artist.artist.to_string()),
                 );
 
+                let line1 = format_template(&format_cfg.tile_line1, artist);
+                let line2 = format_template(&format_cfg.tile_line2, artist);
+
                 tile_row = tile_row.push(
                     components::CatalogTile {
                         theme: theme_cfg,
                         tile_width: tile_w,
                         leading,
-                        title: artist.artist.as_ref(),
-                        mid_left: artist.stats_label.as_str(),
+                        title: &line1,
+                        mid_left: &line2,
                         mid_right: "",
                         bottom_left: "",
                         bottom_right: "",
@@ -432,7 +443,11 @@ impl ArtistsView {
         .boxed()
     }
 
-    fn view_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_list<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        format_cfg: &'a crate::layout::ArtistsFormatConfig,
+    ) -> Element<'a, Message> {
         let total_rows = self.artists.len();
         let row_h = components::CATALOG_LIST_ROW_HEIGHT;
 
@@ -444,6 +459,9 @@ impl ArtistsView {
         }
 
         for artist in self.visible_artists() {
+            let line1 = format_template(&format_cfg.list_line1, artist);
+            let line2 = format_template(&format_cfg.list_line2, artist);
+
             content = content.push(
                 components::CatalogRow {
                     theme: theme_cfg,
@@ -456,8 +474,8 @@ impl ArtistsView {
                         20.0,
                         theme_cfg.primary_color(),
                     ),
-                    title: artist.artist.as_ref(),
-                    subtitle_left: artist.stats_label.as_str(),
+                    title: &line1,
+                    subtitle_left: &line2,
                     subtitle_right: "",
                     details: None,
                     on_select: Message::SelectArtist(artist.artist.to_string()),

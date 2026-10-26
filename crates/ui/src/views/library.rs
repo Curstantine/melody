@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use core_engine::{SortDirection, SortField, TrackFilter, TrackRow};
+use core_engine::{format_template, SortDirection, SortField, TrackFilter, TrackRow};
 use iced::widget::{
     button, column, container, mouse_area, row, scrollable, text_input, Space, Widget,
 };
@@ -229,6 +229,7 @@ impl LibraryView {
         theme_cfg: &'a ThemeConfig,
         current_track_id: Option<i64>,
         is_playing: bool,
+        format_cfg: &'a crate::layout::LibraryFormatConfig,
     ) -> Element<'a, Message> {
         // 1. Search Bar & View Mode Toolbar
         let search_input = text_input(
@@ -289,19 +290,13 @@ impl LibraryView {
                 .on_press(Message::SortChanged(field))
         };
 
-        let table_header = row![
-            container(
-                text(theme_cfg, "#")
-                    .size(12)
-                    .color(theme_cfg.text_muted_color()),
-            )
-            .width(36)
-            .center_x(36),
-            header_btn("Title", SortField::Title, Length::FillPortion(4)),
-            header_btn("Artist", SortField::Artist, Length::FillPortion(3)),
-            header_btn("Album", SortField::Album, Length::FillPortion(3)),
-            header_btn("Duration", SortField::Duration, Length::Fixed(80.0)),
-        ]
+        let mut table_header = row![container(
+            text(theme_cfg, "#")
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+        )
+        .width(36)
+        .center_x(36),]
         .spacing(8)
         .align_y(Alignment::Center)
         .padding(iced::Padding {
@@ -310,6 +305,23 @@ impl LibraryView {
             bottom: 2.0,
             left: 0.0,
         });
+
+        for col in &format_cfg.columns {
+            let width = col.width.to_iced_length();
+            let btn: Element<'a, Message> = if let Some(field) = col.sort_field {
+                header_btn(&col.header, field, width).boxed()
+            } else {
+                container(
+                    text(theme_cfg, &col.header)
+                        .size(12)
+                        .color(theme_cfg.text_muted_color()),
+                )
+                .width(width)
+                .padding([2, 0])
+                .boxed()
+            };
+            table_header = table_header.push(btn);
+        }
 
         // 3. Track Content (virtualized list)
         let content: Element<'a, Message> = if self.total_tracks == 0 {
@@ -367,38 +379,35 @@ impl LibraryView {
                     .boxed()
                 };
 
-                let track_row = row![
-                    left_action,
-                    text(theme_cfg, &track.title)
-                        .size(13)
-                        .color(if is_active {
+                let mut track_row = row![left_action]
+                    .spacing(8)
+                    .align_y(Alignment::Center)
+                    .height(self.row_height)
+                    .padding(iced::Padding {
+                        top: 0.0,
+                        right: 15.0,
+                        bottom: 0.0,
+                        left: 0.0,
+                    });
+
+                for (col_idx, col) in format_cfg.columns.iter().enumerate() {
+                    let cell_value = format_template(&col.format, track);
+                    let is_primary_col = col_idx == 0;
+                    let col_text = text(theme_cfg, cell_value)
+                        .size(if is_primary_col { 13 } else { 12 })
+                        .color(if is_primary_col && is_active {
                             theme_cfg.primary_color()
-                        } else {
+                        } else if is_primary_col {
                             theme_cfg.text_color()
+                        } else {
+                            theme_cfg.text_muted_color()
                         })
-                        .width(Length::FillPortion(4)),
-                    text(theme_cfg, track.display_artist())
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(Length::FillPortion(3)),
-                    text(theme_cfg, track.album.as_ref())
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(Length::FillPortion(3)),
-                    text(theme_cfg, track.formatted_duration())
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(80),
-                ]
-                .spacing(8)
-                .align_y(Alignment::Center)
-                .height(self.row_height)
-                .padding(iced::Padding {
-                    top: 0.0,
-                    right: 15.0,
-                    bottom: 0.0,
-                    left: 0.0,
-                });
+                        .width(col.width.to_iced_length())
+                        .wrapping(iced::widget::text::Wrapping::None)
+                        .ellipsis(iced::widget::text::Ellipsis::End);
+
+                    track_row = track_row.push(col_text);
+                }
 
                 let row_container = container(track_row)
                     .style(styles::table_row_container(

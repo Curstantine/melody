@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-use core_engine::{AlbumSummary, SortDirection, TrackFilter};
+use core_engine::{format_template, AlbumSummary, SortDirection, TrackFilter};
 use iced::widget::{column, container, image, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length};
 
@@ -495,7 +495,11 @@ impl AlbumsView {
         self.album_covers.get(&key)
     }
 
-    pub fn view<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        format_cfg: &'a crate::layout::AlbumsFormatConfig,
+    ) -> Element<'a, Message> {
         if self.albums.is_empty() {
             return components::empty_state(
                 theme_cfg,
@@ -532,8 +536,8 @@ impl AlbumsView {
         });
 
         let content_area: Element<'a, Message> = match self.view_mode {
-            ViewMode::Tile => self.view_tiles(theme_cfg),
-            ViewMode::List => self.view_list(theme_cfg),
+            ViewMode::Tile => self.view_tiles(theme_cfg, format_cfg),
+            ViewMode::List => self.view_list(theme_cfg, format_cfg),
         };
 
         column![header_bar, content_area]
@@ -549,7 +553,11 @@ impl AlbumsView {
             .boxed()
     }
 
-    fn view_tiles<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_tiles<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        format_cfg: &'a crate::layout::AlbumsFormatConfig,
+    ) -> Element<'a, Message> {
         let per_row = self.items_per_row();
         let total_rows = self.total_rows();
         let start_row = self.window_start / per_row;
@@ -582,16 +590,20 @@ impl AlbumsView {
                     Message::SelectAlbum(album.album.to_string()),
                 );
 
+                let line1 = format_template(&format_cfg.tile_line1, album);
+                let line2 = format_template(&format_cfg.tile_line2, album);
+                let line3 = format_template(&format_cfg.tile_line3, album);
+
                 tile_row = tile_row.push(
                     components::CatalogTile {
                         theme: theme_cfg,
                         tile_width: tile_w,
                         leading,
-                        title: album.album.as_ref(),
-                        mid_left: album.artist.as_ref(),
-                        mid_right: album.year_label.as_str(),
-                        bottom_left: album.tracks_label.as_str(),
-                        bottom_right: album.duration_label.as_str(),
+                        title: &line1,
+                        mid_left: &line2,
+                        mid_right: "",
+                        bottom_left: &line3,
+                        bottom_right: "",
                         on_select: Message::SelectAlbum(album.album.to_string()),
                         on_play: Message::PlayScope {
                             filter: TrackFilter::album(album.album.as_ref()),
@@ -631,7 +643,11 @@ impl AlbumsView {
             .boxed()
     }
 
-    fn view_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_list<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        format_cfg: &'a crate::layout::AlbumsFormatConfig,
+    ) -> Element<'a, Message> {
         let total_rows = self.albums.len();
         let row_h = components::CATALOG_LIST_ROW_HEIGHT;
 
@@ -643,6 +659,10 @@ impl AlbumsView {
         }
 
         for album in self.visible_albums() {
+            let line1 = format_template(&format_cfg.list_line1, album);
+            let line2 = format_template(&format_cfg.list_line2, album);
+            let details = format_template(&format_cfg.list_details, album);
+
             content = content.push(
                 components::CatalogRow {
                     theme: theme_cfg,
@@ -655,10 +675,14 @@ impl AlbumsView {
                         20.0,
                         theme_cfg.primary_color(),
                     ),
-                    title: album.album.as_ref(),
-                    subtitle_left: album.artist.as_ref(),
-                    subtitle_right: album.year_label.as_str(),
-                    details: Some((album.tracks_label.as_str(), album.duration_label.as_str())),
+                    title: &line1,
+                    subtitle_left: &line2,
+                    subtitle_right: "",
+                    details: if details.is_empty() {
+                        None
+                    } else {
+                        Some((details.as_str(), ""))
+                    },
                     on_select: Message::SelectAlbum(album.album.to_string()),
                     on_play: Message::PlayScope {
                         filter: TrackFilter::album(album.album.as_ref()),

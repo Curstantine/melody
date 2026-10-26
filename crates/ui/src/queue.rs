@@ -92,6 +92,24 @@ pub struct QueueSummary {
     pub source_playlist: Option<String>,
 }
 
+impl core_engine::FieldLookup for QueueSummary {
+    fn lookup(&self, key: &str) -> Option<std::borrow::Cow<'_, str>> {
+        match key {
+            "id" => Some(std::borrow::Cow::Owned(self.id.to_string())),
+            "name" | "title" => Some(std::borrow::Cow::Borrowed(&self.name)),
+            "track_count" | "tracks" => Some(std::borrow::Cow::Owned(self.track_count.to_string())),
+            "current" => Some(std::borrow::Cow::Owned(self.current.to_string())),
+            "source" | "source_kind" => Some(std::borrow::Cow::Borrowed(self.source.as_str())),
+            "source_value" => self.source_value.as_deref().map(std::borrow::Cow::Borrowed),
+            "source_playlist" => self
+                .source_playlist
+                .as_deref()
+                .map(std::borrow::Cow::Borrowed),
+            _ => None,
+        }
+    }
+}
+
 /// A fully loaded, ordered playback queue with a cursor.
 #[derive(Debug, Clone)]
 pub struct Queue {

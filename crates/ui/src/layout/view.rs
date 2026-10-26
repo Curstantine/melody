@@ -157,29 +157,38 @@ impl App {
                 theme_cfg,
                 self.current_track_id,
                 self.is_playing,
+                &self.layout_manager.current_template.view_formats.library,
             ))
             .width(Length::Fill)
             .height(Length::Fill)
             .clip(true)
             .boxed(),
 
-            LayoutComponent::Albums => container(self.albums.view(theme_cfg))
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .clip(true)
-                .boxed(),
+            LayoutComponent::Albums => container(self.albums.view(
+                theme_cfg,
+                &self.layout_manager.current_template.view_formats.albums,
+            ))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .clip(true)
+            .boxed(),
 
-            LayoutComponent::Artists => container(self.artists.view(theme_cfg))
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .clip(true)
-                .boxed(),
+            LayoutComponent::Artists => container(self.artists.view(
+                theme_cfg,
+                &self.layout_manager.current_template.view_formats.artists,
+            ))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .clip(true)
+            .boxed(),
 
             LayoutComponent::Playlists => container(self.playlists.view(
                 theme_cfg,
                 &self.queues,
                 self.dragging_queue_track,
                 self.dragging_detail,
+                &self.layout_manager.current_template.view_formats.playlists,
+                &self.layout_manager.current_template.view_formats.queue,
             ))
             .width(Length::Fill)
             .height(Length::Fill)
@@ -190,6 +199,7 @@ impl App {
                 theme_cfg,
                 &self.queues,
                 self.dragging_queue_track,
+                &self.layout_manager.current_template.view_formats.queue,
             ))
             .width(Length::Fill)
             .height(Length::Fill)
@@ -432,17 +442,23 @@ impl App {
     }
 
     pub fn render_main_view<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+        let view_formats = &self.layout_manager.current_template.view_formats;
         match self.active_tab {
-            ViewTab::Tracks => self
-                .library
-                .view(theme_cfg, self.current_track_id, self.is_playing),
-            ViewTab::Albums => self.albums.view(theme_cfg),
-            ViewTab::Artists => self.artists.view(theme_cfg),
+            ViewTab::Tracks => self.library.view(
+                theme_cfg,
+                self.current_track_id,
+                self.is_playing,
+                &view_formats.library,
+            ),
+            ViewTab::Albums => self.albums.view(theme_cfg, &view_formats.albums),
+            ViewTab::Artists => self.artists.view(theme_cfg, &view_formats.artists),
             ViewTab::Playlists => self.playlists.view(
                 theme_cfg,
                 &self.queues,
                 self.dragging_queue_track,
                 self.dragging_detail,
+                &view_formats.playlists,
+                &view_formats.queue,
             ),
             ViewTab::Lyrics => {
                 let next_track = self.get_next_track();

@@ -1,4 +1,29 @@
 layout name="Sidebar" description="Sidebar with bottom player bar" {
+    view-formats {
+        library {
+            column "Title" format="{title}" fill-portion=5 sort="title"
+            column "Artist" format="{artist}" fill-portion=4 sort="artist"
+            column "Duration" format="{duration_label}" width=70 sort="duration"
+        }
+        albums {
+            tile line1="{album}" line2="{artist}" line3="{tracks_label}"
+            list line1="{album}" line2="{artist}" details="{duration_label}"
+        }
+        artists {
+            tile line1="{artist}" line2="{stats_label}"
+            list line1="{artist}" line2="{stats_label}"
+        }
+        playlists {
+            tile line1="{name}" line2="{tracks_label}"
+            list line1="{name}" line2="{tracks_label}" details="{managed}"
+            detail primary="{title}" secondary="{artist}" details="{duration_label}"
+        }
+        queue {
+            track primary="{title}" secondary="{artist}" details="{duration_label}"
+            chip format="{name} ({track_count})"
+        }
+    }
+
     column {
         row fill=true {
             column width=180 {

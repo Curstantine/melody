@@ -3031,15 +3031,7 @@ impl App {
             if let Some(track) = &self.current_track {
                 let path = PathBuf::from(&track.file_path);
                 self.audio_controller.set_next_track(Some(path));
-                let track_row = TrackRow {
-                    id: track.id,
-                    title: track.title.clone(),
-                    artist: track.artist.as_str().into(),
-                    album: track.album.as_str().into(),
-                    duration_ms: track.duration_ms,
-                    file_path: track.file_path.clone(),
-                    duration_label: track.formatted_duration(),
-                };
+                let track_row = TrackRow::from(track);
                 self.pending_gapless_next = Some(track_row);
             } else {
                 self.audio_controller.set_next_track(None);
@@ -3512,6 +3504,11 @@ impl App {
                 duration_ms: 0,
                 file_path: String::new(),
                 duration_label: item.duration_label.clone(),
+                year: None,
+                track_num: None,
+                disc_num: None,
+                album_artist: None,
+                genre: None,
             });
         }
         None

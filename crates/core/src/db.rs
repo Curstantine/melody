@@ -516,7 +516,7 @@ impl LibraryDatabase {
 
         let query = format!(
             r#"
-            SELECT id, title, artist, album, duration_ms, file_path
+            SELECT id, title, artist, album, duration_ms, file_path, year, track_num, disc_num, album_artist, genre
             FROM tracks{}
             ORDER BY {} {}
             LIMIT ? OFFSET ?
@@ -557,7 +557,7 @@ impl LibraryDatabase {
         let clause = filter_clause(filter, &mut binds);
         let query = format!(
             r#"
-            SELECT id, title, artist, album, duration_ms, file_path
+            SELECT id, title, artist, album, duration_ms, file_path, year, track_num, disc_num, album_artist, genre
             FROM tracks{}
             ORDER BY {} {}
             "#,
@@ -626,7 +626,7 @@ impl LibraryDatabase {
                 .collect::<Vec<_>>()
                 .join(", ");
             let query = format!(
-                "SELECT id, title, artist, album, duration_ms, file_path FROM tracks WHERE id IN ({})",
+                "SELECT id, title, artist, album, duration_ms, file_path, year, track_num, disc_num, album_artist, genre FROM tracks WHERE id IN ({})",
                 placeholders
             );
 
@@ -1284,7 +1284,7 @@ impl LibraryDatabase {
             .conn
             .query(
                 r#"
-                SELECT tr.id, tr.title, tr.artist, tr.album, tr.duration_ms, tr.file_path
+                SELECT tr.id, tr.title, tr.artist, tr.album, tr.duration_ms, tr.file_path, tr.year, tr.track_num, tr.disc_num, tr.album_artist, tr.genre
                 FROM playback_queue_tracks qt
                 JOIN tracks tr ON tr.id = qt.track_id
                 WHERE qt.queue_id = ?1
@@ -1538,6 +1538,11 @@ fn map_track_row_summary(row: &Row) -> Result<TrackRow, DbError> {
     let artist: String = row.get(2)?;
     let album: String = row.get(3)?;
     let duration: i64 = row.get(4)?;
+    let year: Option<i64> = row.get(6)?;
+    let track_num: Option<i64> = row.get(7)?;
+    let disc_num: Option<i64> = row.get(8)?;
+    let album_artist: Option<String> = row.get(9)?;
+    let genre: Option<String> = row.get(10)?;
     Ok(TrackRow {
         id: row.get(0)?,
         title: row.get(1)?,
@@ -1546,6 +1551,11 @@ fn map_track_row_summary(row: &Row) -> Result<TrackRow, DbError> {
         duration_ms: duration as u64,
         file_path: row.get(5)?,
         duration_label: format_duration(duration as u64),
+        year: year.map(|y| y as u32),
+        track_num: track_num.map(|n| n as u32),
+        disc_num: disc_num.map(|n| n as u32),
+        album_artist: album_artist.as_deref().map(intern::intern),
+        genre: genre.as_deref().map(intern::intern),
     })
 }
 

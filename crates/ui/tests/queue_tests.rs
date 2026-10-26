@@ -20,6 +20,11 @@ fn track(id: i64) -> TrackRow {
         duration_ms: 1000,
         file_path: format!("/music/{}.flac", id),
         duration_label: "0:01".to_string(),
+        year: None,
+        track_num: None,
+        disc_num: None,
+        album_artist: None,
+        genre: None,
     }
 }
 

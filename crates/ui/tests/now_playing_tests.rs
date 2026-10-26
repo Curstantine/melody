@@ -58,6 +58,11 @@ fn test_now_playing_with_track_and_next_track() {
         album: "Future Echoes".into(),
         duration_ms: 198_000,
         duration_label: "3:18".to_string(),
+        year: None,
+        track_num: None,
+        disc_num: None,
+        album_artist: None,
+        genre: None,
     };
 
     let tech_info = AudioTechnicalInfo {

@@ -227,16 +227,26 @@ impl<'a> CatalogTile<'a> {
                         .color(theme_cfg.text_muted_color()),
                 ]
                 .align_y(Alignment::Center),
-                row![
-                    text(theme_cfg, bottom_left)
+                if bottom_right.is_empty() {
+                    row![text(theme_cfg, bottom_left)
                         .size(10)
-                        .color(theme_cfg.text_muted_color()),
-                    Space::new().width(Length::Fill),
-                    text(theme_cfg, bottom_right)
-                        .size(10)
-                        .color(theme_cfg.text_muted_color()),
-                ]
-                .align_y(Alignment::Center),
+                        .color(theme_cfg.text_muted_color())
+                        .width(Length::Fill)
+                        .wrapping(Wrapping::None)
+                        .ellipsis(Ellipsis::End),]
+                    .align_y(Alignment::Center)
+                } else {
+                    row![
+                        text(theme_cfg, bottom_left)
+                            .size(10)
+                            .color(theme_cfg.text_muted_color()),
+                        Space::new().width(Length::Fill),
+                        text(theme_cfg, bottom_right)
+                            .size(10)
+                            .color(theme_cfg.text_muted_color()),
+                    ]
+                    .align_y(Alignment::Center)
+                },
             ]
             .spacing(3)
             .padding(8),

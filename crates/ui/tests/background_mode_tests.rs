@@ -27,6 +27,11 @@ fn make_test_track(id: i64, title: &str, file_path: &str) -> TrackRow {
         duration_ms: 180_000,
         file_path: file_path.to_string(),
         duration_label: "3:00".to_string(),
+        year: None,
+        track_num: None,
+        disc_num: None,
+        album_artist: None,
+        genre: None,
     }
 }
 

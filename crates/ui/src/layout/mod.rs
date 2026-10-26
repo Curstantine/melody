@@ -8,8 +8,10 @@ use std::path::{Path, PathBuf};
 use tracing::{error, info, warn};
 
 pub use schema::{
-    parse_kdl_layout, Alignment, ContainerStyle, LayoutComponent, LayoutNode, LayoutParseError,
-    LayoutTemplate, Orientation, SizeConstraint,
+    parse_kdl_layout, AlbumsFormatConfig, Alignment, ArtistsFormatConfig, ColumnFormatConfig,
+    ContainerStyle, LayoutComponent, LayoutNode, LayoutParseError, LayoutTemplate,
+    LibraryFormatConfig, Orientation, PlaylistsFormatConfig, QueueFormatConfig, SizeConstraint,
+    ViewFormatsConfig,
 };
 
 pub const DEFAULT_LAYOUT_NAME: &str = "Default";

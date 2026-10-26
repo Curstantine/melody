@@ -5,6 +5,7 @@ pub mod model;
 pub mod paths;
 pub mod playlist;
 pub mod search;
+pub mod template;
 pub mod thumbnail;
 pub mod watcher;
 
@@ -29,6 +30,7 @@ pub use playlist::{
     sanitize_playlist_filename, write_m3u, ParsedPlaylist, PlaylistEntry, PlaylistError,
 };
 pub use search::TrackFilter;
+pub use template::{format_template, FieldLookup};
 pub use thumbnail::{
     clear_thumbnail_cache, compute_thumbnail_cache_key, generate_blurred_cover,
     get_or_create_thumbnail, get_thumbnail_cache_stats, CacheStats, THUMB_DIM_DEFAULT,

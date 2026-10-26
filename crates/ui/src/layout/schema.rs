@@ -1,4 +1,155 @@
+use core_engine::SortField;
 use thiserror::Error;
+
+/// Configuration for a single column in the library table view.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ColumnFormatConfig {
+    pub header: String,
+    pub format: String,
+    pub width: SizeConstraint,
+    pub sort_field: Option<SortField>,
+}
+
+/// Customizable formatting for the Library view.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LibraryFormatConfig {
+    pub columns: Vec<ColumnFormatConfig>,
+}
+
+impl Default for LibraryFormatConfig {
+    fn default() -> Self {
+        Self {
+            columns: vec![
+                ColumnFormatConfig {
+                    header: "Title".to_string(),
+                    format: "{title}".to_string(),
+                    width: SizeConstraint::FillPortion(4),
+                    sort_field: Some(SortField::Title),
+                },
+                ColumnFormatConfig {
+                    header: "Artist".to_string(),
+                    format: "{artist}".to_string(),
+                    width: SizeConstraint::FillPortion(3),
+                    sort_field: Some(SortField::Artist),
+                },
+                ColumnFormatConfig {
+                    header: "Album".to_string(),
+                    format: "{album}".to_string(),
+                    width: SizeConstraint::FillPortion(3),
+                    sort_field: Some(SortField::Album),
+                },
+                ColumnFormatConfig {
+                    header: "Duration".to_string(),
+                    format: "{duration_label}".to_string(),
+                    width: SizeConstraint::Fixed(80.0),
+                    sort_field: Some(SortField::Duration),
+                },
+            ],
+        }
+    }
+}
+
+/// Customizable formatting for Albums view (Tile and List).
+#[derive(Debug, Clone, PartialEq)]
+pub struct AlbumsFormatConfig {
+    pub tile_line1: String,
+    pub tile_line2: String,
+    pub tile_line3: String,
+    pub list_line1: String,
+    pub list_line2: String,
+    pub list_details: String,
+}
+
+impl Default for AlbumsFormatConfig {
+    fn default() -> Self {
+        Self {
+            tile_line1: "{album}".to_string(),
+            tile_line2: "{artist}[ • {year_label}]".to_string(),
+            tile_line3: "{tracks_label} • {duration_label}".to_string(),
+            list_line1: "{album}".to_string(),
+            list_line2: "{artist}[ • {year_label}]".to_string(),
+            list_details: "{tracks_label} • {duration_label}".to_string(),
+        }
+    }
+}
+
+/// Customizable formatting for Artists view (Tile and List).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ArtistsFormatConfig {
+    pub tile_line1: String,
+    pub tile_line2: String,
+    pub list_line1: String,
+    pub list_line2: String,
+}
+
+impl Default for ArtistsFormatConfig {
+    fn default() -> Self {
+        Self {
+            tile_line1: "{artist}".to_string(),
+            tile_line2: "{stats_label}".to_string(),
+            list_line1: "{artist}".to_string(),
+            list_line2: "{stats_label}".to_string(),
+        }
+    }
+}
+
+/// Customizable formatting for Playlists view (Catalog Tile/List and open detail).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlaylistsFormatConfig {
+    pub tile_line1: String,
+    pub tile_line2: String,
+    pub list_line1: String,
+    pub list_line2: String,
+    pub list_details: String,
+    pub detail_primary: String,
+    pub detail_secondary: String,
+    pub detail_details: String,
+}
+
+impl Default for PlaylistsFormatConfig {
+    fn default() -> Self {
+        Self {
+            tile_line1: "{name}".to_string(),
+            tile_line2: "{tracks_label}".to_string(),
+            list_line1: "{name}".to_string(),
+            list_line2: "{file_path}".to_string(),
+            list_details: "{tracks_label}".to_string(),
+            detail_primary: "{title}".to_string(),
+            detail_secondary: "{artist}".to_string(),
+            detail_details: "{duration_label}".to_string(),
+        }
+    }
+}
+
+/// Customizable formatting for Queues.
+#[derive(Debug, Clone, PartialEq)]
+pub struct QueueFormatConfig {
+    pub track_primary: String,
+    pub track_secondary: String,
+    pub track_details: String,
+    pub chip_format: String,
+}
+
+impl Default for QueueFormatConfig {
+    fn default() -> Self {
+        Self {
+            track_primary: "{title}".to_string(),
+            track_secondary: "{artist}".to_string(),
+            track_details: "{duration_label}".to_string(),
+            chip_format: "{name} ({track_count})".to_string(),
+        }
+    }
+}
+
+/// Aggregated view data formatting options.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ViewFormatsConfig {
+    pub library: LibraryFormatConfig,
+    pub albums: AlbumsFormatConfig,
+    pub artists: ArtistsFormatConfig,
+    pub playlists: PlaylistsFormatConfig,
+    pub queue: QueueFormatConfig,
+}
 
 /// Sizing constraint for layout containers and widgets, mapping to [`iced::Length`].
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -155,6 +306,7 @@ pub struct LayoutTemplate {
     pub description: String,
     pub author: String,
     pub root: LayoutNode,
+    pub view_formats: ViewFormatsConfig,
 }
 
 impl Default for LayoutTemplate {
@@ -179,6 +331,7 @@ impl Default for LayoutTemplate {
                 padding: [0.0; 4],
                 align: Alignment::Start,
             },
+            view_formats: ViewFormatsConfig::default(),
         }
     }
 }
@@ -224,7 +377,18 @@ pub fn parse_kdl_layout(content: &str) -> Result<LayoutTemplate, LayoutParseErro
             .children()
             .ok_or(LayoutParseError::MissingLayoutNode)?;
 
-        let children = parse_nodes(children_doc.nodes())?;
+        let mut view_formats = ViewFormatsConfig::default();
+        let mut layout_nodes = Vec::new();
+
+        for child in children_doc.nodes() {
+            if child.name().value() == "view-formats" || child.name().value() == "formats" {
+                view_formats = parse_view_formats_node(child);
+            } else {
+                layout_nodes.push(child.clone());
+            }
+        }
+
+        let children = parse_nodes(&layout_nodes)?;
 
         let root = if children.len() == 1 {
             children.into_iter().next().unwrap()
@@ -244,10 +408,22 @@ pub fn parse_kdl_layout(content: &str) -> Result<LayoutTemplate, LayoutParseErro
             description,
             author,
             root,
+            view_formats,
         })
     } else {
         // Document without top-level `layout` block: treat entire document as column
-        let children = parse_nodes(doc.nodes())?;
+        let mut view_formats = ViewFormatsConfig::default();
+        let mut layout_nodes = Vec::new();
+
+        for child in doc.nodes() {
+            if child.name().value() == "view-formats" || child.name().value() == "formats" {
+                view_formats = parse_view_formats_node(child);
+            } else {
+                layout_nodes.push(child.clone());
+            }
+        }
+
+        let children = parse_nodes(&layout_nodes)?;
         let root = if children.len() == 1 {
             children.into_iter().next().unwrap()
         } else {
@@ -266,6 +442,7 @@ pub fn parse_kdl_layout(content: &str) -> Result<LayoutTemplate, LayoutParseErro
             description: String::new(),
             author: String::new(),
             root,
+            view_formats,
         })
     }
 }
@@ -597,6 +774,201 @@ fn parse_style_prop(node: &kdl::KdlNode, default_panel: bool) -> ContainerStyle 
         })
 }
 
+fn parse_view_formats_node(node: &kdl::KdlNode) -> ViewFormatsConfig {
+    let mut config = ViewFormatsConfig::default();
+    let Some(children) = node.children() else {
+        return config;
+    };
+
+    for child in children.nodes() {
+        match child.name().value() {
+            "library" => {
+                if let Some(col_nodes) = child.children() {
+                    let mut cols = Vec::new();
+                    for col_node in col_nodes.nodes() {
+                        if col_node.name().value() == "column" {
+                            let header = col_node
+                                .get("header")
+                                .and_then(|v| v.as_string())
+                                .or_else(|| get_arg(col_node, 0).and_then(|v| v.as_string()))
+                                .unwrap_or("Column")
+                                .to_string();
+                            let format = col_node
+                                .get("format")
+                                .and_then(|v| v.as_string())
+                                .or_else(|| get_arg(col_node, 1).and_then(|v| v.as_string()))
+                                .unwrap_or("{title}")
+                                .to_string();
+                            let width = parse_size_prop(col_node, "width")
+                                .or_else(|| {
+                                    col_node
+                                        .get("fill-portion")
+                                        .or_else(|| col_node.get("portion"))
+                                        .and_then(|v| v.as_i64())
+                                        .map(|p| SizeConstraint::FillPortion(p as u16))
+                                })
+                                .unwrap_or(SizeConstraint::FillPortion(1));
+                            let sort_field = col_node
+                                .get("sort")
+                                .or_else(|| col_node.get("sort-field"))
+                                .and_then(|v| v.as_string())
+                                .and_then(parse_sort_field_str);
+                            cols.push(ColumnFormatConfig {
+                                header,
+                                format,
+                                width,
+                                sort_field,
+                            });
+                        }
+                    }
+                    if !cols.is_empty() {
+                        config.library.columns = cols;
+                    }
+                }
+            }
+            "albums" => {
+                if let Some(nodes) = child.children() {
+                    for n in nodes.nodes() {
+                        match n.name().value() {
+                            "tile" => {
+                                if let Some(l1) = n.get("line1").and_then(|v| v.as_string()) {
+                                    config.albums.tile_line1 = l1.to_string();
+                                }
+                                if let Some(l2) = n.get("line2").and_then(|v| v.as_string()) {
+                                    config.albums.tile_line2 = l2.to_string();
+                                }
+                                if let Some(l3) = n.get("line3").and_then(|v| v.as_string()) {
+                                    config.albums.tile_line3 = l3.to_string();
+                                }
+                            }
+                            "list" => {
+                                if let Some(l1) = n.get("line1").and_then(|v| v.as_string()) {
+                                    config.albums.list_line1 = l1.to_string();
+                                }
+                                if let Some(l2) = n.get("line2").and_then(|v| v.as_string()) {
+                                    config.albums.list_line2 = l2.to_string();
+                                }
+                                if let Some(det) = n.get("details").and_then(|v| v.as_string()) {
+                                    config.albums.list_details = det.to_string();
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            "artists" => {
+                if let Some(nodes) = child.children() {
+                    for n in nodes.nodes() {
+                        match n.name().value() {
+                            "tile" => {
+                                if let Some(l1) = n.get("line1").and_then(|v| v.as_string()) {
+                                    config.artists.tile_line1 = l1.to_string();
+                                }
+                                if let Some(l2) = n.get("line2").and_then(|v| v.as_string()) {
+                                    config.artists.tile_line2 = l2.to_string();
+                                }
+                            }
+                            "list" => {
+                                if let Some(l1) = n.get("line1").and_then(|v| v.as_string()) {
+                                    config.artists.list_line1 = l1.to_string();
+                                }
+                                if let Some(l2) = n.get("line2").and_then(|v| v.as_string()) {
+                                    config.artists.list_line2 = l2.to_string();
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            "playlists" => {
+                if let Some(nodes) = child.children() {
+                    for n in nodes.nodes() {
+                        match n.name().value() {
+                            "tile" => {
+                                if let Some(l1) = n.get("line1").and_then(|v| v.as_string()) {
+                                    config.playlists.tile_line1 = l1.to_string();
+                                }
+                                if let Some(l2) = n.get("line2").and_then(|v| v.as_string()) {
+                                    config.playlists.tile_line2 = l2.to_string();
+                                }
+                            }
+                            "list" => {
+                                if let Some(l1) = n.get("line1").and_then(|v| v.as_string()) {
+                                    config.playlists.list_line1 = l1.to_string();
+                                }
+                                if let Some(l2) = n.get("line2").and_then(|v| v.as_string()) {
+                                    config.playlists.list_line2 = l2.to_string();
+                                }
+                                if let Some(det) = n.get("details").and_then(|v| v.as_string()) {
+                                    config.playlists.list_details = det.to_string();
+                                }
+                            }
+                            "detail" => {
+                                if let Some(prim) = n.get("primary").and_then(|v| v.as_string()) {
+                                    config.playlists.detail_primary = prim.to_string();
+                                }
+                                if let Some(sec) = n.get("secondary").and_then(|v| v.as_string()) {
+                                    config.playlists.detail_secondary = sec.to_string();
+                                }
+                                if let Some(det) = n.get("details").and_then(|v| v.as_string()) {
+                                    config.playlists.detail_details = det.to_string();
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            "queue" => {
+                if let Some(nodes) = child.children() {
+                    for n in nodes.nodes() {
+                        match n.name().value() {
+                            "track" => {
+                                if let Some(prim) = n.get("primary").and_then(|v| v.as_string()) {
+                                    config.queue.track_primary = prim.to_string();
+                                }
+                                if let Some(sec) = n.get("secondary").and_then(|v| v.as_string()) {
+                                    config.queue.track_secondary = sec.to_string();
+                                }
+                                if let Some(det) = n.get("details").and_then(|v| v.as_string()) {
+                                    config.queue.track_details = det.to_string();
+                                }
+                            }
+                            "chip" => {
+                                if let Some(fmt) = n
+                                    .get("format")
+                                    .and_then(|v| v.as_string())
+                                    .or_else(|| get_arg(n, 0).and_then(|v| v.as_string()))
+                                {
+                                    config.queue.chip_format = fmt.to_string();
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    config
+}
+
+fn parse_sort_field_str(s: &str) -> Option<SortField> {
+    match s.to_ascii_lowercase().as_str() {
+        "title" => Some(SortField::Title),
+        "artist" => Some(SortField::Artist),
+        "album" => Some(SortField::Album),
+        "duration" => Some(SortField::Duration),
+        "track_num" | "track-num" | "track" => Some(SortField::TrackNum),
+        "added_date" | "added-date" | "date" => Some(SortField::AddedDate),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -733,5 +1105,57 @@ mod tests {
             }
             other => panic!("expected column, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn test_parse_view_formats() {
+        let kdl = r#"
+            layout name="Custom" {
+                view-formats {
+                    library {
+                        column "Track" format="{title}" fill-portion=5 sort="title"
+                        column "Artist" format="{artist}" fill-portion=3 sort="artist"
+                        column "Time" format="{duration_label}" width=75 sort="duration"
+                    }
+                    albums {
+                        tile line1="{album}" line2="{artist} ({year})" line3="{tracks_label}"
+                        list line1="{album}" line2="{artist}" details="{duration_label}"
+                    }
+                    artists {
+                        tile line1="{artist}" line2="{stats_label}"
+                    }
+                    playlists {
+                        detail primary="{title}" secondary="{artist} • {album}" details="{duration_label}"
+                    }
+                    queue {
+                        chip format="{name} ({track_count} songs)"
+                    }
+                }
+                column {
+                    main-view fill=true
+                }
+            }
+        "#;
+
+        let template = parse_kdl_layout(kdl).expect("valid kdl with formats");
+        assert_eq!(template.view_formats.library.columns.len(), 3);
+        assert_eq!(template.view_formats.library.columns[0].header, "Track");
+        assert_eq!(
+            template.view_formats.library.columns[0].sort_field,
+            Some(SortField::Title)
+        );
+        assert_eq!(template.view_formats.albums.tile_line2, "{artist} ({year})");
+        assert_eq!(
+            template.view_formats.albums.list_details,
+            "{duration_label}"
+        );
+        assert_eq!(
+            template.view_formats.playlists.detail_secondary,
+            "{artist} • {album}"
+        );
+        assert_eq!(
+            template.view_formats.queue.chip_format,
+            "{name} ({track_count} songs)"
+        );
     }
 }

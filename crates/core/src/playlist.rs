@@ -495,6 +495,11 @@ mod tests {
             duration_ms: 180000,
             file_path: "/music/song1.mp3".to_string(),
             duration_label: "3:00".to_string(),
+            year: None,
+            track_num: None,
+            disc_num: None,
+            album_artist: None,
+            genre: None,
         };
         let track2 = TrackRow {
             id: 2,
@@ -504,6 +509,11 @@ mod tests {
             duration_ms: 240000,
             file_path: "/music/song2.mp3".to_string(),
             duration_label: "4:00".to_string(),
+            year: None,
+            track_num: None,
+            disc_num: None,
+            album_artist: None,
+            genre: None,
         };
 
         // First append creates file with 1 track

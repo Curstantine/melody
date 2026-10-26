@@ -4,6 +4,8 @@
 mod components;
 #[path = "../src/icons.rs"]
 mod icons;
+#[path = "../src/layout/mod.rs"]
+mod layout;
 #[path = "../src/views/library.rs"]
 mod library;
 #[path = "../src/message.rs"]
@@ -12,6 +14,7 @@ mod message;
 mod theme;
 
 use core_engine::TrackRow;
+use layout::LibraryFormatConfig;
 use library::{LibraryView, ROW_HEIGHT};
 use theme::ThemeConfig;
 
@@ -28,6 +31,11 @@ fn make_rows(start: usize, count: usize) -> Vec<TrackRow> {
             duration_ms: 180_000,
             file_path: format!("/music/track_{:06}.flac", i),
             duration_label: "3:00".to_string(),
+            year: None,
+            track_num: None,
+            disc_num: None,
+            album_artist: None,
+            genre: None,
         })
         .collect()
 }
@@ -123,5 +131,5 @@ fn renders_virtualized_window_with_spacers() {
     // Shifting the window deep into the library must still render.
     view.replace_window(50_000, make_rows(50_000, view.window_capacity()));
 
-    let _element = view.view(&theme_cfg, None, false);
+    let _element = view.view(&theme_cfg, None, false, &LibraryFormatConfig::default());
 }
