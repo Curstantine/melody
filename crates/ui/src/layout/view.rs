@@ -518,8 +518,6 @@ impl App {
                 submit_now_playing: self.scrobble_config.submit_now_playing,
                 scrobble_percent: self.scrobble_config.scrobble_percent,
                 gapless: self.gapless,
-                background_mode: self.background_mode,
-                background_mode_timeout_secs: self.background_mode_timeout_secs,
                 watch_library: self.watch_library,
                 volume: self.volume,
                 is_shuffle: self.is_shuffle,

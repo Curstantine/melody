@@ -221,9 +221,6 @@ pub enum Message {
     ContextNewPlaylistWithAlbum(AlbumSummary),
     ContextNewPlaylistWithArtist(ArtistSummary),
     WindowResized(iced::Size),
-    WindowUnfocused(iced::window::Id),
-    WindowFocused(iced::window::Id),
-    WindowMinimizedStatus(iced::window::Id, Option<bool>),
     CancelDuplicatePrompt,
     ConfirmDuplicatePrompt,
     EscapePressed,
@@ -364,8 +361,6 @@ pub enum Message {
     ReloadLayouts,
     SelectFont(String),
     FontsLoaded(Vec<String>),
-    ToggleBackgroundMode(bool),
-    SetBackgroundModeTimeout(u64),
     SaveConfig,
     DebouncedConfigSave(u64),
     ConfigSaved,
@@ -556,13 +551,6 @@ impl std::fmt::Debug for Message {
                 .field("artist", &a.artist)
                 .finish(),
             Self::WindowResized(size) => f.debug_tuple("WindowResized").field(size).finish(),
-            Self::WindowUnfocused(id) => f.debug_tuple("WindowUnfocused").field(id).finish(),
-            Self::WindowFocused(id) => f.debug_tuple("WindowFocused").field(id).finish(),
-            Self::WindowMinimizedStatus(id, s) => f
-                .debug_struct("WindowMinimizedStatus")
-                .field("id", id)
-                .field("minimized", s)
-                .finish(),
             Self::CancelDuplicatePrompt => write!(f, "CancelDuplicatePrompt"),
             Self::ConfirmDuplicatePrompt => write!(f, "ConfirmDuplicatePrompt"),
             Self::EscapePressed => write!(f, "EscapePressed"),
@@ -761,13 +749,6 @@ impl std::fmt::Debug for Message {
             Self::FontsLoaded(fonts) => f
                 .debug_struct("FontsLoaded")
                 .field("count", &fonts.len())
-                .finish(),
-            Self::ToggleBackgroundMode(b) => {
-                f.debug_tuple("ToggleBackgroundMode").field(b).finish()
-            }
-            Self::SetBackgroundModeTimeout(secs) => f
-                .debug_tuple("SetBackgroundModeTimeout")
-                .field(secs)
                 .finish(),
             Self::SaveConfig => write!(f, "SaveConfig"),
             Self::DebouncedConfigSave(seq) => {

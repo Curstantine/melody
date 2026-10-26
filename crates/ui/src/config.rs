@@ -69,12 +69,6 @@ pub struct AppConfig {
     pub gapless: bool,
 
     #[serde(default = "default_true")]
-    pub background_mode: bool,
-
-    #[serde(default = "default_background_mode_timeout_secs")]
-    pub background_mode_timeout_secs: u64,
-
-    #[serde(default = "default_true")]
     pub watch_library: bool,
 
     #[serde(default)]
@@ -174,12 +168,6 @@ fn default_layout_name() -> String {
     DEFAULT_LAYOUT_NAME.to_string()
 }
 
-pub const DEFAULT_BACKGROUND_MODE_TIMEOUT_SECS: u64 = 60;
-
-fn default_background_mode_timeout_secs() -> u64 {
-    DEFAULT_BACKGROUND_MODE_TIMEOUT_SECS
-}
-
 fn default_page_size() -> usize {
     DEFAULT_PAGE_SIZE
 }
@@ -213,8 +201,6 @@ impl Default for AppConfig {
             artist_tile_width: default_artist_tile_width(),
             now_playing_cover_size: default_now_playing_cover_size(),
             gapless: true,
-            background_mode: true,
-            background_mode_timeout_secs: DEFAULT_BACKGROUND_MODE_TIMEOUT_SECS,
             watch_library: true,
             scrobble: ScrobbleConfig::default(),
         }
@@ -340,8 +326,6 @@ mod tests {
         assert_eq!(cfg.artist_tile_width, 140);
         assert_eq!(cfg.now_playing_cover_size, 260);
         assert!(cfg.gapless);
-        assert!(cfg.background_mode);
-        assert_eq!(cfg.background_mode_timeout_secs, 60);
         assert!(cfg.watch_library);
         assert!(!cfg.scrobble.listenbrainz_enabled);
         assert!(!cfg.scrobble.lastfm_enabled);
@@ -367,8 +351,6 @@ mod tests {
             artist_tile_width: 180,
             now_playing_cover_size: 260,
             gapless: false,
-            background_mode: false,
-            background_mode_timeout_secs: 120,
             watch_library: false,
             scrobble: ScrobbleConfig {
                 listenbrainz_enabled: true,

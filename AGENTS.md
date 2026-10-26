@@ -157,11 +157,6 @@ cargo test --workspace
 - **Customizable String Templates**: Layouts define view item presentations under a `view-formats` node. String substitutions and conditional brackets (`[...]`) are powered by [`format_template`](file:///home/curstantine/Code/Personal/melody/crates/core/src/template.rs). See [`docs/string-formatting.md`](file:///home/curstantine/Code/Personal/melody/docs/string-formatting.md) for full syntax details.
 - **Dynamic Table Columns & Size Constraints**: Library table columns can be defined, reordered, sized (`fill-portion` or fixed `width`), and bound to sorting fields directly in the KDL template.
 
-### 4.8 Ultra-Lightweight Background Mode
-
-- When minimized with background mode enabled, heavy UI assets (album artwork, blur textures, lyrics, catalog summaries, and intern pools) are automatically evicted after a configurable idle timeout.
-- The resident playback queue remains intact for gapless and shuffle operation, while UI ticking slows to 250ms and `view()` returns zero-sized space to minimize CPU/GPU and memory consumption to the absolute minimum.
-
 ---
 
 ## 5. Key Entry Points & Modules

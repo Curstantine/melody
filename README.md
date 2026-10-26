@@ -32,9 +32,8 @@ melody/
 - **Player Bar**: Persistent bottom controls featuring live seek scrubbing, volume controls, shuffle, repeat, track favoriting, and now-playing details.
 - **Status Bar**: Live catalog counts, active filter indicators, and library scanning progress.
 - **Declarative KDL Layouts & View Formatting**: Fully data-driven layout engine defined in KDL files (`layouts/`). Define custom UI element positioning, dynamic library table columns, and view string templates with conditional syntax (e.g. `line2="{artist}[ • {year_label}]"`). See [String Formatting Documentation](docs/string-formatting.md).
-- **Ultra-Lightweight Background Mode**: Automatically evicts cached artwork, lyrics, and non-essential UI memory when minimized after a configurable timeout, maintaining seamless playback and reducing idle RAM to ~30 MB.
 - **Settings**:
-    - **Appearance**: Select themes, configure primary system fonts, customize pagination limits, set card/tile dimensions, choose layout files, and toggle background playback memory optimization.
+    - **Appearance**: Select themes, configure primary system fonts, customize pagination limits, set card/tile dimensions, and choose layout files.
     - **Library**: Manage indexed folders, rescan metadata, inspect database file size, and view or clear the thumbnail cache.
     - **Scrobbling**: Built-in scrobbler support for ListenBrainz and Last.fm with customizable scrobble thresholds and now-playing updates.
 - **Integrations**:

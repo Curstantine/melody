@@ -715,42 +715,4 @@ mod tests {
             assert_eq!(QueueSource::from_str(source.as_str()), source);
         }
     }
-
-    #[test]
-    fn test_background_mode_queue_playback_invariants() {
-        // In background mode, catalog summaries and textures are purged, but active queue
-        // tracks must remain resident and operational for next, prev, and random playback.
-        let mut store = QueueStore::default();
-        let q_id = store.create("Background Playback");
-
-        let tracks = vec![track(1), track(2), track(3), track(4)];
-        store.replace_with_tracks(q_id, tracks);
-
-        let queue = store.active_queue().expect("Active queue must be present");
-        assert_eq!(queue.len(), 4);
-        assert_eq!(queue.current_index(), Some(0));
-        assert_eq!(queue.current_track().map(|t| t.id), Some(1));
-        assert_eq!(queue.next_index(), Some(1));
-
-        // Next track advancement
-        let queue_mut = store.active_queue_mut().expect("Active queue mut");
-        queue_mut.set_current(1);
-        assert_eq!(queue_mut.current_track().map(|t| t.id), Some(2));
-        assert_eq!(queue_mut.next_index(), Some(2));
-
-        // Previous track
-        assert_eq!(queue_mut.previous_index(), Some(0));
-
-        // Shuffle selection invariant without catalog metadata
-        let len = queue_mut.len();
-        let position_seed: u64 = 42_000;
-        let current = queue_mut.current_index().unwrap_or(0);
-        let mut pick = (position_seed as usize ^ 0x9e3779b9) % len;
-        if pick == current {
-            pick = (pick + 1) % len;
-        }
-        assert!(pick < len);
-        assert_ne!(pick, current);
-        assert!(queue_mut.tracks.get(pick).is_some());
-    }
 }

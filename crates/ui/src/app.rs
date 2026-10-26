@@ -106,12 +106,6 @@ pub struct App {
     pub(crate) is_repeat: bool,
     pub(crate) gapless: bool,
     pub(crate) pending_gapless_next: Option<TrackRow>,
-    pub(crate) background_mode: bool,
-    pub(crate) background_mode_timeout_secs: u64,
-    pub(crate) is_background_mode: bool,
-    pub(crate) is_minimized: bool,
-    pub(crate) minimized_at: Option<std::time::Instant>,
-    pub(crate) window_id: Option<iced::window::Id>,
 
     // Global Scanning Telemetry
     pub(crate) is_scanning: bool,
@@ -280,12 +274,6 @@ impl App {
             is_repeat: state.is_repeat,
             gapless: config.gapless,
             pending_gapless_next: None,
-            background_mode: config.background_mode,
-            background_mode_timeout_secs: config.background_mode_timeout_secs,
-            is_background_mode: false,
-            is_minimized: false,
-            minimized_at: None,
-            window_id: None,
 
             is_scanning: false,
             scan_progress: None,
@@ -395,14 +383,6 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        if self.is_background_mode {
-            // Slower ticker in background mode: 250ms is plenty for gapless transition and track ended checks,
-            // while cutting timer wakes by 80% (from 20 wakes/sec to 4 wakes/sec).
-            let ticker = iced::time::every(Duration::from_millis(250)).map(|_| Message::AudioTick);
-            let window_events = iced::event::listen_with(handle_cursor_and_window_event);
-            return Subscription::batch([ticker, window_events]);
-        }
-
         // Poll audio playback status at 50ms intervals (~20 FPS smooth seekbar)
         let ticker = iced::time::every(Duration::from_millis(50)).map(|_| Message::AudioTick);
         let mut subscriptions = vec![ticker];
@@ -432,16 +412,6 @@ impl App {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::AudioTick => {
-                if self.background_mode && self.is_minimized && !self.is_background_mode {
-                    if let Some(min_at) = self.minimized_at {
-                        if min_at.elapsed()
-                            >= Duration::from_secs(self.background_mode_timeout_secs)
-                        {
-                            return self.enter_background_mode();
-                        }
-                    }
-                }
-
                 let status = self.audio_controller.status();
                 let was_playing = self.is_playing;
                 self.is_playing = status.is_playing();
@@ -1124,65 +1094,8 @@ impl App {
             }
 
             Message::WindowResized(size) => {
-                if size.width <= 0.0 || size.height <= 0.0 {
-                    self.is_minimized = true;
-                    if self.minimized_at.is_none() {
-                        self.minimized_at = Some(std::time::Instant::now());
-                    }
-                    Task::none()
-                } else {
-                    self.window_size = size;
-                    self.is_minimized = false;
-                    self.minimized_at = None;
-                    let restore_task = if self.is_background_mode {
-                        self.exit_background_mode()
-                    } else {
-                        Task::none()
-                    };
-                    Task::batch([restore_task, self.save_state_debounced()])
-                }
-            }
-
-            Message::WindowUnfocused(id) => {
-                self.window_id = Some(id);
-                iced::window::is_minimized(id)
-                    .map(move |res| Message::WindowMinimizedStatus(id, res))
-            }
-
-            Message::WindowFocused(id) => {
-                self.window_id = Some(id);
-                self.is_minimized = false;
-                self.minimized_at = None;
-                if self.is_background_mode {
-                    self.exit_background_mode()
-                } else {
-                    Task::none()
-                }
-            }
-
-            Message::WindowMinimizedStatus(id, maybe_minimized) => {
-                self.window_id = Some(id);
-                if maybe_minimized == Some(true) {
-                    self.is_minimized = true;
-                    if self.minimized_at.is_none() {
-                        self.minimized_at = Some(std::time::Instant::now());
-                    }
-                }
-                Task::none()
-            }
-
-            Message::ToggleBackgroundMode(enabled) => {
-                self.background_mode = enabled;
-                if !enabled && self.is_background_mode {
-                    Task::batch([self.exit_background_mode(), self.save_config_task()])
-                } else {
-                    self.save_config_task()
-                }
-            }
-
-            Message::SetBackgroundModeTimeout(secs) => {
-                self.background_mode_timeout_secs = secs;
-                self.save_config_task()
+                self.window_size = size;
+                self.save_state_debounced()
             }
 
             Message::OpenTrackContextMenu { track_id, context } => {
@@ -2975,10 +2888,6 @@ impl App {
         title: String,
         duration_ms: u64,
     ) -> Task<Message> {
-        if self.is_background_mode {
-            return Task::none();
-        }
-
         let next_track_path = self.get_next_track().map(|nt| PathBuf::from(&nt.file_path));
         let plugin_manager = self.plugin_manager.clone();
 
@@ -3330,8 +3239,6 @@ impl App {
             artist_tile_width: self.artists.tile_width,
             now_playing_cover_size: self.now_playing.cover_size,
             gapless: self.gapless,
-            background_mode: self.background_mode,
-            background_mode_timeout_secs: self.background_mode_timeout_secs,
             watch_library: self.watch_library,
             scrobble: self.scrobble_config.clone(),
         }
@@ -3881,94 +3788,7 @@ impl App {
         iced::widget::stack([backdrop.boxed(), centered_dialog.boxed()]).boxed()
     }
 
-    pub fn enter_background_mode(&mut self) -> Task<Message> {
-        if self.is_background_mode {
-            return Task::none();
-        }
-        info!("Entering background playback mode: evicting UI catalogs, covers, and caches from memory");
-        self.is_background_mode = true;
-
-        // 1. Evict all decoded textures and handles
-        self.current_cover = None;
-        self.current_blurred_cover = None;
-        self.current_next_cover = None;
-        self.albums.clear_covers();
-        self.playlists.playlist_covers = std::collections::HashMap::new();
-
-        // 2. Drop catalog summaries from RAM
-        self.albums.clear();
-        self.artists.clear();
-        self.library.clear();
-        self.playlists.clear_detail();
-        self.playlists.playlists = Vec::new();
-        self.now_playing.clear();
-
-        // 3. Clear transient popups
-        self.context_menu = None;
-        self.duplicate_prompt = None;
-
-        // 4. Release intern pool capacity
-        core_engine::intern::clear();
-
-        Task::none()
-    }
-
-    pub fn exit_background_mode(&mut self) -> Task<Message> {
-        if !self.is_background_mode {
-            return Task::none();
-        }
-        info!("Exiting background playback mode: restoring active view and UI assets");
-        self.is_background_mode = false;
-        self.minimized_at = None;
-
-        let mut tasks = Vec::new();
-
-        // Restore current track artwork and technical info for player bar & now playing
-        if let Some(track) = &self.current_track {
-            let path = PathBuf::from(&track.file_path);
-            tasks.push(self.load_track_assets_task(
-                track.id,
-                path,
-                track.artist.to_string(),
-                track.title.clone(),
-                track.duration_ms,
-            ));
-        }
-
-        // Restore active tab content
-        match self.active_tab {
-            ViewTab::Tracks => tasks.push(self.reload_tracks_task()),
-            ViewTab::Albums => {
-                let db = self.db.clone();
-                tasks.push(Task::perform(
-                    async move { db.get_albums().await.unwrap_or_default() },
-                    Message::AlbumsLoaded,
-                ));
-            }
-            ViewTab::Artists => {
-                let db = self.db.clone();
-                tasks.push(Task::perform(
-                    async move { db.get_artists().await.unwrap_or_default() },
-                    Message::ArtistsLoaded,
-                ));
-            }
-            ViewTab::Playlists => {
-                let db = self.db.clone();
-                tasks.push(Task::perform(
-                    async move { db.get_playlists().await.unwrap_or_default() },
-                    Message::PlaylistsLoaded,
-                ));
-            }
-            ViewTab::Settings | ViewTab::Lyrics => {}
-        }
-
-        Task::batch(tasks)
-    }
-
     pub fn view(&self) -> Element<'_, Message> {
-        if self.is_background_mode {
-            return iced::widget::Space::new().boxed();
-        }
         let theme_cfg = &self.theme_manager.current_config;
         let base_view = self.render_layout(theme_cfg);
         let mut layers = vec![base_view];
@@ -4142,7 +3962,7 @@ static LAST_CURSOR_POS: std::sync::Mutex<iced::Point> =
 fn handle_cursor_and_window_event(
     event: iced::Event,
     _status: iced::event::Status,
-    id: iced::window::Id,
+    _id: iced::window::Id,
 ) -> Option<Message> {
     match event {
         iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
@@ -4154,8 +3974,6 @@ fn handle_cursor_and_window_event(
         iced::Event::Window(iced::window::Event::Resized(size)) => {
             Some(Message::WindowResized(size))
         }
-        iced::Event::Window(iced::window::Event::Unfocused) => Some(Message::WindowUnfocused(id)),
-        iced::Event::Window(iced::window::Event::Focused) => Some(Message::WindowFocused(id)),
         _ => None,
     }
 }
@@ -4173,33 +3991,5 @@ fn handle_escape_key(
         Some(Message::EscapePressed)
     } else {
         None
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::time::{Duration, Instant};
-
-    #[test]
-    fn test_minimized_timeout_trigger_logic() {
-        let timeout_secs: u64 = 60;
-        let now = Instant::now();
-
-        // 1. Minimized recently: 10 seconds elapsed -> should NOT trigger
-        let recent_minimized = now - Duration::from_secs(10);
-        let should_trigger_recent = recent_minimized.elapsed() >= Duration::from_secs(timeout_secs);
-        assert!(!should_trigger_recent);
-
-        // 2. Minimized for 65 seconds -> SHOULD trigger
-        let past_minimized = now - Duration::from_secs(65);
-        let should_trigger_past = past_minimized.elapsed() >= Duration::from_secs(timeout_secs);
-        assert!(should_trigger_past);
-
-        // 3. Not minimized (minimized_at is None) -> should NOT trigger
-        let minimized_at: Option<Instant> = None;
-        let should_trigger_none = minimized_at
-            .map(|t| t.elapsed() >= Duration::from_secs(timeout_secs))
-            .unwrap_or(false);
-        assert!(!should_trigger_none);
     }
 }
