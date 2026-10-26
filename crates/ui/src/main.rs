@@ -14,18 +14,45 @@ pub mod state;
 mod theme;
 mod views;
 
+#[cfg(feature = "tracy")]
+#[global_allocator]
+static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
+    tracy_client::ProfiledAllocator::new(std::alloc::System, 100);
+
 use app::App;
 use iced::window;
 use tracing::info;
 
 fn main() -> iced::Result {
-    // Initialize logging
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .try_init();
+    // Initialize logging / tracing
+    #[cfg(feature = "tracy")]
+    {
+        use tracing_subscriber::layer::SubscriberExt;
+        use tracing_subscriber::util::SubscriberInitExt;
+
+        let _ = tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+            )
+            .with(tracing_subscriber::fmt::layer())
+            .with(tracing_tracy::TracyLayer::default())
+            .try_init();
+
+        info!(
+            "Tracy profiler integration initialized (with ProfiledAllocator for memory tracking)"
+        );
+    }
+
+    #[cfg(not(feature = "tracy"))]
+    {
+        let _ = tracing_subscriber::fmt()
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+            )
+            .try_init();
+    }
 
     let state = state::AppState::load();
     let (width, height) = state.window_size().unwrap_or((1130.0, 740.0));
