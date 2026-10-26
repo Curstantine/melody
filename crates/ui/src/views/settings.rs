@@ -78,6 +78,8 @@ pub struct SettingsContext<'a> {
     pub submit_now_playing: bool,
     pub scrobble_percent: u32,
     pub gapless: bool,
+    pub background_mode: bool,
+    pub background_mode_timeout_secs: u64,
     pub watch_library: bool,
     pub volume: f32,
     pub is_shuffle: bool,
@@ -732,6 +734,72 @@ impl SettingsView {
             .boxed(),
         );
 
+        let background_mode_card = components::settings_card(
+            theme_cfg,
+            "Background lightweight mode",
+            column![
+                row![
+                    text(theme_cfg, "Lightweight mode on minimize")
+                        .size(12)
+                        .color(theme_cfg.text_muted_color())
+                        .width(Length::Fixed(SETTING_LABEL_WIDTH)),
+                    components::chip_with_icon(
+                        theme_cfg,
+                        if ctx.background_mode {
+                            icons::CHECK_SVG
+                        } else {
+                            icons::RADIO_SVG
+                        },
+                        if ctx.background_mode {
+                            "Enabled"
+                        } else {
+                            "Disabled"
+                        },
+                        ctx.background_mode,
+                        Message::ToggleBackgroundMode(!ctx.background_mode),
+                    ),
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    text(theme_cfg, "Minimization timeout")
+                        .size(12)
+                        .color(theme_cfg.text_muted_color())
+                        .width(Length::Fixed(SETTING_LABEL_WIDTH)),
+                    row![
+                        components::chip(
+                            theme_cfg,
+                            "30s",
+                            ctx.background_mode_timeout_secs == 30,
+                            Message::SetBackgroundModeTimeout(30),
+                        ),
+                        components::chip(
+                            theme_cfg,
+                            "60s (Default)",
+                            ctx.background_mode_timeout_secs == 60,
+                            Message::SetBackgroundModeTimeout(60),
+                        ),
+                        components::chip(
+                            theme_cfg,
+                            "2 min",
+                            ctx.background_mode_timeout_secs == 120,
+                            Message::SetBackgroundModeTimeout(120),
+                        ),
+                        components::chip(
+                            theme_cfg,
+                            "5 min",
+                            ctx.background_mode_timeout_secs == 300,
+                            Message::SetBackgroundModeTimeout(300),
+                        ),
+                    ]
+                    .spacing(CHIP_ROW_SPACING)
+                    .align_y(Alignment::Center),
+                ]
+                .align_y(Alignment::Center),
+            ]
+            .spacing(CARD_SPACING)
+            .boxed(),
+        );
+
         column![
             header,
             themes_card,
@@ -741,6 +809,7 @@ impl SettingsView {
             albums_tab_card,
             artists_tab_card,
             now_playing_card,
+            background_mode_card,
             Space::new().height(PAGE_BOTTOM_SPACER),
         ]
         .spacing(PAGE_SPACING)

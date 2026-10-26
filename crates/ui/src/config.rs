@@ -69,6 +69,12 @@ pub struct AppConfig {
     pub gapless: bool,
 
     #[serde(default = "default_true")]
+    pub background_mode: bool,
+
+    #[serde(default = "default_background_mode_timeout_secs")]
+    pub background_mode_timeout_secs: u64,
+
+    #[serde(default = "default_true")]
     pub watch_library: bool,
 
     #[serde(default)]
@@ -168,6 +174,12 @@ fn default_layout_name() -> String {
     DEFAULT_LAYOUT_NAME.to_string()
 }
 
+pub const DEFAULT_BACKGROUND_MODE_TIMEOUT_SECS: u64 = 60;
+
+fn default_background_mode_timeout_secs() -> u64 {
+    DEFAULT_BACKGROUND_MODE_TIMEOUT_SECS
+}
+
 fn default_page_size() -> usize {
     DEFAULT_PAGE_SIZE
 }
@@ -201,6 +213,8 @@ impl Default for AppConfig {
             artist_tile_width: default_artist_tile_width(),
             now_playing_cover_size: default_now_playing_cover_size(),
             gapless: true,
+            background_mode: true,
+            background_mode_timeout_secs: DEFAULT_BACKGROUND_MODE_TIMEOUT_SECS,
             watch_library: true,
             scrobble: ScrobbleConfig::default(),
         }
