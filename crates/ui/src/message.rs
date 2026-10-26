@@ -873,3 +873,19 @@ impl std::fmt::Debug for Message {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_watch_library_and_scan_new_messages() {
+        let msg1 = Message::ScanLibraryForNewFiles;
+        let msg2 = Message::ToggleWatchLibrary(true);
+        let msg3 = Message::ToggleWatchLibrary(false);
+
+        assert_eq!(format!("{:?}", msg1), "ScanLibraryForNewFiles");
+        assert_eq!(format!("{:?}", msg2), "ToggleWatchLibrary(true)");
+        assert_eq!(format!("{:?}", msg3), "ToggleWatchLibrary(false)");
+    }
+}

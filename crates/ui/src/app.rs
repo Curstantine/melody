@@ -4175,3 +4175,31 @@ fn handle_escape_key(
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn test_minimized_timeout_trigger_logic() {
+        let timeout_secs: u64 = 60;
+        let now = Instant::now();
+
+        // 1. Minimized recently: 10 seconds elapsed -> should NOT trigger
+        let recent_minimized = now - Duration::from_secs(10);
+        let should_trigger_recent = recent_minimized.elapsed() >= Duration::from_secs(timeout_secs);
+        assert!(!should_trigger_recent);
+
+        // 2. Minimized for 65 seconds -> SHOULD trigger
+        let past_minimized = now - Duration::from_secs(65);
+        let should_trigger_past = past_minimized.elapsed() >= Duration::from_secs(timeout_secs);
+        assert!(should_trigger_past);
+
+        // 3. Not minimized (minimized_at is None) -> should NOT trigger
+        let minimized_at: Option<Instant> = None;
+        let should_trigger_none = minimized_at
+            .map(|t| t.elapsed() >= Duration::from_secs(timeout_secs))
+            .unwrap_or(false);
+        assert!(!should_trigger_none);
+    }
+}

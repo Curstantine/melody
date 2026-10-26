@@ -510,3 +510,68 @@ impl ArtistsView {
             .boxed()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::layout::ArtistsFormatConfig;
+    use crate::theme::ThemeConfig;
+    use core_engine::ArtistSummary;
+
+    #[test]
+    fn test_artists_view_component_state() {
+        let mut artists_view = ArtistsView::new(ViewMode::List, ArtistSortField::Artist);
+        assert!(artists_view.is_empty());
+        assert_eq!(artists_view.len(), 0);
+        assert_eq!(artists_view.tile_width, 140);
+        artists_view.set_tile_width(200);
+        assert_eq!(artists_view.tile_width, 200);
+
+        let artists_list: Vec<ArtistSummary> = (0..30)
+            .map(|i| ArtistSummary {
+                artist: format!("Artist {}", i).into(),
+                track_count: 3,
+                album_count: 1,
+                stats_label: "1 albums • 3 tracks".to_string(),
+            })
+            .collect();
+
+        artists_view.set_artists(artists_list);
+        assert!(!artists_view.is_empty());
+        assert_eq!(artists_view.len(), 30);
+
+        artists_view.toggle_sort(ArtistSortField::Artist);
+        artists_view.set_view_mode(ViewMode::Tile);
+
+        let theme_cfg = ThemeConfig::default();
+        let artists_fmt = ArtistsFormatConfig::default();
+        let _rendered = artists_view.view(&theme_cfg, &artists_fmt);
+    }
+
+    #[test]
+    fn test_artists_view_is_virtualized() {
+        let mut view = ArtistsView::new(ViewMode::List, ArtistSortField::Artist);
+        let all: Vec<ArtistSummary> = (0..10_000)
+            .map(|i| ArtistSummary {
+                artist: format!("Artist {}", i).into(),
+                track_count: 1,
+                album_count: 1,
+                stats_label: "1 albums • 1 tracks".to_string(),
+            })
+            .collect();
+        view.set_artists(all);
+
+        // Only a small window is materialized regardless of catalog size.
+        assert!(view.window_len() < 200, "window_len={}", view.window_len());
+        assert_eq!(view.total_tracks, 10_000);
+        assert_eq!(view.total_albums, 10_000);
+
+        // Scrolling to the middle relocates a bounded window without growing it.
+        view.on_scroll_metrics(100_000.0, 1000.0, 700.0);
+        assert!(view.window_len() < 200, "window_len={}", view.window_len());
+
+        let theme_cfg = ThemeConfig::default();
+        let artists_fmt = ArtistsFormatConfig::default();
+        let _rendered = view.view(&theme_cfg, &artists_fmt);
+    }
+}
