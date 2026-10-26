@@ -202,11 +202,9 @@ impl Queue {
 
     /// Inserts multiple `tracks` in order immediately after the current track.
     pub fn insert_many_next(&mut self, tracks: impl IntoIterator<Item = TrackRow>) {
-        let mut index = self.current_index().map(|i| i + 1).unwrap_or(0);
-        index = index.min(self.tracks.len());
-        for track in tracks {
+        let curr = self.current_index().map(|i| i + 1).unwrap_or(0);
+        for (index, track) in (curr.min(self.tracks.len())..).zip(tracks) {
             self.tracks.insert(index, track);
-            index += 1;
         }
     }
 

@@ -1145,9 +1145,8 @@ impl App {
 
             Message::WindowUnfocused(id) => {
                 self.window_id = Some(id);
-                Task::perform(iced::window::is_minimized(id), move |res| {
-                    Message::WindowMinimizedStatus(id, res)
-                })
+                iced::window::is_minimized(id)
+                    .map(move |res| Message::WindowMinimizedStatus(id, res))
             }
 
             Message::WindowFocused(id) => {
@@ -3299,7 +3298,7 @@ impl App {
                             core_engine::parse_m3u_preview_paths(&m3u_path, 4).unwrap_or_default();
                         let mut covers = Vec::with_capacity(track_paths.len());
                         for track_path in track_paths {
-                            if let Ok(bytes) = core_engine::get_or_create_thumbnail(
+                            if let Some(bytes) = core_engine::get_or_create_thumbnail(
                                 &track_path,
                                 core_engine::THUMB_DIM_DEFAULT,
                             ) {
@@ -3968,7 +3967,7 @@ impl App {
 
     pub fn view(&self) -> Element<'_, Message> {
         if self.is_background_mode {
-            return iced::widget::Space::new(0, 0).into();
+            return iced::widget::Space::new().boxed();
         }
         let theme_cfg = &self.theme_manager.current_config;
         let base_view = self.render_layout(theme_cfg);

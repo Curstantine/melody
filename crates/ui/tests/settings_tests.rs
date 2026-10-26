@@ -89,6 +89,8 @@ fn test_settings_views_render_without_panicking() {
             scrobble_percent: 50,
             gapless: true,
             watch_library: true,
+            background_mode: true,
+            background_mode_timeout_secs: 60,
             volume: 1.0,
             is_shuffle: false,
             is_repeat: false,

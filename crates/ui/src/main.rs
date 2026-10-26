@@ -6,6 +6,8 @@ pub mod config;
 mod font;
 mod icons;
 pub mod layout;
+#[path = "layout/view.rs"]
+mod layout_view;
 mod message;
 mod queue;
 pub mod state;

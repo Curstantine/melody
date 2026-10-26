@@ -131,5 +131,6 @@ fn renders_virtualized_window_with_spacers() {
     // Shifting the window deep into the library must still render.
     view.replace_window(50_000, make_rows(50_000, view.window_capacity()));
 
-    let _element = view.view(&theme_cfg, None, false, &LibraryFormatConfig::default());
+    let format_cfg = LibraryFormatConfig::default();
+    let _element = view.view(&theme_cfg, None, false, &format_cfg);
 }

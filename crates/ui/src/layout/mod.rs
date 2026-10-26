@@ -1,5 +1,4 @@
 pub mod schema;
-pub mod view;
 
 use std::collections::HashMap;
 use std::fs;
@@ -7,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use tracing::{error, info, warn};
 
+#[allow(unused_imports)]
 pub use schema::{
     parse_kdl_layout, AlbumsFormatConfig, Alignment, ArtistsFormatConfig, ColumnFormatConfig,
     ContainerStyle, LayoutComponent, LayoutNode, LayoutParseError, LayoutTemplate,

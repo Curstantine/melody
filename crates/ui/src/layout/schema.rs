@@ -804,7 +804,7 @@ fn parse_view_formats_node(node: &kdl::KdlNode) -> ViewFormatsConfig {
                                     col_node
                                         .get("fill-portion")
                                         .or_else(|| col_node.get("portion"))
-                                        .and_then(|v| v.as_i64())
+                                        .and_then(|v| v.as_integer())
                                         .map(|p| SizeConstraint::FillPortion(p as u16))
                                 })
                                 .unwrap_or(SizeConstraint::FillPortion(1));

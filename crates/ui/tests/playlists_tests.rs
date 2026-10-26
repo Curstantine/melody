@@ -4,6 +4,8 @@
 mod components;
 #[path = "../src/icons.rs"]
 mod icons;
+#[path = "../src/layout/mod.rs"]
+mod layout;
 #[path = "../src/message.rs"]
 mod message;
 #[path = "../src/views/playlists.rs"]
@@ -168,9 +170,9 @@ fn shared_track_row_renders_without_panicking() {
     let _ = TrackRow {
         theme: &theme_cfg,
         index: 0,
-        title: "One",
-        artist: "Artist",
-        duration: "3:00",
+        title: "One".into(),
+        artist: "Artist".into(),
+        duration: "3:00".into(),
         highlighted: true,
         dragging: false,
         show_handle: true,
@@ -197,9 +199,9 @@ fn shared_track_row_renders_without_panicking() {
     let _ = TrackRow {
         theme: &theme_cfg,
         index: 1,
-        title: "Missing",
-        artist: "Artist",
-        duration: "3:00",
+        title: "Missing".into(),
+        artist: "Artist".into(),
+        duration: "3:00".into(),
         highlighted: false,
         dragging: false,
         show_handle: false,
@@ -223,9 +225,9 @@ fn shared_track_row_renders_without_panicking() {
     let _ = TrackRow {
         theme: &theme_cfg,
         index: 2,
-        title: "Three",
-        artist: "Artist",
-        duration: "4:12",
+        title: "Three".into(),
+        artist: "Artist".into(),
+        duration: "4:12".into(),
         highlighted: false,
         dragging: false,
         show_handle: false,

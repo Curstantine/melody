@@ -19,8 +19,8 @@ where
 impl FieldLookup for AlbumSummary {
     fn lookup(&self, key: &str) -> Option<Cow<'_, str>> {
         match key {
-            "album" | "title" => Some(Cow::Borrowed(self.album.as_str())),
-            "artist" | "album_artist" => Some(Cow::Borrowed(self.artist.as_str())),
+            "album" | "title" => Some(Cow::Borrowed(&self.album)),
+            "artist" | "album_artist" => Some(Cow::Borrowed(&self.artist)),
             "track_count" | "tracks_count" => Some(Cow::Owned(self.track_count.to_string())),
             "tracks_label" | "tracks" => Some(Cow::Borrowed(&self.tracks_label)),
             "year" => self.year.map(|y| Cow::Owned(y.to_string())),
@@ -37,7 +37,7 @@ impl FieldLookup for AlbumSummary {
 impl FieldLookup for ArtistSummary {
     fn lookup(&self, key: &str) -> Option<Cow<'_, str>> {
         match key {
-            "artist" | "name" => Some(Cow::Borrowed(self.artist.as_str())),
+            "artist" | "name" => Some(Cow::Borrowed(&self.artist)),
             "track_count" | "tracks" => Some(Cow::Owned(self.track_count.to_string())),
             "album_count" | "albums" => Some(Cow::Owned(self.album_count.to_string())),
             "stats_label" | "stats" => Some(Cow::Borrowed(&self.stats_label)),
@@ -72,12 +72,9 @@ impl FieldLookup for TrackRow {
             "id" => Some(Cow::Owned(self.id.to_string())),
             "title" => Some(Cow::Borrowed(&self.title)),
             "artist" => Some(Cow::Borrowed(self.display_artist())),
-            "album" => Some(Cow::Borrowed(self.album.as_str())),
-            "album_artist" => self
-                .album_artist
-                .as_ref()
-                .map(|aa| Cow::Borrowed(aa.as_str())),
-            "genre" => self.genre.as_ref().map(|g| Cow::Borrowed(g.as_str())),
+            "album" => Some(Cow::Borrowed(&self.album)),
+            "album_artist" => self.album_artist.as_deref().map(Cow::Borrowed),
+            "genre" => self.genre.as_deref().map(Cow::Borrowed),
             "year" => self.year.map(|y| Cow::Owned(y.to_string())),
             "track_num" | "track_number" => self.track_num.map(|n| Cow::Owned(n.to_string())),
             "disc_num" | "disc_number" => self.disc_num.map(|d| Cow::Owned(d.to_string())),

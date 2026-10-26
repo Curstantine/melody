@@ -406,7 +406,7 @@ impl LibraryView {
                         .wrapping(iced::widget::text::Wrapping::None)
                         .ellipsis(iced::widget::text::Ellipsis::End);
 
-                    track_row = track_row.push(col_text);
+                    track_row = track_row.push(col_text.boxed());
                 }
 
                 let row_container = container(track_row)

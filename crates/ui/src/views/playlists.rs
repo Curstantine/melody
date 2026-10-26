@@ -518,12 +518,12 @@ impl PlaylistsView {
             let line2 = format_template(&playlists_fmt.list_line2, playlist);
             let details_label = format_template(&playlists_fmt.list_details, playlist);
 
-            let subtitle = text(theme_cfg, line2.as_str())
+            let subtitle = text(theme_cfg, line2)
                 .size(11)
                 .color(theme_cfg.text_muted_color());
 
             let title_block = column![
-                text(theme_cfg, line1.as_str())
+                text(theme_cfg, line1)
                     .size(13)
                     .color(theme_cfg.text_color()),
                 subtitle,
@@ -532,7 +532,7 @@ impl PlaylistsView {
             .width(Length::Fill);
 
             let details = column![
-                text(theme_cfg, details_label.as_str())
+                text(theme_cfg, details_label)
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 text(
@@ -640,8 +640,8 @@ impl PlaylistsView {
 
             let meta = container(
                 column![
-                    text(theme_cfg, line1.as_str()).size(12),
-                    text(theme_cfg, line2.as_str())
+                    text(theme_cfg, line1).size(12),
+                    text(theme_cfg, line2)
                         .size(10)
                         .color(theme_cfg.text_muted_color()),
                 ]
@@ -929,9 +929,9 @@ impl PlaylistsView {
                     components::TrackRow {
                         theme: theme_cfg,
                         index,
-                        title: &primary,
-                        artist: &secondary,
-                        duration: &details,
+                        title: primary.into(),
+                        artist: secondary.into(),
+                        duration: details.into(),
                         highlighted: self.selected_detail_track == Some((playlist_id, index)),
                         dragging: dragging_detail == Some((playlist_id, index)),
                         show_handle: dragging_detail == Some((playlist_id, index))
@@ -1084,9 +1084,9 @@ impl PlaylistsView {
                     components::TrackRow {
                         theme: theme_cfg,
                         index,
-                        title: &primary,
-                        artist: &secondary,
-                        duration: &details,
+                        title: primary.into(),
+                        artist: secondary.into(),
+                        duration: details.into(),
                         highlighted: is_current
                             || self.selected_queue_track == Some((active_id, index)),
                         dragging: dragging_track == Some((active_id, index)),
@@ -1287,7 +1287,7 @@ fn render_playlist_tile_cover<'a>(
                 .clip(true)
                 .style(move |_theme| container::Style {
                     border: Border {
-                        radius: radius.into(),
+                        radius,
                         color: border_color,
                         width: 1.0,
                     },
@@ -1308,7 +1308,7 @@ fn render_playlist_tile_cover<'a>(
                     button::Style {
                         background: Some(Background::Color(bg)),
                         border: Border {
-                            radius: radius.into(),
+                            radius,
                             ..Default::default()
                         },
                         ..Default::default()

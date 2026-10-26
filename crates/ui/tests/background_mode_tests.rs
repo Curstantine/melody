@@ -16,7 +16,7 @@ mod theme;
 
 use config::AppConfig;
 use core_engine::TrackRow;
-use queue::{Queue, QueueSource, QueueStore};
+use queue::{QueueSource, QueueStore};
 
 fn make_test_track(id: i64, title: &str, file_path: &str) -> TrackRow {
     TrackRow {

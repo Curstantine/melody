@@ -599,11 +599,11 @@ impl AlbumsView {
                         theme: theme_cfg,
                         tile_width: tile_w,
                         leading,
-                        title: &line1,
-                        mid_left: &line2,
-                        mid_right: "",
-                        bottom_left: &line3,
-                        bottom_right: "",
+                        title: line1.into(),
+                        mid_left: line2.into(),
+                        mid_right: "".into(),
+                        bottom_left: line3.into(),
+                        bottom_right: "".into(),
                         on_select: Message::SelectAlbum(album.album.to_string()),
                         on_play: Message::PlayScope {
                             filter: TrackFilter::album(album.album.as_ref()),
@@ -675,13 +675,13 @@ impl AlbumsView {
                         20.0,
                         theme_cfg.primary_color(),
                     ),
-                    title: &line1,
-                    subtitle_left: &line2,
-                    subtitle_right: "",
+                    title: line1.into(),
+                    subtitle_left: line2.into(),
+                    subtitle_right: "".into(),
                     details: if details.is_empty() {
                         None
                     } else {
-                        Some((details.as_str(), ""))
+                        Some((details.into(), "".into()))
                     },
                     on_select: Message::SelectAlbum(album.album.to_string()),
                     on_play: Message::PlayScope {
