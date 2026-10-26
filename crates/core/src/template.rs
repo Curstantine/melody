@@ -293,97 +293,118 @@ mod tests {
     #[test]
     fn test_direct_formatting() {
         let mut map = HashMap::new();
-        map.insert("title".to_string(), "Echoes".to_string());
-        map.insert("artist".to_string(), "Pink Floyd".to_string());
+        map.insert(
+            "title".to_string(),
+            "Yūaku no Inori - Anima immortalis est.".to_string(),
+        );
+        map.insert(
+            "artist".to_string(),
+            "Imperial Circus Dead Decadence".to_string(),
+        );
         let lookup = MapLookup(map);
 
         assert_eq!(
             format_template("{title} - {artist}", &lookup),
-            "Echoes - Pink Floyd"
+            "Yūaku no Inori - Anima immortalis est. - Imperial Circus Dead Decadence"
         );
     }
 
     #[test]
     fn test_conditional_brackets() {
         let mut map = HashMap::new();
-        map.insert("artist".to_string(), "Pink Floyd".to_string());
-        map.insert("year".to_string(), "1971".to_string());
+        map.insert(
+            "artist".to_string(),
+            "Imperial Circus Dead Decadence".to_string(),
+        );
+        map.insert("year".to_string(), "2025".to_string());
         let lookup = MapLookup(map);
 
         assert_eq!(
             format_template("{artist}[ • {year}]", &lookup),
-            "Pink Floyd • 1971"
+            "Imperial Circus Dead Decadence • 2025"
         );
 
         let mut map_no_year = HashMap::new();
-        map_no_year.insert("artist".to_string(), "Pink Floyd".to_string());
+        map_no_year.insert(
+            "artist".to_string(),
+            "Imperial Circus Dead Decadence".to_string(),
+        );
         let lookup_no_year = MapLookup(map_no_year);
 
         assert_eq!(
             format_template("{artist}[ • {year}]", &lookup_no_year),
-            "Pink Floyd"
+            "Imperial Circus Dead Decadence"
         );
     }
 
     #[test]
     fn test_dangling_separator_cleanup() {
         let mut map = HashMap::new();
-        map.insert("artist".to_string(), "Pink Floyd".to_string());
+        map.insert(
+            "artist".to_string(),
+            "Imperial Circus Dead Decadence".to_string(),
+        );
         let lookup = MapLookup(map);
 
-        assert_eq!(format_template("{artist} • {year}", &lookup), "Pink Floyd");
+        assert_eq!(
+            format_template("{artist} • {year}", &lookup),
+            "Imperial Circus Dead Decadence"
+        );
     }
 
     #[test]
     fn test_album_summary_lookup() {
         let album = AlbumSummary {
-            album: "Meddle".into(),
-            artist: "Pink Floyd".into(),
-            track_count: 6,
-            total_duration_ms: 2792000,
-            year: Some(1971),
-            cover_track_id: Some(1),
-            added_timestamp: 123456,
-            year_label: "1971".into(),
-            tracks_label: "6 tracks".into(),
-            duration_label: "46:32".into(),
+            album: "Yūaku no Inori - Anima immortalis est.".into(),
+            artist: "Imperial Circus Dead Decadence".into(),
+            track_count: 1,
+            total_duration_ms: 472_000,
+            year: Some(2025),
+            cover_track_id: Some(101),
+            added_timestamp: 1733529600,
+            year_label: "2025".into(),
+            tracks_label: "1 track".into(),
+            duration_label: "7:52".into(),
         };
 
-        assert_eq!(format_template("{title}", &album), "Meddle");
+        assert_eq!(
+            format_template("{title}", &album),
+            "Yūaku no Inori - Anima immortalis est."
+        );
         assert_eq!(
             format_template("{album_artist}[ • {year}]", &album),
-            "Pink Floyd • 1971"
+            "Imperial Circus Dead Decadence • 2025"
         );
         assert_eq!(
             format_template("{tracks_label} • {duration_label}", &album),
-            "6 tracks • 46:32"
+            "1 track • 7:52"
         );
     }
 
     #[test]
     fn test_track_row_lookup() {
         let track = TrackRow {
-            id: 1,
-            title: "One of These Days".into(),
-            artist: "Pink Floyd".into(),
-            album: "Meddle".into(),
-            duration_ms: 357000,
-            file_path: "/music/one.flac".into(),
-            duration_label: "5:57".into(),
-            year: Some(1971),
+            id: 101,
+            title: "Yūaku no Inori - Anima immortalis est.".into(),
+            artist: "Imperial Circus Dead Decadence".into(),
+            album: "Yūaku no Inori - Anima immortalis est.".into(),
+            duration_ms: 472_000,
+            file_path: "/music/ICDD - Anima.flac".into(),
+            duration_label: "7:52".into(),
+            year: Some(2025),
             track_num: Some(1),
             disc_num: Some(1),
-            album_artist: Some("Pink Floyd".into()),
-            genre: Some("Progressive Rock".into()),
+            album_artist: Some("Imperial Circus Dead Decadence".into()),
+            genre: Some("Symphonic Melodic Death Metal".into()),
         };
 
         assert_eq!(
             format_template("{track_num}. {title}[ ({year})]", &track),
-            "1. One of These Days (1971)"
+            "1. Yūaku no Inori - Anima immortalis est. (2025)"
         );
         assert_eq!(
             format_template("{artist} - {album} - {genre}", &track),
-            "Pink Floyd - Meddle - Progressive Rock"
+            "Imperial Circus Dead Decadence - Yūaku no Inori - Anima immortalis est. - Symphonic Melodic Death Metal"
         );
     }
 }

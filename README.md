@@ -11,23 +11,30 @@ melody/
 │   ├── default.toml
 │   ├── midnight_amber.toml
 │   └── xcode_default_darker.toml
+├── layouts/              # Declarative KDL layouts and view format definitions
+│   ├── default.kdl
+│   ├── reversed.kdl
+│   └── sidebar.kdl
+├── docs/                 # Documentation (string formatting, guides)
 └── crates/
-    ├── core/         # Embedded Turso SQLite engine, FFmpeg metadata extraction, thumbnail caching, M3U playlists, scoped search filters, queue persistence
+    ├── core/         # Embedded Turso SQLite engine, FFmpeg metadata extraction, thumbnail caching, M3U playlists, scoped search filters, template formatting, queue persistence
     ├── audio/        # Audio worker thread, CPAL playback, FFmpeg decoding & Rubato resampling, lock-free ring buffer
     ├── plugins/      # Plugin contracts, MPRIS (Linux), Scrobbling (ListenBrainz & Last.fm), lyrics, event dispatchers
-    └── ui/           # Iced GUI, views (Library, Albums, Artists, Playlists, Now Playing, Settings), DB-backed playback queues
+    └── ui/           # Iced GUI, KDL layouts, views (Library, Albums, Artists, Playlists, Now Playing, Settings), DB-backed playback queues
 ```
 
 ## Views & Features
 
-- **Tracks (Library)**: Fast, virtualized track browser with customizable page sizes, column sorting, and scoped search (`artist:…`, `album:"…"`, `album_artist:…`, `genre:…`, `year:…`, `title:…` plus free text). Clicking an album or artist tiles into its exact scope.
-- **Albums & Artists**: Aggregated catalog views with cover art, flexible grid/list layouts, and configurable tile dimensions. Album tiles carry play/shuffle actions; artist tiles are click-to-filter, with play/shuffle kept in list rows.
-- **Playlists & Queues**: M3U/M3U8 playlists (Melody-managed files plus external references) with import, rename, and play support. DB-backed playback queues (`playback_queues` / `playback_queue_tracks`) — every playback context (album, artist, search, playlist, all songs) becomes a named, reusable queue with a virtualized detail view.
+- **Tracks (Library)**: Fast, virtualized track browser with customizable page sizes, configurable and sortable column headers, and scoped search (`artist:…`, `album:"…"`, `album_artist:…`, `genre:…`, `year:…`, `title:…` plus free text). Clicking an album or artist tiles into its exact scope.
+- **Albums & Artists**: Aggregated catalog views with cover art, flexible grid/list layouts, configurable tile dimensions, and context menu options including "Play Next" and "Add to Queue". Album tiles carry play/shuffle actions; artist tiles are click-to-filter, with play/shuffle kept in list rows.
+- **Playlists & Queues**: M3U/M3U8 playlists (Melody-managed files plus external references) with import, rename, play next, and queue support. DB-backed playback queues (`playback_queues` / `playback_queue_tracks`) — every playback context (album, artist, search, playlist, all songs) becomes a named, reusable queue with a virtualized detail view.
 - **Lyrics & Now Playing**: Dedicated player view showcasing artwork, track metadata, and scrollable lyrics with configurable cover sizes.
 - **Player Bar**: Persistent bottom controls featuring live seek scrubbing, volume controls, shuffle, repeat, track favoriting, and now-playing details.
 - **Status Bar**: Live catalog counts, active filter indicators, and library scanning progress.
+- **Declarative KDL Layouts & View Formatting**: Fully data-driven layout engine defined in KDL files (`layouts/`). Define custom UI element positioning, dynamic library table columns, and view string templates with conditional syntax (e.g. `line2="{artist}[ • {year_label}]"`). See [String Formatting Documentation](docs/string-formatting.md).
+- **Ultra-Lightweight Background Mode**: Automatically evicts cached artwork, lyrics, and non-essential UI memory when minimized after a configurable timeout, maintaining seamless playback and reducing idle RAM to ~30 MB.
 - **Settings**:
-    - **Appearance**: Select themes, configure primary system fonts, customize pagination limits, and set card/tile dimensions for catalog views.
+    - **Appearance**: Select themes, configure primary system fonts, customize pagination limits, set card/tile dimensions, choose layout files, and toggle background playback memory optimization.
     - **Library**: Manage indexed folders, rescan metadata, inspect database file size, and view or clear the thumbnail cache.
     - **Scrobbling**: Built-in scrobbler support for ListenBrainz and Last.fm with customizable scrobble thresholds and now-playing updates.
 - **Integrations**:
@@ -93,6 +100,7 @@ Melody stores settings and cached data according to standard OS conventions:
 - **Playlists**: `~/.local/share/melody/playlists/` (Linux) / OS app data directory — Melody-managed `.m3u8` files (external playlists may live anywhere)
 - **Thumbnail Cache**: `~/.cache/melody/thumbnails/` (Linux) / OS cache directory
 - **Themes**: `./themes/` or `~/.config/melody/themes/`
+- **Layouts**: `./layouts/` or `~/.config/melody/layouts/`
 
 ## License
 

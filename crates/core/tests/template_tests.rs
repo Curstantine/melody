@@ -5,29 +5,35 @@ use core_engine::{
 #[test]
 fn test_template_formatting_placeholders() {
     let track = TrackRow {
-        id: 10,
-        title: "Time".to_string(),
-        artist: "Pink Floyd".into(),
-        album: "The Dark Side of the Moon".into(),
-        duration_ms: 425_000,
-        file_path: "/music/time.flac".to_string(),
-        duration_label: "7:05".to_string(),
-        year: Some(1973),
-        track_num: Some(4),
+        id: 101,
+        title: "Yūaku no Inori - Anima immortalis est.".to_string(),
+        artist: "Imperial Circus Dead Decadence".into(),
+        album: "Yūaku no Inori - Anima immortalis est.".into(),
+        duration_ms: 472_000,
+        file_path: "/music/ICDD - Anima.flac".to_string(),
+        duration_label: "7:52".to_string(),
+        year: Some(2025),
+        track_num: Some(1),
         disc_num: Some(1),
-        album_artist: Some("Pink Floyd".into()),
-        genre: Some("Progressive Rock".into()),
+        album_artist: Some("Imperial Circus Dead Decadence".into()),
+        genre: Some("Symphonic Melodic Death Metal".into()),
     };
 
-    assert_eq!(format_template("{title}", &track), "Time");
-    assert_eq!(format_template("{track_num}. {title}", &track), "4. Time");
+    assert_eq!(
+        format_template("{title}", &track),
+        "Yūaku no Inori - Anima immortalis est."
+    );
+    assert_eq!(
+        format_template("{track_num}. {title}", &track),
+        "1. Yūaku no Inori - Anima immortalis est."
+    );
     assert_eq!(
         format_template("{title} - {artist} ({year})", &track),
-        "Time - Pink Floyd (1973)"
+        "Yūaku no Inori - Anima immortalis est. - Imperial Circus Dead Decadence (2025)"
     );
     assert_eq!(
         format_template("{title}[ • {genre}][ • {year}]", &track),
-        "Time • Progressive Rock • 1973"
+        "Yūaku no Inori - Anima immortalis est. • Symphonic Melodic Death Metal • 2025"
     );
 }
 
@@ -61,49 +67,61 @@ fn test_template_missing_fields_and_brackets() {
 #[test]
 fn test_album_summary_formatting() {
     let album = AlbumSummary {
-        album: "Wish You Were Here".into(),
-        artist: "Pink Floyd".into(),
-        track_count: 5,
-        total_duration_ms: 2640000,
-        year: Some(1975),
-        cover_track_id: Some(1),
-        added_timestamp: 1700000000,
-        year_label: "1975".to_string(),
-        tracks_label: "5 tracks".to_string(),
-        duration_label: "44:00".to_string(),
+        album: "Yūaku no Inori - Anima immortalis est.".into(),
+        artist: "Imperial Circus Dead Decadence".into(),
+        track_count: 1,
+        total_duration_ms: 472_000,
+        year: Some(2025),
+        cover_track_id: Some(101),
+        added_timestamp: 1733529600,
+        year_label: "2025".to_string(),
+        tracks_label: "1 track".to_string(),
+        duration_label: "7:52".to_string(),
     };
 
     // Both exact field name (album) and alias (title) work
-    assert_eq!(format_template("{album}", &album), "Wish You Were Here");
-    assert_eq!(format_template("{title}", &album), "Wish You Were Here");
+    assert_eq!(
+        format_template("{album}", &album),
+        "Yūaku no Inori - Anima immortalis est."
+    );
+    assert_eq!(
+        format_template("{title}", &album),
+        "Yūaku no Inori - Anima immortalis est."
+    );
     assert_eq!(
         format_template("{artist}[ • {year_label}]", &album),
-        "Pink Floyd • 1975"
+        "Imperial Circus Dead Decadence • 2025"
     );
     assert_eq!(
         format_template("{tracks_label} • {duration_label}", &album),
-        "5 tracks • 44:00"
+        "1 track • 7:52"
     );
 }
 
 #[test]
 fn test_artist_summary_formatting() {
     let artist = ArtistSummary {
-        artist: "Pink Floyd".into(),
-        track_count: 120,
-        album_count: 15,
-        stats_label: "15 albums • 120 tracks".to_string(),
+        artist: "Imperial Circus Dead Decadence".into(),
+        track_count: 48,
+        album_count: 5,
+        stats_label: "5 albums • 48 tracks".to_string(),
     };
 
-    assert_eq!(format_template("{artist}", &artist), "Pink Floyd");
-    assert_eq!(format_template("{name}", &artist), "Pink Floyd");
+    assert_eq!(
+        format_template("{artist}", &artist),
+        "Imperial Circus Dead Decadence"
+    );
+    assert_eq!(
+        format_template("{name}", &artist),
+        "Imperial Circus Dead Decadence"
+    );
     assert_eq!(
         format_template("{stats_label}", &artist),
-        "15 albums • 120 tracks"
+        "5 albums • 48 tracks"
     );
     assert_eq!(
         format_template("{artist} ({albums} albums, {tracks} tracks)", &artist),
-        "Pink Floyd (15 albums, 120 tracks)"
+        "Imperial Circus Dead Decadence (5 albums, 48 tracks)"
     );
 }
 
@@ -132,16 +150,16 @@ fn test_playlist_summary_formatting() {
 fn test_queue_record_formatting() {
     let queue = QueueRecord {
         id: 1,
-        name: "Album: The Wall".to_string(),
-        current: 2,
+        name: "Album: Yūaku no Inori - Anima immortalis est.".to_string(),
+        current: 0,
         source_kind: "album".to_string(),
-        source_value: Some("The Wall".to_string()),
+        source_value: Some("Yūaku no Inori - Anima immortalis est.".to_string()),
         source_playlist: None,
-        track_count: 26,
+        track_count: 1,
     };
 
     assert_eq!(
         format_template("{name} ({track_count})", &queue),
-        "Album: The Wall (26)"
+        "Album: Yūaku no Inori - Anima immortalis est. (1)"
     );
 }

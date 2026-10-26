@@ -27,21 +27,23 @@ melody/
 ├── Cargo.toml
 ├── flake.nix
 ├── themes/                      # Runtime data-driven TOML theme definitions
+├── layouts/                     # Declarative KDL layout templates & view formatting rules
+├── docs/                        # User guides and functional documentation
 └── crates/
-    ├── core/                    # Centralized paths, Turso database, FFmpeg metadata extraction, thumbnail caching
+    ├── core/                    # Centralized paths, Turso database, FFmpeg metadata extraction, thumbnail caching, template formatting
     ├── audio/                   # Dedicated audio worker thread, CPAL playback, FFmpeg decoder & resampler, lock-free ring buffer
     ├── plugins/                 # Extensibility framework, host contracts, lyrics, discord presence hooks
-    └── ui/                      # Iced GUI entry point, Elm state machine, views, persistent config, theming
+    └── ui/                      # Iced GUI entry point, Elm state machine, views, persistent config, theming, KDL layout runtime
 ```
 
 ### Dependency Graph & Responsibilities
 
 | Crate | Path | Responsibilities | Key Dependencies |
 | :--- | :--- | :--- | :--- |
-| **`core`** | [`crates/core`](file:///home/curstantine/Code/Personal/melody/crates/core/src/lib.rs) | Centralized storage paths, async Turso local database schema & queries, viewport windowing, FFmpeg metadata parsing, cover art extraction & disk thumbnail caching. | `turso`, `ffmpeg-next`, `image`, `directories`, `serde`, `thiserror`, `walkdir` |
+| **`core`** | [`crates/core`](file:///home/curstantine/Code/Personal/melody/crates/core/src/lib.rs) | Centralized storage paths, async Turso local database schema & queries, viewport windowing, FFmpeg metadata parsing, cover art extraction & disk thumbnail caching, template string formatter engine. | `turso`, `ffmpeg-next`, `image`, `directories`, `serde`, `thiserror`, `walkdir` |
 | **`audio`** | [`crates/audio`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/lib.rs) | Lock-free audio worker thread, CPAL output stream, SPSC ring buffer, FFmpeg packet demuxing/decoding/resampling, atomic status reporting. | `cpal`, `ffmpeg-next`, `ringbuf`, `crossbeam-channel`, `thiserror` |
 | **`plugins`** | [`crates/plugins`](file:///home/curstantine/Code/Personal/melody/crates/plugins/src/lib.rs) | Plugin contracts, event dispatch (`on_track_change`, `on_playback_end`), lyrics fetcher, RPC stubs. | `serde`, `serde_json`, `tracing` |
-| **`ui`** | [`crates/ui`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/main.rs) | Application state, Model-View-Update cycle, system font picker, SVG icons, runtime theme manager, views, and persistent configuration. | `iced`, `rfd`, `directories`, `toml`, `core`, `audio`, `plugins` |
+| **`ui`** | [`crates/ui`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/main.rs) | Application state, Model-View-Update cycle, system font picker, SVG icons, runtime theme manager, KDL layout definitions, views, and persistent configuration. | `iced`, `rfd`, `directories`, `toml`, `kdl`, `core`, `audio`, `plugins` |
 
 ---
 
@@ -148,6 +150,17 @@ cargo test --workspace
 - **Every playback context becomes a queue**: playing from the library rebuilds a queue from the active scope ([`start_library_playback`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs)); the queue is named after the album, artist, search query, or `All Songs`. Same-named queues are reused and refreshed rather than duplicated.
 - **Scoped library search**: [`TrackFilter::parse`](file:///home/curstantine/Code/Personal/melody/crates/core/src/search.rs) supports `album:"…"`, `artist:…`, `album_artist:…`, `genre:…`, `year:…`, `title:…` plus free text. Categorical fields match exactly (so clicking an album shows only that album); free text is substring across title/artist/album.
 - **`All Songs` memory caveat**: [`get_all_track_rows_filtered`](file:///home/curstantine/Code/Personal/melody/crates/core/src/db.rs) intentionally bypasses windowing to materialize a queue. This is the one sanctioned exception to the "never load the whole library" rule; keep it out of render paths.
+
+### 4.7 Declarative KDL Layouts & View Formatting
+
+- **Data-Driven UI Hierarchy**: UI layouts are defined using KDL schema files in [`layouts/`](file:///home/curstantine/Code/Personal/melody/layouts) and `~/.config/melody/layouts/`, parsed into [`LayoutDefinition`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/layout/schema.rs).
+- **Customizable String Templates**: Layouts define view item presentations under a `view-formats` node. String substitutions and conditional brackets (`[...]`) are powered by [`format_template`](file:///home/curstantine/Code/Personal/melody/crates/core/src/template.rs). See [`docs/string-formatting.md`](file:///home/curstantine/Code/Personal/melody/docs/string-formatting.md) for full syntax details.
+- **Dynamic Table Columns & Size Constraints**: Library table columns can be defined, reordered, sized (`fill-portion` or fixed `width`), and bound to sorting fields directly in the KDL template.
+
+### 4.8 Ultra-Lightweight Background Mode
+
+- When minimized with background mode enabled, heavy UI assets (album artwork, blur textures, lyrics, catalog summaries, and intern pools) are automatically evicted after a configurable idle timeout.
+- The resident playback queue remains intact for gapless and shuffle operation, while UI ticking slows to 250ms and `view()` returns zero-sized space to minimize CPU/GPU and memory consumption to the absolute minimum.
 
 ---
 
@@ -263,6 +276,15 @@ cargo test --workspace
 1. Create `layouts/my-layout.kdl` or `~/.config/melody/layouts/my-layout.kdl`:
     ```kdl
     layout name="My Layout" description="Custom player layout" {
+        view-formats {
+            library {
+                column "Title" format="{title}" fill-portion=4 sort="title"
+                column "Artist" format="{artist}" fill-portion=3 sort="artist"
+                column "Album" format="{album}[ ({year})]" fill-portion=3 sort="album"
+                column "Duration" format="{duration_label}" width=80 sort="duration"
+            }
+        }
+
         column {
             navbar height=32
             main-view fill=true
@@ -273,6 +295,7 @@ cargo test --workspace
     ```
 2. The layout will be automatically discovered at launch from `./layouts/` or `~/.config/melody/layouts/`.
 3. In **Settings → Appearance**, select the new layout or click **Reload Layouts from Disk**.
+4. See [`docs/string-formatting.md`](file:///home/curstantine/Code/Personal/melody/docs/string-formatting.md) for available placeholder keys and conditional brackets syntax.
 
 ---
 
