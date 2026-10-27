@@ -19,4 +19,6 @@ pub enum AudioCommand {
     SetVolume(f32),
     /// Preload the next track for gapless audio playback
     SetNextTrack(Option<PathBuf>),
+    /// Update audio resampling configuration parameters
+    SetResampling(crate::resample::ResamplingConfig),
 }

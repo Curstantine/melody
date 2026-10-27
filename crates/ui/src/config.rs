@@ -68,6 +68,9 @@ pub struct AppConfig {
     #[serde(default = "default_true")]
     pub gapless: bool,
 
+    #[serde(default)]
+    pub resampling: audio::ResamplingConfig,
+
     #[serde(default = "default_true")]
     pub watch_library: bool,
 
@@ -201,6 +204,7 @@ impl Default for AppConfig {
             artist_tile_width: default_artist_tile_width(),
             now_playing_cover_size: default_now_playing_cover_size(),
             gapless: true,
+            resampling: audio::ResamplingConfig::default(),
             watch_library: true,
             scrobble: ScrobbleConfig::default(),
         }
@@ -351,6 +355,7 @@ mod tests {
             artist_tile_width: 180,
             now_playing_cover_size: 260,
             gapless: false,
+            resampling: audio::ResamplingConfig::default(),
             watch_library: false,
             scrobble: ScrobbleConfig {
                 listenbrainz_enabled: true,
@@ -430,5 +435,30 @@ is_repeat = true
                 ViewTab::Playlists
             ]
         );
+    }
+
+    #[test]
+    fn test_config_resampling_toml_roundtrip() {
+        let cfg = AppConfig {
+            resampling: audio::ResamplingConfig {
+                filter: audio::ResamplingFilter::BlackmanNuttall,
+                quality: audio::ResamplingQuality::Ultra,
+                linear_interp: false,
+            },
+            ..Default::default()
+        };
+
+        let toml_str = toml::to_string(&cfg).expect("Serialize config");
+        let deserialized: AppConfig = toml::from_str(&toml_str).expect("Deserialize config");
+        assert_eq!(cfg.resampling, deserialized.resampling);
+        assert_eq!(
+            deserialized.resampling.filter,
+            audio::ResamplingFilter::BlackmanNuttall
+        );
+        assert_eq!(
+            deserialized.resampling.quality,
+            audio::ResamplingQuality::Ultra
+        );
+        assert!(!deserialized.resampling.linear_interp);
     }
 }

@@ -44,6 +44,7 @@ pub const SPACE_LG: f32 = 10.0;
 
 pub const TOGGLER_SIZE: f32 = 14.0;
 pub const SETTING_LABEL_WIDTH: f32 = 160.0;
+pub const SETTING_DROPDOWN_WIDTH: f32 = 250.0;
 
 pub struct SettingsContext<'a> {
     pub theme_names: &'a [String],
@@ -78,6 +79,7 @@ pub struct SettingsContext<'a> {
     pub submit_now_playing: bool,
     pub scrobble_percent: u32,
     pub gapless: bool,
+    pub resampling: audio::ResamplingConfig,
     pub watch_library: bool,
     pub volume: f32,
     pub is_shuffle: bool,
@@ -860,10 +862,109 @@ impl SettingsView {
                 .boxed(),
         );
 
+        // 3. Audio Resampling Card
+        let filter_selector = pick_list(
+            Some(ctx.resampling.filter),
+            &audio::ResamplingFilter::ALL[..],
+            |filter: &audio::ResamplingFilter| filter.label().to_string(),
+        )
+        .on_select(Message::SetResamplingFilter)
+        .font(theme_cfg.font())
+        .padding(INPUT_PADDING)
+        .text_size(12)
+        .handle(pick_list::Handle::Arrow {
+            size: Some(11.0.into()),
+        })
+        .width(Length::Fixed(SETTING_DROPDOWN_WIDTH))
+        .style(styles::pick_list_style(theme_cfg))
+        .menu_style(styles::menu_style(theme_cfg));
+
+        let filter_row = row![
+            column![
+                text(theme_cfg, "Resampling filter algorithm")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                text(
+                    theme_cfg,
+                    "Polyphase sinc filter or interpolation method used for sample rate conversion",
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .spacing(FORM_FIELD_SPACING)
+            .width(Length::Fill),
+            filter_selector,
+        ]
+        .align_y(Alignment::Center);
+
+        let quality_selector = pick_list(
+            Some(ctx.resampling.quality),
+            &audio::ResamplingQuality::ALL[..],
+            |quality: &audio::ResamplingQuality| quality.label().to_string(),
+        )
+        .on_select(Message::SetResamplingQuality)
+        .font(theme_cfg.font())
+        .padding(INPUT_PADDING)
+        .text_size(12)
+        .handle(pick_list::Handle::Arrow {
+            size: Some(11.0.into()),
+        })
+        .width(Length::Fixed(SETTING_DROPDOWN_WIDTH))
+        .style(styles::pick_list_style(theme_cfg))
+        .menu_style(styles::menu_style(theme_cfg));
+
+        let quality_row = row![
+            column![
+                text(theme_cfg, "Filter precision & taps")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                text(
+                    theme_cfg,
+                    "Length of windowed sinc filter; higher taps sharpen transition band cutoff and reduce aliasing",
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .spacing(FORM_FIELD_SPACING)
+            .width(Length::Fill),
+            quality_selector,
+        ]
+        .align_y(Alignment::Center);
+
+        let linear_interp_row = row![
+            column![
+                text(theme_cfg, "Linear phase interpolation")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                text(
+                    theme_cfg,
+                    "Linearly interpolate between sinc filter phases for smoother frequency response and reduced noise",
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .spacing(FORM_FIELD_SPACING)
+            .width(Length::Fill),
+            toggler(ctx.resampling.linear_interp)
+                .on_toggle(Message::ToggleResamplingLinearInterp)
+                .size(TOGGLER_SIZE)
+                .style(styles::toggler_style(theme_cfg)),
+        ]
+        .align_y(Alignment::Center);
+
+        let resampling_card = components::settings_card(
+            theme_cfg,
+            "Audio resampling",
+            column![filter_row, quality_row, linear_interp_row]
+                .spacing(SECTION_SPACING)
+                .boxed(),
+        );
+
         column![
             header,
             transitions_card,
             behavior_card,
+            resampling_card,
             Space::new().height(PAGE_BOTTOM_SPACER),
         ]
         .spacing(PAGE_SPACING)
@@ -1629,6 +1730,7 @@ mod tests {
                 submit_now_playing: true,
                 scrobble_percent: 50,
                 gapless: true,
+                resampling: audio::ResamplingConfig::default(),
                 watch_library: true,
                 volume: 1.0,
                 is_shuffle: false,
@@ -1656,5 +1758,64 @@ mod tests {
                 "Roboto".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn test_playback_settings_with_custom_resampling() {
+        let theme_cfg = ThemeConfig::default();
+        let settings_view = SettingsView {
+            active_tab: SettingsTab::Playback,
+            available_fonts: vec!["Default".to_string()],
+            library_folders: Vec::new(),
+            scrobble_test_status: None,
+            fonts_loaded: true,
+        };
+        let theme_names_vec = vec![DEFAULT_THEME_NAME.to_string()];
+        let layout_names_vec = vec!["Default".to_string()];
+
+        let custom_resampling = audio::ResamplingConfig {
+            filter: audio::ResamplingFilter::BlackmanNuttall,
+            quality: audio::ResamplingQuality::Ultra,
+            linear_interp: false,
+        };
+
+        let ctx = SettingsContext {
+            theme_names: &theme_names_vec,
+            active_theme_name: DEFAULT_THEME_NAME,
+            layout_names: &layout_names_vec,
+            active_layout_name: "Default",
+            albums_view_mode: ViewMode::Tile,
+            artists_view_mode: ViewMode::Tile,
+            page_size: 50,
+            album_tile_width: 170,
+            artist_tile_width: 160,
+            now_playing_cover_size: 220,
+            primary_font: None,
+            total_tracks: 10,
+            total_albums: 2,
+            total_artists: 1,
+            db_size_bytes: 1024,
+            cache_file_count: 0,
+            cache_size_bytes: 0,
+            is_scanning: false,
+            listenbrainz_enabled: false,
+            listenbrainz_token: "",
+            listenbrainz_api_url: "",
+            lastfm_enabled: false,
+            lastfm_api_key: "",
+            lastfm_api_secret: "",
+            lastfm_session_key: "",
+            lastfm_api_url: "",
+            submit_now_playing: false,
+            scrobble_percent: 50,
+            gapless: true,
+            resampling: custom_resampling,
+            watch_library: false,
+            volume: 1.0,
+            is_shuffle: false,
+            is_repeat: false,
+        };
+
+        let _element = settings_view.view(&theme_cfg, ctx);
     }
 }

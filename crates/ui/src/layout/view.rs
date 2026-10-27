@@ -518,6 +518,7 @@ impl App {
                 submit_now_playing: self.scrobble_config.submit_now_playing,
                 scrobble_percent: self.scrobble_config.scrobble_percent,
                 gapless: self.gapless,
+                resampling: self.resampling_config.clone(),
                 watch_library: self.watch_library,
                 volume: self.volume,
                 is_shuffle: self.is_shuffle,

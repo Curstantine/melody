@@ -89,6 +89,10 @@ impl AudioController {
         self.send(AudioCommand::SetVolume(volume));
     }
 
+    pub fn set_resampling(&self, config: crate::resample::ResamplingConfig) {
+        self.send(AudioCommand::SetResampling(config));
+    }
+
     pub fn status(&self) -> &AudioStatus {
         &self.status
     }
@@ -246,6 +250,7 @@ fn run_audio_worker(
     let mut next_track: Option<LoadedTrack> = None;
     let mut written_samples: u64 = 0;
     let mut eof_deadline: Option<Instant> = None;
+    let mut resampling_cfg = crate::resample::ResamplingConfig::default();
 
     loop {
         // 1. Process all pending commands
@@ -257,6 +262,7 @@ fn run_audio_worker(
                     | AudioCommand::TogglePlayPause
                     | AudioCommand::Seek(_)
                     | AudioCommand::SetNextTrack(_)
+                    | AudioCommand::SetResampling(_)
             );
             let (sr, ch, prod) = if is_playback_cmd || stream_ctx.is_some() {
                 let ctx = ensure_stream(&mut stream_ctx, &status, &flush_flag);
@@ -278,6 +284,7 @@ fn run_audio_worker(
                 &mut written_samples,
                 sr,
                 ch,
+                &mut resampling_cfg,
             );
         }
 
@@ -407,6 +414,7 @@ fn run_audio_worker(
                             | AudioCommand::TogglePlayPause
                             | AudioCommand::Seek(_)
                             | AudioCommand::SetNextTrack(_)
+                            | AudioCommand::SetResampling(_)
                     );
                     let (sr, ch, prod) = if is_playback_cmd || stream_ctx.is_some() {
                         let ctx = ensure_stream(&mut stream_ctx, &status, &flush_flag);
@@ -428,6 +436,7 @@ fn run_audio_worker(
                         &mut written_samples,
                         sr,
                         ch,
+                        &mut resampling_cfg,
                     );
                 }
                 Err(_) => {
@@ -911,12 +920,13 @@ fn handle_command(
     written_samples: &mut u64,
     device_sample_rate: u32,
     device_channels: usize,
+    resampling_cfg: &mut crate::resample::ResamplingConfig,
 ) {
     match cmd {
         AudioCommand::Load { path, autoplay } => {
             info!("Loading audio file: {:?}", path);
             *next_track = None;
-            match load_track(&path, device_sample_rate, device_channels) {
+            match load_track(&path, device_sample_rate, device_channels, resampling_cfg) {
                 Ok(track) => {
                     // Flush any stale audio from the previous track and wait for the consumer
                     // callback to acknowledge it before loading the new track and decoding samples.
@@ -945,7 +955,7 @@ fn handle_command(
                     return;
                 }
                 info!("Preloading next track for gapless audio: {:?}", path);
-                match load_track(&path, device_sample_rate, device_channels) {
+                match load_track(&path, device_sample_rate, device_channels, resampling_cfg) {
                     Ok(track) => {
                         info!("Preloaded next track successfully: {:?}", track.path);
                         *next_track = Some(track);
@@ -1032,6 +1042,102 @@ fn handle_command(
         AudioCommand::SetVolume(vol) => {
             status.set_volume(vol);
         }
+        AudioCommand::SetResampling(new_cfg) => {
+            info!("Updating audio resampling configuration: {:?}", new_cfg);
+            *resampling_cfg = new_cfg.clone();
+            if let Some(track) = loaded_track.as_mut() {
+                let src_ch = get_decoder_channel_layout(&track.decoder);
+                let src_rate = if track.decoder.rate() > 0 {
+                    track.decoder.rate()
+                } else {
+                    44100
+                };
+                match create_resampler(
+                    track.decoder.format(),
+                    src_ch,
+                    src_rate,
+                    device_sample_rate,
+                    device_channels,
+                    &new_cfg,
+                ) {
+                    Ok(r) => track.resampler = r,
+                    Err(e) => warn!("Failed to re-initialize resampler for loaded track: {}", e),
+                }
+            }
+            if let Some(track) = next_track.as_mut() {
+                let src_ch = get_decoder_channel_layout(&track.decoder);
+                let src_rate = if track.decoder.rate() > 0 {
+                    track.decoder.rate()
+                } else {
+                    44100
+                };
+                match create_resampler(
+                    track.decoder.format(),
+                    src_ch,
+                    src_rate,
+                    device_sample_rate,
+                    device_channels,
+                    &new_cfg,
+                ) {
+                    Ok(r) => track.resampler = r,
+                    Err(e) => warn!("Failed to re-initialize resampler for next track: {}", e),
+                }
+            }
+        }
+    }
+}
+
+fn get_decoder_channel_layout(decoder: &ffmpeg_next::codec::decoder::Audio) -> ChannelLayout {
+    if decoder.channel_layout().is_empty() {
+        let ch = if decoder.channels() > 0 {
+            decoder.channels() as usize
+        } else {
+            2
+        };
+        target_channel_layout(ch)
+    } else {
+        decoder.channel_layout()
+    }
+}
+
+fn create_resampler(
+    src_format: Sample,
+    src_channel_layout: ChannelLayout,
+    src_rate: u32,
+    dst_sample_rate: u32,
+    dst_channels: usize,
+    resampling_cfg: &crate::resample::ResamplingConfig,
+) -> Result<ResamplerContext, ffmpeg_next::Error> {
+    let dst_format = Sample::F32(SampleType::Packed);
+    let dst_channel_layout = target_channel_layout(dst_channels);
+    let options = resampling_cfg.to_dictionary();
+
+    match ResamplerContext::get_with(
+        src_format,
+        src_channel_layout,
+        src_rate,
+        dst_format,
+        dst_channel_layout,
+        dst_sample_rate,
+        options,
+    ) {
+        Ok(resampler) => Ok(resampler),
+        Err(err) => {
+            warn!(
+                "Failed to initialize resampler with {:?}: {}. Falling back to default SWR Kaiser sinc.",
+                resampling_cfg, err
+            );
+            let fallback_dict = crate::resample::ResamplingConfig::default().to_dictionary();
+            ResamplerContext::get_with(
+                src_format,
+                src_channel_layout,
+                src_rate,
+                dst_format,
+                dst_channel_layout,
+                dst_sample_rate,
+                fallback_dict,
+            )
+        }
     }
 }
 
@@ -1039,6 +1145,7 @@ fn load_track(
     path: &Path,
     dst_sample_rate: u32,
     dst_channels: usize,
+    resampling_cfg: &crate::resample::ResamplingConfig,
 ) -> Result<LoadedTrack, Box<dyn std::error::Error + Send + Sync>> {
     init_ffmpeg();
 
@@ -1066,32 +1173,20 @@ fn load_track(
     let decoder = context_decoder.decoder().audio()?;
 
     let src_format = decoder.format();
-    let src_channel_layout = if decoder.channel_layout().is_empty() {
-        let ch = if decoder.channels() > 0 {
-            decoder.channels() as usize
-        } else {
-            2
-        };
-        target_channel_layout(ch)
-    } else {
-        decoder.channel_layout()
-    };
+    let src_channel_layout = get_decoder_channel_layout(&decoder);
     let src_rate = if decoder.rate() > 0 {
         decoder.rate()
     } else {
         44100
     };
 
-    let dst_format = Sample::F32(SampleType::Packed);
-    let dst_channel_layout = target_channel_layout(dst_channels);
-
-    let resampler = ResamplerContext::get(
+    let resampler = create_resampler(
         src_format,
         src_channel_layout,
         src_rate,
-        dst_format,
-        dst_channel_layout,
         dst_sample_rate,
+        dst_channels,
+        resampling_cfg,
     )?;
 
     let loaded = LoadedTrack {

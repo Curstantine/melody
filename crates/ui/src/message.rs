@@ -158,6 +158,9 @@ pub enum Message {
     ToggleShuffle,
     ToggleRepeat,
     ToggleGapless(bool),
+    SetResamplingFilter(audio::ResamplingFilter),
+    SetResamplingQuality(audio::ResamplingQuality),
+    ToggleResamplingLinearInterp(bool),
     MprisAction(plugins::PlayerAction),
 
     // Navigation & Views
@@ -437,6 +440,17 @@ impl std::fmt::Debug for Message {
             Self::ToggleShuffle => write!(f, "ToggleShuffle"),
             Self::ToggleRepeat => write!(f, "ToggleRepeat"),
             Self::ToggleGapless(v) => f.debug_tuple("ToggleGapless").field(v).finish(),
+            Self::SetResamplingFilter(filter) => {
+                f.debug_tuple("SetResamplingFilter").field(filter).finish()
+            }
+            Self::SetResamplingQuality(quality) => f
+                .debug_tuple("SetResamplingQuality")
+                .field(quality)
+                .finish(),
+            Self::ToggleResamplingLinearInterp(v) => f
+                .debug_tuple("ToggleResamplingLinearInterp")
+                .field(v)
+                .finish(),
             Self::MprisAction(a) => f.debug_tuple("MprisAction").field(a).finish(),
             Self::SelectTab(t) => f.debug_tuple("SelectTab").field(t).finish(),
             Self::TabDragStarted(t) => f.debug_tuple("TabDragStarted").field(t).finish(),

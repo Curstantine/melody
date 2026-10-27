@@ -11,5 +11,6 @@ cpal.workspace = true
 ffmpeg-next.workspace = true
 ringbuf.workspace = true
 crossbeam-channel.workspace = true
+serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 tracing.workspace = true

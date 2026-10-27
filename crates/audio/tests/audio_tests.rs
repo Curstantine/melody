@@ -216,3 +216,65 @@ fn test_gapless_status_and_boundary_transition() {
     assert_eq!(state.current_boundary, &None);
     assert_eq!(*state.consumed_samples, 100);
 }
+
+#[test]
+fn test_resampling_configuration_and_dictionary() {
+    use audio::{ResamplingConfig, ResamplingFilter, ResamplingQuality};
+
+    let default_cfg = ResamplingConfig::default();
+    assert_eq!(default_cfg.filter, ResamplingFilter::Kaiser);
+    assert_eq!(default_cfg.quality, ResamplingQuality::Standard);
+    assert!(default_cfg.linear_interp);
+
+    for filter in ResamplingFilter::ALL {
+        for quality in ResamplingQuality::ALL {
+            let cfg = ResamplingConfig {
+                filter,
+                quality,
+                linear_interp: true,
+            };
+            let _dict = cfg.to_dictionary();
+        }
+    }
+}
+
+#[test]
+fn test_resampler_context_creation_with_filters() {
+    let _ = ffmpeg_next::init();
+    use audio::{ResamplingConfig, ResamplingFilter, ResamplingQuality};
+    use ffmpeg_next::format::sample::Type as SampleType;
+    use ffmpeg_next::format::Sample;
+    use ffmpeg_next::software::resampling::context::Context as ResamplerContext;
+    use ffmpeg_next::ChannelLayout;
+
+    let src_format = Sample::I16(SampleType::Packed);
+    let src_layout = ChannelLayout::STEREO;
+    let src_rate = 44100;
+    let dst_format = Sample::F32(SampleType::Packed);
+    let dst_layout = ChannelLayout::STEREO;
+    let dst_rate = 48000;
+
+    let filters = [
+        ResamplingFilter::Kaiser,
+        ResamplingFilter::BlackmanNuttall,
+        ResamplingFilter::Cubic,
+    ];
+
+    for filter in filters {
+        let cfg = ResamplingConfig {
+            filter,
+            quality: ResamplingQuality::High,
+            linear_interp: true,
+        };
+        let res = ResamplerContext::get_with(
+            src_format,
+            src_layout,
+            src_rate,
+            dst_format,
+            dst_layout,
+            dst_rate,
+            cfg.to_dictionary(),
+        );
+        assert!(res.is_ok(), "Failed for filter {filter:?}: {:?}", res.err());
+    }
+}

@@ -105,6 +105,7 @@ pub struct App {
     pub(crate) is_shuffle: bool,
     pub(crate) is_repeat: bool,
     pub(crate) gapless: bool,
+    pub(crate) resampling_config: audio::ResamplingConfig,
     pub(crate) pending_gapless_next: Option<TrackRow>,
 
     // Global Scanning Telemetry
@@ -160,6 +161,7 @@ impl App {
         let audio_engine = AudioEngine::new();
         let audio_controller = audio_engine.controller();
         audio_controller.set_volume(state.volume);
+        audio_controller.set_resampling(config.resampling.clone());
 
         let plugin_manager = PluginManager::new();
 
@@ -273,6 +275,7 @@ impl App {
             is_shuffle: state.is_shuffle,
             is_repeat: state.is_repeat,
             gapless: config.gapless,
+            resampling_config: config.resampling,
             pending_gapless_next: None,
 
             is_scanning: false,
@@ -784,6 +787,30 @@ impl App {
                 self.gapless = enabled;
                 info!("Gapless playback toggled: {}", self.gapless);
                 self.queue_next_gapless_track();
+                self.save_config_task()
+            }
+
+            Message::SetResamplingFilter(filter) => {
+                self.resampling_config.filter = filter;
+                info!("Resampling filter changed: {:?}", filter);
+                self.audio_controller
+                    .set_resampling(self.resampling_config.clone());
+                self.save_config_task()
+            }
+
+            Message::SetResamplingQuality(quality) => {
+                self.resampling_config.quality = quality;
+                info!("Resampling quality changed: {:?}", quality);
+                self.audio_controller
+                    .set_resampling(self.resampling_config.clone());
+                self.save_config_task()
+            }
+
+            Message::ToggleResamplingLinearInterp(enabled) => {
+                self.resampling_config.linear_interp = enabled;
+                info!("Resampling linear interpolation toggled: {}", enabled);
+                self.audio_controller
+                    .set_resampling(self.resampling_config.clone());
                 self.save_config_task()
             }
 
@@ -3239,6 +3266,7 @@ impl App {
             artist_tile_width: self.artists.tile_width,
             now_playing_cover_size: self.now_playing.cover_size,
             gapless: self.gapless,
+            resampling: self.resampling_config.clone(),
             watch_library: self.watch_library,
             scrobble: self.scrobble_config.clone(),
         }
