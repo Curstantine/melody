@@ -192,33 +192,32 @@ fn init_cpal_output_stream(
     let host = cpal::default_host();
     let device = host.default_output_device();
 
-    let (stream, device_sample_rate, device_channels) = match device {
-        Some(dev) => match setup_cpal_stream(&dev, status.clone(), flush_flag.clone()) {
-            Ok((st, sr, ch, latency_us)) => {
-                info!(
-                    "Audio output stream initialized successfully ({} Hz, {} ch)",
-                    sr, ch
-                );
-                (Some((st, latency_us)), sr, ch)
+    let (stream, device_sample_rate, device_channels, ring_producer, boundary_producer) =
+        match device {
+            Some(dev) => match setup_cpal_stream(&dev, status.clone(), flush_flag.clone()) {
+                Ok((st, sr, ch, latency_us, prod, bound_prod)) => {
+                    info!(
+                        "Audio output stream initialized successfully ({} Hz, {} ch)",
+                        sr, ch
+                    );
+                    (Some((st, latency_us)), sr, ch, Some(prod), Some(bound_prod))
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to setup CPAL stream: {}. Audio playback will be muted.",
+                        e
+                    );
+                    (None, 44100, 2, None, None)
+                }
+            },
+            None => {
+                warn!("No default audio output device found. Audio playback will be muted.");
+                (None, 44100, 2, None, None)
             }
-            Err(e) => {
-                warn!(
-                    "Failed to setup CPAL stream: {}. Audio playback will be muted.",
-                    e
-                );
-                (None, 44100, 2)
-            }
-        },
-        None => {
-            warn!("No default audio output device found. Audio playback will be muted.");
-            (None, 44100, 2)
-        }
-    };
+        };
 
     let output_latency_us = stream.as_ref().map(|(_, l)| l.clone());
     let active_stream = stream.map(|(s, _)| s);
-    let ring_producer = WORKER_PRODUCER.lock().unwrap().take();
-    let boundary_producer = WORKER_BOUNDARY_PRODUCER.lock().unwrap().take();
 
     AudioStreamContext {
         _active_stream: active_stream,
@@ -448,6 +447,35 @@ fn run_audio_worker(
     }
 }
 
+fn push_frame_data(
+    data_bytes: &[u8],
+    total_floats: usize,
+    ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
+    flush_flag: &Arc<AtomicBool>,
+    written_samples: &mut u64,
+) -> bool {
+    let byte_count = total_floats * std::mem::size_of::<f32>();
+    if data_bytes.len() < byte_count {
+        return true;
+    }
+    let ptr = data_bytes.as_ptr();
+    if (ptr as usize).is_multiple_of(std::mem::align_of::<f32>()) {
+        let float_slice = unsafe { std::slice::from_raw_parts(ptr as *const f32, total_floats) };
+        if let Some(ref mut prod) = ring_producer {
+            return push_to_ring_buffer(prod, float_slice, flush_flag, written_samples);
+        }
+    } else {
+        let mut aligned = vec![0.0f32; total_floats];
+        unsafe {
+            std::ptr::copy_nonoverlapping(ptr, aligned.as_mut_ptr() as *mut u8, byte_count);
+        }
+        if let Some(ref mut prod) = ring_producer {
+            return push_to_ring_buffer(prod, &aligned, flush_flag, written_samples);
+        }
+    }
+    true
+}
+
 fn drain_decoder_frames(
     track: &mut LoadedTrack,
     ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
@@ -474,21 +502,14 @@ fn drain_decoder_frames(
                 if samples_count > 0 {
                     let total_floats = samples_count * device_channels;
                     let data_bytes = track.resampled_frame.data(0);
-                    let byte_count = total_floats * std::mem::size_of::<f32>();
-                    if data_bytes.len() >= byte_count {
-                        let float_slice: &[f32] = unsafe {
-                            std::slice::from_raw_parts(
-                                data_bytes.as_ptr() as *const f32,
-                                total_floats,
-                            )
-                        };
-
-                        if let Some(ref mut prod) = ring_producer {
-                            if !push_to_ring_buffer(prod, float_slice, flush_flag, written_samples)
-                            {
-                                break;
-                            }
-                        }
+                    if !push_frame_data(
+                        data_bytes,
+                        total_floats,
+                        ring_producer,
+                        flush_flag,
+                        written_samples,
+                    ) {
+                        break;
                     }
                 }
             }
@@ -517,17 +538,14 @@ fn flush_resampler(
         }
         let total_floats = samples_count * device_channels;
         let data_bytes = track.resampled_frame.data(0);
-        let byte_count = total_floats * std::mem::size_of::<f32>();
-        if data_bytes.len() >= byte_count {
-            let float_slice: &[f32] = unsafe {
-                std::slice::from_raw_parts(data_bytes.as_ptr() as *const f32, total_floats)
-            };
-
-            if let Some(ref mut prod) = ring_producer {
-                if !push_to_ring_buffer(prod, float_slice, flush_flag, written_samples) {
-                    break;
-                }
-            }
+        if !push_frame_data(
+            data_bytes,
+            total_floats,
+            ring_producer,
+            flush_flag,
+            written_samples,
+        ) {
+            break;
         }
     }
 }
@@ -569,11 +587,7 @@ fn push_to_ring_buffer(
     true
 }
 
-// Global slots to transfer producers created in CPAL stream setup to worker thread
-static WORKER_PRODUCER: std::sync::Mutex<Option<ringbuf::HeapProd<f32>>> =
-    std::sync::Mutex::new(None);
-static WORKER_BOUNDARY_PRODUCER: std::sync::Mutex<Option<ringbuf::HeapProd<TrackBoundary>>> =
-    std::sync::Mutex::new(None);
+// (producers transferred directly via setup_cpal_stream return tuple)
 
 /// Records how far in the future the buffer handed to the callback will actually
 /// be heard (playback timestamp minus callback timestamp).
@@ -611,7 +625,14 @@ fn advance_position(
     }
 }
 
-type CpalStreamSetup = (cpal::Stream, u32, usize, Arc<AtomicU64>);
+type CpalStreamSetup = (
+    cpal::Stream,
+    u32,
+    usize,
+    Arc<AtomicU64>,
+    ringbuf::HeapProd<f32>,
+    ringbuf::HeapProd<TrackBoundary>,
+);
 
 /// Shared, per-stream state handed to the realtime output callbacks.
 pub struct CallbackState<'a> {
@@ -712,9 +733,6 @@ fn setup_cpal_stream(
     let boundary_rb = HeapRb::<TrackBoundary>::new(16);
     let (boundary_producer, mut boundary_consumer) = boundary_rb.split();
 
-    *WORKER_PRODUCER.lock().unwrap() = Some(producer);
-    *WORKER_BOUNDARY_PRODUCER.lock().unwrap() = Some(boundary_producer);
-
     let flush_cb = flush_flag.clone();
     let status_cb = status.clone();
 
@@ -806,7 +824,14 @@ fn setup_cpal_stream(
 
     stream.play().map_err(AudioEngineError::CpalPlay)?;
 
-    Ok((stream, sample_rate, channels, latency_us))
+    Ok((
+        stream,
+        sample_rate,
+        channels,
+        latency_us,
+        producer,
+        boundary_producer,
+    ))
 }
 
 fn audio_callback_f32(data: &mut [f32], state: &mut CallbackState) {

@@ -61,7 +61,11 @@ pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTech
 
     let audio_stream = ictx.streams().best(ffmpeg_next::media::Type::Audio)?;
     let codec_params = audio_stream.parameters();
-    let raw_par = unsafe { *codec_params.as_ptr() };
+    let raw_par_ptr = unsafe { codec_params.as_ptr() };
+    if raw_par_ptr.is_null() {
+        return None;
+    }
+    let raw_par = unsafe { &*raw_par_ptr };
 
     let sample_rate_hz = if raw_par.sample_rate > 0 {
         raw_par.sample_rate as u32
@@ -427,12 +431,14 @@ pub fn extract_cover_art(path: &Path) -> Option<Vec<u8>> {
             let is_video = stream.parameters().medium() == ffmpeg_next::media::Type::Video;
 
             if is_attached_pic || is_video {
-                unsafe {
-                    let av_stream_ptr = stream.as_ptr();
-                    let pkt = (*av_stream_ptr).attached_pic;
-                    if !pkt.data.is_null() && pkt.size > 0 {
-                        let slice = std::slice::from_raw_parts(pkt.data, pkt.size as usize);
-                        return Some(slice.to_vec());
+                let av_stream_ptr = unsafe { stream.as_ptr() };
+                if !av_stream_ptr.is_null() {
+                    unsafe {
+                        let pkt = (*av_stream_ptr).attached_pic;
+                        if !pkt.data.is_null() && pkt.size > 0 {
+                            let slice = std::slice::from_raw_parts(pkt.data, pkt.size as usize);
+                            return Some(slice.to_vec());
+                        }
                     }
                 }
             }

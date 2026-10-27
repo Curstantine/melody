@@ -1,7 +1,5 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -22,7 +20,7 @@ pub enum WatcherError {
 pub struct LibraryWatcher {
     watcher: RecommendedWatcher,
     watched_folders: HashSet<PathBuf>,
-    stop_flag: Arc<AtomicBool>,
+    stop_tx: Option<crossbeam_channel::Sender<()>>,
     debouncer_thread: Option<JoinHandle<()>>,
 }
 
@@ -36,7 +34,7 @@ impl LibraryWatcher {
         debounce_duration: Duration,
     ) -> Result<Self, WatcherError> {
         let (raw_tx, raw_rx) = crossbeam_channel::unbounded::<Vec<PathBuf>>();
-        let stop_flag = Arc::new(AtomicBool::new(false));
+        let (stop_tx, stop_rx) = crossbeam_channel::bounded::<()>(1);
 
         let watcher = RecommendedWatcher::new(
             move |res: Result<Event, notify::Error>| match res {
@@ -55,12 +53,11 @@ impl LibraryWatcher {
             Config::default(),
         )?;
 
-        let thread_stop = Arc::clone(&stop_flag);
         let debouncer_thread = std::thread::Builder::new()
             .name("melody-library-watcher".into())
             .spawn(move || {
                 let mut pending: HashMap<PathBuf, Instant> = HashMap::new();
-                while !thread_stop.load(Ordering::Relaxed) {
+                loop {
                     let recv_result = if let Some(min_instant) = pending.values().min() {
                         let elapsed = min_instant.elapsed();
                         let timeout = if elapsed >= debounce_duration {
@@ -68,17 +65,22 @@ impl LibraryWatcher {
                         } else {
                             debounce_duration - elapsed
                         };
-                        raw_rx.recv_timeout(timeout).map_err(|e| match e {
-                            crossbeam_channel::RecvTimeoutError::Timeout => true,
-                            crossbeam_channel::RecvTimeoutError::Disconnected => false,
-                        })
+                        crossbeam_channel::select! {
+                            recv(stop_rx) -> _ => break,
+                            recv(raw_rx) -> msg => match msg {
+                                Ok(paths) => Ok(paths),
+                                Err(_) => Err(false),
+                            },
+                            default(timeout) => Err(true),
+                        }
                     } else {
-                        raw_rx
-                            .recv_timeout(Duration::from_millis(500))
-                            .map_err(|e| match e {
-                                crossbeam_channel::RecvTimeoutError::Timeout => true,
-                                crossbeam_channel::RecvTimeoutError::Disconnected => false,
-                            })
+                        crossbeam_channel::select! {
+                            recv(stop_rx) -> _ => break,
+                            recv(raw_rx) -> msg => match msg {
+                                Ok(paths) => Ok(paths),
+                                Err(_) => Err(false),
+                            },
+                        }
                     };
 
                     match recv_result {
@@ -89,9 +91,7 @@ impl LibraryWatcher {
                             }
                         }
                         Err(true) => {}
-                        Err(false) => {
-                            break;
-                        }
+                        Err(false) => break,
                     }
 
                     if pending.is_empty() {
@@ -120,7 +120,7 @@ impl LibraryWatcher {
         Ok(Self {
             watcher,
             watched_folders: HashSet::new(),
-            stop_flag,
+            stop_tx: Some(stop_tx),
             debouncer_thread: Some(debouncer_thread),
         })
     }
@@ -186,7 +186,9 @@ impl LibraryWatcher {
 
 impl Drop for LibraryWatcher {
     fn drop(&mut self) {
-        self.stop_flag.store(true, Ordering::Relaxed);
+        if let Some(stop_tx) = self.stop_tx.take() {
+            let _ = stop_tx.send(());
+        }
         for folder in &self.watched_folders {
             let _ = self.watcher.unwatch(folder);
         }

@@ -109,16 +109,16 @@ impl From<&Track> for TrackRow {
         TrackRow {
             id: t.id,
             title: t.title.clone(),
-            artist: InternedStr::from(t.display_artist()),
-            album: InternedStr::from(t.album.as_str()),
+            artist: crate::intern::intern(t.display_artist()),
+            album: crate::intern::intern(t.album.as_str()),
             duration_ms: t.duration_ms,
             file_path: t.file_path.clone(),
             duration_label: t.formatted_duration(),
             year: t.year,
             track_num: t.track_num,
             disc_num: t.disc_num,
-            album_artist: t.album_artist.as_deref().map(InternedStr::from),
-            genre: t.genre.as_deref().map(InternedStr::from),
+            album_artist: t.album_artist.as_deref().map(crate::intern::intern),
+            genre: t.genre.as_deref().map(crate::intern::intern),
         }
     }
 }

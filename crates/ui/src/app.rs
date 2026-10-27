@@ -379,10 +379,9 @@ impl App {
     }
 
     pub(crate) fn cursor_position(&self) -> iced::Point {
-        LAST_CURSOR_POS
-            .lock()
-            .map(|p| *p)
-            .unwrap_or(iced::Point::new(100.0, 100.0))
+        let x = f32::from_bits(LAST_CURSOR_X.load(std::sync::atomic::Ordering::Relaxed));
+        let y = f32::from_bits(LAST_CURSOR_Y.load(std::sync::atomic::Ordering::Relaxed));
+        iced::Point::new(x, y)
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
@@ -3984,8 +3983,10 @@ fn handle_drag_event(
     }
 }
 
-static LAST_CURSOR_POS: std::sync::Mutex<iced::Point> =
-    std::sync::Mutex::new(iced::Point { x: 100.0, y: 100.0 });
+static LAST_CURSOR_X: std::sync::atomic::AtomicU32 =
+    std::sync::atomic::AtomicU32::new(100.0f32.to_bits());
+static LAST_CURSOR_Y: std::sync::atomic::AtomicU32 =
+    std::sync::atomic::AtomicU32::new(100.0f32.to_bits());
 
 fn handle_cursor_and_window_event(
     event: iced::Event,
@@ -3994,9 +3995,8 @@ fn handle_cursor_and_window_event(
 ) -> Option<Message> {
     match event {
         iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
-            if let Ok(mut guard) = LAST_CURSOR_POS.lock() {
-                *guard = position;
-            }
+            LAST_CURSOR_X.store(position.x.to_bits(), std::sync::atomic::Ordering::Relaxed);
+            LAST_CURSOR_Y.store(position.y.to_bits(), std::sync::atomic::Ordering::Relaxed);
             None
         }
         iced::Event::Window(iced::window::Event::Resized(size)) => {

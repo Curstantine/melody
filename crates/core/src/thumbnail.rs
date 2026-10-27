@@ -1,9 +1,8 @@
-use std::collections::hash_map::DefaultHasher;
 use std::fs;
-use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use image::codecs::jpeg::JpegEncoder;
+use md5::{Digest, Md5};
 use tracing::debug;
 
 use crate::metadata::extract_cover_art;
@@ -20,19 +19,28 @@ pub fn thumbnail_cache_dir() -> PathBuf {
 
 /// Generates a deterministic hash-based cache key for a given track path and thumbnail dimension
 pub fn compute_thumbnail_cache_key(track_path: &Path, max_dim: u32) -> String {
-    let mut hasher = DefaultHasher::new();
-    "v3_square".hash(&mut hasher);
-    track_path.to_string_lossy().hash(&mut hasher);
-    max_dim.hash(&mut hasher);
+    let mut hasher = Md5::new();
+    hasher.update(b"v3_square");
+    hasher.update(track_path.to_string_lossy().as_bytes());
+    hasher.update(max_dim.to_le_bytes());
 
     if let Ok(meta) = fs::metadata(track_path) {
-        meta.len().hash(&mut hasher);
+        hasher.update(meta.len().to_le_bytes());
         if let Ok(mtime) = meta.modified() {
-            mtime.hash(&mut hasher);
+            if let Ok(duration) = mtime.duration_since(std::time::UNIX_EPOCH) {
+                hasher.update(duration.as_millis().to_le_bytes());
+            }
         }
     }
 
-    format!("{:016x}_{}", hasher.finish(), max_dim)
+    let digest = hasher.finalize();
+    let mut key = String::with_capacity(32 + 1 + 10);
+    use std::fmt::Write;
+    for byte in digest {
+        let _ = write!(key, "{:02x}", byte);
+    }
+    let _ = write!(key, "_{}", max_dim);
+    key
 }
 
 /// Retrieves an existing thumbnail from disk cache, or extracts, downscales, and caches it.

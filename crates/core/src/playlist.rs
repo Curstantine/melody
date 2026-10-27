@@ -53,13 +53,10 @@ pub struct ParsedPlaylist {
 
 /// Returns `true` when the path has an `.m3u` or `.m3u8` extension.
 pub fn is_supported_playlist_file(path: &Path) -> bool {
-    matches!(
-        path.extension()
-            .and_then(|e| e.to_str())
-            .map(|e| e.to_ascii_lowercase())
-            .as_deref(),
-        Some("m3u") | Some("m3u8")
-    )
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("m3u") || e.eq_ignore_ascii_case("m3u8"))
+        .unwrap_or(false)
 }
 
 /// Derives a display name for a playlist from its file stem.

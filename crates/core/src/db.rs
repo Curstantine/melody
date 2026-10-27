@@ -20,7 +20,11 @@ pub fn is_supported_audio_path<P: AsRef<Path>>(path: P) -> bool {
     let path = path.as_ref();
     path.extension()
         .and_then(|ext| ext.to_str())
-        .map(|ext| SUPPORTED_AUDIO_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
+        .map(|ext| {
+            SUPPORTED_AUDIO_EXTENSIONS
+                .iter()
+                .any(|&s| ext.eq_ignore_ascii_case(s))
+        })
         .unwrap_or(false)
 }
 
@@ -381,45 +385,6 @@ impl LibraryDatabase {
         }
     }
 
-    pub async fn get_next_track(&self, current_id: i64) -> Result<Option<Track>, DbError> {
-        let mut rows = self
-            .conn
-            .query(
-                r#"
-            SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
-                   track_num, disc_num, year, composer, label,
-                   musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
-            FROM tracks WHERE id > ?1 ORDER BY id ASC LIMIT 1
-            "#,
-                params![current_id],
-            )
-            .await?;
-
-        if let Some(row) = rows.next().await? {
-            return Ok(Some(map_track_row(&row)?));
-        }
-
-        // Wrap around to first track
-        let mut rows_first = self
-            .conn
-            .query(
-                r#"
-            SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
-                   track_num, disc_num, year, composer, label,
-                   musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
-            FROM tracks ORDER BY id ASC LIMIT 1
-            "#,
-                (),
-            )
-            .await?;
-
-        if let Some(row) = rows_first.next().await? {
-            Ok(Some(map_track_row(&row)?))
-        } else {
-            Ok(None)
-        }
-    }
-
     pub async fn get_total_track_count(
         &self,
         filter: Option<&TrackFilter>,
@@ -588,23 +553,25 @@ impl LibraryDatabase {
             return Ok(out);
         }
 
-        let placeholders = std::iter::repeat_n("?", ids.len())
-            .collect::<Vec<_>>()
-            .join(", ");
-        let query = format!(
-            "SELECT id, file_path FROM tracks WHERE id IN ({})",
-            placeholders
-        );
+        for chunk in ids.chunks(SQL_IN_CLAUSE_CHUNK_SIZE) {
+            let placeholders = std::iter::repeat_n("?", chunk.len())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let query = format!(
+                "SELECT id, file_path FROM tracks WHERE id IN ({})",
+                placeholders
+            );
 
-        let mut rows = self
-            .conn
-            .query(&query, turso::params_from_iter(ids.iter().copied()))
-            .await?;
+            let mut rows = self
+                .conn
+                .query(&query, turso::params_from_iter(chunk.iter().copied()))
+                .await?;
 
-        while let Some(row) = rows.next().await? {
-            let id: i64 = row.get(0)?;
-            let path: String = row.get(1)?;
-            out.insert(id, path);
+            while let Some(row) = rows.next().await? {
+                let id: i64 = row.get(0)?;
+                let path: String = row.get(1)?;
+                out.insert(id, path);
+            }
         }
         Ok(out)
     }
@@ -641,21 +608,6 @@ impl LibraryDatabase {
             }
         }
         Ok(out)
-    }
-
-    /// Fetches only the filesystem path for a track id (used to resolve album
-    /// cover art for the visible catalog window).
-    pub async fn get_track_path_by_id(&self, id: i64) -> Result<Option<String>, DbError> {
-        let mut rows = self
-            .conn
-            .query("SELECT file_path FROM tracks WHERE id = ?1", params![id])
-            .await?;
-
-        if let Some(row) = rows.next().await? {
-            Ok(Some(row.get(0)?))
-        } else {
-            Ok(None)
-        }
     }
 
     /// Lightweight in-memory index struct for global shuffle, playlist generation, or totals

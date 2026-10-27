@@ -12,12 +12,12 @@ path = "src/lib.rs"
 [dependencies]
 ffmpeg-next.workspace = true
 serde = { workspace = true, features = ["derive", "rc"] }
-serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 walkdir.workspace = true
 image = { workspace = true, features = ["jpeg", "png"] }
 directories.workspace = true
+md-5.workspace = true
 turso.workspace = true
 encoding_rs.workspace = true
 tokio = { workspace = true, features = ["rt", "sync"] }

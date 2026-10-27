@@ -163,13 +163,9 @@ impl AppState {
     }
 
     pub fn save_to_path(&self, path: &Path) {
-        if let Some(parent) = path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-
         match toml::to_string_pretty(self) {
             Ok(content) => {
-                if let Err(err) = fs::write(path, content) {
+                if let Err(err) = core_engine::atomic_write(path, &content) {
                     error!("Failed to write state to {:?}: {}", path, err);
                 } else {
                     info!("Saved state to {:?}", path);

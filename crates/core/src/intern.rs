@@ -49,6 +49,7 @@ impl Interner {
         }
     }
 
+    #[cfg(test)]
     fn len(&self) -> usize {
         self.pool.lock().map(|pool| pool.len()).unwrap_or(0)
     }
@@ -77,6 +78,7 @@ pub fn clear() {
 }
 
 /// Number of distinct interned strings currently retained.
+#[cfg(test)]
 pub fn distinct_count() -> usize {
     global().len()
 }

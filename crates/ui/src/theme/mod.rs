@@ -511,8 +511,7 @@ impl ThemeManager {
     }
 
     fn load_from_folder(&mut self, folder: &Path) {
-        if !folder.exists() {
-            let _ = fs::create_dir_all(folder);
+        if !folder.is_dir() {
             return;
         }
 

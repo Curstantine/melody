@@ -321,7 +321,7 @@ impl AlbumsView {
     }
 
     /// Testable entry point mirroring [`Self::on_scroll`] without an iced viewport.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn on_scroll_metrics(
         &mut self,
         scroll_y: f32,

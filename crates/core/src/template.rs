@@ -111,25 +111,25 @@ impl FieldLookup for QueueRecord {
 /// Post-processing cleans up consecutive spaces, extra whitespace, and dangling separators (`•`, `-`, `,`, `|`, `/`).
 pub fn format_template(template: &str, lookup: &impl FieldLookup) -> String {
     let mut result = String::with_capacity(template.len() + 16);
-    let chars: Vec<char> = template.chars().collect();
+    let bytes = template.as_bytes();
     let mut i = 0;
 
-    while i < chars.len() {
-        if chars[i] == '{' && i + 1 < chars.len() && chars[i + 1] == '{' {
+    while i < bytes.len() {
+        if bytes[i] == b'{' && i + 1 < bytes.len() && bytes[i + 1] == b'{' {
             result.push('{');
             i += 2;
-        } else if chars[i] == '}' && i + 1 < chars.len() && chars[i + 1] == '}' {
+        } else if bytes[i] == b'}' && i + 1 < bytes.len() && bytes[i + 1] == b'}' {
             result.push('}');
             i += 2;
-        } else if chars[i] == '[' {
+        } else if bytes[i] == b'[' {
             // Find matching ']'
             let start = i + 1;
             let mut depth = 1;
             let mut end = start;
-            while end < chars.len() && depth > 0 {
-                if chars[end] == '[' {
+            while end < bytes.len() && depth > 0 {
+                if bytes[end] == b'[' {
                     depth += 1;
-                } else if chars[end] == ']' {
+                } else if bytes[end] == b']' {
                     depth -= 1;
                 }
                 if depth > 0 {
@@ -138,11 +138,10 @@ pub fn format_template(template: &str, lookup: &impl FieldLookup) -> String {
             }
 
             if depth == 0 {
-                let inner_slice: String = chars[start..end].iter().collect();
+                let inner_slice = &template[start..end];
                 // Check if all placeholders in inner_slice are satisfied
-                if all_placeholders_satisfied(&inner_slice, lookup) {
-                    let formatted_inner = format_template_direct(&inner_slice, lookup);
-                    result.push_str(&formatted_inner);
+                if all_placeholders_satisfied(inner_slice, lookup) {
+                    format_template_direct_into(&mut result, inner_slice, lookup);
                 }
                 i = end + 1;
             } else {
@@ -150,15 +149,15 @@ pub fn format_template(template: &str, lookup: &impl FieldLookup) -> String {
                 result.push('[');
                 i += 1;
             }
-        } else if chars[i] == '{' {
+        } else if bytes[i] == b'{' {
             let start = i + 1;
             let mut end = start;
-            while end < chars.len() && chars[end] != '}' {
+            while end < bytes.len() && bytes[end] != b'}' {
                 end += 1;
             }
-            if end < chars.len() {
-                let key: String = chars[start..end].iter().collect();
-                if let Some(val) = lookup.lookup(&key) {
+            if end < bytes.len() {
+                let key = &template[start..end];
+                if let Some(val) = lookup.lookup(key) {
                     result.push_str(val.trim());
                 }
                 i = end + 1;
@@ -167,8 +166,16 @@ pub fn format_template(template: &str, lookup: &impl FieldLookup) -> String {
                 i += 1;
             }
         } else {
-            result.push(chars[i]);
-            i += 1;
+            let mut next = i + 1;
+            while next < bytes.len()
+                && bytes[next] != b'{'
+                && bytes[next] != b'}'
+                && bytes[next] != b'['
+            {
+                next += 1;
+            }
+            result.push_str(&template[i..next]);
+            i = next;
         }
     }
 
@@ -177,21 +184,21 @@ pub fn format_template(template: &str, lookup: &impl FieldLookup) -> String {
 
 /// Checks whether all `{placeholders}` within a conditional section have non-empty values.
 fn all_placeholders_satisfied(sub_template: &str, lookup: &impl FieldLookup) -> bool {
-    let chars: Vec<char> = sub_template.chars().collect();
+    let bytes = sub_template.as_bytes();
     let mut i = 0;
     let mut has_at_least_one = false;
 
-    while i < chars.len() {
-        if chars[i] == '{' && (i + 1 >= chars.len() || chars[i + 1] != '{') {
+    while i < bytes.len() {
+        if bytes[i] == b'{' && (i + 1 >= bytes.len() || bytes[i + 1] != b'{') {
             let start = i + 1;
             let mut end = start;
-            while end < chars.len() && chars[end] != '}' {
+            while end < bytes.len() && bytes[end] != b'}' {
                 end += 1;
             }
-            if end < chars.len() {
-                let key: String = chars[start..end].iter().collect();
+            if end < bytes.len() {
+                let key = &sub_template[start..end];
                 has_at_least_one = true;
-                match lookup.lookup(&key) {
+                match lookup.lookup(key) {
                     Some(val) if !val.trim().is_empty() => {}
                     _ => return false,
                 }
@@ -207,28 +214,27 @@ fn all_placeholders_satisfied(sub_template: &str, lookup: &impl FieldLookup) -> 
     has_at_least_one
 }
 
-/// Direct placeholder replacement without bracket recursion.
-fn format_template_direct(template: &str, lookup: &impl FieldLookup) -> String {
-    let mut result = String::with_capacity(template.len());
-    let chars: Vec<char> = template.chars().collect();
+/// Direct placeholder replacement without bracket recursion into an existing buffer.
+fn format_template_direct_into(result: &mut String, template: &str, lookup: &impl FieldLookup) {
+    let bytes = template.as_bytes();
     let mut i = 0;
 
-    while i < chars.len() {
-        if chars[i] == '{' && i + 1 < chars.len() && chars[i + 1] == '{' {
+    while i < bytes.len() {
+        if bytes[i] == b'{' && i + 1 < bytes.len() && bytes[i + 1] == b'{' {
             result.push('{');
             i += 2;
-        } else if chars[i] == '}' && i + 1 < chars.len() && chars[i + 1] == '}' {
+        } else if bytes[i] == b'}' && i + 1 < bytes.len() && bytes[i + 1] == b'}' {
             result.push('}');
             i += 2;
-        } else if chars[i] == '{' {
+        } else if bytes[i] == b'{' {
             let start = i + 1;
             let mut end = start;
-            while end < chars.len() && chars[end] != '}' {
+            while end < bytes.len() && bytes[end] != b'}' {
                 end += 1;
             }
-            if end < chars.len() {
-                let key: String = chars[start..end].iter().collect();
-                if let Some(val) = lookup.lookup(&key) {
+            if end < bytes.len() {
+                let key = &template[start..end];
+                if let Some(val) = lookup.lookup(key) {
                     result.push_str(val.trim());
                 }
                 i = end + 1;
@@ -237,44 +243,33 @@ fn format_template_direct(template: &str, lookup: &impl FieldLookup) -> String {
                 i += 1;
             }
         } else {
-            result.push(chars[i]);
-            i += 1;
+            let mut next = i + 1;
+            while next < bytes.len() && bytes[next] != b'{' && bytes[next] != b'}' {
+                next += 1;
+            }
+            result.push_str(&template[i..next]);
+            i = next;
         }
     }
-
-    result
 }
 
 /// Normalizes whitespace and strips dangling separators like `•`, `-`, `,`, `|`, `/`.
 fn clean_formatted_string(raw: &str) -> String {
-    // 1. Collapse multiple whitespace characters into single space
-    let mut words = Vec::new();
-    for word in raw.split_whitespace() {
-        words.push(word);
-    }
-    let collapsed = words.join(" ");
-
-    // 2. Strip leading / trailing separators
-    let trimmed = collapsed.trim();
     let is_separator = |c: char| matches!(c, '•' | '-' | ',' | '|' | '/' | '–' | '—');
-
-    let mut start = 0;
-    let chars: Vec<char> = trimmed.chars().collect();
-    while start < chars.len() && (chars[start].is_whitespace() || is_separator(chars[start])) {
-        start += 1;
-    }
-
-    let mut end = chars.len();
-    while end > start && (chars[end - 1].is_whitespace() || is_separator(chars[end - 1])) {
-        end -= 1;
-    }
-
-    if start >= end {
+    let trimmed = raw.trim_matches(|c: char| c.is_whitespace() || is_separator(c));
+    if trimmed.is_empty() {
         return String::new();
     }
-
-    let s: String = chars[start..end].iter().collect();
-    s.trim().to_string()
+    let mut result = String::with_capacity(trimmed.len());
+    let mut words = trimmed.split_whitespace();
+    if let Some(first) = words.next() {
+        result.push_str(first);
+        for word in words {
+            result.push(' ');
+            result.push_str(word);
+        }
+    }
+    result
 }
 
 #[cfg(test)]
