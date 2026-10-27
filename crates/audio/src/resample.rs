@@ -69,6 +69,20 @@ impl ResamplingQuality {
             Self::Ultra => "Audiophile / Ultra (128 taps)",
         }
     }
+
+    /// Label formatted appropriately for the given resampling filter algorithm.
+    pub fn label_for_filter(&self, filter: ResamplingFilter) -> &'static str {
+        if filter == ResamplingFilter::Soxr {
+            match self {
+                Self::Fast => "Fast (16-bit precision)",
+                Self::Standard => "Standard (20-bit precision - Default)",
+                Self::High => "High Quality (28-bit precision)",
+                Self::Ultra => "Audiophile / Ultra (32-bit precision)",
+            }
+        } else {
+            self.label()
+        }
+    }
 }
 
 impl fmt::Display for ResamplingQuality {

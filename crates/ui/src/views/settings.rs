@@ -897,10 +897,13 @@ impl SettingsView {
         ]
         .align_y(Alignment::Center);
 
+        let active_filter = ctx.resampling.filter;
         let quality_selector = pick_list(
             Some(ctx.resampling.quality),
             &audio::ResamplingQuality::ALL[..],
-            |quality: &audio::ResamplingQuality| quality.label().to_string(),
+            move |quality: &audio::ResamplingQuality| {
+                quality.label_for_filter(active_filter).to_string()
+            },
         )
         .on_select(Message::SetResamplingQuality)
         .font(theme_cfg.font())
@@ -913,17 +916,20 @@ impl SettingsView {
         .style(styles::pick_list_style(theme_cfg))
         .menu_style(styles::menu_style(theme_cfg));
 
+        let quality_desc = if active_filter == audio::ResamplingFilter::Soxr {
+            "Internal computation bit precision; higher precision improves dynamic range and reduces quantization noise"
+        } else {
+            "Length of windowed sinc filter; higher taps sharpen transition band cutoff and reduce aliasing"
+        };
+
         let quality_row = row![
             column![
                 text(theme_cfg, "Filter precision & taps")
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
-                text(
-                    theme_cfg,
-                    "Length of windowed sinc filter; higher taps sharpen transition band cutoff and reduce aliasing",
-                )
-                .size(11)
-                .color(theme_cfg.text_muted_color()),
+                text(theme_cfg, quality_desc)
+                    .size(11)
+                    .color(theme_cfg.text_muted_color()),
             ]
             .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
@@ -931,33 +937,37 @@ impl SettingsView {
         ]
         .align_y(Alignment::Center);
 
-        let linear_interp_row = row![
-            column![
-                text(theme_cfg, "Filter phase linear interpolation")
-                    .size(12)
+        let mut resampling_rows = vec![filter_row, quality_row];
+
+        if active_filter != audio::ResamplingFilter::Soxr {
+            let linear_interp_row = row![
+                column![
+                    text(theme_cfg, "Filter phase linear interpolation")
+                        .size(12)
+                        .color(theme_cfg.text_muted_color()),
+                    text(
+                        theme_cfg,
+                        "Linearly interpolate between sinc filter phases for smoother frequency response and reduced noise",
+                    )
+                    .size(11)
                     .color(theme_cfg.text_muted_color()),
-                text(
-                    theme_cfg,
-                    "Linearly interpolate between sinc filter phases for smoother frequency response and reduced noise",
-                )
-                .size(11)
-                .color(theme_cfg.text_muted_color()),
+                ]
+                .spacing(FORM_FIELD_SPACING)
+                .width(Length::Fill),
+                toggler(ctx.resampling.linear_interp)
+                    .on_toggle(Message::ToggleResamplingLinearInterp)
+                    .size(TOGGLER_SIZE)
+                    .style(styles::toggler_style(theme_cfg)),
             ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
-            toggler(ctx.resampling.linear_interp)
-                .on_toggle(Message::ToggleResamplingLinearInterp)
-                .size(TOGGLER_SIZE)
-                .style(styles::toggler_style(theme_cfg)),
-        ]
-        .align_y(Alignment::Center);
+            .align_y(Alignment::Center);
+
+            resampling_rows.push(linear_interp_row);
+        }
 
         let resampling_card = components::settings_card(
             theme_cfg,
             "Audio resampling",
-            column![filter_row, quality_row, linear_interp_row]
-                .spacing(SECTION_SPACING)
-                .boxed(),
+            column(resampling_rows).spacing(SECTION_SPACING).boxed(),
         );
 
         column![
