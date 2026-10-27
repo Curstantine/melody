@@ -15,11 +15,19 @@ pub struct PlayerBar {
     pub is_seeking: bool,
     pub seek_pos_ms: u64,
     pub artist_album: String,
+    cached_pos_sec: u64,
+    cached_duration_ms: u64,
+    cached_time_str: String,
+    cached_volume_pct: u32,
+    cached_volume_str: String,
 }
 
 impl PlayerBar {
     pub fn new() -> Self {
-        Self::default()
+        let mut bar = Self::default();
+        bar.update_position(0, 0);
+        bar.update_volume(1.0);
+        bar
     }
 
     pub fn update_track(&mut self, track: Option<&Track>) {
@@ -27,15 +35,53 @@ impl PlayerBar {
             Some(t) => format!("{} • {}", t.artist, t.album),
             None => String::new(),
         };
+        let duration = track.map(|t| t.duration_ms).unwrap_or(0);
+        self.update_position(0, duration);
+    }
+
+    pub fn update_position(&mut self, position_ms: u64, duration_ms: u64) {
+        let active_pos = if self.is_seeking {
+            self.seek_pos_ms
+        } else {
+            position_ms
+        };
+        let clamped = if duration_ms > 0 {
+            active_pos.min(duration_ms)
+        } else {
+            active_pos
+        };
+        let sec = clamped / 1000;
+        if sec != self.cached_pos_sec
+            || duration_ms != self.cached_duration_ms
+            || self.cached_time_str.is_empty()
+        {
+            self.cached_pos_sec = sec;
+            self.cached_duration_ms = duration_ms;
+            self.cached_time_str = format!(
+                "{} / {}",
+                format_duration(clamped),
+                format_duration(duration_ms)
+            );
+        }
+    }
+
+    pub fn update_volume(&mut self, volume: f32) {
+        let pct = (volume * 100.0).round() as u32;
+        if pct != self.cached_volume_pct || self.cached_volume_str.is_empty() {
+            self.cached_volume_pct = pct;
+            self.cached_volume_str = format!("{}%", pct);
+        }
     }
 
     pub fn on_seek(&mut self, ms: f32) {
         self.is_seeking = true;
         self.seek_pos_ms = ms as u64;
+        self.update_position(self.seek_pos_ms, self.cached_duration_ms);
     }
 
     pub fn on_seek_finished(&mut self) -> u64 {
         self.is_seeking = false;
+        self.update_position(self.seek_pos_ms, self.cached_duration_ms);
         self.seek_pos_ms
     }
 
@@ -154,12 +200,16 @@ impl PlayerBar {
         } else {
             active_pos
         };
-        let cur_time_str = format_duration(clamped_active_pos);
-        let total_time_str = format_duration(duration_ms);
-
-        let time_info = text(theme_cfg, format!("{cur_time_str} / {total_time_str}"))
-            .size(10)
-            .color(bar_muted);
+        let time_info = text(
+            theme_cfg,
+            if !self.cached_time_str.is_empty() {
+                &self.cached_time_str
+            } else {
+                "0:00 / 0:00"
+            },
+        )
+        .size(10)
+        .color(bar_muted);
 
         let seek_range_max = if duration_ms > 0 {
             duration_ms as f32
@@ -210,10 +260,17 @@ impl PlayerBar {
                 bar_fg
             ),
             vol_slider,
-            text(theme_cfg, format!("{}%", (volume * 100.0).round() as u32))
-                .size(11)
-                .color(bar_muted)
-                .width(32),
+            text(
+                theme_cfg,
+                if !self.cached_volume_str.is_empty() {
+                    &self.cached_volume_str
+                } else {
+                    "100%"
+                },
+            )
+            .size(11)
+            .color(bar_muted)
+            .width(32),
         ]
         .spacing(6)
         .align_y(Alignment::Center)
@@ -293,13 +350,17 @@ impl PlayerBar {
         } else {
             active_pos
         };
-        let cur_time_str = format_duration(clamped_active_pos);
-        let total_time_str = format_duration(duration_ms);
-
-        let time_info = text(theme_cfg, format!("{cur_time_str} / {total_time_str}"))
-            .size(10)
-            .align_x(Alignment::End)
-            .color(bar_muted);
+        let time_info = text(
+            theme_cfg,
+            if !self.cached_time_str.is_empty() {
+                &self.cached_time_str
+            } else {
+                "0:00 / 0:00"
+            },
+        )
+        .size(10)
+        .align_x(Alignment::End)
+        .color(bar_muted);
 
         let buttons_width = 176.0;
 

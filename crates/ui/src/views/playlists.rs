@@ -17,6 +17,29 @@ use crate::theme::{styles, ThemeConfig};
 /// Square playlist tile size in the Playlists catalog grid.
 pub const PLAYLIST_TILE_SIZE: f32 = 150.0;
 
+#[derive(Clone, Debug, Default)]
+pub struct RenderedPlaylistSummary {
+    pub tile_line1: String,
+    pub tile_line2: String,
+    pub list_line1: String,
+    pub list_line2: String,
+    pub list_details: String,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct RenderedPlaylistItem {
+    pub primary: String,
+    pub secondary: String,
+    pub details: String,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct RenderedQueueTrack {
+    pub primary: String,
+    pub secondary: String,
+    pub details: String,
+}
+
 /// Self-contained state and view component for the Playlists tab.
 ///
 /// Playlists are loaded from `playlist_files` references and their contents are
@@ -37,6 +60,13 @@ pub struct PlaylistsView {
     /// Raw M3U entries 1:1 with `detail_items` (including unmatched lines),
     /// kept so a drag-reorder can rewrite the file without losing data.
     pub detail_entries: Vec<PlaylistEntry>,
+    /// Pre-rendered playlist detail strings so detail rendering does not allocate per frame.
+    pub detail_tracks_str: String,
+    pub rendered_playlists: Vec<RenderedPlaylistSummary>,
+    pub rendered_detail_items: Vec<RenderedPlaylistItem>,
+    pub queue_header_tracks_str: String,
+    pub rendered_queue_chips: Vec<(u64, String)>,
+    pub rendered_queue_window: Vec<RenderedQueueTrack>,
     /// Single-clicked detail row awaiting a potential double-click.
     pub last_detail_click: Option<(i64, usize, Instant)>,
     /// Single-click selection highlight in the open playlist.
@@ -82,6 +112,12 @@ impl PlaylistsView {
             detail_items: Vec::new(),
             detail_tracks: Vec::new(),
             detail_entries: Vec::new(),
+            detail_tracks_str: String::new(),
+            rendered_playlists: Vec::new(),
+            rendered_detail_items: Vec::new(),
+            queue_header_tracks_str: String::new(),
+            rendered_queue_chips: Vec::new(),
+            rendered_queue_window: Vec::new(),
             last_detail_click: None,
             selected_detail_track: None,
             hovered_detail_row: None,
@@ -227,10 +263,96 @@ impl PlaylistsView {
         self.detail_items.clear();
         self.detail_tracks.clear();
         self.detail_entries.clear();
+        self.rendered_detail_items.clear();
+        self.detail_tracks_str.clear();
         self.last_detail_click = None;
         self.selected_detail_track = None;
         self.hovered_detail_row = None;
         self.renaming = false;
+    }
+
+    pub fn recompute_rendered_playlists(
+        &mut self,
+        playlists_fmt: &crate::layout::PlaylistsFormatConfig,
+    ) {
+        self.rendered_playlists = self
+            .playlists
+            .iter()
+            .map(|p| RenderedPlaylistSummary {
+                tile_line1: format_template(&playlists_fmt.tile_line1, p),
+                tile_line2: format_template(&playlists_fmt.tile_line2, p),
+                list_line1: format_template(&playlists_fmt.list_line1, p),
+                list_line2: format_template(&playlists_fmt.list_line2, p),
+                list_details: format_template(&playlists_fmt.list_details, p),
+            })
+            .collect();
+    }
+
+    pub fn recompute_rendered_details(
+        &mut self,
+        playlists_fmt: &crate::layout::PlaylistsFormatConfig,
+    ) {
+        self.detail_tracks_str = format!("{} tracks", self.detail_items.len());
+        self.rendered_detail_items = self
+            .detail_items
+            .iter()
+            .map(|item| {
+                let track_row = item
+                    .track_id
+                    .and_then(|tid| self.detail_tracks.iter().find(|t| t.id == tid));
+                let lookup = |key: &str| -> Option<String> {
+                    if let Some(t) = track_row {
+                        if let Some(v) = t.lookup(key) {
+                            return Some(v.into_owned());
+                        }
+                    }
+                    match key {
+                        "title" => Some(item.title.clone()),
+                        "artist" => Some(item.artist.clone()),
+                        "duration_label" | "duration" => Some(item.duration_label.clone()),
+                        "id" => item.track_id.map(|id| id.to_string()),
+                        _ => None,
+                    }
+                };
+                RenderedPlaylistItem {
+                    primary: format_template(&playlists_fmt.detail_primary, &lookup),
+                    secondary: format_template(&playlists_fmt.detail_secondary, &lookup),
+                    details: format_template(&playlists_fmt.detail_details, &lookup),
+                }
+            })
+            .collect();
+    }
+
+    pub fn recompute_rendered_queue(
+        &mut self,
+        queue_fmt: &crate::layout::QueueFormatConfig,
+        store: &QueueStore,
+    ) {
+        self.rendered_queue_chips = store
+            .summaries
+            .iter()
+            .map(|q| (q.id, format_template(&queue_fmt.chip_format, q)))
+            .collect();
+
+        if let Some(active) = store.active_queue() {
+            self.queue_header_tracks_str = format!("{} tracks in queue", active.len());
+            let (start, end) = queue_window_for_start(active.len(), self.queue_window_start);
+            self.rendered_queue_window = active.tracks[start..end]
+                .iter()
+                .map(|track| RenderedQueueTrack {
+                    primary: format_template(&queue_fmt.track_primary, track),
+                    secondary: format_template(&queue_fmt.track_secondary, track),
+                    details: format_template(&queue_fmt.track_details, track),
+                })
+                .collect();
+        } else if let Some(id) = store.active {
+            let count = store.summary(id).map(|s| s.track_count).unwrap_or(0);
+            self.queue_header_tracks_str = format!("{} tracks in queue", count);
+            self.rendered_queue_window.clear();
+        } else {
+            self.queue_header_tracks_str.clear();
+            self.rendered_queue_window.clear();
+        }
     }
 
     /// Handles an open-playlist row click. Returns `true` on double-click
@@ -267,6 +389,13 @@ impl PlaylistsView {
         self.detail_items.insert(to, item);
         let entry = self.detail_entries.remove(from);
         self.detail_entries.insert(to, entry);
+        if !self.rendered_detail_items.is_empty()
+            && from < self.rendered_detail_items.len()
+            && to < self.rendered_detail_items.len()
+        {
+            let item = self.rendered_detail_items.remove(from);
+            self.rendered_detail_items.insert(to, item);
+        }
         true
     }
 
@@ -283,6 +412,10 @@ impl PlaylistsView {
         }
         self.detail_items.remove(index);
         self.detail_entries.remove(index);
+        if index < self.rendered_detail_items.len() {
+            self.rendered_detail_items.remove(index);
+        }
+        self.detail_tracks_str = format!("{} tracks", self.detail_items.len());
         self.selected_detail_track = match self.selected_detail_track {
             Some((id, i)) if id == playlist_id => {
                 if i == index {
@@ -514,9 +647,21 @@ impl PlaylistsView {
             let playlist = &self.playlists[idx];
             let is_selected = self.selected_id == Some(playlist.id);
 
-            let line1 = format_template(&playlists_fmt.list_line1, playlist);
-            let line2 = format_template(&playlists_fmt.list_line2, playlist);
-            let details_label = format_template(&playlists_fmt.list_details, playlist);
+            let (line1, line2, details_label) = if let Some(cached) =
+                self.rendered_playlists.get(idx)
+            {
+                (
+                    std::borrow::Cow::Borrowed(cached.list_line1.as_str()),
+                    std::borrow::Cow::Borrowed(cached.list_line2.as_str()),
+                    std::borrow::Cow::Borrowed(cached.list_details.as_str()),
+                )
+            } else {
+                (
+                    std::borrow::Cow::Owned(format_template(&playlists_fmt.list_line1, playlist)),
+                    std::borrow::Cow::Owned(format_template(&playlists_fmt.list_line2, playlist)),
+                    std::borrow::Cow::Owned(format_template(&playlists_fmt.list_details, playlist)),
+                )
+            };
 
             let subtitle = text(theme_cfg, line2)
                 .size(11)
@@ -635,8 +780,17 @@ impl PlaylistsView {
                 Message::SelectPlaylist(playlist.id),
             );
 
-            let line1 = format_template(&playlists_fmt.tile_line1, playlist);
-            let line2 = format_template(&playlists_fmt.tile_line2, playlist);
+            let (line1, line2) = if let Some(cached) = self.rendered_playlists.get(idx) {
+                (
+                    std::borrow::Cow::Borrowed(cached.tile_line1.as_str()),
+                    std::borrow::Cow::Borrowed(cached.tile_line2.as_str()),
+                )
+            } else {
+                (
+                    std::borrow::Cow::Owned(format_template(&playlists_fmt.tile_line1, playlist)),
+                    std::borrow::Cow::Owned(format_template(&playlists_fmt.tile_line2, playlist)),
+                )
+            };
 
             let meta = container(
                 column![
@@ -816,7 +970,7 @@ impl PlaylistsView {
                 text(theme_cfg, self.detail_name.as_str())
                     .size(15)
                     .color(theme_cfg.text_color()),
-                text(theme_cfg, format!("{} tracks", self.detail_items.len()))
+                text(theme_cfg, self.detail_tracks_str.as_str())
                     .size(11)
                     .color(theme_cfg.text_muted_color()),
             ]
@@ -903,35 +1057,54 @@ impl PlaylistsView {
                     context: TrackMenuContext::Playlist { playlist_id, index },
                 });
 
-                let track_row = item
-                    .track_id
-                    .and_then(|tid| self.detail_tracks.iter().find(|t| t.id == tid));
-                let lookup = |key: &str| -> Option<String> {
-                    if let Some(t) = track_row {
-                        if let Some(v) = t.lookup(key) {
-                            return Some(v.into_owned());
-                        }
-                    }
-                    match key {
-                        "title" => Some(item.title.clone()),
-                        "artist" => Some(item.artist.clone()),
-                        "duration_label" | "duration" => Some(item.duration_label.clone()),
-                        "id" => item.track_id.map(|id| id.to_string()),
-                        _ => None,
-                    }
-                };
-
-                let primary = format_template(&playlists_fmt.detail_primary, &lookup);
-                let secondary = format_template(&playlists_fmt.detail_secondary, &lookup);
-                let details = format_template(&playlists_fmt.detail_details, &lookup);
+                let (primary, secondary, details) =
+                    if let Some(cached) = self.rendered_detail_items.get(index) {
+                        (
+                            std::borrow::Cow::Borrowed(cached.primary.as_str()),
+                            std::borrow::Cow::Borrowed(cached.secondary.as_str()),
+                            std::borrow::Cow::Borrowed(cached.details.as_str()),
+                        )
+                    } else {
+                        let track_row = item
+                            .track_id
+                            .and_then(|tid| self.detail_tracks.iter().find(|t| t.id == tid));
+                        let lookup = |key: &str| -> Option<String> {
+                            if let Some(t) = track_row {
+                                if let Some(v) = t.lookup(key) {
+                                    return Some(v.into_owned());
+                                }
+                            }
+                            match key {
+                                "title" => Some(item.title.clone()),
+                                "artist" => Some(item.artist.clone()),
+                                "duration_label" | "duration" => Some(item.duration_label.clone()),
+                                "id" => item.track_id.map(|id| id.to_string()),
+                                _ => None,
+                            }
+                        };
+                        (
+                            std::borrow::Cow::Owned(format_template(
+                                &playlists_fmt.detail_primary,
+                                &lookup,
+                            )),
+                            std::borrow::Cow::Owned(format_template(
+                                &playlists_fmt.detail_secondary,
+                                &lookup,
+                            )),
+                            std::borrow::Cow::Owned(format_template(
+                                &playlists_fmt.detail_details,
+                                &lookup,
+                            )),
+                        )
+                    };
 
                 list = list.push(
                     components::TrackRow {
                         theme: theme_cfg,
                         index,
-                        title: primary.into(),
-                        artist: secondary.into(),
-                        duration: details.into(),
+                        title: primary,
+                        artist: secondary,
+                        duration: details,
                         highlighted: self.selected_detail_track == Some((playlist_id, index)),
                         dragging: dragging_detail == Some((playlist_id, index)),
                         show_handle: dragging_detail == Some((playlist_id, index))
@@ -981,9 +1154,14 @@ impl PlaylistsView {
 
         // Queue selector chips.
         let mut chips = row![].spacing(6).align_y(Alignment::Center);
-        for queue in &store.summaries {
+        for (chip_idx, queue) in store.summaries.iter().enumerate() {
             let is_active = store.active == Some(queue.id);
-            let chip_label = format_template(&queue_fmt.chip_format, queue);
+            let chip_label = self
+                .rendered_queue_chips
+                .get(chip_idx)
+                .filter(|(id, _)| *id == queue.id)
+                .map(|(_, label)| label.as_str())
+                .unwrap_or(queue.name.as_str());
             let chip_btn = components::chip(
                 theme_cfg,
                 chip_label,
@@ -1022,13 +1200,13 @@ impl PlaylistsView {
             // switch or delete fallback). The summary already knows the name
             // and track count, so render the real header and only the track
             // list area resolves once loading finishes.
-            let (name, track_count) = store
+            let name = store
                 .summary(id)
-                .map(|s| (s.name.as_str(), s.track_count))
-                .unwrap_or(("Queue", 0));
+                .map(|s| s.name.as_str())
+                .unwrap_or("Queue");
             return column![
                 chips,
-                Self::queue_header(theme_cfg, name, track_count, id),
+                Self::queue_header(theme_cfg, name, &self.queue_header_tracks_str, id),
                 self.queue_save_form(theme_cfg),
                 components::empty_state(theme_cfg, "Loading queue…", "Fetching tracks"),
             ]
@@ -1039,7 +1217,12 @@ impl PlaylistsView {
 
         let active_id = active.id;
 
-        let header = Self::queue_header(theme_cfg, &active.name, active.len(), active_id);
+        let header = Self::queue_header(
+            theme_cfg,
+            &active.name,
+            &self.queue_header_tracks_str,
+            active_id,
+        );
 
         let save_form: Element<'a, Message> = self.queue_save_form(theme_cfg);
 
@@ -1077,16 +1260,28 @@ impl PlaylistsView {
             for (offset, track) in active.tracks[start..end].iter().enumerate() {
                 let index = start + offset;
                 let is_current = current == Some(index);
-                let primary = format_template(&queue_fmt.track_primary, track);
-                let secondary = format_template(&queue_fmt.track_secondary, track);
-                let details = format_template(&queue_fmt.track_details, track);
+                let (primary, secondary, details) = if let Some(cached) =
+                    self.rendered_queue_window.get(offset)
+                {
+                    (
+                        std::borrow::Cow::Borrowed(cached.primary.as_str()),
+                        std::borrow::Cow::Borrowed(cached.secondary.as_str()),
+                        std::borrow::Cow::Borrowed(cached.details.as_str()),
+                    )
+                } else {
+                    (
+                        std::borrow::Cow::Owned(format_template(&queue_fmt.track_primary, track)),
+                        std::borrow::Cow::Owned(format_template(&queue_fmt.track_secondary, track)),
+                        std::borrow::Cow::Owned(format_template(&queue_fmt.track_details, track)),
+                    )
+                };
                 list = list.push(
                     components::TrackRow {
                         theme: theme_cfg,
                         index,
-                        title: primary.into(),
-                        artist: secondary.into(),
-                        duration: details.into(),
+                        title: primary,
+                        artist: secondary,
+                        duration: details,
                         highlighted: is_current
                             || self.selected_queue_track == Some((active_id, index)),
                         dragging: dragging_track == Some((active_id, index)),
@@ -1150,13 +1345,13 @@ impl PlaylistsView {
     fn queue_header<'a>(
         theme_cfg: &'a ThemeConfig,
         name: &'a str,
-        track_count: usize,
+        track_count_str: &'a str,
         active_id: u64,
     ) -> Element<'a, Message> {
         row![
             column![
                 text(theme_cfg, name).size(15).color(theme_cfg.text_color()),
-                text(theme_cfg, format!("{} tracks in queue", track_count))
+                text(theme_cfg, track_count_str)
                     .size(11)
                     .color(theme_cfg.text_muted_color()),
             ]

@@ -1,4 +1,3 @@
-use core_engine::{format_duration, Track};
 use iced::widget::{column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length};
 
@@ -11,24 +10,28 @@ use crate::theme::{styles, ThemeConfig};
 pub struct StatusBarContext<'a> {
     pub active_tab: ViewTab,
     // Tracks (Music) context
-    pub total_tracks: usize,
-    pub search_query: &'a str,
+    pub tracks_count_label: &'a str,
+    pub filter_indicator_label: &'a str,
     // Albums context
-    pub album_count: usize,
-    pub album_tracks: usize,
-    pub album_duration_ms: u64,
+    pub album_count_label: &'a str,
+    pub album_tracks_label: &'a str,
+    pub album_duration_label: &'a str,
     /// Artists context
-    pub artist_count: usize,
-    pub artist_albums: usize,
-    pub artist_tracks: usize,
+    pub artist_count_label: &'a str,
+    pub artist_albums_label: &'a str,
+    pub artist_tracks_label: &'a str,
     // Now Playing context
-    pub current_track: Option<&'a Track>,
+    pub now_playing_label: Option<&'a str>,
+    pub now_playing_album: Option<&'a str>,
+    pub now_playing_duration: Option<&'a str>,
     pub is_playing: bool,
     // Playlists / Queues context
-    pub playlist_count: usize,
-    pub queue_count: usize,
-    /// Active queue name and length, when a queue drives playback.
-    pub active_queue: Option<(&'a str, usize)>,
+    pub queue_name_label: Option<&'a str>,
+    pub queue_tracks_label: Option<&'a str>,
+    pub playlist_count_label: &'a str,
+    pub queue_count_label: &'a str,
+    // Settings context
+    pub settings_indexed_label: &'a str,
     // Global telemetry
     pub is_scanning: bool,
     pub scan_progress: Option<(usize, usize)>,
@@ -44,25 +47,21 @@ impl StatusBar {
 
         let left_items: Element<'a, Message> = match ctx.active_tab {
             ViewTab::Tracks => {
-                let count_text = if !ctx.search_query.trim().is_empty() {
-                    format!("{} matching tracks", ctx.total_tracks)
-                } else {
-                    format!("{} tracks in library", ctx.total_tracks)
-                };
-
-                let filter_indicator: Element<'a, Message> = if !ctx.search_query.trim().is_empty()
-                {
-                    text(theme_cfg, format!("·  Filter: {}", ctx.search_query.trim()))
-                        .size(11)
-                        .color(muted)
-                        .boxed()
-                } else {
-                    Space::new().width(0).boxed()
-                };
+                let filter_indicator: Element<'a, Message> =
+                    if !ctx.filter_indicator_label.is_empty() {
+                        text(theme_cfg, ctx.filter_indicator_label)
+                            .size(11)
+                            .color(muted)
+                            .boxed()
+                    } else {
+                        Space::new().width(0).boxed()
+                    };
 
                 row![
                     icons::icon(icons::MUSIC_NOTE_SVG, 11.0, muted),
-                    text(theme_cfg, count_text).size(11).color(muted),
+                    text(theme_cfg, ctx.tracks_count_label)
+                        .size(11)
+                        .color(muted),
                     filter_indicator,
                 ]
                 .spacing(6)
@@ -72,15 +71,13 @@ impl StatusBar {
 
             ViewTab::Albums => row![
                 icons::icon(icons::ALBUM_SVG, 11.0, muted),
-                text(theme_cfg, format!("{} albums", ctx.album_count))
+                text(theme_cfg, ctx.album_count_label).size(11).color(muted),
+                text(theme_cfg, "·").size(11).color(muted),
+                text(theme_cfg, ctx.album_tracks_label)
                     .size(11)
                     .color(muted),
                 text(theme_cfg, "·").size(11).color(muted),
-                text(theme_cfg, format!("{} tracks", ctx.album_tracks))
-                    .size(11)
-                    .color(muted),
-                text(theme_cfg, "·").size(11).color(muted),
-                text(theme_cfg, format_duration(ctx.album_duration_ms))
+                text(theme_cfg, ctx.album_duration_label)
                     .size(11)
                     .color(muted),
             ]
@@ -90,15 +87,15 @@ impl StatusBar {
 
             ViewTab::Artists => row![
                 icons::icon(icons::USER_AVATAR_SVG, 11.0, muted),
-                text(theme_cfg, format!("{} artists", ctx.artist_count))
+                text(theme_cfg, ctx.artist_count_label)
                     .size(11)
                     .color(muted),
                 text(theme_cfg, "·").size(11).color(muted),
-                text(theme_cfg, format!("{} albums", ctx.artist_albums))
+                text(theme_cfg, ctx.artist_albums_label)
                     .size(11)
                     .color(muted),
                 text(theme_cfg, "·").size(11).color(muted),
-                text(theme_cfg, format!("{} tracks", ctx.artist_tracks))
+                text(theme_cfg, ctx.artist_tracks_label)
                     .size(11)
                     .color(muted),
             ]
@@ -107,7 +104,7 @@ impl StatusBar {
             .boxed(),
 
             ViewTab::Lyrics => {
-                if let Some(track) = ctx.current_track {
+                if let Some(now_playing) = ctx.now_playing_label {
                     row![
                         icons::icon(
                             if ctx.is_playing {
@@ -118,16 +115,13 @@ impl StatusBar {
                             11.0,
                             muted,
                         ),
-                        text(
-                            theme_cfg,
-                            format!("Now playing: {} • {}", track.title, track.artist)
-                        )
-                        .size(11)
-                        .color(muted),
+                        text(theme_cfg, now_playing).size(11).color(muted),
                         text(theme_cfg, "·").size(11).color(muted),
-                        text(theme_cfg, &track.album).size(11).color(muted),
+                        text(theme_cfg, ctx.now_playing_album.unwrap_or(""))
+                            .size(11)
+                            .color(muted),
                         text(theme_cfg, "·").size(11).color(muted),
-                        text(theme_cfg, track.formatted_duration())
+                        text(theme_cfg, ctx.now_playing_duration.unwrap_or(""))
                             .size(11)
                             .color(muted),
                     ]
@@ -146,18 +140,16 @@ impl StatusBar {
             }
 
             ViewTab::Playlists => {
-                if let Some((name, len)) = ctx.active_queue {
+                if let (Some(queue_name), Some(queue_len)) =
+                    (ctx.queue_name_label, ctx.queue_tracks_label)
+                {
                     row![
                         icons::icon(icons::QUEUE_SVG, 11.0, muted),
-                        text(theme_cfg, format!("Queue: {}", name))
-                            .size(11)
-                            .color(muted),
+                        text(theme_cfg, queue_name).size(11).color(muted),
                         text(theme_cfg, "·").size(11).color(muted),
-                        text(theme_cfg, format!("{} tracks", len))
-                            .size(11)
-                            .color(muted),
+                        text(theme_cfg, queue_len).size(11).color(muted),
                         text(theme_cfg, "·").size(11).color(muted),
-                        text(theme_cfg, format!("{} playlists", ctx.playlist_count))
+                        text(theme_cfg, ctx.playlist_count_label)
                             .size(11)
                             .color(muted),
                     ]
@@ -167,13 +159,11 @@ impl StatusBar {
                 } else {
                     row![
                         icons::icon(icons::PLAYLIST_SVG, 11.0, muted),
-                        text(theme_cfg, format!("{} playlists", ctx.playlist_count))
+                        text(theme_cfg, ctx.playlist_count_label)
                             .size(11)
                             .color(muted),
                         text(theme_cfg, "·").size(11).color(muted),
-                        text(theme_cfg, format!("{} queues open", ctx.queue_count))
-                            .size(11)
-                            .color(muted),
+                        text(theme_cfg, ctx.queue_count_label).size(11).color(muted),
                     ]
                     .spacing(6)
                     .align_y(Alignment::Center)
@@ -185,7 +175,7 @@ impl StatusBar {
                 icons::icon(icons::SETTINGS_SVG, 11.0, muted),
                 text(theme_cfg, "Preferences").size(11).color(muted),
                 text(theme_cfg, "·").size(11).color(muted),
-                text(theme_cfg, format!("{} tracks indexed", ctx.total_tracks))
+                text(theme_cfg, ctx.settings_indexed_label)
                     .size(11)
                     .color(muted),
             ]
@@ -229,19 +219,23 @@ mod tests {
         let theme_cfg = ThemeConfig::default();
         let ctx = StatusBarContext {
             active_tab: message::ViewTab::Tracks,
-            total_tracks: 100,
-            search_query: "",
-            album_count: 10,
-            album_tracks: 100,
-            album_duration_ms: 100000,
-            artist_count: 5,
-            artist_albums: 10,
-            artist_tracks: 100,
-            current_track: None,
+            tracks_count_label: "100 tracks in library",
+            filter_indicator_label: "",
+            album_count_label: "10 albums",
+            album_tracks_label: "100 tracks",
+            album_duration_label: "45:00",
+            artist_count_label: "5 artists",
+            artist_albums_label: "10 albums",
+            artist_tracks_label: "100 tracks",
+            now_playing_label: None,
+            now_playing_album: None,
+            now_playing_duration: None,
             is_playing: false,
-            playlist_count: 2,
-            queue_count: 1,
-            active_queue: None,
+            queue_name_label: None,
+            queue_tracks_label: None,
+            playlist_count_label: "2 playlists",
+            queue_count_label: "1 queues open",
+            settings_indexed_label: "100 tracks indexed",
             is_scanning: true,
             scan_progress: Some((45, 120)),
             is_generating_thumbnails: false,

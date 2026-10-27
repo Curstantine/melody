@@ -313,6 +313,17 @@ const TRACK_ROW_DURATION_WIDTH: f32 = 64.0;
 /// The component owns the full look — leading slot, typography, highlight,
 /// and delete button. Callers supply row data, state flags, and their
 /// context-specific messages (playlist vs. queue).
+fn format_index(index: usize) -> Cow<'static, str> {
+    const PRECOMPUTED_MAX: usize = 1024;
+    static NUM_CACHE: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+    let cache = NUM_CACHE.get_or_init(|| (1..=PRECOMPUTED_MAX).map(|n| n.to_string()).collect());
+    if index < PRECOMPUTED_MAX {
+        Cow::Borrowed(cache[index].as_str())
+    } else {
+        Cow::Owned((index + 1).to_string())
+    }
+}
+
 pub struct TrackRow<'a> {
     pub theme: &'a ThemeConfig,
     /// Zero-based position; rendered as `index + 1` in the leading slot.
@@ -383,7 +394,7 @@ impl<'a> TrackRow<'a> {
             .boxed()
         } else {
             container(
-                text(theme_cfg, format!("{}", index + 1))
+                text(theme_cfg, format_index(index))
                     .size(12)
                     .color(number_color),
             )

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-use core_engine::{format_template, AlbumSummary, SortDirection, TrackFilter};
+use core_engine::{format_duration, format_template, AlbumSummary, SortDirection, TrackFilter};
 use iced::widget::{column, container, image, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length};
 
@@ -33,6 +33,16 @@ fn columns_for_width(width: f32, tile_width: u32) -> usize {
     (((usable + components::CATALOG_ROW_SPACING) / (tile + components::CATALOG_ROW_SPACING)).floor()
         as usize)
         .max(1)
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct RenderedAlbumStrings {
+    pub tile_line1: String,
+    pub tile_line2: String,
+    pub tile_line3: String,
+    pub list_line1: String,
+    pub list_line2: String,
+    pub list_details: String,
 }
 
 /// Self-contained state and view component for the Albums catalog screen.
@@ -76,6 +86,12 @@ pub struct AlbumsView {
     /// catalog on every frame.
     pub total_tracks: usize,
     pub total_duration_ms: u64,
+    /// Pre-rendered status strings so StatusBar rendering does not allocate per frame.
+    pub status_count_str: String,
+    pub status_tracks_str: String,
+    pub status_duration_str: String,
+    /// Pre-rendered strings for the visible window of albums to eliminate per-frame format allocations.
+    pub rendered_window: Vec<RenderedAlbumStrings>,
 }
 
 impl AlbumsView {
@@ -89,7 +105,7 @@ impl AlbumsView {
         sort_field: AlbumSortField,
         tile_width: u32,
     ) -> Self {
-        Self {
+        let mut view = Self {
             view_mode,
             tile_width,
             albums: Vec::new(),
@@ -108,7 +124,13 @@ impl AlbumsView {
             next_request_id: 0,
             total_tracks: 0,
             total_duration_ms: 0,
-        }
+            status_count_str: String::new(),
+            status_tracks_str: String::new(),
+            status_duration_str: String::new(),
+            rendered_window: Vec::new(),
+        };
+        view.recompute_totals();
+        view
     }
 
     pub fn set_tile_width(&mut self, width: u32) -> bool {
@@ -173,6 +195,24 @@ impl AlbumsView {
     fn recompute_totals(&mut self) {
         self.total_tracks = self.albums.iter().map(|a| a.track_count).sum();
         self.total_duration_ms = self.albums.iter().map(|a| a.total_duration_ms).sum();
+        self.status_count_str = format!("{} albums", self.albums.len());
+        self.status_tracks_str = format!("{} tracks", self.total_tracks);
+        self.status_duration_str = format_duration(self.total_duration_ms);
+    }
+
+    pub fn recompute_rendered_window(&mut self, format_cfg: &crate::layout::AlbumsFormatConfig) {
+        let visible = self.visible_albums();
+        self.rendered_window = visible
+            .iter()
+            .map(|album| RenderedAlbumStrings {
+                tile_line1: format_template(&format_cfg.tile_line1, album),
+                tile_line2: format_template(&format_cfg.tile_line2, album),
+                tile_line3: format_template(&format_cfg.tile_line3, album),
+                list_line1: format_template(&format_cfg.list_line1, album),
+                list_line2: format_template(&format_cfg.list_line2, album),
+                list_details: format_template(&format_cfg.list_details, album),
+            })
+            .collect();
     }
 
     pub fn toggle_sort(&mut self, field: AlbumSortField) {
@@ -448,9 +488,11 @@ impl AlbumsView {
         // Replace with empty collections to drop the backing allocations entirely.
         // `.clear()` would retain the heap capacity; we want the memory gone.
         self.albums = Vec::new();
+        self.rendered_window = Vec::new();
         self.failed = HashSet::new();
         self.total_tracks = 0;
         self.total_duration_ms = 0;
+        self.recompute_totals();
         self.clear_covers();
     }
 
@@ -573,12 +615,15 @@ impl AlbumsView {
             content = content.push(Space::new().height(top).boxed());
         }
 
-        for chunk in self.visible_albums().chunks(per_row) {
+        let visible = self.visible_albums();
+        for (chunk_idx, chunk) in visible.chunks(per_row).enumerate() {
             let mut tile_row = row![]
                 .spacing(components::CATALOG_ROW_SPACING)
                 .align_y(Alignment::Start);
 
-            for album in chunk {
+            for (item_in_chunk, album) in chunk.iter().enumerate() {
+                let win_idx = chunk_idx * per_row + item_in_chunk;
+                let abs_idx = self.window_start + win_idx;
                 let leading = components::catalog_cover_art(
                     theme_cfg,
                     self.get_album_cover(album),
@@ -587,35 +632,46 @@ impl AlbumsView {
                     icons::DISC_SVG,
                     disc_icon_size,
                     theme_cfg.primary_color(),
-                    Message::SelectAlbum(album.album.to_string()),
+                    Message::SelectAlbum(album.album.clone()),
                 );
 
-                let line1 = format_template(&format_cfg.tile_line1, album);
-                let line2 = format_template(&format_cfg.tile_line2, album);
-                let line3 = format_template(&format_cfg.tile_line3, album);
+                let (line1, line2, line3) = if let Some(cached) = self.rendered_window.get(win_idx)
+                {
+                    (
+                        std::borrow::Cow::Borrowed(cached.tile_line1.as_str()),
+                        std::borrow::Cow::Borrowed(cached.tile_line2.as_str()),
+                        std::borrow::Cow::Borrowed(cached.tile_line3.as_str()),
+                    )
+                } else {
+                    (
+                        std::borrow::Cow::Owned(format_template(&format_cfg.tile_line1, album)),
+                        std::borrow::Cow::Owned(format_template(&format_cfg.tile_line2, album)),
+                        std::borrow::Cow::Owned(format_template(&format_cfg.tile_line3, album)),
+                    )
+                };
 
                 tile_row = tile_row.push(
                     components::CatalogTile {
                         theme: theme_cfg,
                         tile_width: tile_w,
                         leading,
-                        title: line1.into(),
-                        mid_left: line2.into(),
+                        title: line1,
+                        mid_left: line2,
                         mid_right: "".into(),
-                        bottom_left: line3.into(),
+                        bottom_left: line3,
                         bottom_right: "".into(),
-                        on_select: Message::SelectAlbum(album.album.to_string()),
+                        on_select: Message::SelectAlbum(album.album.clone()),
                         on_play: Message::PlayScope {
                             filter: TrackFilter::album(album.album.as_ref()),
-                            name: album.album.as_ref().to_string(),
+                            name: album.album.clone(),
                             shuffle: false,
                         },
                         on_shuffle: Message::PlayScope {
                             filter: TrackFilter::album(album.album.as_ref()),
-                            name: album.album.as_ref().to_string(),
+                            name: album.album.clone(),
                             shuffle: true,
                         },
-                        on_right_press: Some(Message::OpenAlbumContextMenu(album.clone())),
+                        on_right_press: Some(Message::OpenAlbumContextMenu(abs_idx)),
                     }
                     .view(),
                 );
@@ -658,10 +714,22 @@ impl AlbumsView {
             content = content.push(Space::new().height(top).boxed());
         }
 
-        for album in self.visible_albums() {
-            let line1 = format_template(&format_cfg.list_line1, album);
-            let line2 = format_template(&format_cfg.list_line2, album);
-            let details = format_template(&format_cfg.list_details, album);
+        let visible = self.visible_albums();
+        for (win_idx, album) in visible.iter().enumerate() {
+            let abs_idx = self.window_start + win_idx;
+            let (line1, line2, details) = if let Some(cached) = self.rendered_window.get(win_idx) {
+                (
+                    std::borrow::Cow::Borrowed(cached.list_line1.as_str()),
+                    std::borrow::Cow::Borrowed(cached.list_line2.as_str()),
+                    std::borrow::Cow::Borrowed(cached.list_details.as_str()),
+                )
+            } else {
+                (
+                    std::borrow::Cow::Owned(format_template(&format_cfg.list_line1, album)),
+                    std::borrow::Cow::Owned(format_template(&format_cfg.list_line2, album)),
+                    std::borrow::Cow::Owned(format_template(&format_cfg.list_details, album)),
+                )
+            };
 
             content = content.push(
                 components::CatalogRow {
@@ -675,26 +743,26 @@ impl AlbumsView {
                         20.0,
                         theme_cfg.primary_color(),
                     ),
-                    title: line1.into(),
-                    subtitle_left: line2.into(),
+                    title: line1,
+                    subtitle_left: line2,
                     subtitle_right: "".into(),
                     details: if details.is_empty() {
                         None
                     } else {
-                        Some((details.into(), "".into()))
+                        Some((details, "".into()))
                     },
-                    on_select: Message::SelectAlbum(album.album.to_string()),
+                    on_select: Message::SelectAlbum(album.album.clone()),
                     on_play: Message::PlayScope {
                         filter: TrackFilter::album(album.album.as_ref()),
-                        name: album.album.as_ref().to_string(),
+                        name: album.album.clone(),
                         shuffle: false,
                     },
                     on_shuffle: Message::PlayScope {
                         filter: TrackFilter::album(album.album.as_ref()),
-                        name: album.album.as_ref().to_string(),
+                        name: album.album.clone(),
                         shuffle: true,
                     },
-                    on_right_press: Some(Message::OpenAlbumContextMenu(album.clone())),
+                    on_right_press: Some(Message::OpenAlbumContextMenu(abs_idx)),
                     width: Length::Fill,
                     height: Length::Fixed(row_h),
                 }

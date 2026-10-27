@@ -22,6 +22,14 @@ fn columns_for_width(width: f32, tile_width: u32) -> usize {
         .max(1)
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct RenderedArtistStrings {
+    pub tile_line1: String,
+    pub tile_line2: String,
+    pub list_line1: String,
+    pub list_line2: String,
+}
+
 /// Self-contained state and view component for the Artists catalog screen.
 ///
 /// Like the Albums catalog, the *entire* artist list is held in memory as
@@ -48,6 +56,12 @@ pub struct ArtistsView {
     /// artist on every frame.
     pub total_tracks: usize,
     pub total_albums: usize,
+    /// Pre-rendered status strings so StatusBar rendering does not allocate per frame.
+    pub status_count_str: String,
+    pub status_albums_str: String,
+    pub status_tracks_str: String,
+    /// Pre-rendered strings for the visible window of artists to eliminate per-frame format allocations.
+    pub rendered_window: Vec<RenderedArtistStrings>,
 }
 
 impl ArtistsView {
@@ -61,7 +75,7 @@ impl ArtistsView {
         sort_field: ArtistSortField,
         tile_width: u32,
     ) -> Self {
-        Self {
+        let mut view = Self {
             view_mode,
             tile_width,
             artists: Vec::new(),
@@ -75,7 +89,13 @@ impl ArtistsView {
             last_scroll_y: 0.0,
             total_tracks: 0,
             total_albums: 0,
-        }
+            status_count_str: String::new(),
+            status_albums_str: String::new(),
+            status_tracks_str: String::new(),
+            rendered_window: Vec::new(),
+        };
+        view.recompute_totals();
+        view
     }
 
     pub fn set_tile_width(&mut self, width: u32) -> bool {
@@ -128,6 +148,22 @@ impl ArtistsView {
     fn recompute_totals(&mut self) {
         self.total_tracks = self.artists.iter().map(|a| a.track_count).sum();
         self.total_albums = self.artists.iter().map(|a| a.album_count).sum();
+        self.status_count_str = format!("{} artists", self.artists.len());
+        self.status_albums_str = format!("{} albums", self.total_albums);
+        self.status_tracks_str = format!("{} tracks", self.total_tracks);
+    }
+
+    pub fn recompute_rendered_window(&mut self, format_cfg: &crate::layout::ArtistsFormatConfig) {
+        let visible = self.visible_artists();
+        self.rendered_window = visible
+            .iter()
+            .map(|artist| RenderedArtistStrings {
+                tile_line1: format_template(&format_cfg.tile_line1, artist),
+                tile_line2: format_template(&format_cfg.tile_line2, artist),
+                list_line1: format_template(&format_cfg.list_line1, artist),
+                list_line2: format_template(&format_cfg.list_line2, artist),
+            })
+            .collect();
     }
 
     pub fn toggle_sort(&mut self, field: ArtistSortField) {
@@ -275,10 +311,12 @@ impl ArtistsView {
     pub fn clear(&mut self) {
         // Replace rather than clear so the backing allocation is dropped.
         self.artists = Vec::new();
+        self.rendered_window = Vec::new();
         self.window_start = 0;
         self.window_end = 0;
         self.total_tracks = 0;
         self.total_albums = 0;
+        self.recompute_totals();
     }
 
     pub fn visible_artists(&self) -> &[ArtistSummary] {
@@ -370,12 +408,15 @@ impl ArtistsView {
             content = content.push(Space::new().height(top).boxed());
         }
 
-        for chunk in self.visible_artists().chunks(per_row) {
+        let visible = self.visible_artists();
+        for (chunk_idx, chunk) in visible.chunks(per_row).enumerate() {
             let mut tile_row = row![]
                 .spacing(components::CATALOG_ROW_SPACING)
                 .align_y(Alignment::Start);
 
-            for artist in chunk {
+            for (item_in_chunk, artist) in chunk.iter().enumerate() {
+                let win_idx = chunk_idx * per_row + item_in_chunk;
+                let abs_idx = self.window_start + win_idx;
                 let leading = components::catalog_cover_art(
                     theme_cfg,
                     None,
@@ -384,34 +425,43 @@ impl ArtistsView {
                     icons::USER_AVATAR_SVG,
                     avatar_icon_size,
                     theme_cfg.primary_color(),
-                    Message::SelectArtist(artist.artist.to_string()),
+                    Message::SelectArtist(artist.artist.clone()),
                 );
 
-                let line1 = format_template(&format_cfg.tile_line1, artist);
-                let line2 = format_template(&format_cfg.tile_line2, artist);
+                let (line1, line2) = if let Some(cached) = self.rendered_window.get(win_idx) {
+                    (
+                        std::borrow::Cow::Borrowed(cached.tile_line1.as_str()),
+                        std::borrow::Cow::Borrowed(cached.tile_line2.as_str()),
+                    )
+                } else {
+                    (
+                        std::borrow::Cow::Owned(format_template(&format_cfg.tile_line1, artist)),
+                        std::borrow::Cow::Owned(format_template(&format_cfg.tile_line2, artist)),
+                    )
+                };
 
                 tile_row = tile_row.push(
                     components::CatalogTile {
                         theme: theme_cfg,
                         tile_width: tile_w,
                         leading,
-                        title: line1.into(),
-                        mid_left: line2.into(),
+                        title: line1,
+                        mid_left: line2,
                         mid_right: "".into(),
                         bottom_left: "".into(),
                         bottom_right: "".into(),
-                        on_select: Message::SelectArtist(artist.artist.to_string()),
+                        on_select: Message::SelectArtist(artist.artist.clone()),
                         on_play: Message::PlayScope {
                             filter: TrackFilter::artist(artist.artist.as_ref()),
-                            name: artist.artist.as_ref().to_string(),
+                            name: artist.artist.clone(),
                             shuffle: false,
                         },
                         on_shuffle: Message::PlayScope {
                             filter: TrackFilter::artist(artist.artist.as_ref()),
-                            name: artist.artist.as_ref().to_string(),
+                            name: artist.artist.clone(),
                             shuffle: true,
                         },
-                        on_right_press: Some(Message::OpenArtistContextMenu(artist.clone())),
+                        on_right_press: Some(Message::OpenArtistContextMenu(abs_idx)),
                     }
                     .view(),
                 );
@@ -458,9 +508,20 @@ impl ArtistsView {
             content = content.push(Space::new().height(top).boxed());
         }
 
-        for artist in self.visible_artists() {
-            let line1 = format_template(&format_cfg.list_line1, artist);
-            let line2 = format_template(&format_cfg.list_line2, artist);
+        let visible = self.visible_artists();
+        for (win_idx, artist) in visible.iter().enumerate() {
+            let abs_idx = self.window_start + win_idx;
+            let (line1, line2) = if let Some(cached) = self.rendered_window.get(win_idx) {
+                (
+                    std::borrow::Cow::Borrowed(cached.list_line1.as_str()),
+                    std::borrow::Cow::Borrowed(cached.list_line2.as_str()),
+                )
+            } else {
+                (
+                    std::borrow::Cow::Owned(format_template(&format_cfg.list_line1, artist)),
+                    std::borrow::Cow::Owned(format_template(&format_cfg.list_line2, artist)),
+                )
+            };
 
             content = content.push(
                 components::CatalogRow {
@@ -474,22 +535,22 @@ impl ArtistsView {
                         20.0,
                         theme_cfg.primary_color(),
                     ),
-                    title: line1.into(),
-                    subtitle_left: line2.into(),
+                    title: line1,
+                    subtitle_left: line2,
                     subtitle_right: "".into(),
                     details: None,
-                    on_select: Message::SelectArtist(artist.artist.to_string()),
+                    on_select: Message::SelectArtist(artist.artist.clone()),
                     on_play: Message::PlayScope {
                         filter: TrackFilter::artist(artist.artist.as_ref()),
-                        name: artist.artist.as_ref().to_string(),
+                        name: artist.artist.clone(),
                         shuffle: false,
                     },
                     on_shuffle: Message::PlayScope {
                         filter: TrackFilter::artist(artist.artist.as_ref()),
-                        name: artist.artist.as_ref().to_string(),
+                        name: artist.artist.clone(),
                         shuffle: true,
                     },
-                    on_right_press: Some(Message::OpenArtistContextMenu(artist.clone())),
+                    on_right_press: Some(Message::OpenArtistContextMenu(abs_idx)),
                     width: Length::Fill,
                     height: Length::Fixed(row_h),
                 }

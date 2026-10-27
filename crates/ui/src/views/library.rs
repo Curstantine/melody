@@ -20,6 +20,13 @@ pub const ROW_HEIGHT: f32 = 28.0;
 /// thrashing while keeping resident rows bounded.
 pub const WINDOW_BUFFER_PAGES: usize = 2;
 
+/// Pre-rendered track row strings so table rendering allocates zero strings per frame.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RenderedTrackRow {
+    pub display_index: String,
+    pub cells: Vec<String>,
+}
+
 /// Self-contained state and view component for the music tracks library screen.
 ///
 /// Only a bounded window of [`TrackRow`]s is kept in memory. The scrollable
@@ -27,6 +34,7 @@ pub const WINDOW_BUFFER_PAGES: usize = 2;
 /// reflects the whole library while only the visible window is materialized.
 pub struct LibraryView {
     pub rows: VecDeque<TrackRow>,
+    pub rendered_rows: Vec<RenderedTrackRow>,
     pub total_tracks: usize,
     pub window_start: usize,
     pub page_size: usize,
@@ -42,12 +50,17 @@ pub struct LibraryView {
     /// Row offset of an in-flight window request, used to avoid duplicate loads.
     pub pending_window: Option<usize>,
     pub last_visible_offset: usize,
+    /// Pre-rendered status strings so StatusBar rendering does not allocate per frame.
+    pub status_count_str: String,
+    pub status_filter_str: String,
+    pub status_settings_str: String,
 }
 
 impl LibraryView {
     pub fn new(page_size: usize) -> Self {
-        Self {
+        let mut view = Self {
             rows: VecDeque::new(),
+            rendered_rows: Vec::new(),
             total_tracks: 0,
             window_start: 0,
             page_size,
@@ -60,7 +73,40 @@ impl LibraryView {
             last_track_click: None,
             pending_window: None,
             last_visible_offset: 0,
+            status_count_str: String::new(),
+            status_filter_str: String::new(),
+            status_settings_str: String::new(),
+        };
+        view.update_status_strings();
+        view
+    }
+
+    pub fn recompute_rendered_rows(&mut self, format_cfg: &crate::layout::LibraryFormatConfig) {
+        let mut rendered = Vec::with_capacity(self.rows.len());
+        for (idx, track) in self.rows.iter().enumerate() {
+            let display_index = format!("{}", self.window_start + idx + 1);
+            let mut cells = Vec::with_capacity(format_cfg.columns.len());
+            for col in &format_cfg.columns {
+                cells.push(format_template(&col.format, track));
+            }
+            rendered.push(RenderedTrackRow {
+                display_index,
+                cells,
+            });
         }
+        self.rendered_rows = rendered;
+    }
+
+    pub fn update_status_strings(&mut self) {
+        let trimmed = self.search_query.trim();
+        if !trimmed.is_empty() {
+            self.status_count_str = format!("{} matching tracks", self.total_tracks);
+            self.status_filter_str = format!("·  Filter: {}", trimmed);
+        } else {
+            self.status_count_str = format!("{} tracks in library", self.total_tracks);
+            self.status_filter_str.clear();
+        }
+        self.status_settings_str = format!("{} tracks indexed", self.total_tracks);
     }
 
     /// Maximum number of rows retained in the sliding window.
@@ -74,6 +120,7 @@ impl LibraryView {
         self.total_tracks = total;
         self.window_start = 0;
         self.pending_window = None;
+        self.update_status_strings();
     }
 
     /// Swaps in a windowed slice loaded for `window_start`, preserving total.
@@ -81,17 +128,20 @@ impl LibraryView {
         self.rows = rows.into();
         self.window_start = window_start;
         self.pending_window = None;
+        self.update_status_strings();
     }
 
     pub fn set_search_query(&mut self, query: String) {
         self.filter = TrackFilter::parse(&query);
         self.search_query = query;
+        self.update_status_strings();
     }
 
     /// Applies a structured filter and mirrors it into the search box text.
     pub fn set_filter(&mut self, filter: TrackFilter) {
         self.search_query = filter.to_query_string();
         self.filter = filter;
+        self.update_status_strings();
     }
 
     /// The parsed filter, or `None` when it matches the whole library.
@@ -181,11 +231,13 @@ impl LibraryView {
 
     pub fn clear(&mut self) {
         self.rows = VecDeque::new();
+        self.rendered_rows.clear();
         self.total_tracks = 0;
         self.window_start = 0;
         self.pending_window = None;
         self.selected_track_id = None;
         self.last_track_click = None;
+        self.update_status_strings();
     }
 
     #[allow(dead_code)]
@@ -343,6 +395,8 @@ impl LibraryView {
                 let is_selected = self.selected_track_id == Some(track.id);
                 let display_index = self.window_start + idx + 1;
 
+                let rendered = self.rendered_rows.get(idx);
+
                 // Left-most action: # index, or playing speaker indicator if active
                 let left_action: Element<'a, Message> = if is_active {
                     button(
@@ -367,16 +421,24 @@ impl LibraryView {
                     .on_press(Message::TogglePlayPause)
                     .boxed()
                 } else {
-                    container(
+                    let index_element: Element<'a, Message> = if let Some(r) = rendered {
+                        text(theme_cfg, r.display_index.as_str())
+                            .size(12)
+                            .color(theme_cfg.text_muted_color())
+                            .boxed()
+                    } else {
                         text(theme_cfg, format!("{}", display_index))
                             .size(12)
-                            .color(theme_cfg.text_muted_color()),
-                    )
-                    .width(36)
-                    .height(24)
-                    .center_x(36)
-                    .center_y(24)
-                    .boxed()
+                            .color(theme_cfg.text_muted_color())
+                            .boxed()
+                    };
+
+                    container(index_element)
+                        .width(36)
+                        .height(24)
+                        .center_x(36)
+                        .center_y(24)
+                        .boxed()
                 };
 
                 let mut track_row = row![left_action]
@@ -391,22 +453,38 @@ impl LibraryView {
                     });
 
                 for (col_idx, col) in format_cfg.columns.iter().enumerate() {
-                    let cell_value = format_template(&col.format, track);
                     let is_primary_col = col_idx == 0;
-                    let col_text = text(theme_cfg, cell_value)
-                        .size(if is_primary_col { 13 } else { 12 })
-                        .color(if is_primary_col && is_active {
-                            theme_cfg.primary_color()
-                        } else if is_primary_col {
-                            theme_cfg.text_color()
-                        } else {
-                            theme_cfg.text_muted_color()
-                        })
-                        .width(col.width.to_iced_length())
-                        .wrapping(iced::widget::text::Wrapping::None)
-                        .ellipsis(iced::widget::text::Ellipsis::End);
+                    let text_color = if is_primary_col && is_active {
+                        theme_cfg.primary_color()
+                    } else if is_primary_col {
+                        theme_cfg.text_color()
+                    } else {
+                        theme_cfg.text_muted_color()
+                    };
+                    let text_size = if is_primary_col { 13 } else { 12 };
+                    let width = col.width.to_iced_length();
 
-                    track_row = track_row.push(col_text.boxed());
+                    let col_text: Element<'a, Message> =
+                        if let Some(cell_value) = rendered.and_then(|r| r.cells.get(col_idx)) {
+                            text(theme_cfg, cell_value.as_str())
+                                .size(text_size)
+                                .color(text_color)
+                                .width(width)
+                                .wrapping(iced::widget::text::Wrapping::None)
+                                .ellipsis(iced::widget::text::Ellipsis::End)
+                                .boxed()
+                        } else {
+                            let cell_value = format_template(&col.format, track);
+                            text(theme_cfg, cell_value)
+                                .size(text_size)
+                                .color(text_color)
+                                .width(width)
+                                .wrapping(iced::widget::text::Wrapping::None)
+                                .ellipsis(iced::widget::text::Ellipsis::End)
+                                .boxed()
+                        };
+
+                    track_row = track_row.push(col_text);
                 }
 
                 let row_container = container(track_row)

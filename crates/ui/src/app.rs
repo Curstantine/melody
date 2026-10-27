@@ -113,6 +113,14 @@ pub struct App {
     pub(crate) scan_progress: Option<(usize, usize)>,
     pub(crate) is_generating_thumbnails: bool,
 
+    // Pre-rendered Status Bar Labels
+    pub(crate) status_now_playing_title: String,
+    pub(crate) status_now_playing_duration: String,
+    pub(crate) status_queue_name: String,
+    pub(crate) status_queue_tracks: String,
+    pub(crate) status_playlist_count: String,
+    pub(crate) status_queue_count: String,
+
     // Library Watcher and Directory Monitoring
     pub(crate) watch_library: bool,
     pub(crate) library_watcher: Option<core_engine::LibraryWatcher>,
@@ -209,7 +217,9 @@ impl App {
         let now_playing = NowPlayingView::with_cover_size(config.now_playing_cover_size);
         let playlists = PlaylistsView::new(state.playlists_view_mode, state.playlist_sort_field);
         let settings = SettingsView::new(state.settings_tab, Vec::new());
-        let player_bar = PlayerBar::new();
+        let mut player_bar = PlayerBar::new();
+        player_bar.update_volume(state.volume);
+        player_bar.update_position(0, 0);
 
         let mut queues = QueueStore::default();
         let (queue_records, active_queue_id) = tokio::runtime::Handle::current().block_on(async {
@@ -282,6 +292,13 @@ impl App {
             scan_progress: None,
             is_generating_thumbnails: false,
 
+            status_now_playing_title: String::new(),
+            status_now_playing_duration: String::new(),
+            status_queue_name: String::new(),
+            status_queue_tracks: String::new(),
+            status_playlist_count: String::new(),
+            status_queue_count: String::new(),
+
             watch_library: config.watch_library,
             library_watcher: None,
             watcher_rx: None,
@@ -306,6 +323,11 @@ impl App {
             },
             pending_playlist_tracks: Vec::new(),
         };
+
+        app.playlists.recompute_rendered_queue(
+            &app.layout_manager.current_template.view_formats.queue,
+            &app.queues,
+        );
 
         let mut initial_tasks = vec![
             app.reload_tracks_task(),
@@ -362,6 +384,7 @@ impl App {
             ));
         }
 
+        app.sync_status_strings();
         let initial_task = Task::batch(initial_tasks);
 
         (app, initial_task)
@@ -439,6 +462,8 @@ impl App {
                         self.plugin_manager.on_position_change(self.position_ms);
                     }
                 }
+                self.player_bar
+                    .update_position(self.position_ms, self.duration_ms);
 
                 // Check for gapless track transition
                 if status.take_gapless_transition() {
@@ -525,6 +550,7 @@ impl App {
 
                         self.current_track = Some(track);
                         self.player_bar.update_track(self.current_track.as_ref());
+                        self.sync_now_playing();
                         self.current_track_id = Some(track_id);
                         self.duration_ms = duration_ms;
 
@@ -647,6 +673,8 @@ impl App {
                     self.current_next_cover = None;
                     self.current_tech_info = None;
                     self.now_playing.set_lyrics(None);
+                    self.sync_now_playing();
+                    self.sync_now_playing();
 
                     // Notify plugins synchronously (cheap state updates).
                     self.plugin_manager.on_track_change(&TrackMetadata {
@@ -689,6 +717,7 @@ impl App {
                     self.current_next_cover = None;
                     self.current_tech_info = None;
                     self.now_playing.set_lyrics(None);
+                    self.sync_now_playing();
 
                     self.queue_next_gapless_track();
                     self.load_track_assets_task(track_id, path, artist, title, duration_ms)
@@ -702,6 +731,7 @@ impl App {
                     if self.current_track_id == Some(track.id) {
                         self.current_track = Some(track);
                         self.player_bar.update_track(self.current_track.as_ref());
+                        self.sync_now_playing();
                     }
                 }
                 Task::none()
@@ -725,6 +755,7 @@ impl App {
                 self.current_next_cover = next_cover.map(image::Handle::from_bytes);
                 self.current_tech_info = tech_info;
                 self.now_playing.set_lyrics(lyrics);
+                self.sync_now_playing();
                 Task::none()
             }
 
@@ -867,6 +898,7 @@ impl App {
 
             Message::VolumeChanged(vol) => {
                 self.volume = vol;
+                self.player_bar.update_volume(vol);
                 self.audio_controller.set_volume(vol);
                 self.plugin_manager.on_volume_change(vol);
                 self.save_state_debounced()
@@ -1075,6 +1107,11 @@ impl App {
 
             Message::SetAlbumsViewMode(mode) => {
                 let changed = self.albums.set_view_mode(mode);
+                if changed {
+                    self.albums.recompute_rendered_window(
+                        &self.layout_manager.current_template.view_formats.albums,
+                    );
+                }
                 let covers = if changed {
                     self.load_visible_album_covers_task()
                 } else {
@@ -1084,12 +1121,21 @@ impl App {
             }
 
             Message::SetArtistsViewMode(mode) => {
-                self.artists.set_view_mode(mode);
+                if self.artists.set_view_mode(mode) {
+                    self.artists.recompute_rendered_window(
+                        &self.layout_manager.current_template.view_formats.artists,
+                    );
+                }
                 self.save_state_task()
             }
 
             Message::SetAlbumTileWidth(width) => {
                 let changed = self.albums.set_tile_width(width);
+                if changed {
+                    self.albums.recompute_rendered_window(
+                        &self.layout_manager.current_template.view_formats.albums,
+                    );
+                }
                 let covers = if changed {
                     self.load_visible_album_covers_task()
                 } else {
@@ -1099,7 +1145,11 @@ impl App {
             }
 
             Message::SetArtistTileWidth(width) => {
-                self.artists.set_tile_width(width);
+                if self.artists.set_tile_width(width) {
+                    self.artists.recompute_rendered_window(
+                        &self.layout_manager.current_template.view_formats.artists,
+                    );
+                }
                 self.save_config_debounced()
             }
 
@@ -1170,23 +1220,27 @@ impl App {
                 Task::none()
             }
 
-            Message::OpenAlbumContextMenu(album) => {
-                let position = self.cursor_position();
-                self.context_menu = Some(components::ContextMenuState {
-                    position,
-                    target: components::ContextMenuTarget::Album(album),
-                    submenu: None,
-                });
+            Message::OpenAlbumContextMenu(idx) => {
+                if let Some(album) = self.albums.albums.get(idx).cloned() {
+                    let position = self.cursor_position();
+                    self.context_menu = Some(components::ContextMenuState {
+                        position,
+                        target: components::ContextMenuTarget::Album(album),
+                        submenu: None,
+                    });
+                }
                 Task::none()
             }
 
-            Message::OpenArtistContextMenu(artist) => {
-                let position = self.cursor_position();
-                self.context_menu = Some(components::ContextMenuState {
-                    position,
-                    target: components::ContextMenuTarget::Artist(artist),
-                    submenu: None,
-                });
+            Message::OpenArtistContextMenu(idx) => {
+                if let Some(artist) = self.artists.artists.get(idx).cloned() {
+                    let position = self.cursor_position();
+                    self.context_menu = Some(components::ContextMenuState {
+                        position,
+                        target: components::ContextMenuTarget::Artist(artist),
+                        submenu: None,
+                    });
+                }
                 Task::none()
             }
 
@@ -1758,6 +1812,7 @@ impl App {
                 self.now_playing.clear();
                 self.current_track = None;
                 self.player_bar.update_track(None);
+                self.sync_now_playing();
                 self.current_track_id = None;
                 self.current_cover = None;
                 self.is_playing = false;
@@ -1862,7 +1917,8 @@ impl App {
                 self.active_tab = ViewTab::Tracks;
                 // Exact album scope so the library shows only this album,
                 // instead of every track whose title/artist contains the name.
-                self.library.set_filter(TrackFilter::album(album_name));
+                self.library
+                    .set_filter(TrackFilter::album(album_name.as_ref()));
                 // Present the album in disc/track order rather than title order.
                 self.library.sort_field = SortField::TrackNum;
                 self.library.sort_dir = SortDirection::Ascending;
@@ -1871,7 +1927,8 @@ impl App {
 
             Message::SelectArtist(artist_name) => {
                 self.active_tab = ViewTab::Tracks;
-                self.library.set_filter(TrackFilter::artist(artist_name));
+                self.library
+                    .set_filter(TrackFilter::artist(artist_name.as_ref()));
                 Task::batch([self.reload_tracks_task(), self.save_state_task()])
             }
 
@@ -1884,6 +1941,10 @@ impl App {
             Message::PlaylistsLoaded(playlists) => {
                 let load_covers_task = self.load_playlist_covers_task(&playlists);
                 self.playlists.set_playlists(playlists);
+                self.playlists.recompute_rendered_playlists(
+                    &self.layout_manager.current_template.view_formats.playlists,
+                );
+                self.sync_status_strings();
                 load_covers_task
             }
 
@@ -1928,6 +1989,9 @@ impl App {
                             resolution.items,
                             resolution.tracks,
                             resolution.entries,
+                        );
+                        self.playlists.recompute_rendered_details(
+                            &self.layout_manager.current_template.view_formats.playlists,
                         );
                     }
                     Task::none()
@@ -2322,6 +2386,10 @@ impl App {
             Message::QueueNew => {
                 self.queues.create(DEFAULT_QUEUE_NAME);
                 self.playlists.reset_queue_window();
+                self.playlists.recompute_rendered_queue(
+                    &self.layout_manager.current_template.view_formats.queue,
+                    &self.queues,
+                );
                 self.playlists.set_section(PlaylistSection::Queues);
                 Task::batch([self.persist_active_queue_task(), snap_queue_scroll_top()])
             }
@@ -2366,6 +2434,8 @@ impl App {
                     self.current_blurred_cover = None;
                     self.current_next_cover = None;
                     self.current_tech_info = None;
+                    self.now_playing.clear();
+                    self.sync_now_playing();
                     self.is_playing = false;
                     self.position_ms = 0;
                     self.audio_controller.stop();
@@ -2397,7 +2467,12 @@ impl App {
             }
             Message::QueueActivated { id, tracks } => {
                 self.queues.activate_with_tracks(id, tracks);
+                self.sync_status_strings();
                 self.playlists.reset_queue_window();
+                self.playlists.recompute_rendered_queue(
+                    &self.layout_manager.current_template.view_formats.queue,
+                    &self.queues,
+                );
                 let snap = self.snap_queue_to_current();
                 if self.current_track.is_none() {
                     if let Some(track_row) = self
@@ -2419,7 +2494,12 @@ impl App {
             Message::QueueScrolled(viewport) => {
                 let scroll_y = viewport.absolute_offset().y;
                 if let Some(queue) = self.queues.active_queue() {
-                    self.playlists.on_queue_scroll_offset(scroll_y, queue.len());
+                    if self.playlists.on_queue_scroll_offset(scroll_y, queue.len()) {
+                        self.playlists.recompute_rendered_queue(
+                            &self.layout_manager.current_template.view_formats.queue,
+                            &self.queues,
+                        );
+                    }
                 }
                 Task::none()
             }
@@ -2443,6 +2523,10 @@ impl App {
                     queue.set_current(index);
                 }
                 self.queues.touch_active_summary();
+                self.playlists.recompute_rendered_queue(
+                    &self.layout_manager.current_template.view_formats.queue,
+                    &self.queues,
+                );
                 let play = self.update(Message::PlayTrack(track_id));
                 Task::batch([
                     play,
@@ -2477,7 +2561,7 @@ impl App {
                         let track_id = tracks.first().map(|t| t.id).unwrap_or(0);
                         Message::LibraryQueueBuilt {
                             track_id,
-                            name,
+                            name: name.to_string(),
                             source_kind: source.as_str().to_string(),
                             tracks,
                         }
@@ -2492,6 +2576,10 @@ impl App {
                     }
                 }
                 self.queues.touch_active_summary();
+                self.playlists.recompute_rendered_queue(
+                    &self.layout_manager.current_template.view_formats.queue,
+                    &self.queues,
+                );
                 Task::batch([
                     self.persist_active_queue_task(),
                     self.save_state_debounced(),
@@ -2561,6 +2649,10 @@ impl App {
                             self.drag_queue_order_changed = true;
                             self.playlists.selected_queue_track = Some((queue_id, index));
                             self.queues.touch_active_summary();
+                            self.playlists.recompute_rendered_queue(
+                                &self.layout_manager.current_template.view_formats.queue,
+                                &self.queues,
+                            );
                         }
                     }
                 }
@@ -2643,6 +2735,16 @@ impl App {
 
             Message::SelectLayout(name) => {
                 if self.layout_manager.select_layout(&name) {
+                    let formats = &self.layout_manager.current_template.view_formats;
+                    self.library.recompute_rendered_rows(&formats.library);
+                    self.albums.recompute_rendered_window(&formats.albums);
+                    self.artists.recompute_rendered_window(&formats.artists);
+                    self.playlists
+                        .recompute_rendered_playlists(&formats.playlists);
+                    self.playlists
+                        .recompute_rendered_details(&formats.playlists);
+                    self.playlists
+                        .recompute_rendered_queue(&formats.queue, &self.queues);
                     self.save_config_task()
                 } else {
                     Task::none()
@@ -2651,6 +2753,16 @@ impl App {
 
             Message::ReloadLayouts => {
                 self.layout_manager.load_all_layouts();
+                let formats = &self.layout_manager.current_template.view_formats;
+                self.library.recompute_rendered_rows(&formats.library);
+                self.albums.recompute_rendered_window(&formats.albums);
+                self.artists.recompute_rendered_window(&formats.artists);
+                self.playlists
+                    .recompute_rendered_playlists(&formats.playlists);
+                self.playlists
+                    .recompute_rendered_details(&formats.playlists);
+                self.playlists
+                    .recompute_rendered_queue(&formats.queue, &self.queues);
                 Task::none()
             }
 
@@ -2755,6 +2867,9 @@ impl App {
 
             Message::TracksLoaded(rows, total) => {
                 self.library.set_window(rows, total);
+                self.library.recompute_rendered_rows(
+                    &self.layout_manager.current_template.view_formats.library,
+                );
                 Task::none()
             }
 
@@ -2767,11 +2882,17 @@ impl App {
 
             Message::TrackWindowLoaded { offset, rows } => {
                 self.library.replace_window(offset, rows);
+                self.library.recompute_rendered_rows(
+                    &self.layout_manager.current_template.view_formats.library,
+                );
                 Task::none()
             }
 
             Message::AlbumSortChanged(field) => {
                 self.albums.toggle_sort(field);
+                self.albums.recompute_rendered_window(
+                    &self.layout_manager.current_template.view_formats.albums,
+                );
                 let save_task = self.save_state_task();
                 let covers_task = self.load_visible_album_covers_task();
                 Task::batch([save_task, covers_task])
@@ -2779,11 +2900,17 @@ impl App {
 
             Message::ArtistSortChanged(field) => {
                 self.artists.toggle_sort(field);
+                self.artists.recompute_rendered_window(
+                    &self.layout_manager.current_template.view_formats.artists,
+                );
                 self.save_state_task()
             }
 
             Message::AlbumsLoaded(albums) => {
                 self.albums.set_albums(albums);
+                self.albums.recompute_rendered_window(
+                    &self.layout_manager.current_template.view_formats.albums,
+                );
                 // The catalog was (re)loaded at offset 0; keep the scrollable in
                 // sync so the window and the viewport cannot disagree.
                 let snap = snap_to(
@@ -2800,6 +2927,9 @@ impl App {
 
             Message::AlbumsScrolled(viewport) => {
                 if self.albums.on_scroll(&viewport) {
+                    self.albums.recompute_rendered_window(
+                        &self.layout_manager.current_template.view_formats.albums,
+                    );
                     return self.load_visible_album_covers_task();
                 }
                 Task::none()
@@ -2817,11 +2947,18 @@ impl App {
 
             Message::ArtistsLoaded(artists) => {
                 self.artists.set_artists(artists);
+                self.artists.recompute_rendered_window(
+                    &self.layout_manager.current_template.view_formats.artists,
+                );
                 Task::none()
             }
 
             Message::ArtistsScrolled(viewport) => {
-                self.artists.on_scroll(&viewport);
+                if self.artists.on_scroll(&viewport) {
+                    self.artists.recompute_rendered_window(
+                        &self.layout_manager.current_template.view_formats.artists,
+                    );
+                }
                 Task::none()
             }
 
@@ -2904,6 +3041,35 @@ impl App {
         }
         self.library
             .get_next_row(self.current_track_id, self.is_shuffle, self.position_ms)
+    }
+
+    pub(crate) fn sync_now_playing(&mut self) {
+        self.now_playing.update_track(self.current_track.as_ref());
+        let next = self.get_next_track().cloned();
+        self.now_playing.update_next_track(next.as_ref());
+        self.now_playing
+            .update_tech_info(self.current_tech_info.as_ref());
+        self.sync_status_strings();
+    }
+
+    pub(crate) fn sync_status_strings(&mut self) {
+        if let Some(ref track) = self.current_track {
+            self.status_now_playing_title =
+                format!("Now playing: {} • {}", track.title, track.artist);
+            self.status_now_playing_duration = track.formatted_duration();
+        } else {
+            self.status_now_playing_title.clear();
+            self.status_now_playing_duration.clear();
+        }
+        if let Some(q) = self.queues.active_queue() {
+            self.status_queue_name = format!("Queue: {}", q.name);
+            self.status_queue_tracks = format!("{} tracks", q.len());
+        } else {
+            self.status_queue_name.clear();
+            self.status_queue_tracks.clear();
+        }
+        self.status_playlist_count = format!("{} playlists", self.playlists.len());
+        self.status_queue_count = format!("{} queues open", self.queues.summaries.len());
     }
 
     fn load_track_assets_task(
@@ -3170,6 +3336,10 @@ impl App {
         self.playlists.reset_queue_window();
         if let Some(id) = self.queues.find_id_by_name(&name) {
             self.queues.replace_with_tracks(id, tracks);
+            self.playlists.recompute_rendered_queue(
+                &self.layout_manager.current_template.view_formats.queue,
+                &self.queues,
+            );
             return id;
         }
         let id = self
@@ -3180,6 +3350,10 @@ impl App {
             queue.current = 0;
         }
         self.queues.touch_active_summary();
+        self.playlists.recompute_rendered_queue(
+            &self.layout_manager.current_template.view_formats.queue,
+            &self.queues,
+        );
         id
     }
 

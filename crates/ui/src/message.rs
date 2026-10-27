@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use core_engine::{
     AlbumSummary, ArtistSummary, AudioTechnicalInfo, CacheStats, PlaylistEntry, PlaylistSummary,
@@ -189,8 +190,8 @@ pub enum Message {
         context: TrackMenuContext,
         position: iced::Point,
     },
-    OpenAlbumContextMenu(AlbumSummary),
-    OpenArtistContextMenu(ArtistSummary),
+    OpenAlbumContextMenu(usize),
+    OpenArtistContextMenu(usize),
     OpenPlaylistContextMenu(PlaylistSummary),
     OpenQueueContextMenu {
         id: u64,
@@ -248,8 +249,8 @@ pub enum Message {
     ThumbnailsGenerated,
 
     // Album / Artist Selection & Sorting
-    SelectAlbum(String),
-    SelectArtist(String),
+    SelectAlbum(Arc<str>),
+    SelectArtist(Arc<str>),
     AlbumSortChanged(AlbumSortField),
     ArtistSortChanged(ArtistSortField),
     AlbumsScrolled(iced::widget::scrollable::Viewport),
@@ -328,7 +329,7 @@ pub enum Message {
     },
     PlayScope {
         filter: TrackFilter,
-        name: String,
+        name: Arc<str>,
         shuffle: bool,
     },
     QueueRemoveTrack {
@@ -478,14 +479,13 @@ impl std::fmt::Debug for Message {
                 .field("track_id", &track.id)
                 .field("context", context)
                 .finish(),
-            Self::OpenAlbumContextMenu(a) => f
+            Self::OpenAlbumContextMenu(idx) => f
                 .debug_struct("OpenAlbumContextMenu")
-                .field("artist", &a.artist)
-                .field("album", &a.album)
+                .field("index", idx)
                 .finish(),
-            Self::OpenArtistContextMenu(a) => f
+            Self::OpenArtistContextMenu(idx) => f
                 .debug_struct("OpenArtistContextMenu")
-                .field("artist", &a.artist)
+                .field("index", idx)
                 .finish(),
             Self::OpenPlaylistContextMenu(p) => f
                 .debug_struct("OpenPlaylistContextMenu")

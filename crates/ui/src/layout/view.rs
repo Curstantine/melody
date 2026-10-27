@@ -528,24 +528,42 @@ impl App {
     }
 
     pub fn create_status_bar_context(&self) -> StatusBarContext<'_> {
+        let (queue_name, queue_tracks) = if self.queues.active_queue().is_some() {
+            (
+                Some(self.status_queue_name.as_str()),
+                Some(self.status_queue_tracks.as_str()),
+            )
+        } else {
+            (None, None)
+        };
+
         StatusBarContext {
             active_tab: self.active_tab,
-            total_tracks: self.library.total_tracks,
-            search_query: &self.library.search_query,
-            album_count: self.albums.albums.len(),
-            album_tracks: self.albums.total_tracks,
-            album_duration_ms: self.albums.total_duration_ms,
-            artist_count: self.artists.artists.len(),
-            artist_albums: self.artists.total_albums,
-            artist_tracks: self.artists.total_tracks,
-            current_track: self.current_track.as_ref(),
+            tracks_count_label: &self.library.status_count_str,
+            filter_indicator_label: &self.library.status_filter_str,
+            album_count_label: &self.albums.status_count_str,
+            album_tracks_label: &self.albums.status_tracks_str,
+            album_duration_label: &self.albums.status_duration_str,
+            artist_count_label: &self.artists.status_count_str,
+            artist_albums_label: &self.artists.status_albums_str,
+            artist_tracks_label: &self.artists.status_tracks_str,
+            now_playing_label: if self.current_track.is_some() {
+                Some(&self.status_now_playing_title)
+            } else {
+                None
+            },
+            now_playing_album: self.current_track.as_ref().map(|t| t.album.as_str()),
+            now_playing_duration: if self.current_track.is_some() {
+                Some(&self.status_now_playing_duration)
+            } else {
+                None
+            },
             is_playing: self.is_playing,
-            playlist_count: self.playlists.len(),
-            queue_count: self.queues.summaries.len(),
-            active_queue: self
-                .queues
-                .active_queue()
-                .map(|q| (q.name.as_str(), q.len())),
+            queue_name_label: queue_name,
+            queue_tracks_label: queue_tracks,
+            playlist_count_label: &self.status_playlist_count,
+            queue_count_label: &self.status_queue_count,
+            settings_indexed_label: &self.library.status_settings_str,
             is_scanning: self.is_scanning,
             scan_progress: self.scan_progress,
             is_generating_thumbnails: self.is_generating_thumbnails,

@@ -182,7 +182,7 @@ pub fn render_context_menu<'a>(
                     theme_cfg,
                     icons::ALBUM_SVG,
                     format!("Go to album \"{}\"", truncate_str(&track.album, 14)),
-                    Message::SelectAlbum(track.album.to_string()),
+                    Message::SelectAlbum(track.album.clone()),
                     false,
                     false,
                 ));
@@ -193,7 +193,7 @@ pub fn render_context_menu<'a>(
                     theme_cfg,
                     icons::USER_AVATAR_SVG,
                     format!("Go to artist \"{}\"", truncate_str(&track.artist, 14)),
-                    Message::SelectArtist(track.artist.to_string()),
+                    Message::SelectArtist(track.artist.clone()),
                     false,
                     false,
                 ));
@@ -241,7 +241,7 @@ pub fn render_context_menu<'a>(
                 "Play album",
                 Message::PlayScope {
                     filter: TrackFilter::album(album.album.as_ref()),
-                    name: album.album.to_string(),
+                    name: album.album.clone(),
                     shuffle: false,
                 },
                 false,
@@ -254,7 +254,7 @@ pub fn render_context_menu<'a>(
                 "Shuffle album",
                 Message::PlayScope {
                     filter: TrackFilter::album(album.album.as_ref()),
-                    name: album.album.to_string(),
+                    name: album.album.clone(),
                     shuffle: true,
                 },
                 false,
@@ -299,7 +299,7 @@ pub fn render_context_menu<'a>(
                     theme_cfg,
                     icons::USER_AVATAR_SVG,
                     format!("Go to artist \"{}\"", truncate_str(&album.artist, 14)),
-                    Message::SelectArtist(album.artist.to_string()),
+                    Message::SelectArtist(album.artist.clone()),
                     false,
                     false,
                 ));
@@ -315,7 +315,7 @@ pub fn render_context_menu<'a>(
                 "Play artist",
                 Message::PlayScope {
                     filter: TrackFilter::artist(artist.artist.as_ref()),
-                    name: artist.artist.to_string(),
+                    name: artist.artist.clone(),
                     shuffle: false,
                 },
                 false,
@@ -328,7 +328,7 @@ pub fn render_context_menu<'a>(
                 "Shuffle artist",
                 Message::PlayScope {
                     filter: TrackFilter::artist(artist.artist.as_ref()),
-                    name: artist.artist.to_string(),
+                    name: artist.artist.clone(),
                     shuffle: true,
                 },
                 false,

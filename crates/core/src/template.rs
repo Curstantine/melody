@@ -23,8 +23,13 @@ impl FieldLookup for AlbumSummary {
             "artist" | "album_artist" => Some(Cow::Borrowed(&self.artist)),
             "track_count" | "tracks_count" => Some(Cow::Owned(self.track_count.to_string())),
             "tracks_label" | "tracks" => Some(Cow::Borrowed(&self.tracks_label)),
-            "year" => self.year.map(|y| Cow::Owned(y.to_string())),
-            "year_label" => Some(Cow::Borrowed(&self.year_label)),
+            "year" | "year_label" => {
+                if self.year.is_some() && !self.year_label.is_empty() {
+                    Some(Cow::Borrowed(&self.year_label))
+                } else {
+                    None
+                }
+            }
             "duration_label" | "duration" => Some(Cow::Borrowed(&self.duration_label)),
             "total_duration_ms" => Some(Cow::Owned(self.total_duration_ms.to_string())),
             "cover_track_id" => self.cover_track_id.map(|id| Cow::Owned(id.to_string())),
@@ -179,7 +184,8 @@ pub fn format_template(template: &str, lookup: &impl FieldLookup) -> String {
         }
     }
 
-    clean_formatted_string(&result)
+    clean_formatted_string_in_place(&mut result);
+    result
 }
 
 /// Checks whether all `{placeholders}` within a conditional section have non-empty values.
@@ -253,23 +259,49 @@ fn format_template_direct_into(result: &mut String, template: &str, lookup: &imp
     }
 }
 
-/// Normalizes whitespace and strips dangling separators like `•`, `-`, `,`, `|`, `/`.
-fn clean_formatted_string(raw: &str) -> String {
+/// Normalizes whitespace and strips dangling separators like `•`, `-`, `,`, `|`, `/` in place.
+fn clean_formatted_string_in_place(s: &mut String) {
     let is_separator = |c: char| matches!(c, '•' | '-' | ',' | '|' | '/' | '–' | '—');
-    let trimmed = raw.trim_matches(|c: char| c.is_whitespace() || is_separator(c));
-    if trimmed.is_empty() {
-        return String::new();
+    let trimmed_start = s.trim_start_matches(|c: char| c.is_whitespace() || is_separator(c));
+    let start_offset = s.len() - trimmed_start.len();
+    let trimmed = trimmed_start.trim_end_matches(|c: char| c.is_whitespace() || is_separator(c));
+    let end_offset = start_offset + trimmed.len();
+
+    if start_offset >= end_offset {
+        s.clear();
+        return;
     }
-    let mut result = String::with_capacity(trimmed.len());
-    let mut words = trimmed.split_whitespace();
-    if let Some(first) = words.next() {
-        result.push_str(first);
-        for word in words {
-            result.push(' ');
-            result.push_str(word);
+
+    let needs_shift = start_offset > 0;
+    let mut needs_collapse = false;
+    let mut prev_is_ws = false;
+    for c in trimmed.chars() {
+        if c.is_whitespace() {
+            if prev_is_ws {
+                needs_collapse = true;
+                break;
+            }
+            prev_is_ws = true;
+        } else {
+            prev_is_ws = false;
         }
     }
-    result
+
+    if !needs_collapse && !needs_shift {
+        s.truncate(end_offset);
+        return;
+    }
+
+    let mut words = trimmed.split_whitespace();
+    let mut temp = String::with_capacity(end_offset - start_offset);
+    if let Some(first) = words.next() {
+        temp.push_str(first);
+        for word in words {
+            temp.push(' ');
+            temp.push_str(word);
+        }
+    }
+    *s = temp;
 }
 
 #[cfg(test)]
