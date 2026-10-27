@@ -131,6 +131,41 @@ pub fn parse_m3u<P: AsRef<Path>>(path: P) -> Result<ParsedPlaylist, PlaylistErro
     Ok(parse_m3u_str(&decode_bytes(&bytes), path))
 }
 
+/// Reads up to `limit` resolved track paths from an M3U/M3U8 playlist file on disk.
+///
+/// Useful for lightweight previewing (such as extracting preview cover art thumbnails)
+/// without materializing all entries of a large playlist.
+pub fn parse_m3u_preview_paths<P: AsRef<Path>>(
+    path: P,
+    limit: usize,
+) -> Result<Vec<PathBuf>, PlaylistError> {
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
+    let path = path.as_ref();
+    let bytes = std::fs::read(path)?;
+    let content = decode_bytes(&bytes);
+    let playlist_dir: PathBuf = path
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    let mut paths = Vec::with_capacity(limit);
+    for raw_line in content.lines() {
+        let line = raw_line.trim_end_matches('\r').trim();
+        if line.is_empty() || line.starts_with('#') || is_remote_url(line) {
+            continue;
+        }
+
+        paths.push(resolve_entry_path(&playlist_dir, line));
+        if paths.len() >= limit {
+            break;
+        }
+    }
+
+    Ok(paths)
+}
+
 /// Parses playlist text. `origin` is used for the name and for resolving
 /// relative entries; it does not need to exist on disk.
 pub fn parse_m3u_str(content: &str, origin: &Path) -> ParsedPlaylist {
@@ -460,6 +495,11 @@ mod tests {
             duration_ms: 180000,
             file_path: "/music/song1.mp3".to_string(),
             duration_label: "3:00".to_string(),
+            year: None,
+            track_num: None,
+            disc_num: None,
+            album_artist: None,
+            genre: None,
         };
         let track2 = TrackRow {
             id: 2,
@@ -469,6 +509,11 @@ mod tests {
             duration_ms: 240000,
             file_path: "/music/song2.mp3".to_string(),
             duration_label: "4:00".to_string(),
+            year: None,
+            track_num: None,
+            disc_num: None,
+            album_artist: None,
+            genre: None,
         };
 
         // First append creates file with 1 track

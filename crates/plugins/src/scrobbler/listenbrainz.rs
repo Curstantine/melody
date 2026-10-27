@@ -35,6 +35,8 @@ impl Default for ListenBrainzConfig {
 pub struct ListenBrainzPlugin {
     meta: PluginMetadata,
     config: Arc<RwLock<ListenBrainzConfig>>,
+    enabled: Arc<AtomicBool>,
+    duration_ms: Arc<AtomicU64>,
     current_track: Arc<RwLock<Option<TrackMetadata>>>,
     track_start_time: Arc<RwLock<Option<u64>>>,
     scrobbled: Arc<AtomicBool>,
@@ -44,6 +46,7 @@ pub struct ListenBrainzPlugin {
 
 impl ListenBrainzPlugin {
     pub fn new(config: ListenBrainzConfig) -> Self {
+        let enabled = config.enabled;
         Self {
             meta: PluginMetadata {
                 id: "builtin.listenbrainz".to_string(),
@@ -54,6 +57,8 @@ impl ListenBrainzPlugin {
                     .to_string(),
             },
             config: Arc::new(RwLock::new(config)),
+            enabled: Arc::new(AtomicBool::new(enabled)),
+            duration_ms: Arc::new(AtomicU64::new(0)),
             current_track: Arc::new(RwLock::new(None)),
             track_start_time: Arc::new(RwLock::new(None)),
             scrobbled: Arc::new(AtomicBool::new(false)),
@@ -63,12 +68,14 @@ impl ListenBrainzPlugin {
     }
 
     pub fn update_config(&self, config: ListenBrainzConfig) {
+        self.enabled.store(config.enabled, Ordering::Relaxed);
         if let Ok(mut cfg) = self.config.write() {
             *cfg = config;
         }
     }
 
     pub fn set_enabled(&self, enabled: bool) {
+        self.enabled.store(enabled, Ordering::Relaxed);
         if let Ok(mut cfg) = self.config.write() {
             cfg.enabled = enabled;
         }
@@ -293,6 +300,7 @@ impl Plugin for ListenBrainzPlugin {
             .map(|d| d.as_secs())
             .unwrap_or(0);
 
+        self.duration_ms.store(track.duration_ms, Ordering::Relaxed);
         if let Ok(mut current) = self.current_track.write() {
             *current = Some(track.clone());
         }
@@ -309,22 +317,21 @@ impl Plugin for ListenBrainzPlugin {
     }
 
     fn on_position_change(&self, position_ms: u64) -> Result<(), String> {
-        let cfg = self.config();
-        if !cfg.enabled || self.scrobbled.load(Ordering::SeqCst) {
+        if !self.enabled.load(Ordering::Relaxed) || self.scrobbled.load(Ordering::Relaxed) {
             return Ok(());
         }
 
-        let track_opt = self.current_track.read().ok().and_then(|t| t.clone());
-        if let Some(track) = track_opt {
-            // Must be at least 30 seconds long
-            if track.duration_ms < 30_000 {
-                return Ok(());
-            }
+        let duration_ms = self.duration_ms.load(Ordering::Relaxed);
+        if duration_ms < 30_000 {
+            return Ok(());
+        }
 
-            // Scrobble condition: percentage (capped at 4 minutes)
-            let pct = (cfg.scrobble_percent as u64).clamp(10, 100);
-            let threshold = (track.duration_ms * pct / 100).min(240_000);
-            if position_ms >= threshold {
+        let cfg = self.config();
+        let pct = (cfg.scrobble_percent as u64).clamp(10, 100);
+        let threshold = (duration_ms * pct / 100).min(240_000);
+        if position_ms >= threshold {
+            let track_opt = self.current_track.read().ok().and_then(|t| t.clone());
+            if let Some(track) = track_opt {
                 self.scrobbled.store(true, Ordering::SeqCst);
                 let timestamp = self
                     .track_start_time
@@ -346,29 +353,31 @@ impl Plugin for ListenBrainzPlugin {
     }
 
     fn on_playback_end(&self) -> Result<(), String> {
-        let cfg = self.config();
-        if !cfg.enabled || self.scrobbled.load(Ordering::SeqCst) {
+        if !self.enabled.load(Ordering::Relaxed) || self.scrobbled.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
+        let duration_ms = self.duration_ms.load(Ordering::Relaxed);
+        if duration_ms < 30_000 {
             return Ok(());
         }
 
         let track_opt = self.current_track.read().ok().and_then(|t| t.clone());
         if let Some(track) = track_opt {
-            if track.duration_ms >= 30_000 {
-                self.scrobbled.store(true, Ordering::SeqCst);
-                let timestamp = self
-                    .track_start_time
-                    .read()
-                    .ok()
-                    .and_then(|t| *t)
-                    .unwrap_or_else(|| {
-                        SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .map(|d| d.as_secs())
-                            .unwrap_or(0)
-                    });
+            self.scrobbled.store(true, Ordering::SeqCst);
+            let timestamp = self
+                .track_start_time
+                .read()
+                .ok()
+                .and_then(|t| *t)
+                .unwrap_or_else(|| {
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0)
+                });
 
-                self.submit_scrobble(&track, timestamp);
-            }
+            self.submit_scrobble(&track, timestamp);
         }
 
         Ok(())

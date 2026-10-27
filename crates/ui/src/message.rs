@@ -54,6 +54,7 @@ pub enum PlaylistOpenIntent {
     View,
     Play { start_index: usize },
     AddToQueue,
+    PlayNext,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -177,8 +178,13 @@ pub enum Message {
 
     // Context Menus
     OpenTrackContextMenu {
+        track_id: i64,
+        context: TrackMenuContext,
+    },
+    TrackContextMenuReady {
         track: TrackRow,
         context: TrackMenuContext,
+        position: iced::Point,
     },
     OpenAlbumContextMenu(AlbumSummary),
     OpenArtistContextMenu(ArtistSummary),
@@ -194,7 +200,10 @@ pub enum Message {
     ContextPlayNext(TrackRow),
     ContextAddToQueue(TrackRow),
     ContextAddTracksToQueue(Vec<TrackRow>),
+    ContextPlayTracksNext(Vec<TrackRow>),
+    ContextPlayAlbumNext(AlbumSummary),
     ContextAddAlbumToQueue(AlbumSummary),
+    ContextPlayArtistNext(ArtistSummary),
     ContextAddArtistToQueue(ArtistSummary),
     ContextAddTrackToPlaylist {
         track: TrackRow,
@@ -252,6 +261,7 @@ pub enum Message {
     // Playlists
     PlaylistSectionChanged(PlaylistSection),
     PlaylistsLoaded(Vec<PlaylistSummary>),
+    PlaylistCoversLoaded(Vec<(i64, Vec<Vec<u8>>)>),
     ImportPlaylistsClicked,
     PlaylistsImported(Option<Vec<PathBuf>>),
     NewPlaylistClicked,
@@ -267,6 +277,7 @@ pub enum Message {
     PlayPlaylist(i64),
     PlayPlaylistItem(i64, usize),
     PlaylistToQueue(i64),
+    PlaylistPlayNext(i64),
     PlaylistDetailClicked {
         playlist_id: i64,
         index: usize,
@@ -349,6 +360,7 @@ pub enum Message {
     SelectLayout(String),
     ReloadLayouts,
     SelectFont(String),
+    FontsLoaded(Vec<String>),
     SaveConfig,
     DebouncedConfigSave(u64),
     ConfigSaved,
@@ -442,8 +454,13 @@ impl std::fmt::Debug for Message {
                 f.debug_tuple("SetNowPlayingCoverSize").field(s).finish()
             }
             Self::TrackClicked(id) => f.debug_tuple("TrackClicked").field(id).finish(),
-            Self::OpenTrackContextMenu { track, context } => f
+            Self::OpenTrackContextMenu { track_id, context } => f
                 .debug_struct("OpenTrackContextMenu")
+                .field("track_id", track_id)
+                .field("context", context)
+                .finish(),
+            Self::TrackContextMenuReady { track, context, .. } => f
+                .debug_struct("TrackContextMenuReady")
                 .field("track_id", &track.id)
                 .field("context", context)
                 .finish(),
@@ -483,9 +500,21 @@ impl std::fmt::Debug for Message {
                 .debug_struct("ContextAddTracksToQueue")
                 .field("len", &tracks.len())
                 .finish(),
+            Self::ContextPlayTracksNext(tracks) => f
+                .debug_struct("ContextPlayTracksNext")
+                .field("len", &tracks.len())
+                .finish(),
+            Self::ContextPlayAlbumNext(a) => f
+                .debug_struct("ContextPlayAlbumNext")
+                .field("album", &a.album)
+                .finish(),
             Self::ContextAddAlbumToQueue(a) => f
                 .debug_struct("ContextAddAlbumToQueue")
                 .field("album", &a.album)
+                .finish(),
+            Self::ContextPlayArtistNext(a) => f
+                .debug_struct("ContextPlayArtistNext")
+                .field("artist", &a.artist)
                 .finish(),
             Self::ContextAddArtistToQueue(a) => f
                 .debug_struct("ContextAddArtistToQueue")
@@ -572,6 +601,10 @@ impl std::fmt::Debug for Message {
                 .debug_struct("PlaylistsLoaded")
                 .field("len", &v.len())
                 .finish(),
+            Self::PlaylistCoversLoaded(v) => f
+                .debug_struct("PlaylistCoversLoaded")
+                .field("playlists_len", &v.len())
+                .finish(),
             Self::ImportPlaylistsClicked => write!(f, "ImportPlaylistsClicked"),
             Self::PlaylistsImported(p) => f.debug_tuple("PlaylistsImported").field(p).finish(),
             Self::NewPlaylistClicked => write!(f, "NewPlaylistClicked"),
@@ -602,6 +635,7 @@ impl std::fmt::Debug for Message {
                 .field(i)
                 .finish(),
             Self::PlaylistToQueue(id) => f.debug_tuple("PlaylistToQueue").field(id).finish(),
+            Self::PlaylistPlayNext(id) => f.debug_tuple("PlaylistPlayNext").field(id).finish(),
             Self::PlaylistDetailClicked { playlist_id, index } => f
                 .debug_struct("PlaylistDetailClicked")
                 .field("playlist_id", playlist_id)
@@ -712,6 +746,10 @@ impl std::fmt::Debug for Message {
             Self::SelectLayout(s) => f.debug_tuple("SelectLayout").field(s).finish(),
             Self::ReloadLayouts => write!(f, "ReloadLayouts"),
             Self::SelectFont(s) => f.debug_tuple("SelectFont").field(s).finish(),
+            Self::FontsLoaded(fonts) => f
+                .debug_struct("FontsLoaded")
+                .field("count", &fonts.len())
+                .finish(),
             Self::SaveConfig => write!(f, "SaveConfig"),
             Self::DebouncedConfigSave(seq) => {
                 f.debug_tuple("DebouncedConfigSave").field(seq).finish()
@@ -814,5 +852,21 @@ impl std::fmt::Debug for Message {
                 .field(size)
                 .finish(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_watch_library_and_scan_new_messages() {
+        let msg1 = Message::ScanLibraryForNewFiles;
+        let msg2 = Message::ToggleWatchLibrary(true);
+        let msg3 = Message::ToggleWatchLibrary(false);
+
+        assert_eq!(format!("{:?}", msg1), "ScanLibraryForNewFiles");
+        assert_eq!(format!("{:?}", msg2), "ToggleWatchLibrary(true)");
+        assert_eq!(format!("{:?}", msg3), "ToggleWatchLibrary(false)");
     }
 }

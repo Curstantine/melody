@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -253,18 +254,18 @@ impl LibraryDatabase {
                     sanitize_db_text(&track.file_path),
                     sanitize_db_text(&track.title),
                     sanitize_db_text(&track.artist),
-                    track.album_artist.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(track.album_artist.as_deref()),
                     sanitize_db_text(&track.album),
-                    track.genre.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(track.genre.as_deref()),
                     track.duration_ms as i64,
                     track.track_num.map(|n| n as i64),
                     track.disc_num.map(|n| n as i64),
                     track.year.map(|n| n as i64),
-                    track.composer.as_deref().map(sanitize_db_text),
-                    track.label.as_deref().map(sanitize_db_text),
-                    track.musicbrainz_track_id.as_deref().map(sanitize_db_text),
-                    track.musicbrainz_artist_id.as_deref().map(sanitize_db_text),
-                    track.musicbrainz_album_id.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(track.composer.as_deref()),
+                    sanitize_db_opt(track.label.as_deref()),
+                    sanitize_db_opt(track.musicbrainz_track_id.as_deref()),
+                    sanitize_db_opt(track.musicbrainz_artist_id.as_deref()),
+                    sanitize_db_opt(track.musicbrainz_album_id.as_deref()),
                     now,
                 ],
             )
@@ -315,18 +316,18 @@ impl LibraryDatabase {
                     sanitize_db_text(&track.file_path),
                     sanitize_db_text(&track.title),
                     sanitize_db_text(&track.artist),
-                    track.album_artist.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(track.album_artist.as_deref()),
                     sanitize_db_text(&track.album),
-                    track.genre.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(track.genre.as_deref()),
                     track.duration_ms as i64,
                     track.track_num.map(|n| n as i64),
                     track.disc_num.map(|n| n as i64),
                     track.year.map(|n| n as i64),
-                    track.composer.as_deref().map(sanitize_db_text),
-                    track.label.as_deref().map(sanitize_db_text),
-                    track.musicbrainz_track_id.as_deref().map(sanitize_db_text),
-                    track.musicbrainz_artist_id.as_deref().map(sanitize_db_text),
-                    track.musicbrainz_album_id.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(track.composer.as_deref()),
+                    sanitize_db_opt(track.label.as_deref()),
+                    sanitize_db_opt(track.musicbrainz_track_id.as_deref()),
+                    sanitize_db_opt(track.musicbrainz_artist_id.as_deref()),
+                    sanitize_db_opt(track.musicbrainz_album_id.as_deref()),
                     now,
                 ],
             )
@@ -515,7 +516,7 @@ impl LibraryDatabase {
 
         let query = format!(
             r#"
-            SELECT id, title, artist, album, duration_ms, file_path
+            SELECT id, title, artist, album, duration_ms, file_path, year, track_num, disc_num, album_artist, genre
             FROM tracks{}
             ORDER BY {} {}
             LIMIT ? OFFSET ?
@@ -556,7 +557,7 @@ impl LibraryDatabase {
         let clause = filter_clause(filter, &mut binds);
         let query = format!(
             r#"
-            SELECT id, title, artist, album, duration_ms, file_path
+            SELECT id, title, artist, album, duration_ms, file_path, year, track_num, disc_num, album_artist, genre
             FROM tracks{}
             ORDER BY {} {}
             "#,
@@ -625,7 +626,7 @@ impl LibraryDatabase {
                 .collect::<Vec<_>>()
                 .join(", ");
             let query = format!(
-                "SELECT id, title, artist, album, duration_ms, file_path FROM tracks WHERE id IN ({})",
+                "SELECT id, title, artist, album, duration_ms, file_path, year, track_num, disc_num, album_artist, genre FROM tracks WHERE id IN ({})",
                 placeholders
             );
 
@@ -1283,7 +1284,7 @@ impl LibraryDatabase {
             .conn
             .query(
                 r#"
-                SELECT tr.id, tr.title, tr.artist, tr.album, tr.duration_ms, tr.file_path
+                SELECT tr.id, tr.title, tr.artist, tr.album, tr.duration_ms, tr.file_path, tr.year, tr.track_num, tr.disc_num, tr.album_artist, tr.genre
                 FROM playback_queue_tracks qt
                 JOIN tracks tr ON tr.id = qt.track_id
                 WHERE qt.queue_id = ?1
@@ -1324,8 +1325,8 @@ impl LibraryDatabase {
                     sanitize_db_text(&record.name),
                     record.current,
                     sanitize_db_text(&record.source_kind),
-                    record.source_value.as_deref().map(sanitize_db_text),
-                    record.source_playlist.as_deref().map(sanitize_db_text),
+                    sanitize_db_opt(record.source_value.as_deref()),
+                    sanitize_db_opt(record.source_playlist.as_deref()),
                     now,
                 ],
             )
@@ -1537,6 +1538,11 @@ fn map_track_row_summary(row: &Row) -> Result<TrackRow, DbError> {
     let artist: String = row.get(2)?;
     let album: String = row.get(3)?;
     let duration: i64 = row.get(4)?;
+    let year: Option<i64> = row.get(6)?;
+    let track_num: Option<i64> = row.get(7)?;
+    let disc_num: Option<i64> = row.get(8)?;
+    let album_artist: Option<String> = row.get(9)?;
+    let genre: Option<String> = row.get(10)?;
     Ok(TrackRow {
         id: row.get(0)?,
         title: row.get(1)?,
@@ -1545,18 +1551,30 @@ fn map_track_row_summary(row: &Row) -> Result<TrackRow, DbError> {
         duration_ms: duration as u64,
         file_path: row.get(5)?,
         duration_label: format_duration(duration as u64),
+        year: year.map(|y| y as u32),
+        track_num: track_num.map(|n| n as u32),
+        disc_num: disc_num.map(|n| n as u32),
+        album_artist: album_artist.as_deref().map(intern::intern),
+        genre: genre.as_deref().map(intern::intern),
     })
 }
 
-fn sanitize_db_text(s: &str) -> String {
+fn sanitize_db_text(s: &str) -> Cow<'_, str> {
     let bytes = s.as_bytes();
     if !bytes.contains(&0) {
-        return s.to_string();
+        return Cow::Borrowed(s);
     }
     let filtered: Vec<u8> = bytes.iter().copied().filter(|&b| b != 0).collect();
-    if let Ok(v) = std::str::from_utf8(&filtered) {
-        v.to_string()
+    if let Ok(v) = String::from_utf8(filtered.clone()) {
+        Cow::Owned(v)
     } else {
-        String::from_utf8_lossy(&filtered).to_string()
+        Cow::Owned(String::from_utf8_lossy(&filtered).into_owned())
     }
+}
+
+fn sanitize_db_opt(s: Option<&str>) -> Option<turso::Value> {
+    s.map(|v| match sanitize_db_text(v) {
+        Cow::Borrowed(b) => turso::Value::from(b),
+        Cow::Owned(o) => turso::Value::from(o),
+    })
 }

@@ -1,4 +1,30 @@
 layout name="Default" description="Top navigation bar and bottom player" {
+    view-formats {
+        library {
+            column "Title" format="{title}" fill-portion=4 sort="title"
+            column "Artist" format="{artist}" fill-portion=3 sort="artist"
+            column "Album" format="{album}" fill-portion=3 sort="album"
+            column "Duration" format="{duration_label}" width=80 sort="duration"
+        }
+        albums {
+            tile line1="{album}" line2="{artist}[ • {year_label}]" line3="{tracks_label} • {duration_label}"
+            list line1="{album}" line2="{artist}[ • {year_label}]" details="{tracks_label} • {duration_label}"
+        }
+        artists {
+            tile line1="{artist}" line2="{stats_label}"
+            list line1="{artist}" line2="{stats_label}"
+        }
+        playlists {
+            tile line1="{name}" line2="{tracks_label}"
+            list line1="{name}" line2="{file_path}" details="{tracks_label}"
+            detail primary="{title}" secondary="{artist}[ • {album}]" details="{duration_label}"
+        }
+        queue {
+            track primary="{title}" secondary="{artist}[ • {album}]" details="{duration_label}"
+            chip format="{name} ({track_count})"
+        }
+    }
+
     column {
         navbar height=32
         divider orientation="horizontal"

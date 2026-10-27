@@ -13,8 +13,8 @@ path = "src/main.rs"
 
 [package.metadata.appimage]
 name = "Melody"
-icon = "assets/melody.png"
-desktop_entry = "assets/melody.desktop"
+icon = "../../assets/melody.png"
+desktop_entry = "../../assets/melody.desktop"
 assets = [
     "../../themes",
     "../../layouts",
@@ -56,8 +56,19 @@ serde = { workspace = true, features = ["derive"] }
 toml.workspace = true
 walkdir.workspace = true
 rfd.workspace = true
-tracing.workspace = true
+tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "time"] }
 url.workspace = true
+
+# Profiling dependencies (optional)
+tracy-client = { workspace = true, optional = true, default-features = false, features = ["enable"] }
+tracing-tracy = { workspace = true, optional = true }
+
+[features]
+default = []
+tracy = ["dep:tracy-client", "dep:tracing-tracy"]
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"

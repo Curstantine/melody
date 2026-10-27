@@ -90,10 +90,12 @@ pub struct SettingsView {
     pub available_fonts: Vec<String>,
     pub library_folders: Vec<String>,
     pub scrobble_test_status: Option<(plugins::scrobbler::ScrobbleService, Result<String, String>)>,
+    pub fonts_loaded: bool,
 }
 
 impl SettingsView {
     pub fn new(active_tab: SettingsTab, mut available_fonts: Vec<String>) -> Self {
+        let fonts_loaded = !available_fonts.is_empty();
         if !available_fonts.iter().any(|f| f == "Default") {
             available_fonts.insert(0, "Default".to_string());
         }
@@ -102,7 +104,16 @@ impl SettingsView {
             available_fonts,
             library_folders: Vec::new(),
             scrobble_test_status: None,
+            fonts_loaded,
         }
+    }
+
+    pub fn set_available_fonts(&mut self, mut fonts: Vec<String>) {
+        if !fonts.iter().any(|f| f == "Default") {
+            fonts.insert(0, "Default".to_string());
+        }
+        self.available_fonts = fonts;
+        self.fonts_loaded = true;
     }
 
     pub fn select_tab(&mut self, tab: SettingsTab) {
@@ -523,7 +534,7 @@ impl SettingsView {
             row![
                 text(theme_cfg, "Page limit")
                     .size(12)
-                    .color(theme_cfg.text_color())
+                    .color(theme_cfg.text_muted_color())
                     .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                 page_size_buttons,
             ]
@@ -555,7 +566,7 @@ impl SettingsView {
                 row![
                     text(theme_cfg, "Catalog view mode")
                         .size(12)
-                        .color(theme_cfg.text_color())
+                        .color(theme_cfg.text_muted_color())
                         .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                     components::view_mode_toggle(
                         theme_cfg,
@@ -567,7 +578,7 @@ impl SettingsView {
                 row![
                     text(theme_cfg, "Tile width")
                         .size(12)
-                        .color(theme_cfg.text_color())
+                        .color(theme_cfg.text_muted_color())
                         .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                     row![
                         slider(120.0..=300.0, ctx.album_tile_width as f32, |val| {
@@ -615,7 +626,7 @@ impl SettingsView {
                 row![
                     text(theme_cfg, "Catalog view mode")
                         .size(12)
-                        .color(theme_cfg.text_color())
+                        .color(theme_cfg.text_muted_color())
                         .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                     components::view_mode_toggle(
                         theme_cfg,
@@ -627,7 +638,7 @@ impl SettingsView {
                 row![
                     text(theme_cfg, "Tile width")
                         .size(12)
-                        .color(theme_cfg.text_color())
+                        .color(theme_cfg.text_muted_color())
                         .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                     row![
                         slider(120.0..=280.0, ctx.artist_tile_width as f32, |val| {
@@ -675,7 +686,7 @@ impl SettingsView {
                 row![
                     text(theme_cfg, "Cover art dimension")
                         .size(12)
-                        .color(theme_cfg.text_color())
+                        .color(theme_cfg.text_muted_color())
                         .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                     row![
                         slider(160.0..=320.0, ctx.now_playing_cover_size as f32, |val| {
@@ -697,7 +708,7 @@ impl SettingsView {
                 row![
                     text(theme_cfg, "Now playing notifications")
                         .size(12)
-                        .color(theme_cfg.text_color())
+                        .color(theme_cfg.text_muted_color())
                         .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                     components::chip_with_icon(
                         theme_cfg,
@@ -1002,8 +1013,6 @@ impl SettingsView {
 
                 let item_row = container(
                     row![
-                        icons::icon(icons::FOLDER_SVG, 15.0, theme_cfg.primary_color()),
-                        Space::new().width(SPACE_LG),
                         text(theme_cfg, folder_path.as_str())
                             .size(12)
                             .color(theme_cfg.text_color())
@@ -1035,7 +1044,8 @@ impl SettingsView {
             column![
                 text(theme_cfg, "Watch library folders")
                     .size(12)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text_muted_color()),
+                Space::new().height(SPACE_SM),
                 text(
                     theme_cfg,
                     "Automatically monitor directories and scan for new audio files"
@@ -1044,21 +1054,10 @@ impl SettingsView {
                 .color(theme_cfg.text_muted_color()),
             ]
             .width(Length::Fill),
-            components::chip_with_icon(
-                theme_cfg,
-                if ctx.watch_library {
-                    icons::CHECK_SVG
-                } else {
-                    icons::RADIO_SVG
-                },
-                if ctx.watch_library {
-                    "Enabled"
-                } else {
-                    "Disabled"
-                },
-                ctx.watch_library,
-                Message::ToggleWatchLibrary(!ctx.watch_library),
-            ),
+            toggler(ctx.watch_library)
+                .on_toggle(Message::ToggleWatchLibrary)
+                .size(TOGGLER_SIZE)
+                .style(styles::toggler_style(theme_cfg)),
         ]
         .align_y(Alignment::Center);
 
@@ -1549,5 +1548,113 @@ fn format_file_size(bytes: u64) -> String {
         format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
     } else {
         format!("{:.2} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::message::ViewMode;
+    use crate::theme::{ThemeConfig, DEFAULT_THEME_NAME};
+
+    #[test]
+    fn test_settings_tab_variants_and_defaults() {
+        let default_tab = SettingsTab::default();
+        assert_eq!(default_tab, SettingsTab::Appearance);
+
+        let tabs = [
+            SettingsTab::Appearance,
+            SettingsTab::Playback,
+            SettingsTab::Library,
+            SettingsTab::Scrobbling,
+        ];
+        assert_ne!(tabs[0], tabs[1]);
+        assert_ne!(tabs[1], tabs[2]);
+        assert_ne!(tabs[2], tabs[3]);
+        assert_ne!(tabs[0], tabs[3]);
+    }
+
+    #[test]
+    fn test_settings_views_render_without_panicking() {
+        let theme_cfg = ThemeConfig::default();
+        let folders = vec!["/music/ambient".to_string(), "/music/jazz".to_string()];
+        let available_fonts = vec!["Default".to_string(), "Noto Sans CJK JP".to_string()];
+
+        for tab in [
+            SettingsTab::Appearance,
+            SettingsTab::Playback,
+            SettingsTab::Library,
+            SettingsTab::Scrobbling,
+        ] {
+            let settings_view = SettingsView {
+                active_tab: tab,
+                available_fonts: available_fonts.clone(),
+                library_folders: folders.clone(),
+                scrobble_test_status: None,
+                fonts_loaded: true,
+            };
+
+            let theme_names_vec = vec![DEFAULT_THEME_NAME.to_string(), "Nord".to_string()];
+            let layout_names_vec = vec!["Default".to_string(), "Sidebar".to_string()];
+            let ctx = SettingsContext {
+                theme_names: &theme_names_vec,
+                active_theme_name: DEFAULT_THEME_NAME,
+                layout_names: &layout_names_vec,
+                active_layout_name: "Default",
+                albums_view_mode: ViewMode::Tile,
+                artists_view_mode: ViewMode::Tile,
+                page_size: 50,
+                album_tile_width: 170,
+                artist_tile_width: 160,
+                now_playing_cover_size: 220,
+                primary_font: Some("Noto Sans CJK JP"),
+                total_tracks: 120,
+                total_albums: 15,
+                total_artists: 8,
+                db_size_bytes: 2048576,
+                cache_file_count: 42,
+                cache_size_bytes: 524288,
+                is_scanning: false,
+
+                listenbrainz_enabled: true,
+                listenbrainz_token: "test_token",
+                listenbrainz_api_url: "https://api.listenbrainz.org/1/submit-listens",
+
+                lastfm_enabled: true,
+                lastfm_api_key: "test_api_key",
+                lastfm_api_secret: "test_secret",
+                lastfm_session_key: "test_sk",
+                lastfm_api_url: "https://ws.audioscrobbler.com/2.0/",
+
+                submit_now_playing: true,
+                scrobble_percent: 50,
+                gapless: true,
+                watch_library: true,
+                volume: 1.0,
+                is_shuffle: false,
+                is_repeat: false,
+            };
+
+            // Render each view and verify it builds valid Iced elements without panic
+            let _element = settings_view.view(&theme_cfg, ctx);
+        }
+    }
+
+    #[test]
+    fn test_settings_lazy_fonts() {
+        let mut view = SettingsView::new(SettingsTab::Appearance, Vec::new());
+        assert!(!view.fonts_loaded);
+        assert_eq!(view.available_fonts, vec!["Default".to_string()]);
+
+        view.set_available_fonts(vec!["Inter".to_string(), "Roboto".to_string()]);
+        assert!(view.fonts_loaded);
+        assert_eq!(
+            view.available_fonts,
+            vec![
+                "Default".to_string(),
+                "Inter".to_string(),
+                "Roboto".to_string()
+            ]
+        );
     }
 }

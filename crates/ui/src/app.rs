@@ -24,7 +24,8 @@ use crate::config::{AppConfig, ScrobbleConfig};
 use crate::icons;
 use crate::layout::LayoutManager;
 use crate::message::{
-    Message, PlaylistItem, PlaylistOpenIntent, PlaylistResolution, PlaylistSection, ViewTab,
+    Message, PlaylistItem, PlaylistOpenIntent, PlaylistResolution, PlaylistSection, SettingsTab,
+    ViewTab,
 };
 use crate::queue::{queue_window_for_start, QueueSource, QueueStore, DEFAULT_QUEUE_NAME};
 use crate::state::AppState;
@@ -189,7 +190,6 @@ impl App {
         let mut layout_manager = LayoutManager::new();
         layout_manager.select_layout(&config.layout_name);
 
-        let available_fonts = crate::font::list_font_families();
         let config_path = AppConfig::config_path();
         let state_path = AppState::state_path();
 
@@ -206,7 +206,7 @@ impl App {
         );
         let now_playing = NowPlayingView::with_cover_size(config.now_playing_cover_size);
         let playlists = PlaylistsView::new(state.playlists_view_mode, state.playlist_sort_field);
-        let settings = SettingsView::new(state.settings_tab, available_fonts);
+        let settings = SettingsView::new(state.settings_tab, Vec::new());
         let player_bar = PlayerBar::new();
 
         let mut queues = QueueStore::default();
@@ -229,7 +229,7 @@ impl App {
             }
         }
 
-        let app = Self {
+        let mut app = Self {
             db,
             db_path,
             config_path,
@@ -334,6 +334,12 @@ impl App {
                 async move { db.get_artists().await.unwrap_or_default() },
                 Message::ArtistsLoaded,
             ));
+        } else if app.active_tab == ViewTab::Settings
+            && app.settings.active_tab == SettingsTab::Appearance
+        {
+            if let Some(task) = app.ensure_fonts_task() {
+                initial_tasks.push(task);
+            }
         }
 
         if let Some(active_id) = active_id {
@@ -379,10 +385,14 @@ impl App {
     pub fn subscription(&self) -> Subscription<Message> {
         // Poll audio playback status at 50ms intervals (~20 FPS smooth seekbar)
         let ticker = iced::time::every(Duration::from_millis(50)).map(|_| Message::AudioTick);
+        let mut subscriptions = vec![ticker];
+
         // Periodic self-healing pass for the album cover window.
-        let covers =
-            iced::time::every(Duration::from_millis(400)).map(|_| Message::EnsureAlbumCovers);
-        let mut subscriptions = vec![ticker, covers];
+        if self.active_tab == ViewTab::Albums && !self.albums.is_empty() {
+            subscriptions.push(
+                iced::time::every(Duration::from_millis(400)).map(|_| Message::EnsureAlbumCovers),
+            );
+        }
         if self.dragging_tab.is_some()
             || self.dragging_queue_track.is_some()
             || self.dragging_detail.is_some()
@@ -416,13 +426,16 @@ impl App {
                 }
 
                 if !self.player_bar.is_seeking {
+                    let old_pos = self.position_ms;
                     let raw_pos = status.position_ms();
                     self.position_ms = if self.duration_ms > 0 {
                         raw_pos.min(self.duration_ms)
                     } else {
                         raw_pos
                     };
-                    self.plugin_manager.on_position_change(self.position_ms);
+                    if self.is_playing && self.position_ms != old_pos {
+                        self.plugin_manager.on_position_change(self.position_ms);
+                    }
                 }
 
                 // Check for gapless track transition
@@ -509,6 +522,7 @@ impl App {
                         };
 
                         self.current_track = Some(track);
+                        self.player_bar.update_track(self.current_track.as_ref());
                         self.current_track_id = Some(track_id);
                         self.duration_ms = duration_ms;
 
@@ -619,6 +633,7 @@ impl App {
                     let file_path = track.file_path.clone();
 
                     self.current_track = Some(track);
+                    self.player_bar.update_track(self.current_track.as_ref());
                     self.current_track_id = Some(track_id);
                     self.position_ms = 0;
                     self.duration_ms = duration_ms;
@@ -662,6 +677,7 @@ impl App {
                     let artist = track.artist.clone();
 
                     self.current_track = Some(track);
+                    self.player_bar.update_track(self.current_track.as_ref());
                     self.current_track_id = Some(track_id);
                     self.position_ms = 0;
                     self.duration_ms = duration_ms;
@@ -683,6 +699,7 @@ impl App {
                 if let Some(track) = *maybe_track {
                     if self.current_track_id == Some(track.id) {
                         self.current_track = Some(track);
+                        self.player_bar.update_track(self.current_track.as_ref());
                     }
                 }
                 Task::none()
@@ -927,7 +944,15 @@ impl App {
                             save_task
                         }
                     }
-                    ViewTab::Settings => Task::batch([save_task, self.load_storage_stats_task()]),
+                    ViewTab::Settings => {
+                        let mut tasks = vec![save_task, self.load_storage_stats_task()];
+                        if self.settings.active_tab == SettingsTab::Appearance {
+                            if let Some(font_task) = self.ensure_fonts_task() {
+                                tasks.push(font_task);
+                            }
+                        }
+                        Task::batch(tasks)
+                    }
                     ViewTab::Playlists => {
                         self.albums.clear_covers();
                         let db = self.db.clone();
@@ -1073,8 +1098,44 @@ impl App {
                 self.save_state_debounced()
             }
 
-            Message::OpenTrackContextMenu { track, context } => {
+            Message::OpenTrackContextMenu { track_id, context } => {
                 let position = self.cursor_position();
+                if let Some(track) = self.find_track_row(track_id) {
+                    self.context_menu = Some(components::ContextMenuState {
+                        position,
+                        target: components::ContextMenuTarget::Track { track, context },
+                        submenu: None,
+                    });
+                    Task::none()
+                } else {
+                    let db = self.db.clone();
+                    Task::perform(
+                        async move {
+                            db.get_track_rows_by_ids(&[track_id])
+                                .await
+                                .ok()
+                                .and_then(|mut r| r.remove(&track_id))
+                        },
+                        move |maybe_track| {
+                            if let Some(track) = maybe_track {
+                                Message::TrackContextMenuReady {
+                                    track,
+                                    context,
+                                    position,
+                                }
+                            } else {
+                                Message::CloseContextMenu
+                            }
+                        },
+                    )
+                }
+            }
+
+            Message::TrackContextMenuReady {
+                track,
+                context,
+                position,
+            } => {
                 self.context_menu = Some(components::ContextMenuState {
                     position,
                     target: components::ContextMenuTarget::Track { track, context },
@@ -1195,6 +1256,39 @@ impl App {
                 Task::none()
             }
 
+            Message::ContextPlayTracksNext(tracks) => {
+                self.context_menu = None;
+                if !tracks.is_empty() {
+                    if self.queues.active.is_none() {
+                        self.queues.create(DEFAULT_QUEUE_NAME);
+                    }
+                    if let Some(queue) = self.queues.active_queue_mut() {
+                        queue.insert_many_next(tracks);
+                    }
+                    self.queues.touch_active_summary();
+                    return self.persist_active_queue_task();
+                }
+                Task::none()
+            }
+
+            Message::ContextPlayAlbumNext(album) => {
+                self.context_menu = None;
+                let db = self.db.clone();
+                let filter = TrackFilter::album(album.album.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::ContextPlayTracksNext,
+                )
+            }
+
             Message::ContextAddAlbumToQueue(album) => {
                 self.context_menu = None;
                 let db = self.db.clone();
@@ -1210,6 +1304,24 @@ impl App {
                         .unwrap_or_default()
                     },
                     Message::ContextAddTracksToQueue,
+                )
+            }
+
+            Message::ContextPlayArtistNext(artist) => {
+                self.context_menu = None;
+                let db = self.db.clone();
+                let filter = TrackFilter::artist(artist.artist.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::ContextPlayTracksNext,
                 )
             }
 
@@ -1619,6 +1731,7 @@ impl App {
                 self.artists.clear();
                 self.now_playing.clear();
                 self.current_track = None;
+                self.player_bar.update_track(None);
                 self.current_track_id = None;
                 self.current_cover = None;
                 self.is_playing = false;
@@ -1709,7 +1822,13 @@ impl App {
 
             Message::SelectSettingsTab(tab) => {
                 self.settings.select_tab(tab);
-                Task::batch([self.save_state_task(), self.load_storage_stats_task()])
+                let mut tasks = vec![self.save_state_task(), self.load_storage_stats_task()];
+                if tab == SettingsTab::Appearance {
+                    if let Some(font_task) = self.ensure_fonts_task() {
+                        tasks.push(font_task);
+                    }
+                }
+                Task::batch(tasks)
             }
 
             Message::SelectAlbum(album_name) => {
@@ -1737,7 +1856,13 @@ impl App {
             }
 
             Message::PlaylistsLoaded(playlists) => {
+                let load_covers_task = self.load_playlist_covers_task(&playlists);
                 self.playlists.set_playlists(playlists);
+                load_covers_task
+            }
+
+            Message::PlaylistCoversLoaded(covers) => {
+                self.playlists.set_playlist_covers(covers);
                 Task::none()
             }
 
@@ -1836,10 +1961,27 @@ impl App {
                     self.queues.touch_active_summary();
                     self.persist_active_queue_task()
                 }
+                PlaylistOpenIntent::PlayNext => {
+                    let tracks = resolution.tracks;
+                    if tracks.is_empty() {
+                        return Task::none();
+                    }
+                    if self.queues.active.is_none() {
+                        self.queues.create(DEFAULT_QUEUE_NAME);
+                    }
+                    if let Some(queue) = self.queues.active_queue_mut() {
+                        queue.insert_many_next(tracks);
+                    }
+                    self.queues.touch_active_summary();
+                    self.persist_active_queue_task()
+                }
             },
 
             Message::PlayPlaylist(id) => self.open_playlist(id, 0),
             Message::PlayPlaylistItem(id, index) => self.open_playlist(id, index),
+            Message::PlaylistPlayNext(id) => {
+                self.resolve_playlist_intent(id, PlaylistOpenIntent::PlayNext)
+            }
             Message::PlaylistToQueue(id) => {
                 self.resolve_playlist_intent(id, PlaylistOpenIntent::AddToQueue)
             }
@@ -2192,6 +2334,7 @@ impl App {
                 self.playlists.reset_queue_window();
                 if was_active && was_playing_deleted {
                     self.current_track = None;
+                    self.player_bar.update_track(None);
                     self.current_track_id = None;
                     self.current_cover = None;
                     self.current_blurred_cover = None;
@@ -2496,6 +2639,11 @@ impl App {
                 self.save_config_task()
             }
 
+            Message::FontsLoaded(fonts) => {
+                self.settings.set_available_fonts(fonts);
+                Task::none()
+            }
+
             Message::ToggleListenBrainz(enabled) => {
                 self.scrobble_config.listenbrainz_enabled = enabled;
                 self.listenbrainz_plugin.set_enabled(enabled);
@@ -2747,8 +2895,7 @@ impl App {
             async move {
                 tokio::task::spawn_blocking(move || {
                     let cover =
-                        core_engine::get_or_create_thumbnail(&path, core_engine::THUMB_DIM_HIGH)
-                            .or_else(|| core_engine::extract_cover_art(&path));
+                        core_engine::get_or_create_thumbnail(&path, core_engine::THUMB_DIM_HIGH);
 
                     let blurred = cover
                         .as_deref()
@@ -2763,7 +2910,6 @@ impl App {
                             &nt_path,
                             core_engine::THUMB_DIM_DEFAULT,
                         )
-                        .or_else(|| core_engine::extract_cover_art(&nt_path))
                     });
 
                     (cover, blurred, next_cover, tech_info, lyrics)
@@ -2793,15 +2939,7 @@ impl App {
             if let Some(track) = &self.current_track {
                 let path = PathBuf::from(&track.file_path);
                 self.audio_controller.set_next_track(Some(path));
-                let track_row = TrackRow {
-                    id: track.id,
-                    title: track.title.clone(),
-                    artist: track.artist.as_str().into(),
-                    album: track.album.as_str().into(),
-                    duration_ms: track.duration_ms,
-                    file_path: track.file_path.clone(),
-                    duration_label: track.formatted_duration(),
-                };
+                let track_row = TrackRow::from(track);
                 self.pending_gapless_next = Some(track_row);
             } else {
                 self.audio_controller.set_next_track(None);
@@ -3047,6 +3185,48 @@ impl App {
         )
     }
 
+    /// Asynchronously extracts preview cover art thumbnails for the given playlists.
+    /// Reads up to 4 track file paths from each playlist's M3U file, downscaling/caching
+    /// cover art thumbnails off the main thread.
+    fn load_playlist_covers_task(&self, playlists: &[PlaylistSummary]) -> Task<Message> {
+        if playlists.is_empty() {
+            return Task::none();
+        }
+
+        let targets: Vec<(i64, PathBuf)> = playlists
+            .iter()
+            .map(|p| (p.id, PathBuf::from(&p.file_path)))
+            .collect();
+
+        Task::perform(
+            async move {
+                tokio::task::spawn_blocking(move || {
+                    let mut results = Vec::with_capacity(targets.len());
+                    for (id, m3u_path) in targets {
+                        let track_paths =
+                            core_engine::parse_m3u_preview_paths(&m3u_path, 4).unwrap_or_default();
+                        let mut covers = Vec::with_capacity(track_paths.len());
+                        for track_path in track_paths {
+                            if let Some(bytes) = core_engine::get_or_create_thumbnail(
+                                &track_path,
+                                core_engine::THUMB_DIM_DEFAULT,
+                            ) {
+                                if !bytes.is_empty() {
+                                    covers.push(bytes);
+                                }
+                            }
+                        }
+                        results.push((id, covers));
+                    }
+                    results
+                })
+                .await
+                .unwrap_or_default()
+            },
+            Message::PlaylistCoversLoaded,
+        )
+    }
+
     pub fn to_config(&self) -> AppConfig {
         AppConfig {
             tab_order: self.tab_order.clone(),
@@ -3174,6 +3354,70 @@ impl App {
             },
             |(stats, db_size)| Message::StorageStatsLoaded(stats, db_size),
         )
+    }
+
+    fn ensure_fonts_task(&mut self) -> Option<Task<Message>> {
+        if !self.settings.fonts_loaded {
+            self.settings.fonts_loaded = true;
+            Some(Task::perform(
+                async move {
+                    tokio::task::spawn_blocking(crate::font::list_font_families)
+                        .await
+                        .unwrap_or_default()
+                },
+                Message::FontsLoaded,
+            ))
+        } else {
+            None
+        }
+    }
+
+    fn find_track_row(&self, track_id: i64) -> Option<TrackRow> {
+        if let Some(row) = self.library.rows.iter().find(|t| t.id == track_id) {
+            return Some(row.clone());
+        }
+        if let Some(row) = self
+            .queues
+            .active_queue()
+            .and_then(|q| q.tracks.iter().find(|t| t.id == track_id))
+        {
+            return Some(row.clone());
+        }
+        if let Some(row) = self
+            .playlists
+            .detail_tracks
+            .iter()
+            .find(|t| t.id == track_id)
+        {
+            return Some(row.clone());
+        }
+        if let Some(track) = &self.current_track {
+            if track.id == track_id {
+                return Some(TrackRow::from(track));
+            }
+        }
+        if let Some(item) = self
+            .playlists
+            .detail_items
+            .iter()
+            .find(|i| i.track_id == Some(track_id))
+        {
+            return Some(TrackRow {
+                id: track_id,
+                title: item.title.clone(),
+                artist: item.artist.as_str().into(),
+                album: "".into(),
+                duration_ms: 0,
+                file_path: String::new(),
+                duration_label: item.duration_label.clone(),
+                year: None,
+                track_num: None,
+                disc_num: None,
+                album_artist: None,
+                genre: None,
+            });
+        }
+        None
     }
 
     fn load_cover_chunk_task(

@@ -217,3 +217,43 @@ impl StatusBar {
         .boxed()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::message;
+    use crate::theme::ThemeConfig;
+
+    #[test]
+    fn test_status_bar_indicators_render() {
+        let theme_cfg = ThemeConfig::default();
+        let ctx = StatusBarContext {
+            active_tab: message::ViewTab::Tracks,
+            total_tracks: 100,
+            search_query: "",
+            album_count: 10,
+            album_tracks: 100,
+            album_duration_ms: 100000,
+            artist_count: 5,
+            artist_albums: 10,
+            artist_tracks: 100,
+            current_track: None,
+            is_playing: false,
+            playlist_count: 2,
+            queue_count: 1,
+            active_queue: None,
+            is_scanning: true,
+            scan_progress: Some((45, 120)),
+            is_generating_thumbnails: false,
+        };
+        let _el = StatusBar::view(&theme_cfg, ctx);
+
+        let ctx_thumbs = StatusBarContext {
+            is_scanning: false,
+            scan_progress: None,
+            is_generating_thumbnails: true,
+            ..ctx
+        };
+        let _el2 = StatusBar::view(&theme_cfg, ctx_thumbs);
+    }
+}

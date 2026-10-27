@@ -1,8 +1,11 @@
-use core_engine::{PlaylistEntry, PlaylistSummary, SortDirection, TrackRow};
-use iced::widget::{
-    button, column, container, mouse_area, row, scrollable, text_input, Space, Widget,
+use core_engine::{
+    format_template, FieldLookup, PlaylistEntry, PlaylistSummary, SortDirection, TrackRow,
 };
-use iced::{Alignment, Element, Length};
+use iced::widget::{
+    button, column, container, image, mouse_area, row, scrollable, text_input, Space, Widget,
+};
+use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length};
+use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::components::{self, text, TrackMenuContext};
@@ -60,6 +63,8 @@ pub struct PlaylistsView {
     /// window around the visible scroll range is built each frame, mirroring
     /// the library view; spacers keep the scrollbar proportional.
     pub queue_window_start: usize,
+    /// Cached cover handles for playlist preview tiles (up to 4 tracks per playlist).
+    pub playlist_covers: HashMap<i64, Vec<image::Handle>>,
 }
 
 impl PlaylistsView {
@@ -70,6 +75,7 @@ impl PlaylistsView {
             sort_field,
             sort_dir: SortDirection::Ascending,
             playlists: Vec::new(),
+            playlist_covers: HashMap::new(),
             selected_id: None,
             detail_name: String::new(),
             detail_path: String::new(),
@@ -165,15 +171,30 @@ impl PlaylistsView {
 
     pub fn set_playlists(&mut self, playlists: Vec<PlaylistSummary>) {
         self.playlists = playlists;
-        if self
-            .selected_id
-            .is_some_and(|id| !self.playlists.iter().any(|p| p.id == id))
-        {
+        let valid_ids: std::collections::HashSet<i64> =
+            self.playlists.iter().map(|p| p.id).collect();
+        self.playlist_covers.retain(|id, _| valid_ids.contains(id));
+        if self.selected_id.is_some_and(|id| !valid_ids.contains(&id)) {
             self.selected_id = None;
             self.detail_items.clear();
             self.detail_entries.clear();
             self.detail_name.clear();
             self.detail_path.clear();
+        }
+    }
+
+    pub fn set_playlist_covers(&mut self, covers: Vec<(i64, Vec<Vec<u8>>)>) {
+        for (id, track_bytes) in covers {
+            let handles: Vec<image::Handle> = track_bytes
+                .into_iter()
+                .filter(|b| !b.is_empty())
+                .map(image::Handle::from_bytes)
+                .collect();
+            if !handles.is_empty() {
+                self.playlist_covers.insert(id, handles);
+            } else {
+                self.playlist_covers.remove(&id);
+            }
         }
     }
 
@@ -328,17 +349,21 @@ impl PlaylistsView {
         store: &'a QueueStore,
         dragging_track: Option<(u64, usize)>,
         dragging_detail: Option<(i64, usize)>,
+        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
+        queue_fmt: &'a crate::layout::QueueFormatConfig,
     ) -> Element<'a, Message> {
         let toolbar = self.view_toolbar(theme_cfg);
         let content: Element<'a, Message> = match self.section {
             PlaylistSection::Playlists => {
                 if self.selected_id.is_some() {
-                    self.view_detail(theme_cfg, dragging_detail)
+                    self.view_detail(theme_cfg, dragging_detail, playlists_fmt)
                 } else {
-                    self.view_catalog(theme_cfg)
+                    self.view_catalog(theme_cfg, playlists_fmt)
                 }
             }
-            PlaylistSection::Queues => self.view_queues(theme_cfg, store, dragging_track),
+            PlaylistSection::Queues => {
+                self.view_queues(theme_cfg, store, dragging_track, queue_fmt)
+            }
         };
 
         column![toolbar, content]
@@ -425,7 +450,11 @@ impl PlaylistsView {
 
     // ── Playlist catalog ────────────────────────────────────────────────────
 
-    fn view_catalog<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_catalog<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
+    ) -> Element<'a, Message> {
         if self.creating {
             return self.view_new_playlist_form(theme_cfg);
         }
@@ -463,8 +492,8 @@ impl PlaylistsView {
         });
 
         let content = match self.view_mode {
-            ViewMode::List => self.view_catalog_list(theme_cfg),
-            ViewMode::Tile => self.view_catalog_tiles(theme_cfg),
+            ViewMode::List => self.view_catalog_list(theme_cfg, playlists_fmt),
+            ViewMode::Tile => self.view_catalog_tiles(theme_cfg, playlists_fmt),
         };
 
         column![header, content]
@@ -474,19 +503,27 @@ impl PlaylistsView {
             .boxed()
     }
 
-    fn view_catalog_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_catalog_list<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
+    ) -> Element<'a, Message> {
         let mut list = column![].spacing(2).width(Length::Fill);
 
         for idx in self.sorted_indices() {
             let playlist = &self.playlists[idx];
             let is_selected = self.selected_id == Some(playlist.id);
 
-            let subtitle = text(theme_cfg, playlist.file_path.as_str())
+            let line1 = format_template(&playlists_fmt.list_line1, playlist);
+            let line2 = format_template(&playlists_fmt.list_line2, playlist);
+            let details_label = format_template(&playlists_fmt.list_details, playlist);
+
+            let subtitle = text(theme_cfg, line2)
                 .size(11)
                 .color(theme_cfg.text_muted_color());
 
             let title_block = column![
-                text(theme_cfg, playlist.name.as_str())
+                text(theme_cfg, line1)
                     .size(13)
                     .color(theme_cfg.text_color()),
                 subtitle,
@@ -495,7 +532,7 @@ impl PlaylistsView {
             .width(Length::Fill);
 
             let details = column![
-                text(theme_cfg, playlist.tracks_label.as_str())
+                text(theme_cfg, details_label)
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 text(
@@ -578,29 +615,33 @@ impl PlaylistsView {
             .boxed()
     }
 
-    fn view_catalog_tiles<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_catalog_tiles<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
+    ) -> Element<'a, Message> {
         let mut grid = column![].spacing(12).width(Length::Fill);
         let mut tile_row = row![].spacing(12).align_y(Alignment::Start);
         let mut columns = 0;
 
         for idx in self.sorted_indices() {
             let playlist = &self.playlists[idx];
+            let covers = self.playlist_covers.get(&playlist.id);
 
-            let icon = components::catalog_cover_art(
+            let icon = render_playlist_tile_cover(
                 theme_cfg,
-                None,
+                covers,
                 PLAYLIST_TILE_SIZE,
-                theme_cfg.radius_md(),
-                icons::PLAYLIST_SVG,
-                PLAYLIST_TILE_SIZE * 0.34,
-                theme_cfg.primary_color(),
                 Message::SelectPlaylist(playlist.id),
             );
 
+            let line1 = format_template(&playlists_fmt.tile_line1, playlist);
+            let line2 = format_template(&playlists_fmt.tile_line2, playlist);
+
             let meta = container(
                 column![
-                    text(theme_cfg, playlist.name.as_str()).size(12),
-                    text(theme_cfg, playlist.tracks_label.as_str())
+                    text(theme_cfg, line1).size(12),
+                    text(theme_cfg, line2)
                         .size(10)
                         .color(theme_cfg.text_muted_color()),
                 ]
@@ -730,6 +771,7 @@ impl PlaylistsView {
         &'a self,
         theme_cfg: &'a ThemeConfig,
         dragging_detail: Option<(i64, usize)>,
+        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
         let playlist_id = self.selected_id.unwrap_or(-1);
 
@@ -792,6 +834,13 @@ impl PlaylistsView {
             ),
             components::chip_with_icon(
                 theme_cfg,
+                icons::NEXT_SVG,
+                "Play next",
+                false,
+                Message::PlaylistPlayNext(playlist_id),
+            ),
+            components::chip_with_icon(
+                theme_cfg,
                 icons::QUEUE_SVG,
                 "Add to queue",
                 false,
@@ -849,33 +898,40 @@ impl PlaylistsView {
             };
             for (index, item) in self.detail_items.iter().enumerate() {
                 let available = item.is_available();
-                let on_right_press = item.track_id.map(|track_id| {
-                    let track_row = self
-                        .detail_tracks
-                        .iter()
-                        .find(|t| t.id == track_id)
-                        .cloned()
-                        .unwrap_or_else(|| TrackRow {
-                            id: track_id,
-                            title: item.title.clone(),
-                            artist: item.artist.as_str().into(),
-                            album: "".into(),
-                            duration_ms: 0,
-                            file_path: String::new(),
-                            duration_label: item.duration_label.clone(),
-                        });
-                    Message::OpenTrackContextMenu {
-                        track: track_row,
-                        context: TrackMenuContext::Playlist { playlist_id, index },
-                    }
+                let on_right_press = item.track_id.map(|track_id| Message::OpenTrackContextMenu {
+                    track_id,
+                    context: TrackMenuContext::Playlist { playlist_id, index },
                 });
+
+                let track_row = item
+                    .track_id
+                    .and_then(|tid| self.detail_tracks.iter().find(|t| t.id == tid));
+                let lookup = |key: &str| -> Option<String> {
+                    if let Some(t) = track_row {
+                        if let Some(v) = t.lookup(key) {
+                            return Some(v.into_owned());
+                        }
+                    }
+                    match key {
+                        "title" => Some(item.title.clone()),
+                        "artist" => Some(item.artist.clone()),
+                        "duration_label" | "duration" => Some(item.duration_label.clone()),
+                        "id" => item.track_id.map(|id| id.to_string()),
+                        _ => None,
+                    }
+                };
+
+                let primary = format_template(&playlists_fmt.detail_primary, &lookup);
+                let secondary = format_template(&playlists_fmt.detail_secondary, &lookup);
+                let details = format_template(&playlists_fmt.detail_details, &lookup);
+
                 list = list.push(
                     components::TrackRow {
                         theme: theme_cfg,
                         index,
-                        title: item.title.as_str(),
-                        artist: item.artist.as_str(),
-                        duration: item.duration_label.as_str(),
+                        title: primary.into(),
+                        artist: secondary.into(),
+                        duration: details.into(),
                         highlighted: self.selected_detail_track == Some((playlist_id, index)),
                         dragging: dragging_detail == Some((playlist_id, index)),
                         show_handle: dragging_detail == Some((playlist_id, index))
@@ -913,6 +969,7 @@ impl PlaylistsView {
         theme_cfg: &'a ThemeConfig,
         store: &'a QueueStore,
         dragging_track: Option<(u64, usize)>,
+        queue_fmt: &'a crate::layout::QueueFormatConfig,
     ) -> Element<'a, Message> {
         if store.is_empty() {
             return components::empty_state(
@@ -926,9 +983,10 @@ impl PlaylistsView {
         let mut chips = row![].spacing(6).align_y(Alignment::Center);
         for queue in &store.summaries {
             let is_active = store.active == Some(queue.id);
+            let chip_label = format_template(&queue_fmt.chip_format, queue);
             let chip_btn = components::chip(
                 theme_cfg,
-                format!("{} ({})", queue.name, queue.track_count),
+                chip_label,
                 is_active,
                 Message::QueueSelect(queue.id),
             );
@@ -1019,13 +1077,16 @@ impl PlaylistsView {
             for (offset, track) in active.tracks[start..end].iter().enumerate() {
                 let index = start + offset;
                 let is_current = current == Some(index);
+                let primary = format_template(&queue_fmt.track_primary, track);
+                let secondary = format_template(&queue_fmt.track_secondary, track);
+                let details = format_template(&queue_fmt.track_details, track);
                 list = list.push(
                     components::TrackRow {
                         theme: theme_cfg,
                         index,
-                        title: track.title.as_str(),
-                        artist: track.display_artist(),
-                        duration: track.formatted_duration(),
+                        title: primary.into(),
+                        artist: secondary.into(),
+                        duration: details.into(),
                         highlighted: is_current
                             || self.selected_queue_track == Some((active_id, index)),
                         dragging: dragging_track == Some((active_id, index)),
@@ -1036,7 +1097,7 @@ impl PlaylistsView {
                             index,
                         }),
                         on_right_press: Some(Message::OpenTrackContextMenu {
-                            track: track.clone(),
+                            track_id: track.id,
                             context: TrackMenuContext::Queue {
                                 queue_id: active_id,
                                 index,
@@ -1175,4 +1236,404 @@ fn case_insensitive(a: &str, b: &str) -> std::cmp::Ordering {
     let a_chars = a.chars().flat_map(|c| c.to_lowercase());
     let b_chars = b.chars().flat_map(|c| c.to_lowercase());
     a_chars.cmp(b_chars)
+}
+
+/// Renders either a 2x2 grid of track album covers, a single full-size cover,
+/// or a fallback icon inside the playlist tile.
+fn render_playlist_tile_cover<'a>(
+    theme_cfg: &'a ThemeConfig,
+    covers: Option<&Vec<image::Handle>>,
+    size: f32,
+    on_press: Message,
+) -> Element<'a, Message> {
+    let radius = theme_cfg.radius_md();
+    let border_color = theme_cfg.border_color();
+
+    match covers {
+        Some(list) if list.len() >= 4 => {
+            let half = (size / 2.0).floor();
+            let mut top_row = row![].spacing(0);
+            top_row = top_row.push(
+                image(list[0].clone())
+                    .width(Length::Fixed(half))
+                    .height(Length::Fixed(half))
+                    .content_fit(ContentFit::Cover),
+            );
+            top_row = top_row.push(
+                image(list[1].clone())
+                    .width(Length::Fixed(half))
+                    .height(Length::Fixed(half))
+                    .content_fit(ContentFit::Cover),
+            );
+
+            let mut bottom_row = row![].spacing(0);
+            bottom_row = bottom_row.push(
+                image(list[2].clone())
+                    .width(Length::Fixed(half))
+                    .height(Length::Fixed(half))
+                    .content_fit(ContentFit::Cover),
+            );
+            bottom_row = bottom_row.push(
+                image(list[3].clone())
+                    .width(Length::Fixed(half))
+                    .height(Length::Fixed(half))
+                    .content_fit(ContentFit::Cover),
+            );
+
+            let grid_content = column![top_row, bottom_row].spacing(0);
+            let image_layer = container(grid_content)
+                .width(size)
+                .height(size)
+                .clip(true)
+                .style(move |_theme| container::Style {
+                    border: Border {
+                        radius,
+                        color: border_color,
+                        width: 1.0,
+                    },
+                    ..Default::default()
+                });
+
+            let overlay_btn = button(Space::new().width(Length::Fill).height(Length::Fill))
+                .width(size)
+                .height(size)
+                .style(move |_theme, status| {
+                    let bg = match status {
+                        button::Status::Active => Color::TRANSPARENT,
+                        button::Status::Hovered | button::Status::Pressed => {
+                            Color::from_rgba(0.0, 0.0, 0.0, 0.5)
+                        }
+                        button::Status::Disabled => Color::TRANSPARENT,
+                    };
+                    button::Style {
+                        background: Some(Background::Color(bg)),
+                        border: Border {
+                            radius,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }
+                })
+                .on_press(on_press);
+
+            iced::widget::stack([image_layer.boxed(), overlay_btn.boxed()]).boxed()
+        }
+        Some(list) if !list.is_empty() => {
+            // 1 to 3 covers: render first cover full size (classic music player behavior)
+            components::catalog_cover_art(
+                theme_cfg,
+                Some(&list[0]),
+                size,
+                radius,
+                icons::PLAYLIST_SVG,
+                size * 0.34,
+                theme_cfg.primary_color(),
+                on_press,
+            )
+        }
+        _ => components::catalog_cover_art(
+            theme_cfg,
+            None,
+            size,
+            radius,
+            icons::PLAYLIST_SVG,
+            size * 0.34,
+            theme_cfg.primary_color(),
+            on_press,
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::components::TrackRow;
+    use crate::message::{PlaylistItem, PlaylistSection, PlaylistSortField, ViewMode};
+    use crate::theme::ThemeConfig;
+    use core_engine::{parse_m3u, write_m3u, PlaylistEntry};
+    use std::path::PathBuf;
+
+    fn item(title: &str, track_id: Option<i64>) -> PlaylistItem {
+        PlaylistItem {
+            title: title.to_string(),
+            artist: "Artist".to_string(),
+            duration_label: "3:00".to_string(),
+            track_id,
+        }
+    }
+
+    fn entry(raw: &str) -> PlaylistEntry {
+        PlaylistEntry {
+            raw_path: raw.to_string(),
+            resolved_path: PathBuf::from(raw),
+            title: None,
+            duration_ms: Some(180_000),
+        }
+    }
+
+    fn detail_view() -> PlaylistsView {
+        let mut view = PlaylistsView::new(ViewMode::List, PlaylistSortField::Name);
+        view.set_detail(
+            7,
+            "Mixtape".to_string(),
+            "/playlists/mixtape.m3u8".to_string(),
+            vec![
+                item("One", Some(1)),
+                item("Missing", None),
+                item("Three", Some(3)),
+            ],
+            Vec::new(),
+            vec![
+                entry("/music/1.flac"),
+                entry("/music/x.flac"),
+                entry("/music/3.flac"),
+            ],
+        );
+        view
+    }
+
+    #[test]
+    fn move_detail_entry_permutes_items_and_entries_together() {
+        let mut view = detail_view();
+        assert!(view.move_detail_entry(0, 2));
+        assert_eq!(
+            view.detail_items
+                .iter()
+                .map(|i| i.title.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Missing", "Three", "One"]
+        );
+        assert_eq!(
+            view.detail_entries
+                .iter()
+                .map(|e| e.raw_path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["/music/x.flac", "/music/3.flac", "/music/1.flac"],
+            "raw file entries (including unmatched lines) follow the same move"
+        );
+    }
+
+    #[test]
+    fn move_detail_entry_rejects_bad_moves() {
+        let mut view = detail_view();
+        assert!(!view.move_detail_entry(1, 1), "same slot is a no-op");
+        assert!(!view.move_detail_entry(0, 3), "out of bounds is a no-op");
+        assert!(!view.move_detail_entry(9, 0), "out of bounds is a no-op");
+        assert_eq!(view.detail_items[0].title, "One");
+    }
+
+    #[test]
+    fn detail_click_needs_same_row_twice_quickly() {
+        let mut view = detail_view();
+        assert!(!view.on_detail_click(7, 0), "first click only selects");
+        assert!(
+            view.on_detail_click(7, 0),
+            "second click on the same row plays"
+        );
+        assert!(
+            !view.on_detail_click(7, 1),
+            "a different row starts a new arm"
+        );
+        assert!(
+            !view.on_detail_click(9, 1),
+            "a different playlist starts a new arm"
+        );
+        assert_eq!(view.selected_detail_track, Some((9, 1)));
+    }
+
+    #[test]
+    fn reordered_entries_round_trip_through_m3u_file() {
+        let temp_music =
+            std::env::temp_dir().join(format!("melody-test-music-{}", std::process::id()));
+        let t1 = temp_music.join("1.flac");
+        let tx = temp_music.join("x.flac");
+        let t3 = temp_music.join("3.flac");
+
+        let mut view = PlaylistsView::new(ViewMode::List, PlaylistSortField::Name);
+        view.set_detail(
+            7,
+            "Mixtape".to_string(),
+            "/playlists/mixtape.m3u8".to_string(),
+            vec![
+                item("One", Some(1)),
+                item("Missing", None),
+                item("Three", Some(3)),
+            ],
+            Vec::new(),
+            vec![
+                entry(&t1.to_string_lossy()),
+                entry(&tx.to_string_lossy()),
+                entry(&t3.to_string_lossy()),
+            ],
+        );
+        assert!(view.move_detail_entry(2, 0));
+
+        let path = std::env::temp_dir().join(format!(
+            "melody-playlist-reorder-{}.m3u8",
+            std::process::id()
+        ));
+        write_m3u(&path, &view.detail_entries).expect("write reordered playlist");
+        let content = std::fs::read_to_string(&path).expect("read reordered playlist");
+        assert!(content.contains(&t3.to_string_lossy().to_string()));
+        assert!(content.contains(&t1.to_string_lossy().to_string()));
+        assert!(content.contains(&tx.to_string_lossy().to_string()));
+
+        let parsed = parse_m3u(&path).expect("parse reordered playlist");
+        let _ = std::fs::remove_file(&path);
+        // write_m3u writes absolute paths, so verify both order and absolute paths survive.
+        assert_eq!(
+            parsed
+                .entries
+                .iter()
+                .map(|e| e.resolved_path.clone())
+                .collect::<Vec<_>>(),
+            vec![t3, t1, tx]
+        );
+    }
+
+    #[test]
+    fn shared_track_row_renders_without_panicking() {
+        let theme_cfg = ThemeConfig::default();
+
+        // Open-playlist context: clickable row.
+        let _ = TrackRow {
+            theme: &theme_cfg,
+            index: 0,
+            title: "One".into(),
+            artist: "Artist".into(),
+            duration: "3:00".into(),
+            highlighted: true,
+            dragging: false,
+            show_handle: true,
+            on_press: Some(Message::PlaylistDetailClicked {
+                playlist_id: 7,
+                index: 0,
+            }),
+            drag_start: Message::PlaylistDetailDragStarted {
+                playlist_id: 7,
+                index: 0,
+            },
+            drag_release: Message::PlaylistDetailDragReleased,
+            hover_enter: Message::PlaylistDetailHovered(Some((7, 0))),
+            hover_exit: Message::PlaylistDetailHovered(None),
+            on_remove: Message::PlaylistRemoveTrack {
+                playlist_id: 7,
+                index: 0,
+            },
+            on_right_press: None,
+        }
+        .view();
+
+        // Open-playlist context: unmatched (unclickable) entry.
+        let _ = TrackRow {
+            theme: &theme_cfg,
+            index: 1,
+            title: "Missing".into(),
+            artist: "Artist".into(),
+            duration: "3:00".into(),
+            highlighted: false,
+            dragging: false,
+            show_handle: false,
+            on_press: None,
+            drag_start: Message::PlaylistDetailDragStarted {
+                playlist_id: 7,
+                index: 1,
+            },
+            drag_release: Message::PlaylistDetailDragReleased,
+            hover_enter: Message::PlaylistDetailHovered(Some((7, 1))),
+            hover_exit: Message::PlaylistDetailHovered(None),
+            on_remove: Message::PlaylistRemoveTrack {
+                playlist_id: 7,
+                index: 1,
+            },
+            on_right_press: None,
+        }
+        .view();
+
+        // Queue context.
+        let _ = TrackRow {
+            theme: &theme_cfg,
+            index: 2,
+            title: "Three".into(),
+            artist: "Artist".into(),
+            duration: "4:12".into(),
+            highlighted: false,
+            dragging: false,
+            show_handle: false,
+            on_press: Some(Message::QueueClicked {
+                queue_id: 1,
+                index: 2,
+            }),
+            drag_start: Message::QueueDragStarted {
+                queue_id: 1,
+                index: 2,
+            },
+            drag_release: Message::QueueDragReleased,
+            hover_enter: Message::QueueRowHovered(Some((1, 2))),
+            hover_exit: Message::QueueRowHovered(None),
+            on_remove: Message::QueueRemoveTrack {
+                queue_id: 1,
+                index: 2,
+            },
+            on_right_press: None,
+        }
+        .view();
+    }
+
+    #[test]
+    fn detail_state_resets_with_detail() {
+        let mut view = detail_view();
+        view.on_detail_click(7, 0);
+        view.hovered_detail_row = Some((7, 0));
+        view.clear_detail();
+        assert!(view.detail_entries.is_empty());
+        assert!(view.selected_detail_track.is_none());
+        assert!(view.hovered_detail_row.is_none());
+        assert!(view.last_detail_click.is_none());
+        assert_eq!(view.section, PlaylistSection::Playlists);
+    }
+
+    #[test]
+    fn remove_detail_entry_keeps_items_and_entries_in_sync() {
+        let mut view = detail_view();
+        assert!(view.remove_detail_entry(7, 1));
+        assert_eq!(
+            view.detail_items
+                .iter()
+                .map(|i| i.title.as_str())
+                .collect::<Vec<_>>(),
+            vec!["One", "Three"]
+        );
+        assert_eq!(
+            view.detail_entries
+                .iter()
+                .map(|e| e.raw_path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["/music/1.flac", "/music/3.flac"],
+            "raw file entries (including unmatched lines) follow the same removal"
+        );
+    }
+
+    #[test]
+    fn remove_detail_entry_rejects_bad_removals() {
+        let mut view = detail_view();
+        assert!(!view.remove_detail_entry(7, 3), "out of bounds is a no-op");
+        assert!(!view.remove_detail_entry(9, 0), "wrong playlist is a no-op");
+        assert_eq!(view.detail_items.len(), 3);
+        assert_eq!(view.detail_entries.len(), 3);
+    }
+
+    #[test]
+    fn remove_detail_entry_shifts_selection_state() {
+        let mut view = detail_view();
+        view.selected_detail_track = Some((7, 2));
+        view.hovered_detail_row = Some((7, 2));
+        assert!(view.remove_detail_entry(7, 0));
+        assert_eq!(view.selected_detail_track, Some((7, 1)));
+        assert_eq!(view.hovered_detail_row, Some((7, 1)));
+
+        assert!(view.remove_detail_entry(7, 1));
+        assert!(view.selected_detail_track.is_none());
+        assert!(view.hovered_detail_row.is_none());
+    }
 }

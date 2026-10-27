@@ -263,6 +263,15 @@ pub fn render_context_menu<'a>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                icons::NEXT_SVG,
+                "Play next",
+                Message::ContextPlayAlbumNext(album.clone()),
+                false,
+                false,
+            ));
+
+            main_items = main_items.push(menu_item(
+                theme_cfg,
                 icons::QUEUE_SVG,
                 "Add album to queue",
                 Message::ContextAddAlbumToQueue(album.clone()),
@@ -328,6 +337,15 @@ pub fn render_context_menu<'a>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                icons::NEXT_SVG,
+                "Play next",
+                Message::ContextPlayArtistNext(artist.clone()),
+                false,
+                false,
+            ));
+
+            main_items = main_items.push(menu_item(
+                theme_cfg,
                 icons::QUEUE_SVG,
                 "Add artist to queue",
                 Message::ContextAddArtistToQueue(artist.clone()),
@@ -358,6 +376,15 @@ pub fn render_context_menu<'a>(
                 icons::PLAY_SVG,
                 "Play playlist",
                 Message::PlayPlaylist(playlist.id),
+                false,
+                false,
+            ));
+
+            main_items = main_items.push(menu_item(
+                theme_cfg,
+                icons::NEXT_SVG,
+                "Play next",
+                Message::PlaylistPlayNext(playlist.id),
                 false,
                 false,
             ));

@@ -521,3 +521,106 @@ pub fn thumbnail_caching_indicator<'a>(theme_cfg: &'a ThemeConfig) -> Element<'a
     .align_y(Alignment::Center)
     .boxed()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::icons;
+    use crate::message::Message;
+    use crate::theme::ThemeConfig;
+    use iced::widget::Widget;
+
+    #[test]
+    fn test_adaptive_cjk_text_creation() {
+        let theme_cfg = ThemeConfig::default();
+        let _ascii = text(&theme_cfg, "The Beatles - Abbey Road");
+        let _japanese = text(&theme_cfg, "宇多田ヒカル - First Love");
+        let _chinese = text(&theme_cfg, "周杰伦 - 范特西");
+        let _korean = text(&theme_cfg, "아이유 - Palette");
+    }
+
+    #[test]
+    fn test_catalog_tile_renders_with_ellipsis() {
+        let theme_cfg = ThemeConfig::default();
+        let tile = CatalogTile {
+            theme: &theme_cfg,
+            tile_width: 180.0,
+            leading: iced::widget::Space::new().boxed(),
+            title:
+                "Very Long Album Title That Exceeds The Normal Card Boundaries And Needs Ellipsis"
+                    .into(),
+            mid_left:
+                "Very Long Artist Name That Exceeds The Subtitle Row Width And Needs Ellipsis"
+                    .into(),
+            mid_right: "2024".into(),
+            bottom_left: "12 tracks".into(),
+            bottom_right: "45:00".into(),
+            on_select: Message::CloseContextMenu,
+            on_play: Message::CloseContextMenu,
+            on_shuffle: Message::CloseContextMenu,
+            on_right_press: None,
+        };
+        let _rendered = tile.view();
+
+        let row = CatalogRow {
+            theme: &theme_cfg,
+            leading: iced::widget::Space::new().boxed(),
+            title: "Very Long Album Title That Exceeds The Normal Row Width".into(),
+            subtitle_left: "Very Long Artist Name".into(),
+            subtitle_right: "2024".into(),
+            details: Some(("12 tracks".into(), "45:00".into())),
+            on_select: Message::CloseContextMenu,
+            on_play: Message::CloseContextMenu,
+            on_shuffle: Message::CloseContextMenu,
+            on_right_press: None,
+            width: iced::Length::Fill,
+            height: iced::Length::Fixed(56.0),
+        };
+        let _rendered_row = row.view();
+    }
+
+    #[test]
+    fn test_catalog_cover_art_renders_placeholder_and_with_cover() {
+        let theme_cfg = ThemeConfig::default();
+
+        // 1. Placeholder fallback (None cover)
+        let placeholder = catalog_cover_art(
+            &theme_cfg,
+            None,
+            160.0,
+            theme_cfg.radius_md(),
+            icons::DISC_SVG,
+            50.0,
+            theme_cfg.primary_color(),
+            Message::CloseContextMenu,
+        );
+        let _rendered_placeholder = placeholder;
+
+        // 2. Tile using catalog_cover_art
+        let leading = catalog_cover_art(
+            &theme_cfg,
+            None,
+            140.0,
+            theme_cfg.radius_md(),
+            icons::USER_AVATAR_SVG,
+            45.0,
+            theme_cfg.primary_color(),
+            Message::CloseContextMenu,
+        );
+        let tile = CatalogTile {
+            theme: &theme_cfg,
+            tile_width: 140.0,
+            leading,
+            title: "Artist Name".into(),
+            mid_left: "5 albums".into(),
+            mid_right: "".into(),
+            bottom_left: "".into(),
+            bottom_right: "".into(),
+            on_select: Message::CloseContextMenu,
+            on_play: Message::CloseContextMenu,
+            on_shuffle: Message::CloseContextMenu,
+            on_right_press: Some(Message::CloseContextMenu),
+        };
+        let _rendered_tile = tile.view();
+    }
+}

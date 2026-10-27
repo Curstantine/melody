@@ -78,6 +78,16 @@ pub struct TrackRow {
     /// `format!` allocation on every frame.
     #[serde(default)]
     pub duration_label: String,
+    #[serde(default)]
+    pub year: Option<u32>,
+    #[serde(default)]
+    pub track_num: Option<u32>,
+    #[serde(default)]
+    pub disc_num: Option<u32>,
+    #[serde(default)]
+    pub album_artist: Option<InternedStr>,
+    #[serde(default)]
+    pub genre: Option<InternedStr>,
 }
 
 impl TrackRow {
@@ -104,6 +114,11 @@ impl From<&Track> for TrackRow {
             duration_ms: t.duration_ms,
             file_path: t.file_path.clone(),
             duration_label: t.formatted_duration(),
+            year: t.year,
+            track_num: t.track_num,
+            disc_num: t.disc_num,
+            album_artist: t.album_artist.as_deref().map(InternedStr::from),
+            genre: t.genre.as_deref().map(InternedStr::from),
         }
     }
 }

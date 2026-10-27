@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use core_engine::{SortDirection, SortField, TrackFilter, TrackRow};
+use core_engine::{format_template, SortDirection, SortField, TrackFilter, TrackRow};
 use iced::widget::{
     button, column, container, mouse_area, row, scrollable, text_input, Space, Widget,
 };
@@ -229,6 +229,7 @@ impl LibraryView {
         theme_cfg: &'a ThemeConfig,
         current_track_id: Option<i64>,
         is_playing: bool,
+        format_cfg: &'a crate::layout::LibraryFormatConfig,
     ) -> Element<'a, Message> {
         // 1. Search Bar & View Mode Toolbar
         let search_input = text_input(
@@ -289,19 +290,13 @@ impl LibraryView {
                 .on_press(Message::SortChanged(field))
         };
 
-        let table_header = row![
-            container(
-                text(theme_cfg, "#")
-                    .size(12)
-                    .color(theme_cfg.text_muted_color()),
-            )
-            .width(36)
-            .center_x(36),
-            header_btn("Title", SortField::Title, Length::FillPortion(4)),
-            header_btn("Artist", SortField::Artist, Length::FillPortion(3)),
-            header_btn("Album", SortField::Album, Length::FillPortion(3)),
-            header_btn("Duration", SortField::Duration, Length::Fixed(80.0)),
-        ]
+        let mut table_header = row![container(
+            text(theme_cfg, "#")
+                .size(12)
+                .color(theme_cfg.text_muted_color()),
+        )
+        .width(36)
+        .center_x(36),]
         .spacing(8)
         .align_y(Alignment::Center)
         .padding(iced::Padding {
@@ -310,6 +305,23 @@ impl LibraryView {
             bottom: 2.0,
             left: 0.0,
         });
+
+        for col in &format_cfg.columns {
+            let width = col.width.to_iced_length();
+            let btn: Element<'a, Message> = if let Some(field) = col.sort_field {
+                header_btn(&col.header, field, width).boxed()
+            } else {
+                container(
+                    text(theme_cfg, &col.header)
+                        .size(12)
+                        .color(theme_cfg.text_muted_color()),
+                )
+                .width(width)
+                .padding([2, 0])
+                .boxed()
+            };
+            table_header = table_header.push(btn);
+        }
 
         // 3. Track Content (virtualized list)
         let content: Element<'a, Message> = if self.total_tracks == 0 {
@@ -367,38 +379,35 @@ impl LibraryView {
                     .boxed()
                 };
 
-                let track_row = row![
-                    left_action,
-                    text(theme_cfg, &track.title)
-                        .size(13)
-                        .color(if is_active {
+                let mut track_row = row![left_action]
+                    .spacing(8)
+                    .align_y(Alignment::Center)
+                    .height(self.row_height)
+                    .padding(iced::Padding {
+                        top: 0.0,
+                        right: 15.0,
+                        bottom: 0.0,
+                        left: 0.0,
+                    });
+
+                for (col_idx, col) in format_cfg.columns.iter().enumerate() {
+                    let cell_value = format_template(&col.format, track);
+                    let is_primary_col = col_idx == 0;
+                    let col_text = text(theme_cfg, cell_value)
+                        .size(if is_primary_col { 13 } else { 12 })
+                        .color(if is_primary_col && is_active {
                             theme_cfg.primary_color()
-                        } else {
+                        } else if is_primary_col {
                             theme_cfg.text_color()
+                        } else {
+                            theme_cfg.text_muted_color()
                         })
-                        .width(Length::FillPortion(4)),
-                    text(theme_cfg, track.display_artist())
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(Length::FillPortion(3)),
-                    text(theme_cfg, track.album.as_ref())
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(Length::FillPortion(3)),
-                    text(theme_cfg, track.formatted_duration())
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(80),
-                ]
-                .spacing(8)
-                .align_y(Alignment::Center)
-                .height(self.row_height)
-                .padding(iced::Padding {
-                    top: 0.0,
-                    right: 15.0,
-                    bottom: 0.0,
-                    left: 0.0,
-                });
+                        .width(col.width.to_iced_length())
+                        .wrapping(iced::widget::text::Wrapping::None)
+                        .ellipsis(iced::widget::text::Ellipsis::End);
+
+                    track_row = track_row.push(col_text.boxed());
+                }
 
                 let row_container = container(track_row)
                     .style(styles::table_row_container(
@@ -411,7 +420,7 @@ impl LibraryView {
                 let interactive_row = mouse_area(row_container)
                     .on_press(Message::TrackClicked(track.id))
                     .on_right_press(Message::OpenTrackContextMenu {
-                        track: track.clone(),
+                        track_id: track.id,
                         context: TrackMenuContext::Library,
                     });
 
@@ -445,5 +454,127 @@ impl LibraryView {
             .height(Length::Fill)
             .width(Length::Fill)
             .boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::layout::LibraryFormatConfig;
+    use crate::theme::ThemeConfig;
+    use core_engine::TrackRow;
+
+    /// Simulated catalog size for the virtualization tests.
+    const LARGE_LIBRARY_TRACK_COUNT: usize = 100_000;
+
+    fn make_rows(start: usize, count: usize) -> Vec<TrackRow> {
+        (start..start + count)
+            .map(|i| TrackRow {
+                id: i as i64 + 1,
+                title: format!("Track {:06}", i),
+                artist: format!("Artist {:04}", i % 5_000).into(),
+                album: format!("Album {:05}", i % 12_500).into(),
+                duration_ms: 180_000,
+                file_path: format!("/music/track_{:06}.flac", i),
+                duration_label: "3:00".to_string(),
+                year: None,
+                track_num: None,
+                disc_num: None,
+                album_artist: None,
+                genre: None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn window_capacity_is_bounded_by_page_size() {
+        let view = LibraryView::new(50);
+        assert_eq!(view.window_capacity(), 50 * (1 + 2 * WINDOW_BUFFER_PAGES));
+    }
+
+    #[test]
+    fn scrolling_a_large_library_keeps_memory_bounded() {
+        let total = LARGE_LIBRARY_TRACK_COUNT;
+
+        let mut view = LibraryView::new(50);
+        let capacity = view.window_capacity();
+
+        // Initial load at offset 0.
+        let initial = make_rows(0, capacity);
+        view.set_window(initial, total);
+        assert_eq!(view.total_tracks, total);
+        assert!(view.rows.len() <= capacity);
+
+        // Simulate a user scrolling all the way to the bottom. Every time the view
+        // requests a window reload we emulate the DB returning exactly one window.
+        let mut y = 0.0_f32;
+        let bottom = total as f32 * ROW_HEIGHT;
+        let mut loads = 0usize;
+        let mut peak_loaded = view.rows.len();
+
+        while y < bottom {
+            if let Some(offset) = view.on_scroll_offset(y) {
+                let count = capacity.min(total - offset);
+                view.replace_window(offset, make_rows(offset, count));
+                loads += 1;
+                peak_loaded = peak_loaded.max(view.rows.len());
+                assert!(
+                    view.rows.len() <= capacity,
+                    "loaded {} rows, capacity is {capacity}",
+                    view.rows.len()
+                );
+            }
+            y += ROW_HEIGHT * 5.0;
+        }
+
+        assert!(
+            loads > 1,
+            "expected multiple window reloads while scrolling"
+        );
+        assert!(
+            peak_loaded <= capacity,
+            "resident rows grew beyond the window capacity"
+        );
+    }
+
+    #[test]
+    fn no_reload_within_buffer_region() {
+        let mut view = LibraryView::new(50);
+        let capacity = view.window_capacity();
+        view.set_window(make_rows(0, capacity), 100_000);
+
+        // The viewport sits comfortably inside the buffered window.
+        assert_eq!(view.on_scroll_offset(0.0), None);
+        assert_eq!(view.on_scroll_offset(ROW_HEIGHT * 40.0), None);
+    }
+
+    #[test]
+    fn empty_library_never_requests_a_window() {
+        let mut view = LibraryView::new(50);
+        assert_eq!(view.on_scroll_offset(0.0), None);
+        assert_eq!(view.on_scroll_offset(10_000.0), None);
+    }
+
+    #[test]
+    fn navigation_and_lookup_use_the_window() {
+        let mut view = LibraryView::new(50);
+        view.set_window(make_rows(0, 120), 100_000);
+
+        assert_eq!(view.find_row(1).map(|r| r.id), Some(1));
+        assert_eq!(view.get_next_row(Some(1), false, 0).map(|r| r.id), Some(2));
+        assert_eq!(view.get_previous_row(2).map(|r| r.id), Some(1));
+        assert_eq!(view.get_previous_row(1).map(|r| r.id), None);
+    }
+
+    #[test]
+    fn renders_virtualized_window_with_spacers() {
+        let theme_cfg = ThemeConfig::default();
+        let mut view = LibraryView::new(50);
+        view.set_window(make_rows(0, view.window_capacity()), 100_000);
+        // Shifting the window deep into the library must still render.
+        view.replace_window(50_000, make_rows(50_000, view.window_capacity()));
+
+        let format_cfg = LibraryFormatConfig::default();
+        let _element = view.view(&theme_cfg, None, false, &format_cfg);
     }
 }

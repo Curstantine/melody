@@ -1,4 +1,4 @@
-use core_engine::{ArtistSummary, SortDirection, TrackFilter};
+use core_engine::{format_template, ArtistSummary, SortDirection, TrackFilter};
 use iced::widget::{column, container, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length, Padding};
 
@@ -295,7 +295,11 @@ impl ArtistsView {
         self.artists.is_empty()
     }
 
-    pub fn view<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        format_cfg: &'a crate::layout::ArtistsFormatConfig,
+    ) -> Element<'a, Message> {
         if self.artists.is_empty() {
             return components::empty_state(
                 theme_cfg,
@@ -329,8 +333,8 @@ impl ArtistsView {
         });
 
         let content_area: Element<'a, Message> = match self.view_mode {
-            ViewMode::Tile => self.view_tiles(theme_cfg),
-            ViewMode::List => self.view_list(theme_cfg),
+            ViewMode::Tile => self.view_tiles(theme_cfg, format_cfg),
+            ViewMode::List => self.view_list(theme_cfg, format_cfg),
         };
 
         column![header_bar, content_area]
@@ -346,7 +350,11 @@ impl ArtistsView {
             .boxed()
     }
 
-    fn view_tiles<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_tiles<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        format_cfg: &'a crate::layout::ArtistsFormatConfig,
+    ) -> Element<'a, Message> {
         let per_row = self.items_per_row();
         let total_rows = self.total_rows();
         let start_row = self.window_start / per_row;
@@ -379,16 +387,19 @@ impl ArtistsView {
                     Message::SelectArtist(artist.artist.to_string()),
                 );
 
+                let line1 = format_template(&format_cfg.tile_line1, artist);
+                let line2 = format_template(&format_cfg.tile_line2, artist);
+
                 tile_row = tile_row.push(
                     components::CatalogTile {
                         theme: theme_cfg,
                         tile_width: tile_w,
                         leading,
-                        title: artist.artist.as_ref(),
-                        mid_left: artist.stats_label.as_str(),
-                        mid_right: "",
-                        bottom_left: "",
-                        bottom_right: "",
+                        title: line1.into(),
+                        mid_left: line2.into(),
+                        mid_right: "".into(),
+                        bottom_left: "".into(),
+                        bottom_right: "".into(),
                         on_select: Message::SelectArtist(artist.artist.to_string()),
                         on_play: Message::PlayScope {
                             filter: TrackFilter::artist(artist.artist.as_ref()),
@@ -432,7 +443,11 @@ impl ArtistsView {
         .boxed()
     }
 
-    fn view_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_list<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        format_cfg: &'a crate::layout::ArtistsFormatConfig,
+    ) -> Element<'a, Message> {
         let total_rows = self.artists.len();
         let row_h = components::CATALOG_LIST_ROW_HEIGHT;
 
@@ -444,6 +459,9 @@ impl ArtistsView {
         }
 
         for artist in self.visible_artists() {
+            let line1 = format_template(&format_cfg.list_line1, artist);
+            let line2 = format_template(&format_cfg.list_line2, artist);
+
             content = content.push(
                 components::CatalogRow {
                     theme: theme_cfg,
@@ -456,9 +474,9 @@ impl ArtistsView {
                         20.0,
                         theme_cfg.primary_color(),
                     ),
-                    title: artist.artist.as_ref(),
-                    subtitle_left: artist.stats_label.as_str(),
-                    subtitle_right: "",
+                    title: line1.into(),
+                    subtitle_left: line2.into(),
+                    subtitle_right: "".into(),
                     details: None,
                     on_select: Message::SelectArtist(artist.artist.to_string()),
                     on_play: Message::PlayScope {
@@ -490,5 +508,70 @@ impl ArtistsView {
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
             .boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::layout::ArtistsFormatConfig;
+    use crate::theme::ThemeConfig;
+    use core_engine::ArtistSummary;
+
+    #[test]
+    fn test_artists_view_component_state() {
+        let mut artists_view = ArtistsView::new(ViewMode::List, ArtistSortField::Artist);
+        assert!(artists_view.is_empty());
+        assert_eq!(artists_view.len(), 0);
+        assert_eq!(artists_view.tile_width, 140);
+        artists_view.set_tile_width(200);
+        assert_eq!(artists_view.tile_width, 200);
+
+        let artists_list: Vec<ArtistSummary> = (0..30)
+            .map(|i| ArtistSummary {
+                artist: format!("Artist {}", i).into(),
+                track_count: 3,
+                album_count: 1,
+                stats_label: "1 albums • 3 tracks".to_string(),
+            })
+            .collect();
+
+        artists_view.set_artists(artists_list);
+        assert!(!artists_view.is_empty());
+        assert_eq!(artists_view.len(), 30);
+
+        artists_view.toggle_sort(ArtistSortField::Artist);
+        artists_view.set_view_mode(ViewMode::Tile);
+
+        let theme_cfg = ThemeConfig::default();
+        let artists_fmt = ArtistsFormatConfig::default();
+        let _rendered = artists_view.view(&theme_cfg, &artists_fmt);
+    }
+
+    #[test]
+    fn test_artists_view_is_virtualized() {
+        let mut view = ArtistsView::new(ViewMode::List, ArtistSortField::Artist);
+        let all: Vec<ArtistSummary> = (0..10_000)
+            .map(|i| ArtistSummary {
+                artist: format!("Artist {}", i).into(),
+                track_count: 1,
+                album_count: 1,
+                stats_label: "1 albums • 1 tracks".to_string(),
+            })
+            .collect();
+        view.set_artists(all);
+
+        // Only a small window is materialized regardless of catalog size.
+        assert!(view.window_len() < 200, "window_len={}", view.window_len());
+        assert_eq!(view.total_tracks, 10_000);
+        assert_eq!(view.total_albums, 10_000);
+
+        // Scrolling to the middle relocates a bounded window without growing it.
+        view.on_scroll_metrics(100_000.0, 1000.0, 700.0);
+        assert!(view.window_len() < 200, "window_len={}", view.window_len());
+
+        let theme_cfg = ThemeConfig::default();
+        let artists_fmt = ArtistsFormatConfig::default();
+        let _rendered = view.view(&theme_cfg, &artists_fmt);
     }
 }

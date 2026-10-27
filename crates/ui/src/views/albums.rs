@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-use core_engine::{AlbumSummary, SortDirection, TrackFilter};
+use core_engine::{format_template, AlbumSummary, SortDirection, TrackFilter};
 use iced::widget::{column, container, image, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length};
 
@@ -478,7 +478,28 @@ impl AlbumsView {
         self.albums.is_empty()
     }
 
-    pub fn view<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    pub fn get_album_cover(&self, album: &AlbumSummary) -> Option<&image::Handle> {
+        let artist = album.artist.as_bytes();
+        let album_name = album.album.as_bytes();
+        let total_len = artist.len() + 1 + album_name.len();
+        if total_len <= 1024 {
+            let mut buf = [0u8; 1024];
+            buf[..artist.len()].copy_from_slice(artist);
+            buf[artist.len()] = 0x1f;
+            buf[artist.len() + 1..total_len].copy_from_slice(album_name);
+            if let Ok(key) = std::str::from_utf8(&buf[..total_len]) {
+                return self.album_covers.get(key);
+            }
+        }
+        let key = cover_key(album);
+        self.album_covers.get(&key)
+    }
+
+    pub fn view<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        format_cfg: &'a crate::layout::AlbumsFormatConfig,
+    ) -> Element<'a, Message> {
         if self.albums.is_empty() {
             return components::empty_state(
                 theme_cfg,
@@ -515,8 +536,8 @@ impl AlbumsView {
         });
 
         let content_area: Element<'a, Message> = match self.view_mode {
-            ViewMode::Tile => self.view_tiles(theme_cfg),
-            ViewMode::List => self.view_list(theme_cfg),
+            ViewMode::Tile => self.view_tiles(theme_cfg, format_cfg),
+            ViewMode::List => self.view_list(theme_cfg, format_cfg),
         };
 
         column![header_bar, content_area]
@@ -532,7 +553,11 @@ impl AlbumsView {
             .boxed()
     }
 
-    fn view_tiles<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_tiles<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        format_cfg: &'a crate::layout::AlbumsFormatConfig,
+    ) -> Element<'a, Message> {
         let per_row = self.items_per_row();
         let total_rows = self.total_rows();
         let start_row = self.window_start / per_row;
@@ -554,10 +579,9 @@ impl AlbumsView {
                 .align_y(Alignment::Start);
 
             for album in chunk {
-                let key = cover_key(album);
                 let leading = components::catalog_cover_art(
                     theme_cfg,
-                    self.album_covers.get(&key),
+                    self.get_album_cover(album),
                     tile_w,
                     theme_cfg.radius_md(),
                     icons::DISC_SVG,
@@ -566,16 +590,20 @@ impl AlbumsView {
                     Message::SelectAlbum(album.album.to_string()),
                 );
 
+                let line1 = format_template(&format_cfg.tile_line1, album);
+                let line2 = format_template(&format_cfg.tile_line2, album);
+                let line3 = format_template(&format_cfg.tile_line3, album);
+
                 tile_row = tile_row.push(
                     components::CatalogTile {
                         theme: theme_cfg,
                         tile_width: tile_w,
                         leading,
-                        title: album.album.as_ref(),
-                        mid_left: album.artist.as_ref(),
-                        mid_right: album.year_label.as_str(),
-                        bottom_left: album.tracks_label.as_str(),
-                        bottom_right: album.duration_label.as_str(),
+                        title: line1.into(),
+                        mid_left: line2.into(),
+                        mid_right: "".into(),
+                        bottom_left: line3.into(),
+                        bottom_right: "".into(),
                         on_select: Message::SelectAlbum(album.album.to_string()),
                         on_play: Message::PlayScope {
                             filter: TrackFilter::album(album.album.as_ref()),
@@ -615,7 +643,11 @@ impl AlbumsView {
             .boxed()
     }
 
-    fn view_list<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_list<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        format_cfg: &'a crate::layout::AlbumsFormatConfig,
+    ) -> Element<'a, Message> {
         let total_rows = self.albums.len();
         let row_h = components::CATALOG_LIST_ROW_HEIGHT;
 
@@ -627,23 +659,30 @@ impl AlbumsView {
         }
 
         for album in self.visible_albums() {
-            let key = cover_key(album);
+            let line1 = format_template(&format_cfg.list_line1, album);
+            let line2 = format_template(&format_cfg.list_line2, album);
+            let details = format_template(&format_cfg.list_details, album);
+
             content = content.push(
                 components::CatalogRow {
                     theme: theme_cfg,
                     leading: components::cover_art(
                         theme_cfg,
-                        self.album_covers.get(&key),
+                        self.get_album_cover(album),
                         components::CATALOG_LIST_ART_SIZE,
                         theme_cfg.radius_sm(),
                         icons::DISC_SVG,
                         20.0,
                         theme_cfg.primary_color(),
                     ),
-                    title: album.album.as_ref(),
-                    subtitle_left: album.artist.as_ref(),
-                    subtitle_right: album.year_label.as_str(),
-                    details: Some((album.tracks_label.as_str(), album.duration_label.as_str())),
+                    title: line1.into(),
+                    subtitle_left: line2.into(),
+                    subtitle_right: "".into(),
+                    details: if details.is_empty() {
+                        None
+                    } else {
+                        Some((details.into(), "".into()))
+                    },
                     on_select: Message::SelectAlbum(album.album.to_string()),
                     on_play: Message::PlayScope {
                         filter: TrackFilter::album(album.album.as_ref()),
@@ -674,5 +713,390 @@ impl AlbumsView {
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
             .boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::layout::{AlbumsFormatConfig, ArtistsFormatConfig};
+    use crate::message::ArtistSortField;
+    use crate::theme::ThemeConfig;
+    use crate::views::artists::ArtistsView;
+    use core_engine::{AlbumSummary, ArtistSummary};
+
+    fn sample_albums(count: usize) -> Vec<AlbumSummary> {
+        (0..count)
+            .map(|i| AlbumSummary {
+                album: format!("Album {}", i).into(),
+                artist: format!("Artist {}", i % 500).into(),
+                track_count: 10,
+                total_duration_ms: 180_000,
+                year: Some(2020),
+                cover_track_id: Some(i as i64 + 1),
+                added_timestamp: 1_700_000_000 + i as i64,
+                year_label: "2020".to_string(),
+                tracks_label: "10 tracks".to_string(),
+                duration_label: "3:00".to_string(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_fast_scroll_abandons_stale_cover_loads() {
+        let mut view = AlbumsView::new(ViewMode::List, AlbumSortField::Title);
+        view.set_albums(sample_albums(5_000));
+
+        // Begin loading covers for the initial window.
+        let initial = view.get_missing_covers_to_load();
+        assert!(!initial.is_empty());
+        view.mark_loading(initial.iter().map(|(k, _)| k.clone()));
+        assert!(!view.in_flight.is_empty());
+
+        // Jump to the bottom: in-flight loads for the abandoned window must be dropped.
+        let bottom = 5_000.0 * view.row_height();
+        view.on_scroll_metrics(bottom, 1_100.0, 720.0);
+
+        let visible_keys: std::collections::HashSet<String> = view
+            .visible_albums()
+            .iter()
+            .map(|a| format!("{}\u{1f}{}", a.artist, a.album))
+            .collect();
+        assert!(
+            view.in_flight.keys().all(|k| visible_keys.contains(k)),
+            "stale in-flight cover loads were not abandoned"
+        );
+
+        // The landing window has covers to (re)load.
+        assert!(!view.get_missing_covers_to_load().is_empty());
+
+        // Scrolling back to the top must also report missing covers to reload.
+        view.on_scroll_metrics(0.0, 1_100.0, 720.0);
+        assert!(!view.get_missing_covers_to_load().is_empty());
+    }
+
+    #[test]
+    fn in_flight_requests_expire_so_they_can_retry() {
+        let mut view = AlbumsView::new(ViewMode::List, AlbumSortField::Title);
+        view.set_albums(sample_albums(10));
+
+        let to_load = view.get_missing_covers_to_load();
+        view.mark_loading(to_load.iter().map(|(k, _)| k.clone()));
+        assert!(!view.in_flight.is_empty());
+
+        // A generous age leaves fresh requests alone.
+        assert!(!view.expire_stale_in_flight(std::time::Duration::from_secs(60)));
+        assert!(!view.in_flight.is_empty());
+
+        // An expired age releases them so they can be requested again.
+        assert!(view.expire_stale_in_flight(std::time::Duration::ZERO));
+        assert!(view.in_flight.is_empty());
+        assert!(!view.get_missing_covers_to_load().is_empty());
+    }
+
+    #[test]
+    fn stale_failure_does_not_poison_a_new_request() {
+        let mut view = AlbumsView::new(ViewMode::List, AlbumSortField::Title);
+        view.set_albums(sample_albums(100));
+
+        // A first request owns the visible covers.
+        let to_load = view.get_missing_covers_to_load();
+        let stale_id = view.mark_loading(to_load.iter().map(|(k, _)| k.clone()));
+        let key = to_load[0].0.clone();
+
+        // The album is re-requested under a newer id while still visible.
+        let fresh_id = view.mark_loading(vec![key.clone()]);
+        assert_ne!(stale_id, fresh_id);
+
+        // The abandoned request fails for that key: it must not poison the fresh one.
+        view.insert_covers(stale_id, vec![(key.clone(), Vec::new())]);
+        assert!(
+            !view.failed.contains(&key),
+            "stale failure permanently poisoned the key"
+        );
+        assert!(view.is_in_flight(&key), "fresh request was wrongly cleared");
+
+        // The fresh request succeeds and caches the cover.
+        view.insert_covers(fresh_id, vec![(key.clone(), vec![1u8, 2, 3])]);
+        assert!(view.album_covers.contains_key(&key));
+        assert!(!view.failed.contains(&key));
+    }
+
+    #[test]
+    fn sim_fast_scroll_roundtrip_converges() {
+        // Mirrors the real-world pattern: user flings down, landing at multiple
+        // intermediate offsets, then flings back up. Each step issues cover load
+        // requests, some of which succeed, some fail, some arrive out of order.
+        let mut view = AlbumsView::new(ViewMode::List, AlbumSortField::Title);
+        view.set_albums(sample_albums(2_000));
+
+        let row_h = view.row_height();
+        let offsets = [
+            0.0,
+            200.0 * row_h,
+            600.0 * row_h,
+            1_200.0 * row_h,
+            1_900.0 * row_h,
+            1_100.0 * row_h,
+            400.0 * row_h,
+            0.0,
+        ];
+
+        // Store pending batch completions: (request_id, [(key, bytes)])
+        struct PendingBatch {
+            id: u64,
+            covers: Vec<(String, Vec<u8>)>,
+        }
+        let mut pending: Vec<PendingBatch> = Vec::new();
+
+        fn schedule(view: &mut AlbumsView, step: usize, pending: &mut Vec<PendingBatch>) {
+            let missing = view.get_missing_covers_to_load();
+            if missing.is_empty() {
+                return;
+            }
+            let req_id = view.mark_loading(missing.iter().map(|(k, _)| k.clone()));
+            let covers = missing
+                .into_iter()
+                .map(|(k, _)| {
+                    // Fail 1 in 5 covers artificially to simulate corrupt/missing art
+                    let bytes = if (k.len() + step).is_multiple_of(5) {
+                        Vec::new()
+                    } else {
+                        vec![0xFF, 0xD8, 0xFF] // dummy jpeg header
+                    };
+                    (k, bytes)
+                })
+                .collect();
+            pending.push(PendingBatch { id: req_id, covers });
+        }
+
+        // Fling down & up
+        for (step, &y) in offsets.iter().enumerate() {
+            view.on_scroll_metrics(y, 1_100.0, 720.0);
+            schedule(&mut view, step, &mut pending);
+
+            // Periodically deliver some out-of-order responses
+            if step % 2 == 1 && !pending.is_empty() {
+                let batch = pending.remove(0);
+                view.insert_covers(batch.id, batch.covers);
+            }
+        }
+
+        // Deliver all remaining pending responses
+        while let Some(batch) = pending.pop() {
+            view.insert_covers(batch.id, batch.covers);
+        }
+
+        // The user has rested at offset 0. Now run the idle retry loop: any missing
+        // covers in the rest window must converge (either cached or marked failed).
+        for _ in 0..10 {
+            let missing = view.get_missing_covers_to_load();
+            if missing.is_empty() {
+                break;
+            }
+            let req_id = view.mark_loading(missing.iter().map(|(k, _)| k.clone()));
+            let covers: Vec<(String, Vec<u8>)> = missing
+                .into_iter()
+                .map(|(k, _)| (k, vec![0xFF, 0xD8, 0xFF]))
+                .collect();
+            view.insert_covers(req_id, covers);
+        }
+
+        // Terminal invariant: at rest, every visible album's cover is resolved.
+        let visible = view.visible_albums();
+        assert!(!visible.is_empty());
+        for album in visible {
+            let key = format!("{}\u{1f}{}", album.artist, album.album);
+            assert!(
+                view.album_covers.contains_key(&key) || view.failed.contains(&key),
+                "cover for visible album '{}' was neither cached nor marked failed",
+                key
+            );
+        }
+        assert!(
+            view.get_missing_covers_to_load().is_empty(),
+            "at rest there should be no missing covers left to load"
+        );
+    }
+
+    #[test]
+    fn test_albums_are_virtualized_not_paginated() {
+        for view_mode in [ViewMode::Tile, ViewMode::List] {
+            let mut view = AlbumsView::new(view_mode, AlbumSortField::Title);
+            let albums = sample_albums(2_000);
+            view.set_albums(albums);
+
+            // Before any scroll, the initial slice is bounded.
+            assert_eq!(view.window_start, 0);
+            assert!(view.window_len() < 200, "window_len={}", view.window_len());
+
+            // Recomputing with a viewport scrolled to the bottom keeps the window bounded.
+            let bottom = 2_000.0 * view.row_height();
+            view.on_scroll_metrics(bottom, 1_100.0, 720.0);
+            assert!(view.window_len() < 200, "window_len={}", view.window_len());
+            assert!(view.window_end <= 2_000);
+            assert!(view.window_start > 0);
+
+            // And visible_albums() matches the window.
+            assert_eq!(view.visible_albums().len(), view.window_len());
+        }
+    }
+
+    #[test]
+    fn test_album_and_artist_views_render_sliced() {
+        let theme_cfg = ThemeConfig::default();
+
+        let albums_list: Vec<AlbumSummary> = (0..120)
+            .map(|i| AlbumSummary {
+                album: format!("Album {}", i).into(),
+                artist: format!("Artist {}", i).into(),
+                track_count: 10,
+                total_duration_ms: 180_000,
+                year: Some(2020),
+                cover_track_id: None,
+                added_timestamp: 1700000000 + i as i64,
+                year_label: "2020".to_string(),
+                tracks_label: "10 tracks".to_string(),
+                duration_label: "3:00".to_string(),
+            })
+            .collect();
+
+        let artists_list: Vec<ArtistSummary> = (0..120)
+            .map(|i| ArtistSummary {
+                artist: format!("Artist {}", i).into(),
+                track_count: 5,
+                album_count: 1,
+                stats_label: "1 albums • 5 tracks".to_string(),
+            })
+            .collect();
+
+        // Sliced view for albums (first 60 items)
+        let albums_fmt = AlbumsFormatConfig::default();
+        let artists_fmt = ArtistsFormatConfig::default();
+
+        let mut albums_view_tile = AlbumsView::new(ViewMode::Tile, AlbumSortField::Title);
+        albums_view_tile.set_albums(albums_list.clone());
+        let _album_tile = albums_view_tile.view(&theme_cfg, &albums_fmt);
+
+        let mut albums_view_list = AlbumsView::new(ViewMode::List, AlbumSortField::Title);
+        albums_view_list.set_albums(albums_list);
+        let _album_list = albums_view_list.view(&theme_cfg, &albums_fmt);
+
+        // Sliced view for artists (first 60 items)
+        let mut artists_view_tile = ArtistsView::new(ViewMode::Tile, ArtistSortField::Artist);
+        artists_view_tile.set_artists(artists_list.clone());
+        let _artist_tile = artists_view_tile.view(&theme_cfg, &artists_fmt);
+
+        let mut artists_view_list = ArtistsView::new(ViewMode::List, ArtistSortField::Artist);
+        artists_view_list.set_artists(artists_list);
+        let _artist_list = artists_view_list.view(&theme_cfg, &artists_fmt);
+    }
+
+    #[test]
+    fn test_scroll_messages_variants() {
+        fn check_message(_m: Message) {}
+        check_message(Message::NextTrack);
+    }
+
+    #[test]
+    fn test_albums_view_component_state() {
+        let mut albums_view = AlbumsView::new(ViewMode::Tile, AlbumSortField::Title);
+        assert!(albums_view.is_empty());
+        assert_eq!(albums_view.len(), 0);
+        assert_eq!(albums_view.tile_width, 140);
+        albums_view.set_tile_width(180);
+        assert_eq!(albums_view.tile_width, 180);
+
+        let albums_list: Vec<AlbumSummary> = (0..50)
+            .map(|i| AlbumSummary {
+                album: format!("Album {}", i).into(),
+                artist: format!("Artist {}", i).into(),
+                track_count: 10,
+                total_duration_ms: 180_000,
+                year: Some(2020),
+                cover_track_id: None,
+                added_timestamp: 1700000000 + i as i64,
+                year_label: "2020".to_string(),
+                tracks_label: "10 tracks".to_string(),
+                duration_label: "3:00".to_string(),
+            })
+            .collect();
+        albums_view.set_albums(albums_list);
+        assert!(!albums_view.is_empty());
+        assert_eq!(albums_view.len(), 50);
+
+        albums_view.toggle_sort(AlbumSortField::Title);
+        albums_view.set_view_mode(ViewMode::List);
+
+        albums_view.clear();
+        assert!(albums_view.is_empty());
+        assert_eq!(albums_view.len(), 0);
+        assert!(albums_view.album_covers.is_empty());
+        assert!(albums_view.cover_order.is_empty());
+
+        let theme_cfg = ThemeConfig::default();
+        let albums_fmt = AlbumsFormatConfig::default();
+        let _rendered = albums_view.view(&theme_cfg, &albums_fmt);
+    }
+
+    #[test]
+    fn test_get_album_cover_lookup() {
+        let mut view = AlbumsView::new(ViewMode::Tile, AlbumSortField::Title);
+
+        let long_artist = "A".repeat(600);
+        let long_album = "B".repeat(600);
+        let test_cases = vec![
+            ("Artist 1", "Album 1"),
+            ("宇多田ヒカル", "First Love"),
+            ("周杰伦", "范特西"),
+            ("아이유 🎵", "Palette ✨"),
+            (long_artist.as_str(), long_album.as_str()), // > 1024 bytes fallback
+        ];
+
+        let mut summaries = Vec::new();
+        for (i, (artist, album)) in test_cases.into_iter().enumerate() {
+            let key = format!("{}\u{1f}{}", artist, album);
+            // Create 1x1 RGBA dummy image
+            let handle = iced::widget::image::Handle::from_rgba(1, 1, vec![255, 0, 0, 255]);
+            view.album_covers.insert(key, handle);
+
+            summaries.push(AlbumSummary {
+                album: album.into(),
+                artist: artist.into(),
+                track_count: 1,
+                total_duration_ms: 60_000,
+                year: Some(2024),
+                cover_track_id: Some(i as i64 + 1),
+                added_timestamp: 0,
+                year_label: "2024".to_string(),
+                tracks_label: "1 track".to_string(),
+                duration_label: "1:00".to_string(),
+            });
+        }
+
+        // Verify all covers resolve correctly via get_album_cover
+        for summary in &summaries {
+            assert!(
+                view.get_album_cover(summary).is_some(),
+                "Cover lookup failed for artist='{}', album='{}'",
+                summary.artist,
+                summary.album
+            );
+        }
+
+        // Verify missing cover returns None
+        let missing_summary = AlbumSummary {
+            album: "Nonexistent".into(),
+            artist: "Nobody".into(),
+            track_count: 1,
+            total_duration_ms: 60_000,
+            year: None,
+            cover_track_id: None,
+            added_timestamp: 0,
+            year_label: "".to_string(),
+            tracks_label: "1 track".to_string(),
+            duration_label: "1:00".to_string(),
+        };
+        assert!(view.get_album_cover(&missing_summary).is_none());
     }
 }

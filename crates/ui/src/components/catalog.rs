@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use iced::widget::text::{Ellipsis, Wrapping};
 use iced::widget::{button, column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length, Padding};
@@ -30,15 +32,15 @@ pub struct CatalogRow<'a> {
     /// Leading artwork element (caller-built via `components::cover_art` so
     /// each view keeps its own fallback icon and image cache).
     pub leading: Element<'a, Message>,
-    pub title: &'a str,
+    pub title: Cow<'a, str>,
     /// Split subtitle so callers pass borrowed labels without allocating a
     /// combined string: rendered as `left`, or `left • right` when `right` is
     /// non-empty.
-    pub subtitle_left: &'a str,
-    pub subtitle_right: &'a str,
+    pub subtitle_left: Cow<'a, str>,
+    pub subtitle_right: Cow<'a, str>,
     /// Optional right-hand `(top, bottom)` details. `None` renders no details
     /// column (artists); `Some` renders tracks/duration (albums).
-    pub details: Option<(&'a str, &'a str)>,
+    pub details: Option<(Cow<'a, str>, Cow<'a, str>)>,
     pub on_select: Message,
     pub on_play: Message,
     pub on_shuffle: Message,
@@ -176,11 +178,11 @@ pub struct CatalogTile<'a> {
     pub theme: &'a ThemeConfig,
     pub tile_width: f32,
     pub leading: Element<'a, Message>,
-    pub title: &'a str,
-    pub mid_left: &'a str,
-    pub mid_right: &'a str,
-    pub bottom_left: &'a str,
-    pub bottom_right: &'a str,
+    pub title: Cow<'a, str>,
+    pub mid_left: Cow<'a, str>,
+    pub mid_right: Cow<'a, str>,
+    pub bottom_left: Cow<'a, str>,
+    pub bottom_right: Cow<'a, str>,
     pub on_select: Message,
     pub on_play: Message,
     pub on_shuffle: Message,
@@ -227,16 +229,26 @@ impl<'a> CatalogTile<'a> {
                         .color(theme_cfg.text_muted_color()),
                 ]
                 .align_y(Alignment::Center),
-                row![
-                    text(theme_cfg, bottom_left)
+                if bottom_right.is_empty() {
+                    row![text(theme_cfg, bottom_left)
                         .size(10)
-                        .color(theme_cfg.text_muted_color()),
-                    Space::new().width(Length::Fill),
-                    text(theme_cfg, bottom_right)
-                        .size(10)
-                        .color(theme_cfg.text_muted_color()),
-                ]
-                .align_y(Alignment::Center),
+                        .color(theme_cfg.text_muted_color())
+                        .width(Length::Fill)
+                        .wrapping(Wrapping::None)
+                        .ellipsis(Ellipsis::End),]
+                    .align_y(Alignment::Center)
+                } else {
+                    row![
+                        text(theme_cfg, bottom_left)
+                            .size(10)
+                            .color(theme_cfg.text_muted_color()),
+                        Space::new().width(Length::Fill),
+                        text(theme_cfg, bottom_right)
+                            .size(10)
+                            .color(theme_cfg.text_muted_color()),
+                    ]
+                    .align_y(Alignment::Center)
+                },
             ]
             .spacing(3)
             .padding(8),
@@ -305,9 +317,9 @@ pub struct TrackRow<'a> {
     pub theme: &'a ThemeConfig,
     /// Zero-based position; rendered as `index + 1` in the leading slot.
     pub index: usize,
-    pub title: &'a str,
-    pub artist: &'a str,
-    pub duration: &'a str,
+    pub title: Cow<'a, str>,
+    pub artist: Cow<'a, str>,
+    pub duration: Cow<'a, str>,
     /// Selected (playlist) or selected-or-playing (queue) row: highlighted
     /// background with primary-colored title and track number.
     pub highlighted: bool,
