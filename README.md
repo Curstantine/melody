@@ -1,6 +1,6 @@
 # Melody
 
-A modern, native music player built in pure Rust. It renders crisp interfaces with **[Iced](https://github.com/iced-rs/iced)**, decodes audio cleanly with **[FFmpeg](https://github.com/zmwangx/rust-ffmpeg)**, resamples with **[Rubato](https://github.com/HEnquist/rubato)**, outputs audio using **[CPAL](https://github.com/RustAudio/cpal)**, and manages persistent library data with an embedded **[Turso](https://github.com/tursodatabase/turso)**.
+A modern, native music player built in pure Rust. It renders crisp interfaces with **[Iced](https://github.com/iced-rs/iced)**, decodes and resamples audio cleanly with **[FFmpeg](https://github.com/zmwangx/rust-ffmpeg)**, outputs audio using **[CPAL](https://github.com/RustAudio/cpal)**, and manages persistent library data with an embedded **[Turso](https://github.com/tursodatabase/turso)**.
 
 ## Workspace Layout
 
@@ -18,7 +18,7 @@ melody/
 ├── docs/                 # Documentation (string formatting, guides)
 └── crates/
     ├── core/         # Embedded Turso SQLite engine, FFmpeg metadata extraction, thumbnail caching, M3U playlists, scoped search filters, template formatting, queue persistence
-    ├── audio/        # Audio worker thread, CPAL playback, FFmpeg decoding & Rubato resampling, lock-free ring buffer
+    ├── audio/        # Audio worker thread, CPAL playback, FFmpeg decoding & resampling, lock-free ring buffer
     ├── plugins/      # Plugin contracts, MPRIS (Linux), Scrobbling (ListenBrainz & Last.fm), lyrics, event dispatchers
     └── ui/           # Iced GUI, KDL layouts, views (Library, Albums, Artists, Playlists, Now Playing, Settings), DB-backed playback queues
 ```

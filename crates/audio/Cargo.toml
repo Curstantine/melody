@@ -13,4 +13,3 @@ ringbuf.workspace = true
 crossbeam-channel.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-rubato.workspace = true

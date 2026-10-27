@@ -1,4 +1,4 @@
-use audio::{AudioConverter, AudioStatus};
+use audio::AudioStatus;
 
 #[test]
 fn test_audio_status_atomic_primitives() {
@@ -38,59 +38,6 @@ fn test_audio_status_atomic_primitives() {
     assert!(status.is_ended());
     assert!(status.take_ended());
     assert!(!status.is_ended());
-}
-
-#[test]
-fn test_audio_converter_mono_to_stereo() {
-    let mut converter = AudioConverter::new(1, 44100, 2, 44100).expect("converter construction");
-
-    let input = vec![0.5, -0.5, 1.0, 0.0];
-    let mut output = Vec::new();
-
-    converter.convert(&input, &mut output);
-
-    // Each mono sample should be duplicated into L and R channels
-    assert_eq!(output.len(), 8);
-    assert_eq!(output, vec![0.5, 0.5, -0.5, -0.5, 1.0, 1.0, 0.0, 0.0]);
-}
-
-#[test]
-fn test_audio_converter_resampling() {
-    // 22050 Hz to 44100 Hz stereo (2x upsampling)
-    let mut converter = AudioConverter::new(2, 22050, 2, 44100).expect("converter construction");
-
-    // FFT resampler operates in 1024-frame chunks
-    let input = vec![0.5f32; 1024 * 2];
-    let mut output = Vec::new();
-
-    converter.convert(&input, &mut output);
-
-    // 2x upsampling of 1024 stereo frames should produce ~2048 stereo frames (4096 samples)
-    assert!(output.len() >= 2048);
-}
-
-#[test]
-fn test_audio_converter_unaligned_packet_residuals() {
-    // 48000 Hz to 44100 Hz stereo
-    let mut converter = AudioConverter::new(2, 48000, 2, 44100).expect("converter construction");
-
-    // Feed non-multiple of chunk size (e.g. 3000 frames)
-    // Packet 1: 3000 frames -> processes 2048 frames (2 chunks), leaves 952 frames buffered.
-    let packet1 = vec![0.1f32; 3000 * 2];
-    let mut output1 = Vec::new();
-    converter.convert(&packet1, &mut output1);
-    assert!(!output1.is_empty());
-
-    // Packet 2: 3000 frames -> total 3952 frames -> processes 3072 frames (3 chunks), leaves 880 frames buffered.
-    let packet2 = vec![0.1f32; 3000 * 2];
-    let mut output2 = Vec::new();
-    converter.convert(&packet2, &mut output2);
-    assert!(!output2.is_empty());
-
-    // Flush on EOF: flushes the remaining 880 frames
-    let mut output_flush = Vec::new();
-    converter.flush(&mut output_flush);
-    assert!(!output_flush.is_empty());
 }
 
 #[test]
