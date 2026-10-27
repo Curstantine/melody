@@ -933,7 +933,7 @@ impl SettingsView {
 
         let linear_interp_row = row![
             column![
-                text(theme_cfg, "Linear phase interpolation")
+                text(theme_cfg, "Filter phase linear interpolation")
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
                 text(

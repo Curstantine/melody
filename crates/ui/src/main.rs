@@ -62,17 +62,25 @@ fn main() -> iced::Result {
     let app_icon =
         iced::window::icon::from_file_data(include_bytes!("../../../assets/melody.png"), None).ok();
 
+    #[allow(unused_mut)]
+    let mut window_settings = window::Settings {
+        icon: app_icon,
+        size: iced::Size::new(width, height),
+        min_size: Some(iced::Size::new(1000.0, 520.0)),
+        position: window::Position::Centered,
+        ..Default::default()
+    };
+
+    #[cfg(target_os = "linux")]
+    {
+        window_settings.platform_specific.application_id = "melody".to_string();
+    }
+
     let mut builder = iced::application(App::new, App::update, App::view)
         .title(App::title)
         .theme(App::theme)
         .subscription(App::subscription)
-        .window(window::Settings {
-            icon: app_icon,
-            size: iced::Size::new(width, height),
-            min_size: Some(iced::Size::new(1000.0, 520.0)),
-            position: window::Position::Centered,
-            ..Default::default()
-        });
+        .window(window_settings);
 
     let config = config::AppConfig::load();
 

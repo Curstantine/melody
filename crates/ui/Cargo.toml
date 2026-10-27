@@ -27,6 +27,12 @@ path-guid = "0750FF61-7342-4681-8E6B-A349D2D293F6"
 upgrade-guid = "37AEE279-1BDE-4A0F-96B1-7145E5003745"
 product-icon = "wix/Product.ico"
 
+[package.metadata.winres]
+name = "Melody"
+FileDescription = "Melody"
+ProductName = "Melody"
+OriginalFilename = "melody.exe"
+
 [dependencies]
 core_engine.workspace = true
 audio.workspace = true
