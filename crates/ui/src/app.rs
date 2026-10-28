@@ -674,7 +674,6 @@ impl App {
                     self.current_tech_info = None;
                     self.now_playing.set_lyrics(None);
                     self.sync_now_playing();
-                    self.sync_now_playing();
 
                     // Notify plugins synchronously (cheap state updates).
                     self.plugin_manager.on_track_change(&TrackMetadata {
