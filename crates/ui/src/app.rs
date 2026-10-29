@@ -2859,7 +2859,7 @@ impl App {
                 self.scrobble_config.scrobble_percent = pct;
                 self.listenbrainz_plugin.set_scrobble_percent(pct);
                 self.lastfm_plugin.set_scrobble_percent(pct);
-                self.save_config_task()
+                Task::none()
             }
 
             Message::TestScrobble(service) => {

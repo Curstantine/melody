@@ -43,8 +43,8 @@ pub const SPACE_MD: f32 = 6.0;
 pub const SPACE_LG: f32 = 10.0;
 
 pub const TOGGLER_SIZE: f32 = 14.0;
-pub const SETTING_LABEL_WIDTH: f32 = 160.0;
 pub const SETTING_DROPDOWN_WIDTH: f32 = 250.0;
+pub const SETTING_SLIDER_WIDTH: f32 = 160.0;
 
 pub struct SettingsContext<'a> {
     pub theme_names: &'a [String],
@@ -500,16 +500,26 @@ impl SettingsView {
             theme_cfg,
             "Typography & font configuration",
             column![
-                column![
-                    text(theme_cfg, "Select font family")
-                        .size(12)
+                row![
+                    column![
+                        text(theme_cfg, "Select font family")
+                            .size(12)
+                            .color(theme_cfg.text_muted_color()),
+                        text(
+                            theme_cfg,
+                            "System font family used for UI text rendering and catalog metadata",
+                        )
+                        .size(11)
                         .color(theme_cfg.text_muted_color()),
-                    font_selector,
+                    ]
+                    .spacing(FORM_FIELD_SPACING)
+                    .width(Length::Fill),
+                    container(font_selector).width(Length::Fixed(SETTING_DROPDOWN_WIDTH)),
                 ]
-                .spacing(FORM_FIELD_SPACING),
+                .align_y(Alignment::Center),
                 sample_text_box,
             ]
-            .spacing(CARD_SPACING)
+            .spacing(SECTION_SPACING)
             .boxed(),
         );
 
@@ -534,10 +544,19 @@ impl SettingsView {
             theme_cfg,
             "Library tab",
             row![
-                text(theme_cfg, "Page limit")
-                    .size(12)
-                    .color(theme_cfg.text_muted_color())
-                    .width(Length::Fixed(SETTING_LABEL_WIDTH)),
+                column![
+                    text(theme_cfg, "Page limit")
+                        .size(12)
+                        .color(theme_cfg.text_muted_color()),
+                    text(
+                        theme_cfg,
+                        "Number of tracks fetched and rendered per viewport window",
+                    )
+                    .size(11)
+                    .color(theme_cfg.text_muted_color()),
+                ]
+                .spacing(FORM_FIELD_SPACING)
+                .width(Length::Fill),
                 page_size_buttons,
             ]
             .align_y(Alignment::Center)
@@ -545,6 +564,28 @@ impl SettingsView {
         );
 
         // 2. Albums Tab Section
+        let album_view_mode_row = row![
+            column![
+                text(theme_cfg, "Catalog view mode")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                text(
+                    theme_cfg,
+                    "Switch between grid tile card presentation and compact list table",
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .spacing(FORM_FIELD_SPACING)
+            .width(Length::Fill),
+            components::view_mode_toggle(
+                theme_cfg,
+                ctx.albums_view_mode,
+                Message::SetAlbumsViewMode,
+            ),
+        ]
+        .align_y(Alignment::Center);
+
         let album_tile_presets = [140, 170, 210, 260];
         let album_preset_buttons = {
             let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
@@ -561,50 +602,67 @@ impl SettingsView {
             r
         };
 
+        let album_tile_width_row = row![
+            column![
+                text(theme_cfg, "Tile width")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                text(theme_cfg, "Artwork card width for the album catalog grid",)
+                    .size(11)
+                    .color(theme_cfg.text_muted_color()),
+            ]
+            .spacing(FORM_FIELD_SPACING)
+            .width(Length::Fill),
+            row![
+                text(theme_cfg, format!("{} px", ctx.album_tile_width))
+                    .size(12)
+                    .color(theme_cfg.primary_color())
+                    .width(Length::Fixed(55.0)),
+                Space::new().width(SPACE_SM),
+                slider(120.0..=300.0, ctx.album_tile_width as f32, |val| {
+                    Message::SetAlbumTileWidth(val.round() as u32)
+                },)
+                .on_release(Message::SaveConfig)
+                .style(styles::settings_slider_style(theme_cfg))
+                .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
+                Space::new().width(SPACE_LG),
+                album_preset_buttons,
+            ]
+            .align_y(Alignment::Center),
+        ]
+        .align_y(Alignment::Center);
+
         let albums_tab_card = components::settings_card(
             theme_cfg,
             "Albums tab",
-            column![
-                row![
-                    text(theme_cfg, "Catalog view mode")
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(Length::Fixed(SETTING_LABEL_WIDTH)),
-                    components::view_mode_toggle(
-                        theme_cfg,
-                        ctx.albums_view_mode,
-                        Message::SetAlbumsViewMode,
-                    ),
-                ]
-                .align_y(Alignment::Center),
-                row![
-                    text(theme_cfg, "Tile width")
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(Length::Fixed(SETTING_LABEL_WIDTH)),
-                    row![
-                        slider(120.0..=300.0, ctx.album_tile_width as f32, |val| {
-                            Message::SetAlbumTileWidth(val.round() as u32)
-                        },)
-                        .on_release(Message::SaveConfig)
-                        .style(styles::settings_slider_style(theme_cfg))
-                        .width(Length::Fixed(SETTING_LABEL_WIDTH)),
-                        Space::new().width(SPACE_LG),
-                        text(theme_cfg, format!("{} px", ctx.album_tile_width))
-                            .size(12)
-                            .color(theme_cfg.primary_color())
-                            .width(Length::Fixed(55.0)),
-                        album_preset_buttons,
-                    ]
-                    .align_y(Alignment::Center),
-                ]
-                .align_y(Alignment::Center),
-            ]
-            .spacing(CARD_SPACING)
-            .boxed(),
+            column![album_view_mode_row, album_tile_width_row]
+                .spacing(SECTION_SPACING)
+                .boxed(),
         );
 
         // 3. Artists Tab Section
+        let artist_view_mode_row = row![
+            column![
+                text(theme_cfg, "Catalog view mode")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                text(
+                    theme_cfg,
+                    "Switch between grid tile card presentation and compact list table",
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .spacing(FORM_FIELD_SPACING)
+            .width(Length::Fill),
+            components::view_mode_toggle(
+                theme_cfg,
+                ctx.artists_view_mode,
+                Message::SetArtistsViewMode,
+            ),
+        ]
+        .align_y(Alignment::Center);
+
         let artist_tile_presets = [140, 160, 200, 240];
         let artist_preset_buttons = {
             let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
@@ -621,47 +679,42 @@ impl SettingsView {
             r
         };
 
+        let artist_tile_width_row = row![
+            column![
+                text(theme_cfg, "Tile width")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                text(theme_cfg, "Avatar card width for the artist catalog grid",)
+                    .size(11)
+                    .color(theme_cfg.text_muted_color()),
+            ]
+            .spacing(FORM_FIELD_SPACING)
+            .width(Length::Fill),
+            row![
+                text(theme_cfg, format!("{} px", ctx.artist_tile_width))
+                    .size(12)
+                    .color(theme_cfg.primary_color())
+                    .width(Length::Fixed(55.0)),
+                Space::new().width(SPACE_SM),
+                slider(120.0..=280.0, ctx.artist_tile_width as f32, |val| {
+                    Message::SetArtistTileWidth(val.round() as u32)
+                },)
+                .on_release(Message::SaveConfig)
+                .style(styles::settings_slider_style(theme_cfg))
+                .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
+                Space::new().width(SPACE_LG),
+                artist_preset_buttons,
+            ]
+            .align_y(Alignment::Center),
+        ]
+        .align_y(Alignment::Center);
+
         let artists_tab_card = components::settings_card(
             theme_cfg,
             "Artists tab",
-            column![
-                row![
-                    text(theme_cfg, "Catalog view mode")
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(Length::Fixed(SETTING_LABEL_WIDTH)),
-                    components::view_mode_toggle(
-                        theme_cfg,
-                        ctx.artists_view_mode,
-                        Message::SetArtistsViewMode,
-                    ),
-                ]
-                .align_y(Alignment::Center),
-                row![
-                    text(theme_cfg, "Tile width")
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(Length::Fixed(SETTING_LABEL_WIDTH)),
-                    row![
-                        slider(120.0..=280.0, ctx.artist_tile_width as f32, |val| {
-                            Message::SetArtistTileWidth(val.round() as u32)
-                        },)
-                        .on_release(Message::SaveConfig)
-                        .style(styles::settings_slider_style(theme_cfg))
-                        .width(Length::Fixed(SETTING_LABEL_WIDTH)),
-                        Space::new().width(SPACE_LG),
-                        text(theme_cfg, format!("{} px", ctx.artist_tile_width))
-                            .size(12)
-                            .color(theme_cfg.primary_color())
-                            .width(Length::Fixed(55.0)),
-                        artist_preset_buttons,
-                    ]
-                    .align_y(Alignment::Center),
-                ]
-                .align_y(Alignment::Center),
-            ]
-            .spacing(CARD_SPACING)
-            .boxed(),
+            column![artist_view_mode_row, artist_tile_width_row]
+                .spacing(SECTION_SPACING)
+                .boxed(),
         );
 
         // 4. Now Playing Section
@@ -684,29 +737,38 @@ impl SettingsView {
         let now_playing_card = components::settings_card(
             theme_cfg,
             "Now playing",
-            column![row![
-                text(theme_cfg, "Cover art dimension")
-                    .size(12)
-                    .color(theme_cfg.text_muted_color())
-                    .width(Length::Fixed(SETTING_LABEL_WIDTH)),
+            row![
+                column![
+                    text(theme_cfg, "Cover art dimension")
+                        .size(12)
+                        .color(theme_cfg.text_muted_color()),
+                    text(
+                        theme_cfg,
+                        "Maximum dimension of the album cover displayed in the Now Playing view",
+                    )
+                    .size(11)
+                    .color(theme_cfg.text_muted_color()),
+                ]
+                .spacing(FORM_FIELD_SPACING)
+                .width(Length::Fill),
                 row![
+                    text(theme_cfg, format!("{} px", ctx.now_playing_cover_size))
+                        .size(12)
+                        .color(theme_cfg.primary_color())
+                        .width(Length::Fixed(55.0)),
+                    Space::new().width(SPACE_SM),
                     slider(160.0..=320.0, ctx.now_playing_cover_size as f32, |val| {
                         Message::SetNowPlayingCoverSize(val.round() as u32)
                     },)
                     .on_release(Message::SaveConfig)
                     .style(styles::settings_slider_style(theme_cfg))
-                    .width(Length::Fixed(SETTING_LABEL_WIDTH)),
+                    .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
                     Space::new().width(SPACE_LG),
-                    text(theme_cfg, format!("{} px", ctx.now_playing_cover_size))
-                        .size(12)
-                        .color(theme_cfg.primary_color())
-                        .width(Length::Fixed(55.0)),
                     now_playing_preset_buttons,
                 ]
                 .align_y(Alignment::Center),
             ]
-            .align_y(Alignment::Center)]
-            .spacing(CARD_SPACING)
+            .align_y(Alignment::Center)
             .boxed(),
         );
 
@@ -784,7 +846,7 @@ impl SettingsView {
             .width(Length::Fill),
             slider(0.0..=1.0, ctx.volume, Message::VolumeChanged)
                 .style(styles::settings_slider_style(theme_cfg))
-                .width(Length::Fixed(SETTING_LABEL_WIDTH)),
+                .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
         ]
         .align_y(Alignment::Center);
 
@@ -1377,7 +1439,7 @@ impl SettingsView {
                 })
                 .on_release(Message::SaveConfig)
                 .style(styles::settings_slider_style(theme_cfg))
-                .width(Length::Fixed(SETTING_LABEL_WIDTH)),
+                .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
             ]
             .align_y(Alignment::Center),
         ]
