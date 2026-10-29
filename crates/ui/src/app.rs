@@ -384,6 +384,11 @@ impl App {
             ));
         }
 
+        initial_tasks.push(crate::window_decorations::sync_titlebar_theme(
+            None,
+            &app.theme_manager.current_config,
+        ));
+
         app.sync_status_strings();
         let initial_task = Task::batch(initial_tasks);
 
@@ -391,9 +396,14 @@ impl App {
     }
 
     pub fn title(&self) -> String {
-        match &self.current_track {
+        let base = match &self.current_track {
             Some(track) => format!("{} - {} | Melody", track.title, track.artist),
             None => "Melody".to_string(),
+        };
+        if core_engine::is_debug() {
+            format!("{base} [DEBUG]")
+        } else {
+            base
         }
     }
 
@@ -2724,12 +2734,21 @@ impl App {
 
             Message::SelectTheme(name) => {
                 self.theme_manager.set_theme(&name);
-                self.save_config_task()
+                Task::batch([
+                    self.save_config_task(),
+                    crate::window_decorations::sync_titlebar_theme(
+                        None,
+                        &self.theme_manager.current_config,
+                    ),
+                ])
             }
 
             Message::ReloadThemes => {
                 self.theme_manager.load_all_themes();
-                Task::none()
+                crate::window_decorations::sync_titlebar_theme(
+                    None,
+                    &self.theme_manager.current_config,
+                )
             }
 
             Message::SelectLayout(name) => {

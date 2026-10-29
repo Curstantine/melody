@@ -76,5 +76,11 @@ tracing-tracy = { workspace = true, optional = true }
 default = []
 tracy = ["dep:tracy-client", "dep:tracing-tracy"]
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Graphics_Dwm",
+    "Win32_Foundation",
+] }
+
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"

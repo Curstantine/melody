@@ -2,9 +2,25 @@ use directories::ProjectDirs;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+/// Application name identifier used for storage directories and platform registration.
+/// In debug mode (`cfg(debug_assertions)`), uses `"melody.debug"` to keep dev sessions
+/// isolated from the production library, config, and state.
+pub fn app_name() -> &'static str {
+    if cfg!(debug_assertions) {
+        "melody.debug"
+    } else {
+        "melody"
+    }
+}
+
+/// Returns true if running in a debug build.
+pub fn is_debug() -> bool {
+    cfg!(debug_assertions)
+}
+
 /// Returns the primary `ProjectDirs` object for Melody, if resolvable by the platform.
 pub fn project_dirs() -> Option<ProjectDirs> {
-    ProjectDirs::from("moe", "curstantine", "melody")
+    ProjectDirs::from("moe", "curstantine", app_name())
 }
 
 static CONFIG_DIR: OnceLock<PathBuf> = OnceLock::new();
@@ -178,4 +194,29 @@ pub fn atomic_write(path: &Path, content: &str) -> std::io::Result<()> {
         std::fs::rename(&tmp_path, path)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_app_name_and_debug_isolation() {
+        if cfg!(debug_assertions) {
+            assert_eq!(app_name(), "melody.debug");
+            assert!(is_debug());
+        } else {
+            assert_eq!(app_name(), "melody");
+            assert!(!is_debug());
+        }
+
+        if let Some(proj) = project_dirs() {
+            let path_str = proj.config_dir().to_string_lossy();
+            assert!(
+                path_str.contains(app_name()),
+                "config dir {path_str} should contain {}",
+                app_name()
+            );
+        }
+    }
 }

@@ -338,14 +338,19 @@ mod linux {
                 .name("mpris-worker".to_string())
                 .spawn(move || {
                     async_io::block_on(async move {
-                        let server = match Server::new("melody", inner_clone).await {
+                        let bus_name = if cfg!(debug_assertions) {
+                            "melody.debug"
+                        } else {
+                            "melody"
+                        };
+                        let server = match Server::new(bus_name, inner_clone).await {
                             Ok(s) => s,
                             Err(e) => {
                                 error!("Failed to initialize MPRIS D-Bus server: {}", e);
                                 return;
                             }
                         };
-                        info!("MPRIS D-Bus server successfully registered on org.mpris.MediaPlayer2.melody");
+                        info!("MPRIS D-Bus server successfully registered on org.mpris.MediaPlayer2.{bus_name}");
 
                         // Worker loop handling signals and properties changed
                         loop {

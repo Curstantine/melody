@@ -13,6 +13,7 @@ mod queue;
 pub mod state;
 mod theme;
 mod views;
+mod window_decorations;
 
 #[cfg(feature = "tracy")]
 #[global_allocator]
@@ -73,7 +74,13 @@ fn main() -> iced::Result {
 
     #[cfg(target_os = "linux")]
     {
-        window_settings.platform_specific.application_id = "melody".to_string();
+        window_settings.platform_specific.application_id = core_engine::app_name().to_string();
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        window_settings.platform_specific.titlebar_transparent = true;
+        window_settings.platform_specific.fullsize_content_view = true;
     }
 
     let mut builder = iced::application(App::new, App::update, App::view)
