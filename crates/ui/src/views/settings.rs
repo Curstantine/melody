@@ -684,52 +684,28 @@ impl SettingsView {
         let now_playing_card = components::settings_card(
             theme_cfg,
             "Now playing",
-            column![
+            column![row![
+                text(theme_cfg, "Cover art dimension")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color())
+                    .width(Length::Fixed(SETTING_LABEL_WIDTH)),
                 row![
-                    text(theme_cfg, "Cover art dimension")
+                    slider(160.0..=320.0, ctx.now_playing_cover_size as f32, |val| {
+                        Message::SetNowPlayingCoverSize(val.round() as u32)
+                    },)
+                    .on_release(Message::SaveConfig)
+                    .style(styles::settings_slider_style(theme_cfg))
+                    .width(Length::Fixed(SETTING_LABEL_WIDTH)),
+                    Space::new().width(SPACE_LG),
+                    text(theme_cfg, format!("{} px", ctx.now_playing_cover_size))
                         .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(Length::Fixed(SETTING_LABEL_WIDTH)),
-                    row![
-                        slider(160.0..=320.0, ctx.now_playing_cover_size as f32, |val| {
-                            Message::SetNowPlayingCoverSize(val.round() as u32)
-                        },)
-                        .on_release(Message::SaveConfig)
-                        .style(styles::settings_slider_style(theme_cfg))
-                        .width(Length::Fixed(SETTING_LABEL_WIDTH)),
-                        Space::new().width(SPACE_LG),
-                        text(theme_cfg, format!("{} px", ctx.now_playing_cover_size))
-                            .size(12)
-                            .color(theme_cfg.primary_color())
-                            .width(Length::Fixed(55.0)),
-                        now_playing_preset_buttons,
-                    ]
-                    .align_y(Alignment::Center),
-                ]
-                .align_y(Alignment::Center),
-                row![
-                    text(theme_cfg, "Now playing notifications")
-                        .size(12)
-                        .color(theme_cfg.text_muted_color())
-                        .width(Length::Fixed(SETTING_LABEL_WIDTH)),
-                    components::chip_with_icon(
-                        theme_cfg,
-                        if ctx.submit_now_playing {
-                            icons::CHECK_SVG
-                        } else {
-                            icons::RADIO_SVG
-                        },
-                        if ctx.submit_now_playing {
-                            "Enabled"
-                        } else {
-                            "Disabled"
-                        },
-                        ctx.submit_now_playing,
-                        Message::ToggleSubmitNowPlaying(!ctx.submit_now_playing),
-                    ),
+                        .color(theme_cfg.primary_color())
+                        .width(Length::Fixed(55.0)),
+                    now_playing_preset_buttons,
                 ]
                 .align_y(Alignment::Center),
             ]
+            .align_y(Alignment::Center)]
             .spacing(CARD_SPACING)
             .boxed(),
         );
@@ -1355,37 +1331,64 @@ impl SettingsView {
         let header = components::settings_header(theme_cfg, "Scrobbling & social audio", Some("Track your listening habits and broadcast live playback status to ListenBrainz and Last.fm"));
 
         // 1. General Preferences Card
-        let prefs_card = components::settings_card(
-            theme_cfg,
-            "Scrobble preferences",
+        let submit_now_playing_row = row![
+            column![
+                text(theme_cfg, "Submit \"Now Playing\" status")
+                    .size(12)
+                    .color(theme_cfg.text_muted_color()),
+                text(
+                    theme_cfg,
+                    "Broadcast current track to active scrobbler profiles in real-time",
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
+            ]
+            .spacing(FORM_FIELD_SPACING)
+            .width(Length::Fill),
+            toggler(ctx.submit_now_playing)
+                .on_toggle(Message::ToggleSubmitNowPlaying)
+                .size(TOGGLER_SIZE)
+                .style(styles::toggler_style(theme_cfg)),
+        ]
+        .align_y(Alignment::Center);
+
+        let threshold_row = row![
             column![
                 text(theme_cfg, "Scrobble threshold")
                     .size(12)
                     .color(theme_cfg.text_muted_color()),
-                row![
-                    components::chip(
-                        theme_cfg,
-                        "50% (standard)",
-                        ctx.scrobble_percent == 50,
-                        Message::SetScrobblePercent(50),
-                    ),
-                    components::chip(
-                        theme_cfg,
-                        "75%",
-                        ctx.scrobble_percent == 75,
-                        Message::SetScrobblePercent(75),
-                    ),
-                    components::chip(
-                        theme_cfg,
-                        "100% (complete)",
-                        ctx.scrobble_percent == 100,
-                        Message::SetScrobblePercent(100),
-                    ),
-                ]
-                .spacing(CHIP_ROW_SPACING),
+                text(
+                    theme_cfg,
+                    "Percentage of track duration that must play before recording a scrobble",
+                )
+                .size(11)
+                .color(theme_cfg.text_muted_color()),
             ]
-            .spacing(CARD_SPACING)
-            .boxed(),
+            .spacing(FORM_FIELD_SPACING)
+            .width(Length::Fill),
+            row![
+                text(theme_cfg, format!("{}%", ctx.scrobble_percent))
+                    .size(12)
+                    .color(theme_cfg.primary_color())
+                    .width(Length::Fixed(45.0)),
+                Space::new().width(SPACE_SM),
+                slider(25.0..=100.0, ctx.scrobble_percent as f32, |val| {
+                    Message::SetScrobblePercent(val.round() as u32)
+                })
+                .on_release(Message::SaveConfig)
+                .style(styles::settings_slider_style(theme_cfg))
+                .width(Length::Fixed(SETTING_LABEL_WIDTH)),
+            ]
+            .align_y(Alignment::Center),
+        ]
+        .align_y(Alignment::Center);
+
+        let prefs_card = components::settings_card(
+            theme_cfg,
+            "Scrobble preferences",
+            column![submit_now_playing_row, threshold_row]
+                .spacing(SECTION_SPACING)
+                .boxed(),
         );
 
         // 2. ListenBrainz Card
