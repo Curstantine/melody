@@ -25,6 +25,8 @@ use iced::window;
 use tracing::info;
 
 fn main() -> iced::Result {
+    core_engine::init_app_start_time();
+
     // Initialize logging / tracing
     #[cfg(feature = "tracy")]
     {
@@ -83,13 +85,20 @@ fn main() -> iced::Result {
         window_settings.platform_specific.fullsize_content_view = true;
     }
 
-    let mut builder = iced::application(App::new, App::update, App::view)
-        .title(App::title)
-        .theme(App::theme)
-        .subscription(App::subscription)
-        .window(window_settings);
-
     let config = config::AppConfig::load();
+
+    let app_config = config.clone();
+    let app_state = state.clone();
+
+    let mut builder = iced::application(
+        move || App::new_with(app_config.clone(), app_state.clone()),
+        App::update,
+        App::view,
+    )
+    .title(App::title)
+    .theme(App::theme)
+    .subscription(App::subscription)
+    .window(window_settings);
 
     if let Some(ref font_name) = config.primary_font {
         info!("Setting default font from saved config to: {font_name}");

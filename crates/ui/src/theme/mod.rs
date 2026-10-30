@@ -476,24 +476,11 @@ impl ThemeManager {
             self.themes.insert(t.name.clone(), t);
         }
 
-        // Load from disk: local themes/ folder and config_dir themes/ folder
-        self.load_from_folder(Path::new("themes"));
-        if let Ok(exe_path) = std::env::current_exe() {
-            if let Some(exe_dir) = exe_path.parent() {
-                self.load_from_folder(&exe_dir.join("themes"));
-                self.load_from_folder(&exe_dir.join("../themes"));
-                self.load_from_folder(&exe_dir.join("../share/melody/themes"));
-            }
+        // Load from disk: bundled themes, then user themes directory
+        if let Some(bundled) = core_engine::bundled_themes_dir() {
+            self.load_from_folder(&bundled);
         }
-        let cfg_dir = Self::theme_dir();
-        self.load_from_folder(&cfg_dir);
-        if let Ok(xdg_dirs) = std::env::var("XDG_CONFIG_DIRS") {
-            for dir in xdg_dirs.split(':') {
-                self.load_from_folder(&Path::new(dir).join("melody").join("themes"));
-            }
-        }
-        self.load_from_folder(Path::new("/etc/xdg/melody/themes"));
-        self.load_from_folder(Path::new("/etc/melody/themes"));
+        self.load_from_folder(&Self::theme_dir());
 
         let saved_font = self.current_config.font_family.clone();
         if let Some(active) = self.themes.get(&self.active_theme_name) {

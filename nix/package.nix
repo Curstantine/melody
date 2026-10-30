@@ -62,14 +62,12 @@ rustPlatform.buildRustPackage {
 
   postInstall = ''
     # Install built-in themes and layouts
-    mkdir -p $out/share/melody/themes $out/share/melody/layouts $out/themes $out/layouts
+    mkdir -p $out/share/melody/themes $out/share/melody/layouts
     if [ -d themes ]; then
       cp -r themes/* $out/share/melody/themes/
-      cp -r themes/* $out/themes/
     fi
     if [ -d layouts ]; then
       cp -r layouts/* $out/share/melody/layouts/
-      cp -r layouts/* $out/layouts/
     fi
 
     # Install desktop file and icons

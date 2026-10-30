@@ -92,7 +92,22 @@ impl LibraryDatabase {
         Ok(library_db)
     }
 
+    pub const SCHEMA_VERSION: i32 = 1;
+
     pub async fn init_schema(&self) -> Result<(), DbError> {
+        let current_version: i32 = {
+            let mut rows = self.conn.query("PRAGMA user_version;", ()).await?;
+            if let Some(row) = rows.next().await? {
+                row.get::<i32>(0).unwrap_or(0)
+            } else {
+                0
+            }
+        };
+
+        if current_version >= Self::SCHEMA_VERSION {
+            return Ok(());
+        }
+
         self.conn
             .execute_batch(
                 r#"
@@ -219,7 +234,18 @@ impl LibraryDatabase {
             )
             .await;
 
-        info!("Database schema initialized successfully");
+        let _ = self
+            .conn
+            .execute(
+                &format!("PRAGMA user_version = {};", Self::SCHEMA_VERSION),
+                (),
+            )
+            .await;
+
+        info!(
+            "Database schema initialized successfully (version {})",
+            Self::SCHEMA_VERSION
+        );
         Ok(())
     }
 

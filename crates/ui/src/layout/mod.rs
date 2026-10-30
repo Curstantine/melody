@@ -54,30 +54,11 @@ impl LayoutManager {
         self.layouts
             .insert(default_template.name.clone(), default_template.clone());
 
-        // 2. Load from disk: local layouts/ folder and config_dir layouts/ folder
-        for candidate in &[
-            Path::new("layouts"),
-            Path::new("../layouts"),
-            Path::new("../../layouts"),
-        ] {
-            self.load_from_folder(candidate);
+        // 2. Load from disk: bundled layouts, then user layouts directory
+        if let Some(bundled) = core_engine::bundled_layouts_dir() {
+            self.load_from_folder(&bundled);
         }
-        if let Ok(exe_path) = std::env::current_exe() {
-            if let Some(exe_dir) = exe_path.parent() {
-                self.load_from_folder(&exe_dir.join("layouts"));
-                self.load_from_folder(&exe_dir.join("../layouts"));
-                self.load_from_folder(&exe_dir.join("../share/melody/layouts"));
-            }
-        }
-        let cfg_dir = Self::layout_dir();
-        self.load_from_folder(&cfg_dir);
-        if let Ok(xdg_dirs) = std::env::var("XDG_CONFIG_DIRS") {
-            for dir in xdg_dirs.split(':') {
-                self.load_from_folder(&Path::new(dir).join("melody").join("layouts"));
-            }
-        }
-        self.load_from_folder(Path::new("/etc/xdg/melody/layouts"));
-        self.load_from_folder(Path::new("/etc/melody/layouts"));
+        self.load_from_folder(&Self::layout_dir());
 
         // 3. Refresh active layout template
         if let Some(active) = self.layouts.get(&self.active_layout_name) {

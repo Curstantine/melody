@@ -159,6 +159,147 @@ pub fn user_layouts_dir() -> PathBuf {
         .clone()
 }
 
+/// Returns the bundled themes directory if found.
+///
+/// Returns the first existing hit:
+/// - Windows: WiX installation directory (`[APPLICATIONFOLDER]\themes`, i.e. `<exe_dir>/../themes`).
+/// - Linux / NixOS: `/share/melody/themes` relative to the installation prefix (`<exe_dir>/../share/melody/themes`
+///   or `/usr/share/melody/themes`, `/usr/local/share/melody/themes`).
+/// - macOS: `../Resources/themes` relative to executable.
+///
+/// In debug mode (`cfg!(debug_assertions)`), also falls back to local workspace paths
+/// (`themes`, `../themes`, `../../themes`) to support local development and tests.
+pub fn bundled_themes_dir() -> Option<PathBuf> {
+    // 1. Executable-relative installation directories (WiX installer on Windows, NixOS/FHS packages)
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            #[cfg(windows)]
+            {
+                let candidate = exe_dir.join("../themes");
+                if candidate.is_dir() {
+                    return Some(candidate);
+                }
+            }
+
+            #[cfg(target_os = "macos")]
+            {
+                let candidate = exe_dir.join("../Resources/themes");
+                if candidate.is_dir() {
+                    return Some(candidate);
+                }
+            }
+
+            #[cfg(not(any(windows, target_os = "macos")))]
+            {
+                let candidate = exe_dir.join("../share/melody/themes");
+                if candidate.is_dir() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
+    // 2. System-wide /share/melody/themes directories (Linux / FHS / XDG)
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        if let Ok(xdg_dirs) = std::env::var("XDG_DATA_DIRS") {
+            for dir in xdg_dirs.split(':') {
+                let path = Path::new(dir).join("melody").join("themes");
+                if path.is_dir() {
+                    return Some(path);
+                }
+            }
+        }
+    }
+
+    // 3. Development / debug fallback: search relative to working directory
+    #[cfg(debug_assertions)]
+    {
+        for rel in &[
+            Path::new("themes"),
+            Path::new("../themes"),
+            Path::new("../../themes"),
+        ] {
+            if rel.is_dir() {
+                return Some(rel.to_path_buf());
+            }
+        }
+    }
+
+    None
+}
+
+/// Returns the bundled layouts directory if found.
+///
+/// Returns the first existing hit:
+/// - Windows: WiX installation directory (`[APPLICATIONFOLDER]\layouts`, i.e. `<exe_dir>/../layouts`).
+/// - Linux / NixOS: `/share/melody/layouts` relative to the installation prefix (`<exe_dir>/../share/melody/layouts`
+///   or `/usr/share/melody/layouts`, `/usr/local/share/melody/layouts`).
+/// - macOS: `../Resources/layouts` relative to executable.
+///
+/// In debug mode (`cfg!(debug_assertions)`), also falls back to local workspace paths
+/// (`layouts`, `../layouts`, `../../layouts`) to support local development and tests.
+pub fn bundled_layouts_dir() -> Option<PathBuf> {
+    // 1. Executable-relative installation directories (WiX installer on Windows, NixOS/FHS packages)
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            #[cfg(windows)]
+            {
+                // WiX installs binary to [APPLICATIONFOLDER]\bin\melody.exe and layouts to [APPLICATIONFOLDER]\layouts
+                let candidate = exe_dir.join("../layouts");
+                if candidate.is_dir() {
+                    return Some(candidate);
+                }
+            }
+
+            #[cfg(target_os = "macos")]
+            {
+                let candidate = exe_dir.join("../Resources/layouts");
+                if candidate.is_dir() {
+                    return Some(candidate);
+                }
+            }
+
+            #[cfg(not(any(windows, target_os = "macos")))]
+            {
+                let candidate = exe_dir.join("../share/melody/layouts");
+                if candidate.is_dir() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
+    // 2. System-wide /share/melody/layouts directories (Linux / FHS / XDG)
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        let xdg_dirs = std::env::var("XDG_DATA_DIRS")
+            .unwrap_or_else(|_| "/usr/local/share:/usr/share".to_string());
+        for dir in xdg_dirs.split(':') {
+            let path = Path::new(dir).join("melody").join("layouts");
+            if path.is_dir() {
+                return Some(path);
+            }
+        }
+    }
+
+    // 3. Development / debug fallback: search relative to working directory
+    #[cfg(debug_assertions)]
+    {
+        for rel in &[
+            Path::new("layouts"),
+            Path::new("../layouts"),
+            Path::new("../../layouts"),
+        ] {
+            if rel.is_dir() {
+                return Some(rel.to_path_buf());
+            }
+        }
+    }
+
+    None
+}
+
 /// Directory where Melody-managed `.m3u8` playlist files are stored.
 ///
 /// External playlists may be referenced from anywhere on disk; this directory
@@ -218,5 +359,12 @@ mod tests {
                 app_name()
             );
         }
+    }
+
+    #[test]
+    fn test_bundled_paths_discovery() {
+        // When running in workspace root, "themes" and "layouts" exist
+        assert!(bundled_themes_dir().is_some());
+        assert!(bundled_layouts_dir().is_some());
     }
 }

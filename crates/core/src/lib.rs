@@ -21,9 +21,9 @@ pub use model::{
     SortDirection, SortField, Track, TrackIdHeader, TrackRow,
 };
 pub use paths::{
-    app_name, atomic_write, cache_dir, config_dir, config_file, data_dir, database_file, is_debug,
-    playlists_dir, project_dirs, state_dir, state_file, thumbnail_cache_dir, user_layouts_dir,
-    user_themes_dir,
+    app_name, atomic_write, bundled_layouts_dir, bundled_themes_dir, cache_dir, config_dir,
+    config_file, data_dir, database_file, is_debug, playlists_dir, project_dirs, state_dir,
+    state_file, thumbnail_cache_dir, user_layouts_dir, user_themes_dir,
 };
 pub use playlist::{
     append_tracks_to_m3u, is_supported_playlist_file, normalize_path, parse_m3u,
@@ -38,3 +38,18 @@ pub use thumbnail::{
     THUMB_DIM_HIGH,
 };
 pub use watcher::{LibraryWatcher, WatcherError};
+
+static APP_START_TIME: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+
+/// Record the startup instant if not already set, returning the start time.
+pub fn init_app_start_time() -> std::time::Instant {
+    *APP_START_TIME.get_or_init(std::time::Instant::now)
+}
+
+/// Duration elapsed since `init_app_start_time` was first invoked.
+pub fn elapsed_since_app_start() -> std::time::Duration {
+    APP_START_TIME
+        .get()
+        .map(|t| t.elapsed())
+        .unwrap_or_default()
+}

@@ -148,7 +148,8 @@ pub struct App {
 }
 
 impl App {
-    pub fn new() -> (Self, Task<Message>) {
+    pub fn new_with(config: AppConfig, state: AppState) -> (Self, Task<Message>) {
+        let t_new = std::time::Instant::now();
         info!("Initializing Melody Native Player application");
 
         let db_path = get_database_path();
@@ -162,9 +163,6 @@ impl App {
                     .expect("In-memory database failed")
             })
         });
-
-        let config = AppConfig::load();
-        let state = AppState::load();
 
         let audio_engine = AudioEngine::new();
         let audio_controller = audio_engine.controller();
@@ -391,6 +389,12 @@ impl App {
 
         app.sync_status_strings();
         let initial_task = Task::batch(initial_tasks);
+
+        info!(
+            "App loaded in {:?} (+{:?} since process start)",
+            t_new.elapsed(),
+            core_engine::elapsed_since_app_start()
+        );
 
         (app, initial_task)
     }
