@@ -896,7 +896,7 @@ impl LibraryDatabase {
             let created_timestamp: i64 = row.get(4)?;
             let modified_timestamp: i64 = row.get(5)?;
 
-            let managed = Path::new(&file_path).starts_with(&managed_dir);
+            let managed = Path::new(&file_path).starts_with(managed_dir);
             playlists.push(PlaylistSummary {
                 id,
                 name,

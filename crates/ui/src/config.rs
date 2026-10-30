@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tracing::{error, info};
 
 use crate::message::ViewTab;
@@ -212,14 +212,10 @@ impl Default for AppConfig {
 }
 
 impl AppConfig {
-    pub fn config_path() -> PathBuf {
-        core_engine::config_file()
-    }
-
     pub fn load() -> Self {
-        let path = Self::config_path();
+        let path = core_engine::config_file();
         if path.exists() {
-            return Self::load_from_path(&path);
+            return Self::load_from_path(path);
         }
 
         // Check system-wide XDG configuration directories as fallback
@@ -242,7 +238,7 @@ impl AppConfig {
             }
         }
 
-        Self::load_from_path(&path)
+        Self::load_from_path(path)
     }
 
     pub fn load_from_path(path: &Path) -> Self {
@@ -277,8 +273,8 @@ impl AppConfig {
     }
 
     pub fn save(&self) {
-        let path = Self::config_path();
-        self.save_to_path(&path);
+        let path = core_engine::config_file();
+        self.save_to_path(path);
     }
 
     pub fn save_to_path(&self, path: &Path) {

@@ -2,7 +2,7 @@ pub mod schema;
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use tracing::{error, info, warn};
 
@@ -44,10 +44,6 @@ impl LayoutManager {
         manager
     }
 
-    pub fn layout_dir() -> PathBuf {
-        core_engine::user_layouts_dir()
-    }
-
     pub fn load_all_layouts(&mut self) {
         // 1. Register builtin default layout
         let default_template = LayoutTemplate::default();
@@ -58,7 +54,7 @@ impl LayoutManager {
         if let Some(bundled) = core_engine::bundled_layouts_dir() {
             self.load_from_folder(&bundled);
         }
-        self.load_from_folder(&Self::layout_dir());
+        self.load_from_folder(core_engine::user_layouts_dir());
 
         // 3. Refresh active layout template
         if let Some(active) = self.layouts.get(&self.active_layout_name) {

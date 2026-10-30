@@ -21,9 +21,9 @@ pub use model::{
     SortDirection, SortField, Track, TrackIdHeader, TrackRow,
 };
 pub use paths::{
-    app_name, atomic_write, bundled_layouts_dir, bundled_themes_dir, cache_dir, config_dir,
-    config_file, data_dir, database_file, is_debug, playlists_dir, project_dirs, state_dir,
-    state_file, thumbnail_cache_dir, user_layouts_dir, user_themes_dir,
+    app_name, app_paths, atomic_write, bundled_layouts_dir, bundled_themes_dir, cache_dir,
+    config_dir, config_file, data_dir, database_file, is_debug, playlists_dir, project_dirs,
+    state_dir, state_file, thumbnail_cache_dir, user_layouts_dir, user_themes_dir, AppPaths,
 };
 pub use playlist::{
     append_tracks_to_m3u, is_supported_playlist_file, normalize_path, parse_m3u,

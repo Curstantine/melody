@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tracing::{error, info};
 
 use crate::message::{
@@ -99,20 +99,16 @@ impl AppState {
             None
         }
     }
-    pub fn state_path() -> PathBuf {
-        core_engine::state_file()
-    }
-
     pub fn load() -> Self {
-        let path = Self::state_path();
+        let path = core_engine::state_file();
         if path.exists() {
-            Self::load_from_path(&path)
+            Self::load_from_path(path)
         } else {
             // Backward-compatibility: if state.toml does not exist, attempt to load legacy
             // state properties previously stored in config.toml before falling back to defaults.
             let legacy_config = core_engine::config_file();
             if legacy_config.exists() {
-                if let Ok(content) = fs::read_to_string(&legacy_config) {
+                if let Ok(content) = fs::read_to_string(legacy_config) {
                     if let Ok(state) = toml::from_str::<Self>(&content) {
                         info!(
                             "Migrated runtime state from legacy config at {:?}",
@@ -158,8 +154,8 @@ impl AppState {
     }
 
     pub fn save(&self) {
-        let path = Self::state_path();
-        self.save_to_path(&path);
+        let path = core_engine::state_file();
+        self.save_to_path(path);
     }
 
     pub fn save_to_path(&self, path: &Path) {

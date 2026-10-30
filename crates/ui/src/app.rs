@@ -57,9 +57,9 @@ pub struct DuplicatePromptState {
 
 pub struct App {
     pub(crate) db: LibraryDatabase,
-    pub(crate) db_path: PathBuf,
-    pub(crate) config_path: PathBuf,
-    pub(crate) state_path: PathBuf,
+    pub(crate) db_path: &'static Path,
+    pub(crate) config_path: &'static Path,
+    pub(crate) state_path: &'static Path,
     pub(crate) _audio_engine: AudioEngine,
     pub(crate) audio_controller: AudioController,
     pub(crate) plugin_manager: PluginManager,
@@ -152,7 +152,7 @@ impl App {
         let t_new = std::time::Instant::now();
         info!("Initializing Melody Native Player application");
 
-        let db_path = get_database_path();
+        let db_path = core_engine::database_file();
         info!("Using SQLite database at: {:?}", db_path);
 
         let db = tokio::runtime::Handle::current().block_on(async {
@@ -198,8 +198,8 @@ impl App {
         let mut layout_manager = LayoutManager::new();
         layout_manager.select_layout(&config.layout_name);
 
-        let config_path = AppConfig::config_path();
-        let state_path = AppState::state_path();
+        let config_path = core_engine::config_file();
+        let state_path = core_engine::state_file();
 
         let library = LibraryView::new(config.page_size);
         let albums = AlbumsView::with_tile_width(
@@ -1841,13 +1841,13 @@ impl App {
             Message::ClearThumbnailCache => {
                 info!("Purging thumbnail disk and GPU cache");
                 self.albums.clear_covers();
-                let db_path = self.db_path.clone();
+                let db_path = self.db_path;
                 Task::perform(
                     async move {
                         tokio::task::spawn_blocking(move || {
                             let _ = core_engine::clear_thumbnail_cache();
                             let stats = core_engine::get_thumbnail_cache_stats();
-                            let db_size = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+                            let db_size = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
                             (stats, db_size)
                         })
                         .await
@@ -3509,11 +3509,11 @@ impl App {
 
     pub fn save_config_task(&self) -> Task<Message> {
         let config = self.to_config();
-        let path = self.config_path.clone();
+        let path = self.config_path;
         Task::perform(
             async move {
                 tokio::task::spawn_blocking(move || {
-                    config.save_to_path(&path);
+                    config.save_to_path(path);
                 })
                 .await
                 .ok();
@@ -3536,11 +3536,11 @@ impl App {
 
     pub fn save_state_task(&self) -> Task<Message> {
         let state = self.to_state();
-        let path = self.state_path.clone();
+        let path = self.state_path;
         Task::perform(
             async move {
                 tokio::task::spawn_blocking(move || {
-                    state.save_to_path(&path);
+                    state.save_to_path(path);
                 })
                 .await
                 .ok();
@@ -3564,12 +3564,12 @@ impl App {
     /// Refreshes thumbnail-cache and database-size telemetry off the UI thread.
     /// Called only when the relevant screens/actions occur instead of every frame.
     fn load_storage_stats_task(&self) -> Task<Message> {
-        let db_path = self.db_path.clone();
+        let db_path = self.db_path;
         Task::perform(
             async move {
                 tokio::task::spawn_blocking(move || {
                     let stats = core_engine::get_thumbnail_cache_stats();
-                    let db_size = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+                    let db_size = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
                     (stats, db_size)
                 })
                 .await
@@ -4028,10 +4028,6 @@ impl App {
         }
         iced::widget::stack(layers).boxed()
     }
-}
-
-fn get_database_path() -> PathBuf {
-    core_engine::database_file()
 }
 
 /// Parses an M3U file and matches its entries against indexed library tracks.

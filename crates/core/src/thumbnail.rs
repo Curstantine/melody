@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use image::codecs::jpeg::JpegEncoder;
 use md5::{Digest, Md5};
@@ -13,7 +13,7 @@ pub const THUMB_DIM_HIGH: u32 = 300;
 pub const EXCEPTION_MIN_SIZE: usize = 100_000;
 
 /// Returns the platform-specific directory where cover thumbnails are cached on disk
-pub fn thumbnail_cache_dir() -> PathBuf {
+pub fn thumbnail_cache_dir() -> &'static Path {
     paths::thumbnail_cache_dir()
 }
 
@@ -71,7 +71,7 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
         Some(bytes) if !bytes.is_empty() => bytes,
         _ => {
             // Write negative marker to prevent re-probing expensive container metadata
-            let _ = fs::create_dir_all(&cache_dir);
+            let _ = fs::create_dir_all(cache_dir);
             let _ = fs::write(&none_marker, b"");
             return None;
         }
@@ -92,7 +92,7 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
                 .write_with_encoder(JpegEncoder::new_with_quality(&mut out_bytes, quality))
                 .is_ok()
             {
-                let _ = fs::create_dir_all(&cache_dir);
+                let _ = fs::create_dir_all(cache_dir);
                 let _ = fs::write(&thumb_file, &out_bytes);
                 let _ = fs::remove_file(&none_marker);
 

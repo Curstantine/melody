@@ -2,7 +2,7 @@ pub mod styles;
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use iced::{theme::palette::Seed, Color, Theme};
 use serde::{Deserialize, Serialize};
@@ -464,10 +464,6 @@ impl ThemeManager {
         manager
     }
 
-    pub fn theme_dir() -> PathBuf {
-        core_engine::user_themes_dir()
-    }
-
     pub fn load_all_themes(&mut self) {
         // First register default builtin theme
         let defaults = vec![ThemeConfig::default()];
@@ -480,7 +476,7 @@ impl ThemeManager {
         if let Some(bundled) = core_engine::bundled_themes_dir() {
             self.load_from_folder(&bundled);
         }
-        self.load_from_folder(&Self::theme_dir());
+        self.load_from_folder(core_engine::user_themes_dir());
 
         let saved_font = self.current_config.font_family.clone();
         if let Some(active) = self.themes.get(&self.active_theme_name) {

@@ -19,36 +19,97 @@ pub fn is_debug() -> bool {
 }
 
 /// Returns the primary `ProjectDirs` object for Melody, if resolvable by the platform.
-pub fn project_dirs() -> Option<ProjectDirs> {
-    ProjectDirs::from("moe", "curstantine", app_name())
+pub fn project_dirs() -> Option<&'static ProjectDirs> {
+    app_paths().project_dirs.as_ref()
 }
 
-static CONFIG_DIR: OnceLock<PathBuf> = OnceLock::new();
-static DATA_DIR: OnceLock<PathBuf> = OnceLock::new();
-static STATE_DIR: OnceLock<PathBuf> = OnceLock::new();
-static CACHE_DIR: OnceLock<PathBuf> = OnceLock::new();
-static THUMBNAIL_CACHE_DIR: OnceLock<PathBuf> = OnceLock::new();
-static USER_THEMES_DIR: OnceLock<PathBuf> = OnceLock::new();
-static USER_LAYOUTS_DIR: OnceLock<PathBuf> = OnceLock::new();
-static PLAYLISTS_DIR: OnceLock<PathBuf> = OnceLock::new();
+/// Resolved and prepared filesystem paths for Melody.
+pub struct AppPaths {
+    pub project_dirs: Option<ProjectDirs>,
+    pub config_dir: PathBuf,
+    pub data_dir: PathBuf,
+    pub state_dir: PathBuf,
+    pub cache_dir: PathBuf,
+    pub config_file: PathBuf,
+    pub state_file: PathBuf,
+    pub database_file: PathBuf,
+    pub thumbnail_cache_dir: PathBuf,
+    pub user_themes_dir: PathBuf,
+    pub user_layouts_dir: PathBuf,
+    pub playlists_dir: PathBuf,
+}
+
+impl AppPaths {
+    fn initialize() -> Self {
+        let proj = ProjectDirs::from("moe", "curstantine", app_name());
+
+        let (config_dir, data_dir, state_dir, cache_dir) = if let Some(ref p) = proj {
+            let cfg = p.config_dir().to_path_buf();
+            let data = p.data_dir().to_path_buf();
+            let state = p
+                .state_dir()
+                .map(|s| s.to_path_buf())
+                .unwrap_or_else(|| p.data_dir().to_path_buf());
+            let cache = p.cache_dir().to_path_buf();
+            (cfg, data, state, cache)
+        } else {
+            (
+                PathBuf::from("."),
+                PathBuf::from("."),
+                PathBuf::from("."),
+                PathBuf::from(".cache"),
+            )
+        };
+
+        let config_file = config_dir.join("config.toml");
+        let state_file = state_dir.join("state.toml");
+        let database_file = data_dir.join("library.db");
+        let thumbnail_cache_dir = cache_dir.join("thumbnails");
+        let user_themes_dir = config_dir.join("themes");
+        let user_layouts_dir = config_dir.join("layouts");
+        let playlists_dir = data_dir.join("playlists");
+
+        // Ensure directories exist
+        let _ = std::fs::create_dir_all(&config_dir);
+        let _ = std::fs::create_dir_all(&data_dir);
+        let _ = std::fs::create_dir_all(&state_dir);
+        let _ = std::fs::create_dir_all(&cache_dir);
+        let _ = std::fs::create_dir_all(&thumbnail_cache_dir);
+        let _ = std::fs::create_dir_all(&user_themes_dir);
+        let _ = std::fs::create_dir_all(&user_layouts_dir);
+        let _ = std::fs::create_dir_all(&playlists_dir);
+
+        Self {
+            project_dirs: proj,
+            config_dir,
+            data_dir,
+            state_dir,
+            cache_dir,
+            config_file,
+            state_file,
+            database_file,
+            thumbnail_cache_dir,
+            user_themes_dir,
+            user_layouts_dir,
+            playlists_dir,
+        }
+    }
+}
+
+static APP_PATHS: OnceLock<AppPaths> = OnceLock::new();
+
+/// Returns the globally resolved [`AppPaths`] instance, initializing on first access.
+pub fn app_paths() -> &'static AppPaths {
+    APP_PATHS.get_or_init(AppPaths::initialize)
+}
 
 /// Directory where application configuration files (e.g. `config.toml`, themes) reside.
 ///
 /// On Linux: `~/.config/melody`
 /// On macOS: `~/Library/Application Support/moe.curstantine.melody`
 /// On Windows: `AppData/Roaming/curstantine/melody/config`
-pub fn config_dir() -> PathBuf {
-    CONFIG_DIR
-        .get_or_init(|| {
-            if let Some(proj) = project_dirs() {
-                let dir = proj.config_dir().to_path_buf();
-                let _ = std::fs::create_dir_all(&dir);
-                dir
-            } else {
-                PathBuf::from(".")
-            }
-        })
-        .clone()
+pub fn config_dir() -> &'static Path {
+    &app_paths().config_dir
 }
 
 /// Directory where persistent application data (e.g. `library.db`) resides.
@@ -56,18 +117,8 @@ pub fn config_dir() -> PathBuf {
 /// On Linux: `~/.local/share/melody`
 /// On macOS: `~/Library/Application Support/moe.curstantine.melody`
 /// On Windows: `AppData/Roaming/curstantine/melody/data`
-pub fn data_dir() -> PathBuf {
-    DATA_DIR
-        .get_or_init(|| {
-            if let Some(proj) = project_dirs() {
-                let dir = proj.data_dir().to_path_buf();
-                let _ = std::fs::create_dir_all(&dir);
-                dir
-            } else {
-                PathBuf::from(".")
-            }
-        })
-        .clone()
+pub fn data_dir() -> &'static Path {
+    &app_paths().data_dir
 }
 
 /// Directory where persistent runtime state files (e.g. `state.toml`) reside.
@@ -75,21 +126,8 @@ pub fn data_dir() -> PathBuf {
 /// On Linux: `~/.local/state/melody`
 /// On macOS: `~/Library/Application Support/moe.curstantine.melody`
 /// On Windows: `AppData/Roaming/curstantine/melody/data`
-pub fn state_dir() -> PathBuf {
-    STATE_DIR
-        .get_or_init(|| {
-            if let Some(proj) = project_dirs() {
-                let dir = proj
-                    .state_dir()
-                    .map(|p| p.to_path_buf())
-                    .unwrap_or_else(|| proj.data_dir().to_path_buf());
-                let _ = std::fs::create_dir_all(&dir);
-                dir
-            } else {
-                PathBuf::from(".")
-            }
-        })
-        .clone()
+pub fn state_dir() -> &'static Path {
+    &app_paths().state_dir
 }
 
 /// Directory where ephemeral caches (e.g. downscaled cover art thumbnails) reside.
@@ -97,66 +135,38 @@ pub fn state_dir() -> PathBuf {
 /// On Linux: `~/.cache/melody`
 /// On macOS: `~/Library/Caches/moe.curstantine.melody`
 /// On Windows: `AppData/Local/curstantine/melody/cache`
-pub fn cache_dir() -> PathBuf {
-    CACHE_DIR
-        .get_or_init(|| {
-            if let Some(proj) = project_dirs() {
-                let dir = proj.cache_dir().to_path_buf();
-                let _ = std::fs::create_dir_all(&dir);
-                dir
-            } else {
-                PathBuf::from(".cache")
-            }
-        })
-        .clone()
+pub fn cache_dir() -> &'static Path {
+    &app_paths().cache_dir
 }
 
 /// Path to the main application configuration file (`config.toml`).
-pub fn config_file() -> PathBuf {
-    config_dir().join("config.toml")
+pub fn config_file() -> &'static Path {
+    &app_paths().config_file
 }
 
 /// Path to the application runtime state file (`state.toml`).
-pub fn state_file() -> PathBuf {
-    state_dir().join("state.toml")
+pub fn state_file() -> &'static Path {
+    &app_paths().state_file
 }
 
 /// Path to the SQLite / libSQL library database file (`library.db`).
-pub fn database_file() -> PathBuf {
-    data_dir().join("library.db")
+pub fn database_file() -> &'static Path {
+    &app_paths().database_file
 }
 
 /// Directory where cached album artwork thumbnails are stored.
-pub fn thumbnail_cache_dir() -> PathBuf {
-    THUMBNAIL_CACHE_DIR
-        .get_or_init(|| {
-            let dir = cache_dir().join("thumbnails");
-            let _ = std::fs::create_dir_all(&dir);
-            dir
-        })
-        .clone()
+pub fn thumbnail_cache_dir() -> &'static Path {
+    &app_paths().thumbnail_cache_dir
 }
 
 /// User directory where custom runtime TOML themes are placed.
-pub fn user_themes_dir() -> PathBuf {
-    USER_THEMES_DIR
-        .get_or_init(|| {
-            let dir = config_dir().join("themes");
-            let _ = std::fs::create_dir_all(&dir);
-            dir
-        })
-        .clone()
+pub fn user_themes_dir() -> &'static Path {
+    &app_paths().user_themes_dir
 }
 
 /// User directory where custom runtime KDL layouts are placed.
-pub fn user_layouts_dir() -> PathBuf {
-    USER_LAYOUTS_DIR
-        .get_or_init(|| {
-            let dir = config_dir().join("layouts");
-            let _ = std::fs::create_dir_all(&dir);
-            dir
-        })
-        .clone()
+pub fn user_layouts_dir() -> &'static Path {
+    &app_paths().user_layouts_dir
 }
 
 /// Returns the bundled themes directory if found.
@@ -304,14 +314,8 @@ pub fn bundled_layouts_dir() -> Option<PathBuf> {
 ///
 /// External playlists may be referenced from anywhere on disk; this directory
 /// holds only the playlists the application itself creates or saves.
-pub fn playlists_dir() -> PathBuf {
-    PLAYLISTS_DIR
-        .get_or_init(|| {
-            let dir = data_dir().join("playlists");
-            let _ = std::fs::create_dir_all(&dir);
-            dir
-        })
-        .clone()
+pub fn playlists_dir() -> &'static Path {
+    &app_paths().playlists_dir
 }
 
 /// Atomically writes content to the target path by writing to a temporary file
@@ -320,20 +324,14 @@ pub fn atomic_write(path: &Path, content: &str) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let tmp_path = path.with_extension(format!("tmp.{}", std::process::id()));
-    std::fs::write(&tmp_path, content)?;
 
-    #[cfg(windows)]
-    {
-        if std::fs::rename(&tmp_path, path).is_err() {
-            let _ = std::fs::remove_file(path);
-            std::fs::rename(&tmp_path, path)?;
-        }
-    }
-    #[cfg(not(windows))]
-    {
-        std::fs::rename(&tmp_path, path)?;
-    }
+    let ext = path.extension().map_or("tmp".to_string(), |x| {
+        format!("{}.{}.tmp", x.to_string_lossy(), std::process::id())
+    });
+    let tmp_path = path.with_extension(ext);
+    std::fs::write(&tmp_path, content)?;
+    std::fs::rename(&tmp_path, path)?;
+
     Ok(())
 }
 
