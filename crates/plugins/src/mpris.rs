@@ -519,3 +519,34 @@ mod linux {
 
 #[cfg(target_os = "linux")]
 pub use linux::MprisPlugin;
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::*;
+    use crate::manager::Plugin;
+    use crate::types::TrackMetadata;
+
+    #[test]
+    fn test_mpris_plugin_instantiation_and_metadata() {
+        let (tx, _rx) = crossbeam_channel::unbounded();
+        let mpris = MprisPlugin::new(tx);
+        assert_eq!(mpris.metadata().id, "builtin.mpris");
+
+        let meta = TrackMetadata {
+            title: "Test Track".to_string(),
+            artist: "Test Artist".to_string(),
+            album: "Test Album".to_string(),
+            duration_ms: 240000,
+            file_path: "/music/test.mp3".to_string(),
+        };
+
+        assert!(mpris.on_track_change(&meta).is_ok());
+        assert!(mpris.on_playback_status_change(true).is_ok());
+        assert!(mpris.on_position_change(5000).is_ok());
+        assert!(mpris.on_seeked(6000).is_ok());
+        assert!(mpris.on_volume_change(0.8).is_ok());
+        assert!(mpris.on_repeat_change(true).is_ok());
+        assert!(mpris.on_shuffle_change(true).is_ok());
+        assert!(mpris.on_playback_end().is_ok());
+    }
+}

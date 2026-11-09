@@ -280,7 +280,7 @@ impl LibraryView {
         self.update_status_strings();
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn find_row(&self, id: i64) -> Option<&TrackRow> {
         self.rows.iter().find(|t| t.id == id)
     }

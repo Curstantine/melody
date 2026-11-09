@@ -9,6 +9,7 @@ use crate::icons;
 use crate::message::{ArtistSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
+#[cfg(test)]
 pub const DEFAULT_ARTIST_TILE_WIDTH: u32 = 140;
 
 const DEFAULT_COLUMNS: usize = 6;
@@ -67,7 +68,7 @@ pub struct ArtistsView {
 }
 
 impl ArtistsView {
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn new(view_mode: ViewMode, sort_field: ArtistSortField) -> Self {
         Self::with_tile_width(view_mode, sort_field, DEFAULT_ARTIST_TILE_WIDTH)
     }
@@ -328,7 +329,7 @@ impl ArtistsView {
         self.recompute_window(y, width, height)
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn window_len(&self) -> usize {
         self.window_end.saturating_sub(self.window_start)
     }

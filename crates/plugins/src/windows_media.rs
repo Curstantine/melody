@@ -503,3 +503,34 @@ mod win {
 
 #[cfg(target_os = "windows")]
 pub use win::WindowsMediaPlugin;
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    use super::*;
+    use crate::manager::Plugin;
+    use crate::types::TrackMetadata;
+
+    #[test]
+    fn test_windows_media_plugin_instantiation_and_metadata() {
+        let (tx, _rx) = crossbeam_channel::unbounded();
+        let plugin = WindowsMediaPlugin::new(tx);
+        assert_eq!(plugin.metadata().id, "builtin.windows_media");
+
+        let meta = TrackMetadata {
+            title: "Test Track".to_string(),
+            artist: "Test Artist".to_string(),
+            album: "Test Album".to_string(),
+            duration_ms: 240000,
+            file_path: "C:\\music\\test.mp3".to_string(),
+        };
+
+        assert!(plugin.on_track_change(&meta).is_ok());
+        assert!(plugin.on_playback_status_change(true).is_ok());
+        assert!(plugin.on_position_change(5000).is_ok());
+        assert!(plugin.on_seeked(6000).is_ok());
+        assert!(plugin.on_volume_change(0.8).is_ok());
+        assert!(plugin.on_repeat_change(true).is_ok());
+        assert!(plugin.on_shuffle_change(true).is_ok());
+        assert!(plugin.on_playback_end().is_ok());
+    }
+}

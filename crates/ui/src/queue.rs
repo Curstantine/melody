@@ -123,7 +123,7 @@ pub struct Queue {
 }
 
 impl Queue {
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn new(id: u64, name: impl Into<String>) -> Self {
         Self {
             id,

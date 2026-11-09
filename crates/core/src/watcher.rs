@@ -197,3 +197,80 @@ impl Drop for LibraryWatcher {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_library_watcher_folder_management() {
+        let (tx, _rx) = crossbeam_channel::unbounded();
+        let mut watcher = LibraryWatcher::new(tx, Duration::from_millis(50)).expect("watcher init");
+
+        let temp = std::env::temp_dir().join(format!(
+            "melody_watcher_mgmt_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let dir1 = temp.join("dir1");
+        let dir2 = temp.join("dir2");
+        let dir3 = temp.join("dir3");
+        let _ = std::fs::create_dir_all(&dir1);
+        let _ = std::fs::create_dir_all(&dir2);
+        let _ = std::fs::create_dir_all(&dir3);
+
+        watcher.watch_folder(&dir1).unwrap();
+        watcher.watch_folder(&dir2).unwrap();
+        assert!(watcher.is_watching(&dir1));
+        assert!(watcher.is_watching(&dir2));
+        assert!(!watcher.is_watching(&dir3));
+
+        // Unwatch dir1
+        watcher.unwatch_folder(&dir1).unwrap();
+        assert!(!watcher.is_watching(&dir1));
+        assert!(watcher.is_watching(&dir2));
+
+        // Update folders to dir2 and dir3
+        watcher.update_folders(&[&dir2, &dir3]).unwrap();
+        assert!(!watcher.is_watching(&dir1));
+        assert!(watcher.is_watching(&dir2));
+        assert!(watcher.is_watching(&dir3));
+
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn test_library_watcher_detects_new_file() {
+        let (tx, rx) = crossbeam_channel::unbounded();
+        let mut watcher =
+            LibraryWatcher::new(tx, Duration::from_millis(100)).expect("watcher init");
+
+        let temp = std::env::temp_dir().join(format!(
+            "melody_watcher_detect_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = std::fs::create_dir_all(&temp);
+
+        watcher.watch_folder(&temp).unwrap();
+
+        let new_file = temp.join("test_song.flac");
+        std::fs::write(&new_file, b"flac content").unwrap();
+
+        // Wait for debounced notification
+        let received = rx.recv_timeout(Duration::from_millis(2000));
+        assert!(received.is_ok(), "Watcher should emit debounced event");
+        let paths = received.unwrap();
+        assert!(
+            paths.iter().any(|p| p.ends_with("test_song.flac")),
+            "Emitted paths {:?} should contain test_song.flac",
+            paths
+        );
+
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+}

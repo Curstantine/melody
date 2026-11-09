@@ -12,6 +12,7 @@ use crate::icons;
 use crate::message::{AlbumSortField, Message, ViewMode};
 use crate::theme::{styles, ThemeConfig};
 
+#[cfg(test)]
 pub const DEFAULT_ALBUM_TILE_WIDTH: u32 = 140;
 /// Minimum number of decoded album cover textures retained in RAM/VRAM.
 /// The effective cap is `max(MAX_ALBUM_COVERS, window_len)` so covers currently
@@ -97,7 +98,7 @@ pub struct AlbumsView {
 }
 
 impl AlbumsView {
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn new(view_mode: ViewMode, sort_field: AlbumSortField) -> Self {
         Self::with_tile_width(view_mode, sort_field, DEFAULT_ALBUM_TILE_WIDTH)
     }

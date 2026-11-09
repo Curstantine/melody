@@ -226,3 +226,15 @@ pub enum SortDirection {
     Ascending,
     Descending,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_duration_formatting() {
+        assert_eq!(format_duration(500), "0:00");
+        assert_eq!(format_duration(65000), "1:05");
+        assert_eq!(format_duration(3665000), "1:01:05");
+    }
+}

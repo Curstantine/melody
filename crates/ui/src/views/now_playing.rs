@@ -45,11 +45,6 @@ impl Default for NowPlayingView {
 }
 
 impl NowPlayingView {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn with_cover_size(cover_size: u32) -> Self {
         Self {
             current_lyrics: None,
@@ -477,7 +472,7 @@ mod tests {
 
     #[test]
     fn test_now_playing_scroll_state() {
-        let mut view = NowPlayingView::new();
+        let mut view = NowPlayingView::default();
         assert_eq!(view.scroll_offset.get(), 0.0);
         view.scroll_offset.set(175.0);
         assert_eq!(view.scroll_offset.get(), 175.0);
@@ -517,7 +512,7 @@ mod tests {
     #[test]
     fn test_now_playing_empty_state_renders() {
         let theme_cfg = ThemeConfig::default();
-        let mut now_playing_view = NowPlayingView::new();
+        let mut now_playing_view = NowPlayingView::default();
         assert_eq!(now_playing_view.cover_size, 260);
         now_playing_view.set_cover_size(300);
         assert_eq!(now_playing_view.cover_size, 300);
@@ -577,7 +572,7 @@ mod tests {
         };
 
         let lyrics_text = "[00:00.00] Cruising down the neon street\n[00:15.00] Bass in the night";
-        let mut now_playing_view = NowPlayingView::new();
+        let mut now_playing_view = NowPlayingView::default();
         now_playing_view.set_lyrics(Some(lyrics_text.to_string()));
         now_playing_view.update_track(Some(&track));
         now_playing_view.update_next_track(Some(&next_track));

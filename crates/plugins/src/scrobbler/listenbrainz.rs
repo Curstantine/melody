@@ -393,3 +393,55 @@ impl Plugin for ListenBrainzPlugin {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_listenbrainz_plugin_lifecycle_and_thresholds() {
+        let config = ListenBrainzConfig {
+            enabled: true,
+            user_token: "test_token_123".to_string(),
+            api_url: "http://127.0.0.1:9/submit".to_string(), // non-routable port for safety
+            submit_now_playing: true,
+            scrobble_percent: 50,
+        };
+
+        let plugin = ListenBrainzPlugin::new(config.clone());
+        assert_eq!(plugin.metadata().id, "builtin.listenbrainz");
+        assert_eq!(plugin.config().user_token, "test_token_123");
+        assert_eq!(plugin.scrobble_count(), 0);
+
+        let short_track = TrackMetadata {
+            title: "Short Intro".to_string(),
+            artist: "Artist".to_string(),
+            album: "Album".to_string(),
+            duration_ms: 20_000, // < 30 seconds
+            file_path: "/music/short.mp3".to_string(),
+        };
+
+        assert!(plugin.on_track_change(&short_track).is_ok());
+        // Should not scrobble short track (< 30s)
+        assert!(plugin.on_position_change(15_000).is_ok());
+        assert!(plugin.on_playback_end().is_ok());
+
+        let long_track = TrackMetadata {
+            title: "Standard Song".to_string(),
+            artist: "Artist".to_string(),
+            album: "Album".to_string(),
+            duration_ms: 200_000, // 200s, 50% = 100s
+            file_path: "/music/song.mp3".to_string(),
+        };
+
+        assert!(plugin.on_track_change(&long_track).is_ok());
+        // Position 50s (below threshold)
+        assert!(plugin.on_position_change(50_000).is_ok());
+        // Position 105s (above threshold) -> triggers scrobble
+        assert!(plugin.on_position_change(105_000).is_ok());
+
+        // Updating config dynamically
+        plugin.set_enabled(false);
+        assert!(!plugin.config().enabled);
+    }
+}

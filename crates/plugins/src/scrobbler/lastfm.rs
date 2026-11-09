@@ -438,3 +438,54 @@ impl Plugin for LastFmPlugin {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lastfm_signature_and_plugin_lifecycle() {
+        let params = vec![
+            ("method", "track.scrobble"),
+            ("artist", "Pink Floyd"),
+            ("track", "Time"),
+            ("api_key", "mock_key"),
+            ("sk", "mock_session"),
+            ("timestamp", "1600000000"),
+        ];
+        let secret = "mock_secret";
+        let sig = calculate_lastfm_signature(&params, secret);
+        assert!(!sig.is_empty());
+        assert_eq!(sig.len(), 32); // MD5 hex length
+
+        let config = LastFmConfig {
+            enabled: true,
+            api_key: "api_key_test".to_string(),
+            api_secret: "api_secret_test".to_string(),
+            session_key: "session_key_test".to_string(),
+            api_url: "http://127.0.0.1:9/2.0/".to_string(),
+            submit_now_playing: true,
+            scrobble_percent: 50,
+        };
+
+        let plugin = LastFmPlugin::new(config.clone());
+        assert_eq!(plugin.metadata().id, "builtin.lastfm");
+        assert_eq!(plugin.config().session_key, "session_key_test");
+        assert_eq!(plugin.scrobble_count(), 0);
+
+        let track = TrackMetadata {
+            title: "Comfortably Numb".to_string(),
+            artist: "Pink Floyd".to_string(),
+            album: "The Wall".to_string(),
+            duration_ms: 380_000, // threshold is min(190s, 240s) = 190s
+            file_path: "/music/pinkfloyd.mp3".to_string(),
+        };
+
+        assert!(plugin.on_track_change(&track).is_ok());
+        assert!(plugin.on_position_change(100_000).is_ok());
+        assert!(plugin.on_position_change(195_000).is_ok()); // triggers scrobble
+
+        plugin.set_enabled(false);
+        assert!(!plugin.config().enabled);
+    }
+}

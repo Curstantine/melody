@@ -779,3 +779,68 @@ fn extract_directory_cover_art(path: &Path) -> Option<Vec<u8>> {
 
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_audio_technical_info_formatting() {
+        let info = AudioTechnicalInfo {
+            format_name: "FLAC Lossless".to_string(),
+            codec_name: "FLAC".to_string(),
+            sample_rate_hz: 96000,
+            bit_depth: Some(24),
+            channels: 2,
+            channel_layout: "Stereo".to_string(),
+            bitrate_kbps: Some(1536),
+            file_size_bytes: 52_428_800, // 50.0 MB
+        };
+
+        assert_eq!(info.formatted_file_size(), "50.0 MB");
+        assert_eq!(info.formatted_sample_rate(), "96 kHz");
+        assert_eq!(info.formatted_quality(), "24-bit / 96 kHz");
+
+        let info_44k = AudioTechnicalInfo {
+            format_name: "MP3 Audio".to_string(),
+            codec_name: "MP3".to_string(),
+            sample_rate_hz: 44100,
+            bit_depth: None,
+            channels: 1,
+            channel_layout: "Mono".to_string(),
+            bitrate_kbps: Some(320),
+            file_size_bytes: 8_500_000,
+        };
+
+        assert_eq!(info_44k.formatted_sample_rate(), "44.1 kHz");
+        assert_eq!(info_44k.formatted_quality(), "44.1 kHz");
+        assert_eq!(info_44k.formatted_file_size(), "8.1 MB");
+    }
+
+    #[test]
+    fn test_cover_art_directory_fallback() {
+        let temp_dir = std::env::temp_dir().join("melody_test_cover_art");
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        let song_path = temp_dir.join("test_song.flac");
+        let cover_path = temp_dir.join("cover.jpg");
+        let fake_img_data = b"\xFF\xD8\xFF\xE0dummyjpegdata";
+
+        std::fs::write(&song_path, b"dummy audio content").expect("Write song failed");
+        std::fs::write(&cover_path, fake_img_data).expect("Write cover failed");
+
+        let extracted = extract_cover_art(&song_path);
+        assert_eq!(extracted, Some(fake_img_data.to_vec()));
+
+        // Test non-existent cover
+        let isolated_dir = temp_dir.join("no_cover_sub");
+        let _ = std::fs::create_dir_all(&isolated_dir);
+        let isolated_song = isolated_dir.join("song2.mp3");
+        std::fs::write(&isolated_song, b"dummy audio").expect("Write failed");
+
+        let no_cover = extract_cover_art(&isolated_song);
+        assert_eq!(no_cover, None);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+}

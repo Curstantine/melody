@@ -120,3 +120,48 @@ impl AudioStatus {
         self.inner.gapless_transition.swap(false, Ordering::AcqRel)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_audio_status_atomic_primitives() {
+        let status = AudioStatus::new();
+
+        assert_eq!(status.position_ms(), 0);
+        assert_eq!(status.duration_ms(), 0);
+        assert!(!status.is_playing());
+        assert!(!status.is_loaded());
+        assert_eq!(status.volume(), 1.0);
+        assert!(!status.is_ended());
+
+        // Update position and verify relaxed read
+        status.set_position_ms(12500);
+        assert_eq!(status.position_ms(), 12500);
+
+        // Update duration
+        status.set_duration_ms(240000);
+        assert_eq!(status.duration_ms(), 240000);
+
+        // Update playing state
+        status.set_playing(true);
+        assert!(status.is_playing());
+
+        // Volume clamping
+        status.set_volume(0.75);
+        assert!((status.volume() - 0.75).abs() < 0.002);
+
+        status.set_volume(2.5); // clamps to 2.0
+        assert!((status.volume() - 2.0).abs() < 0.002);
+
+        status.set_volume(-0.5); // clamps to 0.0
+        assert_eq!(status.volume(), 0.0);
+
+        // End flag & swap
+        status.set_ended(true);
+        assert!(status.is_ended());
+        assert!(status.take_ended());
+        assert!(!status.is_ended());
+    }
+}
