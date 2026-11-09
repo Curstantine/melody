@@ -9,13 +9,13 @@ use std::time::Instant;
 
 use super::ScrollOffset;
 
-use crate::components::{self, text};
-use crate::icons;
-use crate::message::{
-    Message, PlaylistItem, PlaylistSection, PlaylistSortField, TrackMenuContext, ViewMode,
-};
-use crate::queue::{queue_window_for_start, queue_window_start, QueueStore, QUEUE_ROW_HEIGHT};
+use crate::message::Message;
 use components::styles;
+use components::{self, icons, text, TrackMenuContext};
+use config::PlaylistSection;
+use db::PlaylistItem;
+use model::{PlaylistSortField, ViewMode};
+use queue::{queue_window_for_start, queue_window_start, QueueStore, QUEUE_ROW_HEIGHT};
 use theme::ThemeConfig;
 
 /// Square playlist tile size in the Playlists catalog grid.
@@ -277,10 +277,7 @@ impl PlaylistsView {
         self.last_detail_scroll.set(0.0);
     }
 
-    pub fn recompute_rendered_playlists(
-        &mut self,
-        playlists_fmt: &crate::layout::PlaylistsFormatConfig,
-    ) {
+    pub fn recompute_rendered_playlists(&mut self, playlists_fmt: &layout::PlaylistsFormatConfig) {
         self.rendered_playlists = self
             .playlists
             .iter()
@@ -294,10 +291,7 @@ impl PlaylistsView {
             .collect();
     }
 
-    pub fn recompute_rendered_details(
-        &mut self,
-        playlists_fmt: &crate::layout::PlaylistsFormatConfig,
-    ) {
+    pub fn recompute_rendered_details(&mut self, playlists_fmt: &layout::PlaylistsFormatConfig) {
         self.detail_tracks_str = format!("{} tracks", self.detail_items.len());
         self.rendered_detail_items = self
             .detail_items
@@ -331,7 +325,7 @@ impl PlaylistsView {
 
     pub fn recompute_rendered_queue(
         &mut self,
-        queue_fmt: &crate::layout::QueueFormatConfig,
+        queue_fmt: &layout::QueueFormatConfig,
         store: &QueueStore,
     ) {
         self.rendered_queue_chips = store
@@ -488,8 +482,8 @@ impl PlaylistsView {
         store: &'a QueueStore,
         dragging_track: Option<(u64, usize)>,
         dragging_detail: Option<(i64, usize)>,
-        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
-        queue_fmt: &'a crate::layout::QueueFormatConfig,
+        playlists_fmt: &'a layout::PlaylistsFormatConfig,
+        queue_fmt: &'a layout::QueueFormatConfig,
     ) -> Element<'a, Message> {
         let toolbar = self.view_toolbar(theme_cfg);
         let content: Element<'a, Message> = match self.section {
@@ -592,7 +586,7 @@ impl PlaylistsView {
     fn view_catalog<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
+        playlists_fmt: &'a layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
         if self.creating {
             return self.view_new_playlist_form(theme_cfg);
@@ -645,7 +639,7 @@ impl PlaylistsView {
     fn view_catalog_list<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
+        playlists_fmt: &'a layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
         let mut list = column![].spacing(2).width(Length::Fill);
 
@@ -762,7 +756,7 @@ impl PlaylistsView {
     fn view_catalog_tiles<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
+        playlists_fmt: &'a layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
         let mut grid = column![].spacing(12).width(Length::Fill);
         let mut tile_row = row![].spacing(12).align_y(Alignment::Start);
@@ -923,7 +917,7 @@ impl PlaylistsView {
         &'a self,
         theme_cfg: &'a ThemeConfig,
         dragging_detail: Option<(i64, usize)>,
-        playlists_fmt: &'a crate::layout::PlaylistsFormatConfig,
+        playlists_fmt: &'a layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
         let playlist_id = self.selected_id.unwrap_or(-1);
 
@@ -1141,7 +1135,7 @@ impl PlaylistsView {
         theme_cfg: &'a ThemeConfig,
         store: &'a QueueStore,
         dragging_track: Option<(u64, usize)>,
-        queue_fmt: &'a crate::layout::QueueFormatConfig,
+        queue_fmt: &'a layout::QueueFormatConfig,
     ) -> Element<'a, Message> {
         if store.is_empty() {
             return components::empty_state(
@@ -1552,11 +1546,13 @@ fn render_playlist_tile_cover<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::TrackRow;
-    use crate::message::{PlaylistItem, PlaylistSection, PlaylistSortField, ViewMode};
-    use crate::theme::ThemeConfig;
+    use components::TrackRow;
+    use config::PlaylistSection;
+    use db::PlaylistItem;
     use db::{parse_m3u, write_m3u, PlaylistEntry};
+    use model::{PlaylistSortField, ViewMode};
     use std::path::PathBuf;
+    use theme::ThemeConfig;
 
     fn item(title: &str, track_id: Option<i64>) -> PlaylistItem {
         PlaylistItem {

@@ -39,8 +39,11 @@ melody/
     ├── plugins/                 # Extensibility framework, host contracts, lyrics, discord presence hooks
     ├── updater/                 # Velopack integration, application lifecycle hooks, GitHub update checking, browser launching
     ├── theme/                   # Data-driven TOML theme definitions, palette config, font resolution, theme management
+    ├── layout/                  # Declarative KDL layout templates, schema AST, layout management
+    ├── queue/                   # Playback queue state machine, in-memory queue store, virtualization math
+    ├── config/                  # Persistent user configuration (AppConfig), session state (AppState), navigation enums
     ├── components/              # Reusable UI widgets, vector SVG icons, dynamic widget styles, chips, layout cards
-    └── ui/                      # Iced GUI entry point, Elm state machine, views, persistent config, KDL layout runtime
+    └── ui/                      # Iced GUI entry point, Elm state machine, views, KDL layout rendering runtime
 ```
 
 ### Dependency Graph & Responsibilities
@@ -48,16 +51,19 @@ melody/
 | Crate | Path | Responsibilities | Key Dependencies |
 | :--- | :--- | :--- | :--- |
 | **`paths`** | [`crates/paths`](file:///home/curstantine/Code/Personal/melody/crates/paths/src/lib.rs) | Centralized filesystem directories, application storage paths, atomic file writes. | `directories` |
-| **`model`** | [`crates/model`](file:///home/curstantine/Code/Personal/melody/crates/model/src/lib.rs) | Core domain types (`Track`, `TrackRow`, `AlbumSummary`, `ArtistSummary`), search filter parser (`TrackFilter`), string template engine (`format_template`), metadata string interning. | `serde` |
+| **`model`** | [`crates/model`](file:///home/curstantine/Code/Personal/melody/crates/model/src/lib.rs) | Core domain types (`Track`, `TrackRow`, `AlbumSummary`, `ArtistSummary`), catalog sort fields (`AlbumSortField`, `ArtistSortField`, `PlaylistSortField`, `ViewMode`), search filter parser (`TrackFilter`), string template engine (`format_template`), metadata string interning. | `serde` |
 | **`thumbnail`** | [`crates/thumbnail`](file:///home/curstantine/Code/Personal/melody/crates/thumbnail/src/lib.rs) | Cover art resizing, blurred background generation, disk thumbnail caching. | `image`, `md-5`, `paths`, `metadata` |
 | **`metadata`** | [`crates/metadata`](file:///home/curstantine/Code/Personal/melody/crates/metadata/src/lib.rs) | FFmpeg audio tag and embedded cover art extraction, technical audio info, supported audio formats, debounced recursive filesystem watcher (`LibraryWatcher`). | `ffmpeg-next`, `model`, `encoding_rs`, `notify`, `crossbeam-channel` |
-| **`db`** | [`crates/db`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs) | Turso SQLite schema, migrations, windowed queries, queue persistence, library directory scanning, M3U/M3U8 playlist parsing and serialization. | `turso`, `tokio`, `model`, `paths`, `metadata`, `encoding_rs` |
+| **`db`** | [`crates/db`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs) | Turso SQLite schema, migrations, windowed queries, queue persistence, library directory scanning, M3U/M3U8 playlist parsing and library resolution. | `turso`, `tokio`, `model`, `paths`, `metadata`, `encoding_rs` |
 | **`audio`** | [`crates/audio`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/lib.rs) | Lock-free audio worker thread, CPAL output stream, SPSC ring buffer, FFmpeg packet demuxing/decoding/resampling, atomic status reporting. | `cpal`, `ffmpeg-next`, `ringbuf`, `crossbeam-channel`, `thiserror` |
 | **`plugins`** | [`crates/plugins`](file:///home/curstantine/Code/Personal/melody/crates/plugins/src/lib.rs) | Plugin contracts, event dispatch (`on_track_change`, `on_playback_end`), lyrics fetcher, RPC stubs. | `serde`, `serde_json`, `tracing`, `thumbnail`, `paths` |
 | **`updater`** | [`crates/updater`](file:///home/curstantine/Code/Personal/melody/crates/updater/src/lib.rs) | Velopack runtime hooks, GitHub release update checking, browser opening helpers. | `velopack`, `tracing`, `tokio` |
-| **`theme`** | [`crates/theme`](file:///home/curstantine/Code/Personal/melody/crates/theme/src/lib.rs) | TOML theme deserialization, hex color parsing, font resolution, runtime theme management. | `iced`, `serde`, `toml`, `tracing`, `walkdir`, `paths` |
-| **`components`** | [`crates/components`](file:///home/curstantine/Code/Personal/melody/crates/components/src/lib.rs) | Reusable UI widgets (Marquee, Spinner, CatalogRow/Tile, TrackRow), vector SVG icons, dynamic widget styles (`styles`), chips, cards, indicators. | `iced`, `serde`, `theme`, `model` |
-| **`ui`** | [`crates/ui`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/main.rs) | Application state, Model-View-Update cycle, system font picker, context menu, KDL layout definitions, views, and persistent configuration. | `iced`, `rfd`, `directories`, `toml`, `kdl`, `db`, `model`, `paths`, `thumbnail`, `metadata`, `audio`, `plugins`, `updater`, `theme`, `components` |
+| **`theme`** | [`crates/theme`](file:///home/curstantine/Code/Personal/melody/crates/theme/src/lib.rs) | TOML theme deserialization, hex color parsing, fontdb system font discovery, runtime theme management. | `iced`, `serde`, `toml`, `tracing`, `walkdir`, `paths` |
+| **`layout`** | [`crates/layout`](file:///home/curstantine/Code/Personal/melody/crates/layout/src/lib.rs) | Declarative KDL layout schema, format configs (`LibraryFormatConfig`, `AlbumsFormatConfig`, etc.), layout discovery and manager. | `kdl`, `model`, `paths`, `tracing`, `iced` |
+| **`queue`** | [`crates/queue`](file:///home/curstantine/Code/Personal/melody/crates/queue/src/lib.rs) | In-memory playback queue management (`QueueStore`, `QueueSummary`, `QueueSource`), cursor navigation, queue virtualization math. | `model`, `serde`, `tracing` |
+| **`config`** | [`crates/config`](file:///home/curstantine/Code/Personal/melody/crates/config/src/lib.rs) | User preferences (`AppConfig`), session/runtime state (`AppState`), scrobbler configuration, navigation tabs (`ViewTab`, `SettingsTab`). | `paths`, `model`, `audio`, `plugins`, `theme`, `layout`, `serde`, `toml`, `tracing` |
+| **`components`** | [`crates/components`](file:///home/curstantine/Code/Personal/melody/crates/components/src/lib.rs) | Reusable UI widgets (Marquee, Spinner, CatalogRow/Tile, TrackRow), vector SVG icons, dynamic widget styles (`styles`), chips, layout cards. | `iced`, `serde`, `theme`, `model` |
+| **`ui`** | [`crates/ui`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/main.rs) | Iced GUI application entry point, Model-View-Update cycle, context menu, layout view rendering, and view implementations. | `iced`, `rfd`, `directories`, `db`, `model`, `paths`, `thumbnail`, `metadata`, `audio`, `plugins`, `updater`, `theme`, `layout`, `queue`, `config`, `components` |
 
 ---
 

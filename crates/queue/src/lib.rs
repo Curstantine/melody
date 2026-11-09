@@ -68,6 +68,7 @@ impl QueueSource {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(value: &str) -> Self {
         match value {
             "album" => QueueSource::Album,
@@ -77,6 +78,14 @@ impl QueueSource {
             "all" => QueueSource::AllSongs,
             _ => QueueSource::Manual,
         }
+    }
+}
+
+impl std::str::FromStr for QueueSource {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from_str(s))
     }
 }
 

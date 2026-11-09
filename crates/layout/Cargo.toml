@@ -1,0 +1,16 @@
+[package]
+name = "layout"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+paths.workspace = true
+model.workspace = true
+iced = { workspace = true, features = ["advanced", "thread-pool"] }
+kdl.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tracing.workspace = true

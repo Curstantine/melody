@@ -7,10 +7,11 @@ use iced::widget::{
 };
 use iced::{Alignment, Border, Color, Element, Length};
 
-use crate::components::{self, border_hori, text};
-use crate::icons;
-use crate::message::{Message, SettingsTab, ViewMode};
+use crate::message::Message;
 use components::styles;
+use components::{self, border_hori, icons, text};
+use config::SettingsTab;
+use model::ViewMode;
 use theme::ThemeConfig;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1914,8 +1915,8 @@ fn format_file_size(bytes: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::ViewMode;
-    use crate::theme::{ThemeConfig, DEFAULT_THEME_NAME};
+    use model::ViewMode;
+    use theme::{ThemeConfig, DEFAULT_THEME_NAME};
 
     #[test]
     fn test_settings_tab_variants_and_defaults() {

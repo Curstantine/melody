@@ -5,7 +5,6 @@ use iced::{
     widget::{button, column, container, image, row, Space, Widget},
     Alignment, Background, Border, Color, ContentFit, Element, Length, Shadow,
 };
-use serde::{Deserialize, Serialize};
 
 use model::SortDirection;
 use theme::ThemeConfig;
@@ -30,12 +29,7 @@ pub use crate::{
     spinner::Spinner,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub enum ViewMode {
-    #[default]
-    List,
-    Tile,
-}
+use model::ViewMode;
 
 /// A text widget configured with the active theme font.
 pub fn text<'a>(

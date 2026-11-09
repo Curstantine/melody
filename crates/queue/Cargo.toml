@@ -1,0 +1,12 @@
+[package]
+name = "queue"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+model.workspace = true
+serde.workspace = true
+tracing.workspace = true

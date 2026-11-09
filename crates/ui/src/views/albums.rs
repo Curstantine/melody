@@ -7,10 +7,9 @@ use iced::widget::{column, container, image, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length};
 use model::{format_duration, format_template, AlbumSummary, SortDirection, TrackFilter};
 
-use crate::components;
-use crate::icons;
-use crate::message::{AlbumSortField, Message, ViewMode};
-use components::styles;
+use crate::message::Message;
+use components::{self, icons, styles};
+use model::{AlbumSortField, ViewMode};
 use theme::ThemeConfig;
 
 #[cfg(test)]
@@ -204,7 +203,7 @@ impl AlbumsView {
         self.status_duration_str = format_duration(self.total_duration_ms);
     }
 
-    pub fn recompute_rendered_window(&mut self, format_cfg: &crate::layout::AlbumsFormatConfig) {
+    pub fn recompute_rendered_window(&mut self, format_cfg: &layout::AlbumsFormatConfig) {
         let visible = self.visible_albums();
         self.rendered_window = visible
             .iter()
@@ -570,7 +569,7 @@ impl AlbumsView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        format_cfg: &'a crate::layout::AlbumsFormatConfig,
+        format_cfg: &'a layout::AlbumsFormatConfig,
     ) -> Element<'a, Message> {
         if self.albums.is_empty() {
             return components::empty_state(
@@ -628,7 +627,7 @@ impl AlbumsView {
     fn view_tiles<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        format_cfg: &'a crate::layout::AlbumsFormatConfig,
+        format_cfg: &'a layout::AlbumsFormatConfig,
     ) -> Element<'a, Message> {
         let per_row = self.items_per_row();
         let total_rows = self.total_rows();
@@ -741,7 +740,7 @@ impl AlbumsView {
     fn view_list<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        format_cfg: &'a crate::layout::AlbumsFormatConfig,
+        format_cfg: &'a layout::AlbumsFormatConfig,
     ) -> Element<'a, Message> {
         let total_rows = self.albums.len();
         let row_h = components::CATALOG_LIST_ROW_HEIGHT;
@@ -835,11 +834,10 @@ impl AlbumsView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::layout::{AlbumsFormatConfig, ArtistsFormatConfig};
-    use crate::message::ArtistSortField;
-    use crate::theme::ThemeConfig;
-    use crate::views::artists::ArtistsView;
-    use model::{AlbumSummary, ArtistSummary};
+    use crate::views::ArtistsView;
+    use layout::{AlbumsFormatConfig, ArtistsFormatConfig};
+    use model::{AlbumSummary, ArtistSortField, ArtistSummary};
+    use theme::ThemeConfig;
 
     fn sample_albums(count: usize) -> Vec<AlbumSummary> {
         (0..count)

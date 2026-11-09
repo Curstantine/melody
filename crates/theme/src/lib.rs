@@ -8,7 +8,7 @@ use tracing::{info, warn};
 pub use crate::{
     colors::hex_color,
     config::{ThemeConfig, DEFAULT_THEME_NAME},
-    fonts::font_from_family_name,
+    fonts::{font_from_family_name, list_font_families},
 };
 
 mod colors;

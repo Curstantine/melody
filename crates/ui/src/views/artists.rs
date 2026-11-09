@@ -4,10 +4,9 @@ use model::{format_template, ArtistSummary, SortDirection, TrackFilter};
 
 use super::ScrollOffset;
 
-use crate::components;
-use crate::icons;
-use crate::message::{ArtistSortField, Message, ViewMode};
-use components::styles;
+use crate::message::Message;
+use components::{self, icons, styles};
+use model::{ArtistSortField, ViewMode};
 use theme::ThemeConfig;
 
 #[cfg(test)]
@@ -157,7 +156,7 @@ impl ArtistsView {
         self.status_tracks_str = format!("{} tracks", self.total_tracks);
     }
 
-    pub fn recompute_rendered_window(&mut self, format_cfg: &crate::layout::ArtistsFormatConfig) {
+    pub fn recompute_rendered_window(&mut self, format_cfg: &layout::ArtistsFormatConfig) {
         let visible = self.visible_artists();
         self.rendered_window = visible
             .iter()
@@ -364,7 +363,7 @@ impl ArtistsView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        format_cfg: &'a crate::layout::ArtistsFormatConfig,
+        format_cfg: &'a layout::ArtistsFormatConfig,
     ) -> Element<'a, Message> {
         if self.artists.is_empty() {
             return components::empty_state(
@@ -419,7 +418,7 @@ impl ArtistsView {
     fn view_tiles<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        format_cfg: &'a crate::layout::ArtistsFormatConfig,
+        format_cfg: &'a layout::ArtistsFormatConfig,
     ) -> Element<'a, Message> {
         let per_row = self.items_per_row();
         let total_rows = self.total_rows();
@@ -533,7 +532,7 @@ impl ArtistsView {
     fn view_list<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        format_cfg: &'a crate::layout::ArtistsFormatConfig,
+        format_cfg: &'a layout::ArtistsFormatConfig,
     ) -> Element<'a, Message> {
         let total_rows = self.artists.len();
         let row_h = components::CATALOG_LIST_ROW_HEIGHT;
@@ -621,9 +620,9 @@ impl ArtistsView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::layout::ArtistsFormatConfig;
-    use crate::theme::ThemeConfig;
+    use layout::ArtistsFormatConfig;
     use model::ArtistSummary;
+    use theme::ThemeConfig;
 
     #[test]
     fn test_artists_scroll_state_persists_and_resets() {

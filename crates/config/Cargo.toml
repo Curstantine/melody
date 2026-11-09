@@ -1,0 +1,18 @@
+[package]
+name = "config"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+paths.workspace = true
+model.workspace = true
+audio.workspace = true
+plugins.workspace = true
+theme.workspace = true
+layout.workspace = true
+serde.workspace = true
+toml.workspace = true
+tracing.workspace = true

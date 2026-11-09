@@ -51,6 +51,28 @@ pub struct ParsedPlaylist {
     pub extended: bool,
 }
 
+/// A single row in an opened playlist's detail list.
+#[derive(Debug, Clone)]
+pub struct PlaylistItem {
+    pub title: String,
+    pub artist: String,
+    pub duration_label: String,
+    /// `None` when the entry could not be matched to an indexed library track.
+    pub track_id: Option<i64>,
+}
+
+/// Outcome of resolving an M3U file against the indexed library.
+#[derive(Debug, Clone)]
+pub struct PlaylistResolution {
+    /// One entry per line of the playlist, in file order (including missing).
+    pub items: Vec<PlaylistItem>,
+    /// Raw file entries 1:1 with `items`, kept so reordered playlists can be
+    /// written back without losing unmatched lines or relative paths.
+    pub entries: Vec<PlaylistEntry>,
+    /// Indexed tracks that were successfully matched, in playlist order.
+    pub tracks: Vec<TrackRow>,
+}
+
 /// Returns `true` when the path has an `.m3u` or `.m3u8` extension.
 pub fn is_supported_playlist_file(path: &Path) -> bool {
     path.extension()

@@ -2,7 +2,7 @@ use iced::window::Id;
 use iced::Task;
 
 use crate::message::Message;
-use crate::theme::ThemeConfig;
+use theme::ThemeConfig;
 
 /// Asynchronously applies the theme colors to the native titlebar for supported platforms.
 pub fn sync_titlebar_theme(window_id: Option<Id>, theme: &ThemeConfig) -> Task<Message> {

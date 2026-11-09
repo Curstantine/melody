@@ -965,6 +965,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "config"
+version = "0.3.2"
+dependencies = [
+ "audio",
+ "layout",
+ "model",
+ "paths",
+ "plugins",
+ "serde",
+ "theme",
+ "toml 1.2.1+spec-1.1.0",
+ "tracing",
+]
+
+[[package]]
 name = "const-oid"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3168,6 +3183,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "layout"
+version = "0.3.2"
+dependencies = [
+ "iced",
+ "kdl 6.7.1",
+ "model",
+ "paths",
+ "serde",
+ "thiserror 2.0.21",
+ "tracing",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4628,6 +4656,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f6d64c71eb498fe9eae14ce4ec935c555749aef511cca85b5568910d6e48001"
 dependencies = [
  "bytemuck",
+]
+
+[[package]]
+name = "queue"
+version = "0.3.2"
+dependencies = [
+ "model",
+ "serde",
+ "tracing",
 ]
 
 [[package]]
@@ -6416,14 +6453,17 @@ version = "0.3.2"
 dependencies = [
  "audio",
  "components",
+ "config",
  "crossbeam-channel",
  "db",
  "iced",
  "kdl 6.7.1",
+ "layout",
  "metadata",
  "model",
  "paths",
  "plugins",
+ "queue",
  "rfd",
  "serde",
  "theme",

@@ -223,6 +223,40 @@ pub enum SortDirection {
     Descending,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum AlbumSortField {
+    #[default]
+    Title,
+    Artist,
+    Year,
+    TrackCount,
+    Duration,
+    DateAdded,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ArtistSortField {
+    #[default]
+    Artist,
+    TrackCount,
+    AlbumCount,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum PlaylistSortField {
+    #[default]
+    Name,
+    TrackCount,
+    DateAdded,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ViewMode {
+    #[default]
+    List,
+    Tile,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

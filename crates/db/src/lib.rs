@@ -39,6 +39,7 @@ pub use playlist::{
     append_tracks_to_m3u, is_supported_playlist_file, normalize_path, parse_m3u,
     parse_m3u_preview_paths, parse_m3u_str, playlist_name_from_path, resolve_entry_path,
     sanitize_playlist_filename, write_m3u, ParsedPlaylist, PlaylistEntry, PlaylistError,
+    PlaylistItem, PlaylistResolution,
 };
 
 /// Maximum bound variables per `WHERE ... IN (...)` lookup. Chunked lookups
@@ -949,6 +950,81 @@ impl LibraryDatabase {
             }
         }
         Ok(out)
+    }
+
+    /// Parses an M3U file and matches its entries against indexed library tracks.
+    pub async fn resolve_playlist(&self, file_path: &str) -> PlaylistResolution {
+        let parsed = match parse_m3u(file_path) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                warn!("Failed to parse playlist {}: {}", file_path, e);
+                return PlaylistResolution {
+                    items: Vec::new(),
+                    entries: Vec::new(),
+                    tracks: Vec::new(),
+                };
+            }
+        };
+
+        let path_strings: Vec<String> = parsed
+            .entries
+            .iter()
+            .map(|e| e.resolved_path.to_string_lossy().to_string())
+            .collect();
+        let id_map = self
+            .get_track_ids_by_paths(&path_strings)
+            .await
+            .unwrap_or_default();
+        let ids: Vec<i64> = path_strings
+            .iter()
+            .filter_map(|p| id_map.get(p).copied())
+            .collect();
+        let rows = self.get_track_rows_by_ids(&ids).await.unwrap_or_default();
+
+        let mut items = Vec::with_capacity(parsed.entries.len());
+        let mut tracks = Vec::new();
+        for entry in &parsed.entries {
+            let resolved = entry.resolved_path.to_string_lossy().to_string();
+            if let Some(id) = id_map.get(&resolved).copied() {
+                if let Some(row) = rows.get(&id) {
+                    items.push(PlaylistItem {
+                        title: row.title.clone(),
+                        artist: row.display_artist().to_string(),
+                        duration_label: row.duration_label.clone(),
+                        track_id: Some(id),
+                    });
+                    tracks.push(row.clone());
+                    continue;
+                }
+            }
+
+            let title = entry
+                .title
+                .clone()
+                .or_else(|| {
+                    entry
+                        .resolved_path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .map(|s| s.to_string())
+                })
+                .unwrap_or_else(|| entry.raw_path.clone());
+            items.push(PlaylistItem {
+                title,
+                artist: "Not in library".to_string(),
+                duration_label: entry
+                    .duration_ms
+                    .map(model::format_duration)
+                    .unwrap_or_default(),
+                track_id: None,
+            });
+        }
+
+        PlaylistResolution {
+            items,
+            entries: parsed.entries,
+            tracks,
+        }
     }
 
     /// Extracts metadata and indexes audio files in parallel using a bounded worker pool.

@@ -27,6 +27,9 @@ audio.workspace = true
 plugins.workspace = true
 updater.workspace = true
 theme.workspace = true
+layout.workspace = true
+queue.workspace = true
+config.workspace = true
 components.workspace = true
 
 # NOTE: `web-colors` (an iced default feature) is deliberately disabled: it

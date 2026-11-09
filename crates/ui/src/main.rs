@@ -1,17 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
-pub use components;
-pub mod config;
-mod font;
-pub use components::icons;
-pub mod layout;
-#[path = "layout/view.rs"]
 mod layout_view;
 mod message;
-mod queue;
-pub mod state;
-pub use theme;
 mod views;
 mod window_decorations;
 
@@ -59,7 +50,7 @@ fn main() -> iced::Result {
             .try_init();
     }
 
-    let state = state::AppState::load();
+    let state = config::AppState::load();
     let (width, height) = state.window_size().unwrap_or((1130.0, 740.0));
     let width = width.max(1000.0);
     let height = height.max(520.0);

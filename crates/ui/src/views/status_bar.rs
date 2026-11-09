@@ -1,10 +1,10 @@
 use iced::widget::{column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length};
 
-use crate::components::{border_vert, scanning_indicator, text, thumbnail_caching_indicator};
-use crate::icons;
-use crate::message::{Message, ViewTab};
+use crate::message::Message;
 use components::styles;
+use components::{border_vert, icons, scanning_indicator, text, thumbnail_caching_indicator};
+use config::ViewTab;
 use theme::ThemeConfig;
 
 #[derive(Debug, Clone, Copy)]
@@ -209,14 +209,13 @@ impl StatusBar {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message;
-    use crate::theme::ThemeConfig;
+    use theme::ThemeConfig;
 
     #[test]
     fn test_status_bar_indicators_render() {
         let theme_cfg = ThemeConfig::default();
         let ctx = StatusBarContext {
-            active_tab: message::ViewTab::Tracks,
+            active_tab: ViewTab::Tracks,
             tracks_count_label: "100 tracks in library",
             filter_indicator_label: "",
             album_count_label: "10 albums",

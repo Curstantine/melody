@@ -2,12 +2,12 @@ use iced::widget::{button, column, container, mouse_area, row, stack, Space, Wid
 use iced::{Element, Length};
 
 use crate::app::App;
-use crate::components::text;
-use crate::icons;
-use crate::layout::schema::{ContainerStyle, LayoutComponent, LayoutNode, Orientation};
-use crate::message::{Message, ViewTab};
+use crate::message::Message;
 use crate::views::{self, StatusBar, StatusBarContext};
 use components::styles;
+use components::{icons, text};
+use config::ViewTab;
+use layout::schema::{ContainerStyle, LayoutComponent, LayoutNode, Orientation};
 use theme::ThemeConfig;
 
 impl App {
@@ -309,7 +309,7 @@ impl App {
             };
 
             let tab_inner = row![
-                icons::icon(tab.icon_svg(), 12.0, tab_icon_color),
+                icons::icon(view_tab_icon_svg(tab), 12.0, tab_icon_color),
                 text(theme_cfg, tab.label())
                     .size(11)
                     .line_height(1.0)
@@ -578,5 +578,16 @@ fn to_iced_padding(p: [f32; 4]) -> iced::Padding {
         right: p[1],
         bottom: p[2],
         left: p[3],
+    }
+}
+
+fn view_tab_icon_svg(tab: ViewTab) -> &'static str {
+    match tab {
+        ViewTab::Tracks => icons::MUSIC_NOTE_SVG,
+        ViewTab::Lyrics => icons::SPEAKER_PLAYING_SVG,
+        ViewTab::Albums => icons::ALBUM_SVG,
+        ViewTab::Artists => icons::USER_AVATAR_SVG,
+        ViewTab::Playlists => icons::PLAYLIST_SVG,
+        ViewTab::Settings => icons::SETTINGS_SVG,
     }
 }

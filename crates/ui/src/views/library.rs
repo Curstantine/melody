@@ -7,10 +7,9 @@ use iced::widget::{
 use iced::{Alignment, Element, Length};
 use model::{format_template, SortDirection, SortField, TrackFilter, TrackRow};
 
-use crate::components::{self, text};
-use crate::icons;
-use crate::message::{Message, TrackMenuContext};
+use crate::message::Message;
 use components::styles;
+use components::{self, icons, text, TrackMenuContext};
 use theme::ThemeConfig;
 
 /// Fixed pixel height of a single track row. The virtualization math depends on
@@ -85,7 +84,7 @@ impl LibraryView {
         view
     }
 
-    pub fn recompute_rendered_rows(&mut self, format_cfg: &crate::layout::LibraryFormatConfig) {
+    pub fn recompute_rendered_rows(&mut self, format_cfg: &layout::LibraryFormatConfig) {
         let mut rendered = Vec::with_capacity(self.rows.len());
         for (idx, track) in self.rows.iter().enumerate() {
             let display_index = format!("{}", self.window_start + idx + 1);
@@ -318,7 +317,7 @@ impl LibraryView {
         theme_cfg: &'a ThemeConfig,
         current_track_id: Option<i64>,
         is_playing: bool,
-        format_cfg: &'a crate::layout::LibraryFormatConfig,
+        format_cfg: &'a layout::LibraryFormatConfig,
     ) -> Element<'a, Message> {
         // 1. Search Bar & View Mode Toolbar
         let search_input = text_input(
@@ -579,9 +578,9 @@ impl LibraryView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::layout::LibraryFormatConfig;
-    use crate::theme::ThemeConfig;
+    use layout::LibraryFormatConfig;
     use model::TrackRow;
+    use theme::ThemeConfig;
 
     /// Simulated catalog size for the virtualization tests.
     const LARGE_LIBRARY_TRACK_COUNT: usize = 100_000;

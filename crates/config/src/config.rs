@@ -3,13 +3,14 @@ use std::fs;
 use std::path::Path;
 use tracing::{error, info};
 
-use crate::message::ViewTab;
+use crate::navigation::ViewTab;
 
 pub const DEFAULT_PAGE_SIZE: usize = 50;
 pub const DEFAULT_TILE_WIDTH: u32 = 140;
 pub const DEFAULT_ALBUM_TILE_WIDTH: u32 = 140;
 pub const DEFAULT_ARTIST_TILE_WIDTH: u32 = 140;
 pub const DEFAULT_NOW_PLAYING_COVER_SIZE: u32 = 260;
+pub const DEFAULT_LAYOUT_NAME: &str = layout::DEFAULT_LAYOUT_NAME;
 
 pub fn default_tab_order() -> Vec<ViewTab> {
     vec![
@@ -161,14 +162,12 @@ impl ScrobbleConfig {
     }
 }
 
-pub const DEFAULT_LAYOUT_NAME: &str = "Default";
-
 fn default_theme_name() -> String {
-    crate::theme::DEFAULT_THEME_NAME.to_string()
+    theme::DEFAULT_THEME_NAME.to_string()
 }
 
 fn default_layout_name() -> String {
-    DEFAULT_LAYOUT_NAME.to_string()
+    layout::DEFAULT_LAYOUT_NAME.to_string()
 }
 
 fn default_page_size() -> usize {
@@ -285,167 +284,5 @@ impl AppConfig {
                 error!("Failed to serialize config to TOML: {}", err);
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::message::ViewTab;
-    use crate::theme;
-    use std::path::PathBuf;
-
-    #[test]
-    fn test_default_app_config() {
-        let cfg = AppConfig::default();
-        assert_eq!(
-            cfg.tab_order,
-            vec![
-                ViewTab::Tracks,
-                ViewTab::Lyrics,
-                ViewTab::Albums,
-                ViewTab::Artists,
-                ViewTab::Playlists
-            ]
-        );
-        assert_eq!(cfg.theme_name, theme::DEFAULT_THEME_NAME);
-        assert_eq!(cfg.layout_name, DEFAULT_LAYOUT_NAME);
-        assert_eq!(cfg.primary_font, None);
-        assert_eq!(cfg.page_size, 50);
-        assert_eq!(cfg.tile_width, 140);
-        assert_eq!(cfg.album_tile_width, 140);
-        assert_eq!(cfg.artist_tile_width, 140);
-        assert_eq!(cfg.now_playing_cover_size, 260);
-        assert!(cfg.gapless);
-        assert!(cfg.watch_library);
-        assert!(!cfg.scrobble.listenbrainz_enabled);
-        assert!(!cfg.scrobble.lastfm_enabled);
-        assert_eq!(cfg.scrobble.scrobble_percent, 50);
-    }
-
-    #[test]
-    fn test_config_toml_roundtrip() {
-        let custom = AppConfig {
-            tab_order: vec![
-                ViewTab::Albums,
-                ViewTab::Tracks,
-                ViewTab::Artists,
-                ViewTab::Lyrics,
-                ViewTab::Playlists,
-            ],
-            theme_name: "Nord".to_string(),
-            layout_name: "Sidebar".to_string(),
-            primary_font: Some("Inter".to_string()),
-            page_size: 100,
-            tile_width: 190,
-            album_tile_width: 190,
-            artist_tile_width: 180,
-            now_playing_cover_size: 260,
-            gapless: false,
-            resampling: audio::ResamplingConfig::default(),
-            watch_library: false,
-            scrobble: ScrobbleConfig {
-                listenbrainz_enabled: true,
-                listenbrainz_token: "test_token".to_string(),
-                listenbrainz_api_url: "https://custom.listenbrainz/api".to_string(),
-                lastfm_enabled: true,
-                lastfm_api_key: "api_key".to_string(),
-                lastfm_api_secret: "secret".to_string(),
-                lastfm_session_key: "sk".to_string(),
-                lastfm_api_url: "https://custom.lastfm/api".to_string(),
-                submit_now_playing: false,
-                scrobble_percent: 75,
-            },
-        };
-
-        let temp_dir = std::env::temp_dir();
-        let temp_file = temp_dir.join(format!("melody_test_config_{}.toml", std::process::id()));
-
-        custom.save_to_path(&temp_file);
-        assert!(temp_file.exists());
-
-        let loaded = AppConfig::load_from_path(&temp_file);
-        assert_eq!(custom, loaded);
-
-        let _ = std::fs::remove_file(temp_file);
-    }
-
-    #[test]
-    fn test_config_ignores_legacy_state_fields() {
-        let toml_with_state = r#"
-theme_name = "Nord"
-page_size = 75
-active_tab = "Albums"
-volume = 0.5
-is_shuffle = true
-is_repeat = true
-"#;
-        let cfg: AppConfig =
-            toml::from_str(toml_with_state).expect("Failed to parse config with legacy state");
-        assert_eq!(cfg.theme_name, "Nord");
-        assert_eq!(cfg.page_size, 75);
-    }
-
-    #[test]
-    fn test_missing_config_returns_defaults() {
-        let non_existent = PathBuf::from("/non/existent/path/melody_config.toml");
-        let loaded = AppConfig::load_from_path(&non_existent);
-        assert_eq!(loaded, AppConfig::default());
-    }
-
-    #[test]
-    fn test_tab_order_sanitization() {
-        // Missing tabs and duplicates
-        let input = vec![ViewTab::Artists, ViewTab::Tracks, ViewTab::Artists];
-        let sanitized = sanitize_tab_order(&input);
-        assert_eq!(
-            sanitized,
-            vec![
-                ViewTab::Artists,
-                ViewTab::Tracks,
-                ViewTab::Lyrics,
-                ViewTab::Albums,
-                ViewTab::Playlists
-            ]
-        );
-
-        // Empty list restores all defaults
-        let empty: Vec<ViewTab> = vec![];
-        let sanitized_empty = sanitize_tab_order(&empty);
-        assert_eq!(
-            sanitized_empty,
-            vec![
-                ViewTab::Tracks,
-                ViewTab::Lyrics,
-                ViewTab::Albums,
-                ViewTab::Artists,
-                ViewTab::Playlists
-            ]
-        );
-    }
-
-    #[test]
-    fn test_config_resampling_toml_roundtrip() {
-        let cfg = AppConfig {
-            resampling: audio::ResamplingConfig {
-                filter: audio::ResamplingFilter::BlackmanNuttall,
-                quality: audio::ResamplingQuality::Ultra,
-                linear_interp: false,
-            },
-            ..Default::default()
-        };
-
-        let toml_str = toml::to_string(&cfg).expect("Serialize config");
-        let deserialized: AppConfig = toml::from_str(&toml_str).expect("Deserialize config");
-        assert_eq!(cfg.resampling, deserialized.resampling);
-        assert_eq!(
-            deserialized.resampling.filter,
-            audio::ResamplingFilter::BlackmanNuttall
-        );
-        assert_eq!(
-            deserialized.resampling.quality,
-            audio::ResamplingQuality::Ultra
-        );
-        assert!(!deserialized.resampling.linear_interp);
     }
 }

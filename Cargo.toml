@@ -10,6 +10,9 @@ members = [
     "crates/plugins",
     "crates/updater",
     "crates/theme",
+    "crates/layout",
+    "crates/queue",
+    "crates/config",
     "crates/components",
     "crates/ui",
 ]
@@ -31,6 +34,9 @@ audio = { path = "crates/audio" }
 plugins = { path = "crates/plugins" }
 updater = { path = "crates/updater" }
 theme = { path = "crates/theme" }
+layout = { path = "crates/layout" }
+queue = { path = "crates/queue" }
+config = { path = "crates/config" }
 components = { path = "crates/components" }
 
 async-io = "2.6"

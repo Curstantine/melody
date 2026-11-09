@@ -19,21 +19,15 @@ use plugins::WindowsMediaPlugin;
 use plugins::{PlayerAction, PluginManager, TrackMetadata};
 use tracing::{error, info, warn};
 
-use crate::components;
-use crate::config::{AppConfig, ScrobbleConfig};
-use crate::icons;
-use crate::layout::LayoutManager;
-use crate::message::{
-    Message, PlaylistItem, PlaylistOpenIntent, PlaylistResolution, PlaylistSection, SettingsTab,
-    TrackMenuContext, ViewTab,
-};
-use crate::queue::{queue_window_for_start, QueueSource, QueueStore, DEFAULT_QUEUE_NAME};
-use crate::state::AppState;
+use crate::message::{Message, PlaylistOpenIntent};
 use crate::views::{
     AlbumsView, ArtistsView, LibraryView, NowPlayingView, PlayerBar, PlaylistsView, SettingsView,
 };
 use components::styles;
-use components::{ContextMenuAction, ContextMenuState, ContextMenuTarget};
+use components::{icons, ContextMenuAction, ContextMenuState, ContextMenuTarget, TrackMenuContext};
+use config::{AppConfig, AppState, PlaylistSection, ScrobbleConfig, SettingsTab, ViewTab};
+use layout::LayoutManager;
+use queue::{queue_window_for_start, QueueSource, QueueStore, DEFAULT_QUEUE_NAME};
 use theme::{ThemeConfig, ThemeManager};
 
 /// Album covers resolved per background chunk. Bounds the `IN (...)` lookup
@@ -1843,8 +1837,9 @@ impl App {
                 };
                 self.playlists.selected_id = Some(id);
                 let db = self.db.clone();
+                let file_path = playlist.file_path.clone();
                 Task::perform(
-                    resolve_playlist(db, playlist.file_path),
+                    async move { db.resolve_playlist(&file_path).await },
                     move |resolution| Message::PlaylistResolved {
                         playlist_id: id,
                         intent: PlaylistOpenIntent::View,
@@ -3367,8 +3362,9 @@ impl App {
             return Task::none();
         };
         let db = self.db.clone();
+        let file_path = playlist.file_path.clone();
         Task::perform(
-            resolve_playlist(db, playlist.file_path),
+            async move { db.resolve_playlist(&file_path).await },
             move |resolution| Message::PlaylistResolved {
                 playlist_id: id,
                 intent,
@@ -3554,7 +3550,7 @@ impl App {
             self.settings.fonts_loaded = true;
             Some(Task::perform(
                 async move {
-                    tokio::task::spawn_blocking(crate::font::list_font_families)
+                    tokio::task::spawn_blocking(theme::list_font_families)
                         .await
                         .unwrap_or_default()
                 },
@@ -4378,81 +4374,6 @@ impl App {
             layers.push(self.render_duplicate_prompt(prompt, theme_cfg));
         }
         iced::widget::stack(layers).boxed()
-    }
-}
-
-/// Parses an M3U file and matches its entries against indexed library tracks.
-async fn resolve_playlist(db: LibraryDatabase, file_path: String) -> PlaylistResolution {
-    let parsed = match parse_m3u(&file_path) {
-        Ok(parsed) => parsed,
-        Err(e) => {
-            warn!("Failed to parse playlist {}: {}", file_path, e);
-            return PlaylistResolution {
-                items: Vec::new(),
-                entries: Vec::new(),
-                tracks: Vec::new(),
-            };
-        }
-    };
-
-    let path_strings: Vec<String> = parsed
-        .entries
-        .iter()
-        .map(|e| e.resolved_path.to_string_lossy().to_string())
-        .collect();
-    let id_map = db
-        .get_track_ids_by_paths(&path_strings)
-        .await
-        .unwrap_or_default();
-    let ids: Vec<i64> = path_strings
-        .iter()
-        .filter_map(|p| id_map.get(p).copied())
-        .collect();
-    let rows = db.get_track_rows_by_ids(&ids).await.unwrap_or_default();
-
-    let mut items = Vec::with_capacity(parsed.entries.len());
-    let mut tracks = Vec::new();
-    for entry in &parsed.entries {
-        let resolved = entry.resolved_path.to_string_lossy().to_string();
-        if let Some(id) = id_map.get(&resolved).copied() {
-            if let Some(row) = rows.get(&id) {
-                items.push(PlaylistItem {
-                    title: row.title.clone(),
-                    artist: row.display_artist().to_string(),
-                    duration_label: row.duration_label.clone(),
-                    track_id: Some(id),
-                });
-                tracks.push(row.clone());
-                continue;
-            }
-        }
-
-        let title = entry
-            .title
-            .clone()
-            .or_else(|| {
-                entry
-                    .resolved_path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s.to_string())
-            })
-            .unwrap_or_else(|| entry.raw_path.clone());
-        items.push(PlaylistItem {
-            title,
-            artist: "Not in library".to_string(),
-            duration_label: entry
-                .duration_ms
-                .map(model::format_duration)
-                .unwrap_or_default(),
-            track_id: None,
-        });
-    }
-
-    PlaylistResolution {
-        items,
-        entries: parsed.entries,
-        tracks,
     }
 }
 

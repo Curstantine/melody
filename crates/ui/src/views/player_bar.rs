@@ -4,10 +4,9 @@ use iced::widget::{
 use iced::{Alignment, Element, Length};
 use model::{format_duration, Track};
 
-use crate::components::{self, text};
-use crate::icons;
 use crate::message::Message;
 use components::styles;
+use components::{self, icons, text};
 use theme::ThemeConfig;
 
 /// Self-contained state and view component for the bottom persistent player bar widget.
