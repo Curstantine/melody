@@ -1,17 +1,16 @@
+pub mod lyrics;
 pub mod manager;
-#[cfg(target_os = "linux")]
-pub mod mpris;
+pub mod media_controls;
 pub mod scrobbler;
 pub mod types;
-#[cfg(target_os = "windows")]
-pub mod windows_media;
 
-pub use manager::{DiscordRpcPlugin, LyricsPlugin, Plugin, PluginManager};
+pub use lyrics::LyricsPlugin;
+pub use manager::{Plugin, PluginManager};
 #[cfg(target_os = "linux")]
-pub use mpris::MprisPlugin;
+pub use media_controls::MprisPlugin;
+#[cfg(target_os = "windows")]
+pub use media_controls::WindowsMediaPlugin;
 pub use scrobbler::{
     LastFmConfig, LastFmPlugin, ListenBrainzConfig, ListenBrainzPlugin, ScrobbleService,
 };
 pub use types::{PlayerAction, PluginHook, PluginMetadata, PluginResult, TrackMetadata};
-#[cfg(target_os = "windows")]
-pub use windows_media::WindowsMediaPlugin;

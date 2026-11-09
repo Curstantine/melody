@@ -1,7 +1,9 @@
-use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
-use std::thread::JoinHandle;
-use std::time::{Duration, Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
+    thread::JoinHandle,
+    time::{Duration, Instant},
+};
 
 use crossbeam_channel::Sender;
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};

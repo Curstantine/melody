@@ -2,8 +2,9 @@ use iced::widget::{column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
-use components::styles;
-use components::{border_vert, icons, scanning_indicator, text, thumbnail_caching_indicator};
+use components::{
+    border_vert, icons, scanning_indicator, styles, text, thumbnail_caching_indicator,
+};
 use config::ViewTab;
 use theme::ThemeConfig;
 

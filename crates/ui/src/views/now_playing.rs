@@ -4,8 +4,7 @@ use metadata::AudioTechnicalInfo;
 use model::{Track, TrackRow};
 
 use crate::message::Message;
-use components::styles;
-use components::{self, icons, text};
+use components::{self, icons, styles, text};
 use theme::ThemeConfig;
 
 use super::ScrollOffset;

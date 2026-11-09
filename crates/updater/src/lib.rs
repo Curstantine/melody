@@ -1,7 +1,6 @@
 use std::process::Command;
 use tracing::{info, warn};
-use velopack::sources::GithubSource;
-use velopack::{UpdateCheck, UpdateManager};
+use velopack::{sources::GithubSource, UpdateCheck, UpdateManager};
 
 /// Initializes Velopack runtime hooks early in the application lifecycle.
 pub fn init() {

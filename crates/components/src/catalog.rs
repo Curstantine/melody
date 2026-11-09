@@ -4,11 +4,9 @@ use iced::widget::text::{Ellipsis, Wrapping};
 use iced::widget::{button, column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length, Padding};
 
-use crate::icons;
-use crate::styles;
 use theme::ThemeConfig;
 
-use super::text;
+use crate::{icons, styles, text};
 
 /// Fixed pixel height of a single catalog list row, shared by Albums and Artists.
 pub const CATALOG_LIST_ROW_HEIGHT: f32 = 56.0;

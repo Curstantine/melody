@@ -4,9 +4,7 @@ use iced::widget::{button, column, container, mouse_area, row, Space, Widget};
 use iced::{Alignment, Background, Color, Element, Length, Point, Size};
 use model::{AlbumSummary, ArtistSummary, PlaylistSummary, TrackRow};
 
-use crate::icons;
-use crate::styles;
-use crate::text;
+use crate::{icons, styles, text};
 use theme::ThemeConfig;
 
 pub const CONTEXT_MENU_WIDTH: f32 = 220.0;

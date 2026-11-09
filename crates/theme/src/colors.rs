@@ -5,7 +5,7 @@ pub fn parse_hex(hex: &str) -> Color {
 }
 
 pub mod hex_color {
-    use iced::Color;
+    use super::*;
     use serde::{de::Error as _, Deserialize, Deserializer, Serializer};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Color, D::Error>
@@ -32,7 +32,7 @@ pub mod hex_color {
 }
 
 pub mod opt_hex_color {
-    use iced::Color;
+    use super::*;
     use serde::{de::Error as _, Deserialize, Deserializer, Serializer};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Color>, D::Error>

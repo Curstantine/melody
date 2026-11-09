@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
-use iced::widget::svg::Handle;
-use iced::widget::Svg;
+use iced::widget::svg::{Handle, Svg};
 use iced::{Color, Length, Theme};
 
 // Icons sourced from Boxicons (https://boxicons.com / https://icon-sets.iconify.design/boxicons/),

@@ -1,21 +1,25 @@
 #[cfg(target_os = "linux")]
 mod linux {
     use std::path::PathBuf;
-    use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
-    use std::sync::{Arc, Mutex, RwLock};
+    use std::sync::{
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        Arc, Mutex, RwLock,
+    };
     use std::time::Duration;
 
     use crossbeam_channel::Sender;
-    use mpris_server::zbus::{fdo, Result as ZbusResult};
     use mpris_server::{
+        zbus::{fdo, Result as ZbusResult},
         LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property,
         RootInterface, Server, Signal, Time, TrackId, Volume,
     };
     use tracing::{error, info};
     use url::Url;
 
-    use crate::manager::Plugin;
-    use crate::types::{PlayerAction, PluginMetadata, TrackMetadata};
+    use crate::{
+        manager::Plugin,
+        types::{PlayerAction, PluginMetadata, TrackMetadata},
+    };
 
     #[derive(Clone)]
     struct MprisInner {

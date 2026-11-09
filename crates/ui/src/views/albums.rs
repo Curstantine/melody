@@ -1,15 +1,19 @@
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::time::{Duration, Instant};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    time::{Duration, Instant},
+};
 
 use super::ScrollOffset;
 
 use iced::widget::{column, container, image, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length};
-use model::{format_duration, format_template, AlbumSummary, SortDirection, TrackFilter};
+use model::{
+    format_duration, format_template, AlbumSortField, AlbumSummary, SortDirection, TrackFilter,
+    ViewMode,
+};
 
 use crate::message::Message;
 use components::{self, icons, styles};
-use model::{AlbumSortField, ViewMode};
 use theme::ThemeConfig;
 
 #[cfg(test)]

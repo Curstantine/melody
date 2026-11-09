@@ -1,8 +1,6 @@
 pub mod schema;
 
-use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
+use std::{collections::HashMap, fs, path::Path};
 
 use tracing::{error, info, warn};
 

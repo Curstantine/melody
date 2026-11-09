@@ -1,17 +1,14 @@
-use std::path::PathBuf;
-use std::sync::Arc;
-
-use db::ScanSummary;
-use metadata::AudioTechnicalInfo;
-use model::{
-    AlbumSummary, ArtistSummary, PlaylistSummary, SortField, Track, TrackFilter, TrackRow,
-};
-use thumbnail::CacheStats;
+use std::{path::PathBuf, sync::Arc};
 
 use components::{ContextMenuAction, TrackMenuContext};
 use config::{PlaylistSection, SettingsTab, ViewTab};
-use db::PlaylistResolution;
-use model::{AlbumSortField, ArtistSortField, PlaylistSortField, ViewMode};
+use db::{PlaylistResolution, ScanSummary};
+use metadata::AudioTechnicalInfo;
+use model::{
+    AlbumSortField, AlbumSummary, ArtistSortField, ArtistSummary, PlaylistSortField,
+    PlaylistSummary, SortField, Track, TrackFilter, TrackRow, ViewMode,
+};
+use thumbnail::CacheStats;
 
 /// What a resolved playlist should be used for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

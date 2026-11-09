@@ -6,7 +6,7 @@ use iced::{
     Alignment, Background, Border, Color, ContentFit, Element, Length, Shadow,
 };
 
-use model::SortDirection;
+use model::{SortDirection, ViewMode};
 use theme::ThemeConfig;
 
 pub mod catalog;
@@ -28,8 +28,6 @@ pub use crate::{
     marquee::Marquee,
     spinner::Spinner,
 };
-
-use model::ViewMode;
 
 /// A text widget configured with the active theme font.
 pub fn text<'a>(

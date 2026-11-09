@@ -1,5 +1,4 @@
-use std::fs;
-use std::path::Path;
+use std::{fmt::Write, fs, path::Path};
 
 use image::codecs::jpeg::JpegEncoder;
 use md5::{Digest, Md5};
@@ -27,7 +26,6 @@ pub fn compute_thumbnail_cache_key(track_path: &Path, max_dim: u32) -> String {
 
     let digest = hasher.finalize();
     let mut key = String::with_capacity(32 + 1 + 10);
-    use std::fmt::Write;
     for byte in digest {
         let _ = write!(key, "{:02x}", byte);
     }

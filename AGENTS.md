@@ -36,7 +36,7 @@ melody/
     ├── metadata/                # FFmpeg audio tags, tech info, embedded cover extraction, and library watcher
     ├── db/                      # Turso SQLite database schema, windowed queries, queue persistence, M3U playlists
     ├── audio/                   # Dedicated audio worker thread, CPAL playback, FFmpeg decoder & resampler, lock-free ring buffer
-    ├── plugins/                 # Extensibility framework, host contracts, lyrics, discord presence hooks
+    ├── plugins/                 # Extensibility framework, host contracts, lyrics, scrobbling, media controls
     ├── updater/                 # Velopack integration, application lifecycle hooks, GitHub update checking, browser launching
     ├── theme/                   # Data-driven TOML theme definitions, palette config, font resolution, theme management
     ├── layout/                  # Declarative KDL layout templates, schema AST, layout management

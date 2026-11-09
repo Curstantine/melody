@@ -1,13 +1,17 @@
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64, Ordering},
+    Arc, RwLock,
+};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::{error, info, warn};
 
-use crate::manager::Plugin;
-use crate::types::{PluginMetadata, TrackMetadata};
+use crate::{
+    manager::Plugin,
+    types::{PluginMetadata, TrackMetadata},
+};
 
 pub const DEFAULT_LISTENBRAINZ_API_URL: &str = "https://api.listenbrainz.org/1/submit-listens";
 

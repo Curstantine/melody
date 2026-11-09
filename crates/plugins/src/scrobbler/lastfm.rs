@@ -1,13 +1,17 @@
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64, Ordering},
+    Arc, RwLock,
+};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
 
-use crate::manager::Plugin;
-use crate::types::{PluginMetadata, TrackMetadata};
+use crate::{
+    manager::Plugin,
+    types::{PluginMetadata, TrackMetadata},
+};
 
 pub const DEFAULT_LASTFM_API_URL: &str = "https://ws.audioscrobbler.com/2.0/";
 

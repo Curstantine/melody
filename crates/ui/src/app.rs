@@ -1,6 +1,8 @@
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use audio::{AudioController, AudioEngine};
 use crossbeam_channel::Receiver;
@@ -11,20 +13,23 @@ use iced::widget::operation::Animation;
 use iced::widget::{button, column, container, image, mouse_area, row, Space, Widget};
 use iced::{Alignment, Background, Color, Element, Length, Subscription, Task, Theme};
 use model::{PlaylistSummary, SortDirection, SortField, Track, TrackFilter, TrackRow};
-use plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 #[cfg(target_os = "linux")]
-use plugins::MprisPlugin;
+use plugins::media_controls::MprisPlugin;
 #[cfg(target_os = "windows")]
-use plugins::WindowsMediaPlugin;
-use plugins::{PlayerAction, PluginManager, TrackMetadata};
+use plugins::media_controls::WindowsMediaPlugin;
+use plugins::{
+    scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService},
+    PlayerAction, PluginManager, TrackMetadata,
+};
 use tracing::{error, info, warn};
 
 use crate::message::{Message, PlaylistOpenIntent};
 use crate::views::{
     AlbumsView, ArtistsView, LibraryView, NowPlayingView, PlayerBar, PlaylistsView, SettingsView,
 };
-use components::styles;
-use components::{icons, ContextMenuAction, ContextMenuState, ContextMenuTarget, TrackMenuContext};
+use components::{
+    icons, styles, ContextMenuAction, ContextMenuState, ContextMenuTarget, TrackMenuContext,
+};
 use config::{AppConfig, AppState, PlaylistSection, ScrobbleConfig, SettingsTab, ViewTab};
 use layout::LayoutManager;
 use queue::{queue_window_for_start, QueueSource, QueueStore, DEFAULT_QUEUE_NAME};

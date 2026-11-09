@@ -6,8 +6,10 @@
 //! mirrors the reference-counted metadata pools used by foobar2000/MusicBee and
 //! keeps memory proportional to the *distinct* catalog rather than track count.
 
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex, OnceLock},
+};
 
 /// Shared, interned string handle. Dereferences to `&str`.
 pub type InternedStr = Arc<str>;

@@ -1,22 +1,22 @@
-use db::PlaylistEntry;
+use std::{collections::HashMap, time::Instant};
+
 use iced::widget::{
     button, column, container, image, mouse_area, row, scrollable, text_input, Space, Widget,
 };
 use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length};
-use model::{format_template, FieldLookup, PlaylistSummary, SortDirection, TrackRow};
-use std::collections::HashMap;
-use std::time::Instant;
 
-use super::ScrollOffset;
-
-use crate::message::Message;
-use components::styles;
-use components::{self, icons, text, TrackMenuContext};
+use components::{self, icons, styles, text, TrackMenuContext};
 use config::PlaylistSection;
-use db::PlaylistItem;
-use model::{PlaylistSortField, ViewMode};
+use db::{PlaylistEntry, PlaylistItem};
+use model::{
+    format_template, FieldLookup, PlaylistSortField, PlaylistSummary, SortDirection, TrackRow,
+    ViewMode,
+};
 use queue::{queue_window_for_start, queue_window_start, QueueStore, QUEUE_ROW_HEIGHT};
 use theme::ThemeConfig;
+
+use super::ScrollOffset;
+use crate::message::Message;
 
 /// Square playlist tile size in the Playlists catalog grid.
 pub const PLAYLIST_TILE_SIZE: f32 = 150.0;

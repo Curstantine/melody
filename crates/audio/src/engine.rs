@@ -9,17 +9,17 @@ use crossbeam_channel::{unbounded, Receiver, Sender};
 use ffmpeg_next::format::context::Input;
 use ffmpeg_next::media::Type;
 use ffmpeg_next::software::resampling::context::Context as ResamplerContext;
-use ffmpeg_next::util::channel_layout::ChannelLayout;
-use ffmpeg_next::util::format::sample::Type as SampleType;
-use ffmpeg_next::util::format::Sample;
-use ffmpeg_next::util::frame::Audio as AudioFrame;
+use ffmpeg_next::util::{
+    channel_layout::ChannelLayout,
+    format::{sample::Type as SampleType, Sample},
+    frame::Audio as AudioFrame,
+};
 use ringbuf::traits::{Consumer, Observer, Producer, Split};
 use ringbuf::HeapRb;
 use thiserror::Error;
 use tracing::{error, info, warn};
 
-use crate::commands::AudioCommand;
-use crate::status::AudioStatus;
+use crate::{commands::AudioCommand, status::AudioStatus};
 
 /// ~1.5 seconds of stereo f32 at 48 kHz: 48_000 * 2 * 1.5 = 144_000 samples.
 /// Rounded up to the next power of two for ringbuf efficiency (2^18).

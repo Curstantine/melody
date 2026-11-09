@@ -2,23 +2,32 @@
 mod win {
     use std::ffi::c_void;
     use std::path::PathBuf;
-    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-    use std::sync::{Arc, RwLock};
+    use std::sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc, RwLock,
+    };
     use std::time::Duration;
 
     use crossbeam_channel::{Receiver, Sender};
     use tracing::{error, info};
-    use windows::core::HSTRING;
-    use windows::Foundation::{TimeSpan, TypedEventHandler};
-    use windows::Media::*;
-    use windows::Storage::StorageFile;
-    use windows::Storage::Streams::RandomAccessStreamReference;
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
-    use windows::Win32::System::WinRT::ISystemMediaTransportControlsInterop;
+    use windows::{
+        core::HSTRING,
+        Foundation::{TimeSpan, TypedEventHandler},
+        Media::*,
+        Storage::{StorageFile, Streams::RandomAccessStreamReference},
+        Win32::{
+            Foundation::HWND,
+            System::{
+                Com::{CoInitializeEx, COINIT_MULTITHREADED},
+                WinRT::ISystemMediaTransportControlsInterop,
+            },
+        },
+    };
 
-    use crate::manager::Plugin;
-    use crate::types::{PlayerAction, PluginMetadata, TrackMetadata};
+    use crate::{
+        manager::Plugin,
+        types::{PlayerAction, PluginMetadata, TrackMetadata},
+    };
 
     #[derive(Debug)]
     enum WindowsMediaMsg {

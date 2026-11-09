@@ -1,12 +1,13 @@
 use iced::widget::{column, container, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length, Padding};
-use model::{format_template, ArtistSummary, SortDirection, TrackFilter};
+use model::{
+    format_template, ArtistSortField, ArtistSummary, SortDirection, TrackFilter, ViewMode,
+};
 
 use super::ScrollOffset;
 
 use crate::message::Message;
 use components::{self, icons, styles};
-use model::{ArtistSortField, ViewMode};
 use theme::ThemeConfig;
 
 #[cfg(test)]

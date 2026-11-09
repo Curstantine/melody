@@ -1,7 +1,7 @@
-fn intern_str(s: &str) -> &'static str {
-    use std::collections::HashSet;
-    use std::sync::Mutex;
+use std::collections::HashSet;
+use std::sync::Mutex;
 
+fn intern_str(s: &str) -> &'static str {
     static INTERNED: Mutex<Option<HashSet<&'static str>>> = Mutex::new(None);
     let mut guard = INTERNED.lock().unwrap();
     let set = guard.get_or_insert_with(HashSet::new);

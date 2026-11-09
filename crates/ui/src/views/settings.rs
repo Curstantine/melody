@@ -8,8 +8,7 @@ use iced::widget::{
 use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::message::Message;
-use components::styles;
-use components::{self, border_hori, icons, text};
+use components::{self, border_hori, icons, styles, text};
 use config::SettingsTab;
 use model::ViewMode;
 use theme::ThemeConfig;

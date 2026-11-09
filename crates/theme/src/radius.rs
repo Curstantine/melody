@@ -1,6 +1,7 @@
 use iced::border::Radius;
 use serde::{
     de::{self, MapAccess, Visitor},
+    ser::SerializeStruct,
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
@@ -36,7 +37,6 @@ impl Serialize for BorderRadiusConfig {
     where
         S: Serializer,
     {
-        use serde::ser::SerializeStruct;
         let mut s = serializer.serialize_struct("BorderRadiusConfig", 5)?;
         s.serialize_field("xs", &self.xs.top_left)?;
         s.serialize_field("sm", &self.sm.top_left)?;

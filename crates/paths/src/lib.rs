@@ -1,6 +1,9 @@
+use std::{
+    path::{Path, PathBuf},
+    sync::OnceLock,
+};
+
 use directories::ProjectDirs;
-use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
 
 /// Application name identifier used for storage directories and platform registration.
 /// In debug mode (`cfg(debug_assertions)`), uses `"melody.debug"` to keep dev sessions
