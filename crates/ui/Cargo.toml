@@ -76,5 +76,5 @@ windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
 ] }
 
-[target.'cfg(windows)'.build-dependencies]
+[build-dependencies]
 winres = "0.1"
