@@ -162,7 +162,7 @@ pub enum Message {
     SetResamplingFilter(audio::ResamplingFilter),
     SetResamplingQuality(audio::ResamplingQuality),
     ToggleResamplingLinearInterp(bool),
-    MprisAction(plugins::PlayerAction),
+    MediaControlAction(plugins::PlayerAction),
 
     // Navigation & Views
     SelectTab(ViewTab),
@@ -452,7 +452,7 @@ impl std::fmt::Debug for Message {
                 .debug_tuple("ToggleResamplingLinearInterp")
                 .field(v)
                 .finish(),
-            Self::MprisAction(a) => f.debug_tuple("MprisAction").field(a).finish(),
+            Self::MediaControlAction(a) => f.debug_tuple("MediaControlAction").field(a).finish(),
             Self::SelectTab(t) => f.debug_tuple("SelectTab").field(t).finish(),
             Self::TabDragStarted(t) => f.debug_tuple("TabDragStarted").field(t).finish(),
             Self::TabDraggedOver(t) => f.debug_tuple("TabDraggedOver").field(t).finish(),

@@ -22,6 +22,18 @@ futures-lite.workspace = true
 crossbeam-channel.workspace = true
 url.workspace = true
 
+[target.'cfg(target_os = "windows")'.dependencies]
+crossbeam-channel.workspace = true
+windows = { workspace = true, features = [
+    "Foundation",
+    "Media",
+    "Win32_Foundation",
+    "Win32_System_WinRT",
+    "Win32_System_Com",
+    "Storage",
+    "Storage_Streams",
+] }
+
 [features]
 default = []
 wasm = ["extism"]

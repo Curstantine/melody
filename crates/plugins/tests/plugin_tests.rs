@@ -171,6 +171,33 @@ fn test_mpris_plugin_instantiation_and_metadata() {
     assert!(mpris.on_playback_end().is_ok());
 }
 
+#[cfg(target_os = "windows")]
+#[test]
+fn test_windows_media_plugin_instantiation_and_metadata() {
+    use plugins::WindowsMediaPlugin;
+
+    let (tx, _rx) = crossbeam_channel::unbounded();
+    let plugin = WindowsMediaPlugin::new(tx);
+    assert_eq!(plugin.metadata().id, "builtin.windows_media");
+
+    let meta = TrackMetadata {
+        title: "Test Track".to_string(),
+        artist: "Test Artist".to_string(),
+        album: "Test Album".to_string(),
+        duration_ms: 240000,
+        file_path: "C:\\music\\test.mp3".to_string(),
+    };
+
+    assert!(plugin.on_track_change(&meta).is_ok());
+    assert!(plugin.on_playback_status_change(true).is_ok());
+    assert!(plugin.on_position_change(5000).is_ok());
+    assert!(plugin.on_seeked(6000).is_ok());
+    assert!(plugin.on_volume_change(0.8).is_ok());
+    assert!(plugin.on_repeat_change(true).is_ok());
+    assert!(plugin.on_shuffle_change(true).is_ok());
+    assert!(plugin.on_playback_end().is_ok());
+}
+
 #[test]
 fn test_listenbrainz_plugin_lifecycle_and_thresholds() {
     use plugins::scrobbler::{ListenBrainzConfig, ListenBrainzPlugin};

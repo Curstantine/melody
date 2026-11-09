@@ -16,6 +16,8 @@ use iced::{Alignment, Background, Color, Element, Length, Subscription, Task, Th
 use plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 #[cfg(target_os = "linux")]
 use plugins::MprisPlugin;
+#[cfg(target_os = "windows")]
+use plugins::WindowsMediaPlugin;
 use plugins::{PlayerAction, PluginManager, TrackMetadata};
 use tracing::{error, info, warn};
 
@@ -139,7 +141,7 @@ pub struct App {
     pub(crate) cache_stats: core_engine::CacheStats,
     pub(crate) db_size_bytes: u64,
 
-    pub(crate) mpris_rx: Option<Receiver<PlayerAction>>,
+    pub(crate) media_controls_rx: Option<Receiver<PlayerAction>>,
 
     pub(crate) context_menu: Option<components::ContextMenuState>,
     pub(crate) duplicate_prompt: Option<DuplicatePromptState>,
@@ -179,15 +181,23 @@ impl App {
         plugin_manager.register_plugin(lastfm_plugin.clone());
 
         #[cfg(target_os = "linux")]
-        let (mpris_plugin, mpris_rx) = {
+        let (media_plugin, media_controls_rx) = {
             let (tx, rx) = crossbeam_channel::unbounded();
             (std::sync::Arc::new(MprisPlugin::new(tx)), Some(rx))
         };
         #[cfg(target_os = "linux")]
-        plugin_manager.register_plugin(mpris_plugin);
+        plugin_manager.register_plugin(media_plugin);
 
-        #[cfg(not(target_os = "linux"))]
-        let mpris_rx = None;
+        #[cfg(target_os = "windows")]
+        let (windows_media_plugin, media_controls_rx) = {
+            let (tx, rx) = crossbeam_channel::unbounded();
+            (std::sync::Arc::new(WindowsMediaPlugin::new(tx)), Some(rx))
+        };
+        #[cfg(target_os = "windows")]
+        plugin_manager.register_plugin(windows_media_plugin.clone());
+
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+        let media_controls_rx = None;
 
         let mut theme_manager = ThemeManager::new();
         theme_manager.set_theme(&config.theme_name);
@@ -311,7 +321,7 @@ impl App {
             cache_stats: core_engine::CacheStats::default(),
             db_size_bytes: 0,
 
-            mpris_rx,
+            media_controls_rx,
 
             context_menu: None,
             duplicate_prompt: None,
@@ -386,6 +396,25 @@ impl App {
             None,
             &app.theme_manager.current_config,
         ));
+
+        #[cfg(target_os = "windows")]
+        {
+            use iced::window::raw_window_handle::RawWindowHandle;
+            let plugin = windows_media_plugin.clone();
+            let attach_fn = move |id: iced::window::Id| {
+                let plugin = plugin.clone();
+                iced::window::run(id, move |window| {
+                    if let Ok(handle) = window.window_handle() {
+                        if let RawWindowHandle::Win32(win32) = handle.as_raw() {
+                            let hwnd = win32.hwnd.get();
+                            plugin.attach_window(hwnd);
+                        }
+                    }
+                })
+                .discard()
+            };
+            initial_tasks.push(iced::window::oldest().and_then(attach_fn));
+        }
 
         app.sync_status_strings();
         let initial_task = Task::batch(initial_tasks);
@@ -601,15 +630,15 @@ impl App {
                     return self.update(Message::NextTrack);
                 }
 
-                // Drain any incoming MPRIS actions
-                let mut mpris_action = None;
-                if let Some(ref rx) = self.mpris_rx {
+                // Drain any incoming media control actions (MPRIS on Linux, SMTC on Windows)
+                let mut media_action = None;
+                if let Some(ref rx) = self.media_controls_rx {
                     while let Ok(action) = rx.try_recv() {
-                        mpris_action = Some(action);
+                        media_action = Some(action);
                     }
                 }
-                if let Some(action) = mpris_action {
-                    return self.update(Message::MprisAction(action));
+                if let Some(action) = media_action {
+                    return self.update(Message::MediaControlAction(action));
                 }
 
                 // Drain any incoming library watcher events
@@ -917,7 +946,7 @@ impl App {
                 self.save_state_debounced()
             }
 
-            Message::MprisAction(action) => match action {
+            Message::MediaControlAction(action) => match action {
                 PlayerAction::Play => {
                     self.audio_controller.play();
                     Task::none()
