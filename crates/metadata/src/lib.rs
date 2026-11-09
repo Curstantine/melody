@@ -1,11 +1,13 @@
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
-use thiserror::Error;
 
 use model::NewTrack;
 
+pub mod error;
 pub mod watcher;
+
+pub use error::MetadataError;
 pub use watcher::{LibraryWatcher, WatcherError};
 
 /// Supported audio file extensions for library indexing.
@@ -189,16 +191,6 @@ pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTech
         bitrate_kbps,
         file_size_bytes,
     })
-}
-
-#[derive(Error, Debug)]
-pub enum MetadataError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("FFmpeg error: {0}")]
-    Ffmpeg(#[from] ffmpeg_next::Error),
-    #[error("Unsupported audio format or no tracks found")]
-    UnsupportedFormat,
 }
 
 pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
