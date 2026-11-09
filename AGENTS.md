@@ -12,10 +12,10 @@ Welcome to **Melody**. This guide is written for autonomous coding agents and hu
 
 - **Low Memory Footprint**: Idles around ~30–50 MB RAM, even with 100,000+ tracks indexed (similar to classic MusicBee / foobar2000).
 - **Lock-Free Audio Pipeline**: Audio decoding and output run on a dedicated worker thread, completely decoupled from the UI thread. The audio thread never blocks, allocates in realtime callbacks, or waits on UI locks.
-- **Pure Rust GUI Runtime**: Uses [`iced`](https://github.com/iced-rs/iced) (v0.13) following The Elm Architecture (Model-View-Update). Zero C-bindings for UI rendering.
+- **Pure Rust GUI Runtime**: Uses [`iced`](https://github.com/iced-rs/iced) following The Elm Architecture (Model-View-Update). Zero C-bindings for UI rendering.
 - **Embedded Storage**: Turso local SQLite engine via [`turso`](https://github.com/tursodatabase/turso) in WAL mode, utilizing windowed queries (`LIMIT ? OFFSET ?`) with async Iced tasks for viewport virtualization.
-- **On-Disk Thumbnail Caching**: Album artwork is extracted, resized, and cached to disk as compact JPEG textures, preventing memory bloat and stutter during catalog scrolling.
-- **System Font Integration & Fallbacks**: Discovers system fonts via memory-mapped `fontdb` with font selection persisted in user configuration.
+- **On-Disk Thumbnail Caching**: Album artwork is extracted, resized, and cached to disk as compact JPEG textures (`THUMB_DIM_DEFAULT = 256px`), preventing memory bloat and stutter during catalog scrolling.
+- **System Font Integration & Fallbacks**: Discovers system fonts via memory-mapped `fontdb` (`cosmic-text`) without loading full font data into RAM, with font selection persisted in user configuration.
 - **Reliable Vector UI Icons**: Pure SVG icons with runtime palette coloring—no Unicode emojis or font-dependent glyphs.
 
 ---
@@ -50,20 +50,20 @@ melody/
 
 | Crate | Path | Responsibilities | Key Dependencies |
 | :--- | :--- | :--- | :--- |
-| **`paths`** | [`crates/paths`](file:///home/curstantine/Code/Personal/melody/crates/paths/src/lib.rs) | Centralized filesystem directories, application storage paths, atomic file writes. | `directories` |
-| **`model`** | [`crates/model`](file:///home/curstantine/Code/Personal/melody/crates/model/src/lib.rs) | Core domain types (`Track`, `TrackRow`, `AlbumSummary`, `ArtistSummary`), catalog sort fields (`AlbumSortField`, `ArtistSortField`, `PlaylistSortField`, `ViewMode`), search filter parser (`TrackFilter`), string template engine (`format_template`), metadata string interning. | `serde` |
-| **`thumbnail`** | [`crates/thumbnail`](file:///home/curstantine/Code/Personal/melody/crates/thumbnail/src/lib.rs) | Cover art resizing, blurred background generation, disk thumbnail caching. | `image`, `md-5`, `paths`, `metadata` |
-| **`metadata`** | [`crates/metadata`](file:///home/curstantine/Code/Personal/melody/crates/metadata/src/lib.rs) | FFmpeg audio tag and embedded cover art extraction, technical audio info, supported audio formats, debounced recursive filesystem watcher (`LibraryWatcher`). | `ffmpeg-next`, `model`, `encoding_rs`, `notify`, `crossbeam-channel` |
-| **`db`** | [`crates/db`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs) | Turso SQLite schema, migrations, windowed queries, queue persistence, library directory scanning, M3U/M3U8 playlist parsing and library resolution. | `turso`, `tokio`, `model`, `paths`, `metadata`, `encoding_rs` |
-| **`audio`** | [`crates/audio`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/lib.rs) | Lock-free audio worker thread, CPAL output stream, SPSC ring buffer, FFmpeg packet demuxing/decoding/resampling, atomic status reporting. | `cpal`, `ffmpeg-next`, `ringbuf`, `crossbeam-channel`, `thiserror` |
-| **`plugins`** | [`crates/plugins`](file:///home/curstantine/Code/Personal/melody/crates/plugins/src/lib.rs) | Plugin contracts, event dispatch (`on_track_change`, `on_playback_end`), lyrics fetcher, RPC stubs. | `serde`, `serde_json`, `tracing`, `thumbnail`, `paths` |
-| **`updater`** | [`crates/updater`](file:///home/curstantine/Code/Personal/melody/crates/updater/src/lib.rs) | Velopack runtime hooks, GitHub release update checking, browser opening helpers. | `velopack`, `tracing`, `tokio` |
-| **`theme`** | [`crates/theme`](file:///home/curstantine/Code/Personal/melody/crates/theme/src/lib.rs) | TOML theme deserialization, hex color parsing, fontdb system font discovery, runtime theme management. | `iced`, `serde`, `toml`, `tracing`, `walkdir`, `paths` |
-| **`layout`** | [`crates/layout`](file:///home/curstantine/Code/Personal/melody/crates/layout/src/lib.rs) | Declarative KDL layout schema, format configs (`LibraryFormatConfig`, `AlbumsFormatConfig`, etc.), layout discovery and manager. | `kdl`, `model`, `paths`, `tracing`, `iced` |
-| **`queue`** | [`crates/queue`](file:///home/curstantine/Code/Personal/melody/crates/queue/src/lib.rs) | In-memory playback queue management (`QueueStore`, `QueueSummary`, `QueueSource`), cursor navigation, queue virtualization math. | `model`, `serde`, `tracing` |
-| **`config`** | [`crates/config`](file:///home/curstantine/Code/Personal/melody/crates/config/src/lib.rs) | User preferences (`AppConfig`), session/runtime state (`AppState`), scrobbler configuration, navigation tabs (`ViewTab`, `SettingsTab`). | `paths`, `model`, `audio`, `plugins`, `theme`, `layout`, `serde`, `toml`, `tracing` |
-| **`components`** | [`crates/components`](file:///home/curstantine/Code/Personal/melody/crates/components/src/lib.rs) | Reusable UI widgets (Marquee, Spinner, CatalogRow/Tile, TrackRow), vector SVG icons, dynamic widget styles (`styles`), chips, layout cards. | `iced`, `serde`, `theme`, `model` |
-| **`ui`** | [`crates/ui`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/main.rs) | Iced GUI application entry point, Model-View-Update cycle, context menu, layout view rendering, and view implementations. | `iced`, `rfd`, `directories`, `db`, `model`, `paths`, `thumbnail`, `metadata`, `audio`, `plugins`, `updater`, `theme`, `layout`, `queue`, `config`, `components` |
+| **`paths`** | [`crates/paths`](crates/paths/src/lib.rs) | Centralized filesystem directories (`AppPaths`), application storage paths, atomic file writes (`atomic_write`). | `directories` |
+| **`model`** | [`crates/model`](crates/model/src/lib.rs) | Core domain types (`Track`, `TrackRow`, `AlbumSummary`, `ArtistSummary`), catalog sort fields (`AlbumSortField`, `ArtistSortField`, `PlaylistSortField`, `ViewMode`), search filter parser (`TrackFilter`), string template engine (`format_template`), metadata string interning (`intern`). | `serde` |
+| **`thumbnail`** | [`crates/thumbnail`](crates/thumbnail/src/lib.rs) | Cover art resizing, blurred background generation, disk thumbnail caching. | `image`, `md-5`, `paths`, `metadata` |
+| **`metadata`** | [`crates/metadata`](crates/metadata/src/lib.rs) | FFmpeg audio tag and embedded cover art extraction, technical audio info, supported audio formats, debounced recursive filesystem watcher (`LibraryWatcher`). | `ffmpeg-next`, `model`, `encoding_rs`, `notify`, `crossbeam-channel` |
+| **`db`** | [`crates/db`](crates/db/src/lib.rs) | Turso SQLite schema, migrations, windowed queries, queue persistence, library directory scanning, M3U/M3U8 playlist parsing and library resolution. | `turso`, `tokio`, `model`, `paths`, `metadata`, `encoding_rs` |
+| **`audio`** | [`crates/audio`](crates/audio/src/lib.rs) | Lock-free audio worker thread (`run_audio_worker`), CPAL output stream, SPSC ring buffer (`HeapRb<f32>`), FFmpeg packet demuxing/decoding/resampling, atomic status reporting (`AudioStatus`). | `cpal`, `ffmpeg-next`, `ringbuf`, `crossbeam-channel`, `thiserror` |
+| **`plugins`** | [`crates/plugins`](crates/plugins/src/lib.rs) | Plugin contracts (`Plugin`), event dispatch (`on_track_change`, `on_playback_end`, `scrobble`), lyrics fetcher (`LyricsPlugin`), media controls (Windows SMTC / Linux MPRIS). | `serde`, `serde_json`, `tracing`, `thumbnail`, `paths`, `mpris-server`, `windows` |
+| **`updater`** | [`crates/updater`](crates/updater/src/lib.rs) | Velopack runtime hooks (`init`), GitHub release update checking (`check_for_updates`), browser opening helpers (`open_in_browser`). | `velopack`, `tracing`, `tokio` |
+| **`theme`** | [`crates/theme`](crates/theme/src/lib.rs) | TOML theme deserialization (`ThemeConfig`), hex color parsing, system font discovery (`list_font_families`), runtime theme management (`ThemeManager`). | `iced`, `serde`, `toml`, `tracing`, `walkdir`, `paths` |
+| **`layout`** | [`crates/layout`](crates/layout/src/lib.rs) | Declarative KDL layout schema (`LayoutTemplate`), format configs (`LibraryFormatConfig`, `AlbumsFormatConfig`, etc.), layout discovery and manager (`LayoutManager`). | `kdl`, `model`, `paths`, `tracing`, `iced` |
+| **`queue`** | [`crates/queue`](crates/queue/src/lib.rs) | In-memory playback queue management (`QueueStore`, `QueueSummary`, `QueueSource`, `Queue`), cursor navigation, queue virtualization math. | `model`, `serde`, `tracing` |
+| **`config`** | [`crates/config`](crates/config/src/lib.rs) | User preferences (`AppConfig`), session/runtime state (`AppState`), scrobbler configuration (`ScrobbleConfig`), navigation enums (`ViewTab`, `SettingsTab`, `PlaylistSection`). | `paths`, `model`, `audio`, `plugins`, `theme`, `layout`, `serde`, `toml`, `tracing` |
+| **`components`** | [`crates/components`](crates/components/src/lib.rs) | Reusable UI widgets (`Marquee`, `Spinner`, `CatalogRow`, `CatalogTile`, `TrackRow`), vector SVG icons (`icons`), dynamic widget styles (`styles`), chips, settings cards. | `iced`, `serde`, `theme`, `model` |
+| **`ui`** | [`crates/ui`](crates/ui/src/main.rs) | Iced GUI application entry point, Model-View-Update cycle (`App`), context menu runtime, layout view rendering runtime, and views. | `iced`, `rfd`, `directories`, `db`, `model`, `paths`, `thumbnail`, `metadata`, `audio`, `plugins`, `updater`, `theme`, `layout`, `queue`, `config`, `components` |
 
 ---
 
@@ -71,7 +71,7 @@ melody/
 
 ### Prerequisites (Linux / NixOS)
 
-The repository contains a Nix flake [`flake.nix`](file:///home/curstantine/Code/Personal/melody/flake.nix) providing `alsa-lib`, `fontconfig`, `freetype`, `wayland`, `libxkbcommon`, `vulkan-loader`, and `noto-fonts-cjk-sans`.
+The repository contains a Nix flake [`flake.nix`](flake.nix) providing `alsa-lib`, `fontconfig`, `freetype`, `wayland`, `libxkbcommon`, `vulkan-loader`, and `noto-fonts-cjk-sans`.
 
 When executing commands in the shell:
 
@@ -129,53 +129,53 @@ cargo test --workspace
 
 ### 4.1 Audio Engine: Lock-Free Isolation
 
-- **No Blocking on UI**: The audio thread (`AudioWorkerThread`) defined in [`crates/audio/src/engine.rs`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/engine.rs) runs independently of GUI frame rendering.
-- **UI → Audio (Commands)**: Handled via unbounded [`crossbeam_channel::Sender<AudioCommand>`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/commands.rs). Commands include [`Play`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/commands.rs#L6), [`Pause`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/commands.rs#L7), [`Seek(Duration)`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/commands.rs#L9), [`Load(PathBuf, bool)`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/commands.rs#L5), [`SetVolume(f32)`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/commands.rs#L10).
-- **Audio → UI (Telemetry)**: Zero-cost atomic telemetry block [`AudioStatus`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/status.rs). Uses `Arc<AtomicU64>` (position in ms), `Arc<AtomicBool>` (playing flag), `Arc<AtomicU32>` (volume), and `Arc<AtomicBool>` (track ended flag). The UI polls this via [`iced::time::every`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs#L182-L184) at 50ms intervals.
-- **SPSC Ring Buffer**: Audio samples are decoded via FFmpeg into an interleaved `f32` [`HeapRb<f32>`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/engine.rs#L27). The CPAL output callback reads directly from the consumer without heap allocations or locks.
-- **Sample Rate & Channel Converter**: FFmpeg's [`ResamplerContext`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/engine.rs#L1088) (`libswresample`) dynamically normalizes source format, channels, and sample rate into packed `f32` target channels and device rate.
+- **No Blocking on UI**: The audio thread (`run_audio_worker`) spawned by [`AudioEngine`](crates/audio/src/engine.rs) runs independently of GUI frame rendering.
+- **UI → Audio (Commands)**: Handled via unbounded [`crossbeam_channel::Sender<AudioCommand>`](crates/audio/src/commands.rs) encapsulated in [`AudioController`](crates/audio/src/engine.rs). Commands include [`Play`](crates/audio/src/commands.rs), [`Pause`](crates/audio/src/commands.rs), [`Seek(Duration)`](crates/audio/src/commands.rs), [`Load { path, autoplay }`](crates/audio/src/commands.rs), [`SetVolume(f32)`](crates/audio/src/commands.rs), [`SetNextTrack(Option<PathBuf>)`](crates/audio/src/commands.rs), and [`SetResampling(ResamplingConfig)`](crates/audio/src/commands.rs).
+- **Audio → UI (Telemetry)**: Zero-cost atomic telemetry block [`AudioStatus`](crates/audio/src/status.rs). Uses `Arc<AtomicU64>` (`position_ms`, `duration_ms`), `Arc<AtomicBool>` (`is_playing`, `is_loaded`, `is_ended`, `gapless_transition`), and `Arc<AtomicU32>` (`volume_raw`). The UI polls this via [`iced::time::every`](crates/ui/src/app.rs) at 50ms intervals (`Message::AudioTick`).
+- **SPSC Ring Buffer**: Audio samples are decoded via FFmpeg into an interleaved `f32` [`HeapRb<f32>`](crates/audio/src/engine.rs) (`RING_BUFFER_CAPACITY = 262_144`). The CPAL output callback reads directly from the consumer without heap allocations or locks via `pop_samples_with_boundary`.
+- **Sample Rate & Channel Converter**: FFmpeg's [`ResamplerContext`](crates/audio/src/engine.rs) (`libswresample`) dynamically normalizes source format, channels, and sample rate into packed `f32` target channels and device rate via `create_resampler`.
 
 ### 4.2 SQLite Database & Viewport Virtualization
 
-- **Database Engine**: [`LibraryDatabase`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs) manages the `tracks` table with WAL mode and indices on `title`, `artist`, `album`, `genre`, and `file_path`.
-- **Viewport Windowing**: Never execute `SELECT * FROM tracks` into a `Vec<Track>` for rendering. Viewports query only visible slices using [`get_track_rows_window`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs) with `LIMIT ? OFFSET ?`.
-- **Lightweight Index Headers**: Use [`TrackIdHeader { id: i64, duration_ms: u32 }`](file:///home/curstantine/Code/Personal/melody/crates/model/src/model.rs) via [`get_all_track_headers`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs) if global track count, random shuffle, or total duration calculations are required.
-- **Scoped Filters**: Queries accept a parsed [`TrackFilter`](file:///home/curstantine/Code/Personal/melody/crates/model/src/search.rs) rather than a raw string. [`filter_clause`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs) turns it into a dynamically-parameterised `WHERE` clause (bound via `turso::Value` + `params_from_iter`).
+- **Database Engine**: [`LibraryDatabase`](crates/db/src/lib.rs) manages the `tracks` table with WAL mode and indices on `title`, `artist`, `album`, `genre`, and `file_path`.
+- **Viewport Windowing**: Never execute `SELECT * FROM tracks` into a `Vec<Track>` for rendering. Viewports query only visible slices using [`get_track_rows_window`](crates/db/src/lib.rs) with `LIMIT ? OFFSET ?`.
+- **Lightweight Index Headers**: Use [`TrackIdHeader { id: i64, duration_ms: u32 }`](crates/model/src/model.rs) via [`get_all_track_headers`](crates/db/src/lib.rs) if global track count, random shuffle, or total duration calculations are required.
+- **Scoped Filters**: Queries accept a parsed [`TrackFilter`](crates/model/src/search.rs) rather than a raw string. [`filter_clause`](crates/db/src/lib.rs) turns it into a dynamically-parameterised `WHERE` clause (bound via `turso::Value` + `params_from_iter`).
 
 ### 4.3 Disk Thumbnail Caching
 
-- Implemented in [`crates/thumbnail/src/lib.rs`](file:///home/curstantine/Code/Personal/melody/crates/thumbnail/src/lib.rs).
-- Extracted cover images are downscaled to compact JPEG thumbnails (`DEFAULT_THUMBNAIL_SIZE = 200px`) and cached on disk in `thumbnail_cache_dir()` (`~/.cache/melody/thumbnails/`).
-- Employs deterministic hash keys factoring in path, modification time, file size, and target dimensions. Missing covers write negative hit marker files (`.none`) to avoid redundant filesystem extractions.
-- Cache statistics and cache clearing are integrated in the Settings view via [`get_thumbnail_cache_stats()`](file:///home/curstantine/Code/Personal/melody/crates/thumbnail/src/lib.rs) and [`clear_thumbnail_cache()`](file:///home/curstantine/Code/Personal/melody/crates/thumbnail/src/lib.rs).
+- Implemented in [`crates/thumbnail/src/lib.rs`](crates/thumbnail/src/lib.rs).
+- Extracted cover images are downscaled to compact JPEG thumbnails (`THUMB_DIM_DEFAULT = 256px`, `THUMB_DIM_HIGH = 300px`) and cached on disk in `thumbnail_cache_dir()` from [`paths`](crates/paths/src/lib.rs).
+- Employs deterministic hash keys factoring in path, modification time, file size, and target dimensions (`compute_thumbnail_cache_key`). Missing covers write negative hit marker files (`.none`) to avoid redundant filesystem extractions.
+- Cache statistics and cache clearing are integrated in the Settings view via [`get_thumbnail_cache_stats()`](crates/thumbnail/src/lib.rs) and [`clear_thumbnail_cache()`](crates/thumbnail/src/lib.rs).
 
 ### 4.4 Vector SVG Icons
 
 - Unicode emojis (e.g. `▶`, `⏮`, `🔊`) fail on platforms lacking emoji font fallbacks and render as question marks.
-- All icons in [`crates/components/src/icons.rs`](file:///home/curstantine/Code/Personal/melody/crates/components/src/icons.rs) are inline vector SVGs rendered using [`iced::widget::svg`](file:///home/curstantine/Code/Personal/melody/crates/components/src/icons.rs#L26-L33).
-- The [`icon(svg_str, size, color)`](file:///home/curstantine/Code/Personal/melody/crates/components/src/icons.rs#L26-L33) function dynamically tints SVGs using the theme's active palette.
+- All icons in [`crates/components/src/icons.rs`](crates/components/src/icons.rs) are inline vector SVGs rendered using [`iced::widget::svg`](crates/components/src/icons.rs).
+- The [`icon(svg_str, size, color)`](crates/components/src/icons.rs) function dynamically tints SVGs using the theme's active palette.
 
 ### 4.5 Data-Driven Theming & Font Configuration
 
-- Themes are external TOML files stored in [`themes/`](file:///home/curstantine/Code/Personal/melody/themes) and `~/.config/melody/themes/`.
-- [`ThemeConfig`](file:///home/curstantine/Code/Personal/melody/crates/theme/src/lib.rs#L206) deserializes hex color strings (`primary`, `background`, `surface`, `border`, `text`, `text_muted`, etc.).
-- [`ThemeManager`](file:///home/curstantine/Code/Personal/melody/crates/theme/src/lib.rs#L341) enables hot-swapping themes at runtime without recompiling.
-- Available system fonts are enumerated using [`list_font_families()`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/font.rs#L5) without loading full font files into RAM. User configuration and settings are persisted via [`AppConfig`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/config.rs#L43), while runtime session state (active tab, volume, shuffle, repeat, view modes) is decoupled and persisted via [`AppState`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/state.rs#L19).
+- Themes are external TOML files stored in bundled themes directory (`./themes/`) and user themes directory (`user_themes_dir()` via [`paths`](crates/paths/src/lib.rs)).
+- [`ThemeConfig`](crates/theme/src/config.rs) deserializes hex color strings (`primary`, `background`, `surface`, `border`, `text`, `text_muted`, etc.).
+- [`ThemeManager`](crates/theme/src/lib.rs) enables hot-swapping themes at runtime without recompiling.
+- Available system fonts are enumerated using [`list_font_families()`](crates/theme/src/fonts.rs) without loading full font files into RAM. User configuration and settings are persisted via [`AppConfig`](crates/config/src/config.rs), while runtime session state (active tab, volume, shuffle, repeat, view modes) is decoupled and persisted via [`AppState`](crates/config/src/state.rs).
 
 ### 4.6 Playback Queues & Scoped Library Filtering
 
-- **Queues live in the database, not on disk**: [`QueueStore`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/queue.rs) is an in-memory view over the persisted `playback_queues`, `playback_queue_tracks` (ordered track ids) and `playback_state` tables. Playlists remain the only concept backed by the M3U file format.
-- **Only the active queue is materialized**: `QueueStore` keeps a cheap [`QueueSummary`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/queue.rs) for every queue and the full `Vec<TrackRow>` for the active queue only. Queues are loaded on activation via [`load_queue_tracks`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs).
-- **Incremental persistence**: cursor changes write a single `UPDATE` ([`set_queue_current`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs)); structural edits replace the queue's membership ([`replace_queue_tracks`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs)). Never re-serialize every queue on each change.
-- **Every playback context becomes a queue**: playing from the library rebuilds a queue from the active scope ([`start_library_playback`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs)); the queue is named after the album, artist, search query, or `All Songs`. Same-named queues are reused and refreshed rather than duplicated.
-- **Scoped library search**: [`TrackFilter::parse`](file:///home/curstantine/Code/Personal/melody/crates/model/src/search.rs) supports `album:"…"`, `artist:…`, `album_artist:…`, `genre:…`, `year:…`, `title:…` plus free text. Categorical fields match exactly (so clicking an album shows only that album); free text is substring across title/artist/album.
-- **`All Songs` memory caveat**: [`get_all_track_rows_filtered`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs) intentionally bypasses windowing to materialize a queue. This is the one sanctioned exception to the "never load the whole library" rule; keep it out of render paths.
+- **Queues live in the database, not on disk**: [`QueueStore`](crates/queue/src/lib.rs) is an in-memory view over the persisted `playback_queues`, `playback_queue_tracks` (ordered track ids) and `playback_state` tables. Playlists remain the only concept backed by the M3U file format.
+- **Only the active queue is materialized**: `QueueStore` keeps a cheap [`QueueSummary`](crates/queue/src/lib.rs) for every queue and the full `Vec<TrackRow>` for the active queue only. Queues are loaded on activation via [`load_queue_tracks`](crates/db/src/lib.rs).
+- **Incremental persistence**: cursor changes write a single `UPDATE` ([`set_queue_current`](crates/db/src/lib.rs)); structural edits replace the queue's membership ([`replace_queue_tracks`](crates/db/src/lib.rs)). Never re-serialize every queue on each change.
+- **Every playback context becomes a queue**: playing from the library rebuilds a queue from the active scope ([`start_library_playback`](crates/ui/src/app.rs)); the queue is named after the album, artist, search query, or `All Songs`. Same-named queues are reused and refreshed rather than duplicated.
+- **Scoped library search**: [`TrackFilter::parse`](crates/model/src/search.rs) supports `album:"…"`, `artist:…`, `album_artist:…`, `genre:…`, `year:…`, `title:…` plus free text. Categorical fields match exactly (so clicking an album shows only that album); free text is substring across title/artist/album.
+- **`All Songs` memory caveat**: [`get_all_track_rows_filtered`](crates/db/src/lib.rs) intentionally bypasses windowing to materialize a queue. This is the one sanctioned exception to the "never load the whole library" rule; keep it out of render paths.
 
 ### 4.7 Declarative KDL Layouts & View Formatting
 
-- **Data-Driven UI Hierarchy**: UI layouts are defined using KDL schema files in [`layouts/`](file:///home/curstantine/Code/Personal/melody/layouts) and `~/.config/melody/layouts/`, parsed into [`LayoutDefinition`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/layout/schema.rs).
-- **Customizable String Templates**: Layouts define view item presentations under a `view-formats` node. String substitutions and conditional brackets (`[...]`) are powered by [`format_template`](file:///home/curstantine/Code/Personal/melody/crates/model/src/template.rs). See [`docs/string-formatting.md`](file:///home/curstantine/Code/Personal/melody/docs/string-formatting.md) for full syntax details.
-- **Dynamic Table Columns & Size Constraints**: Library table columns can be defined, reordered, sized (`fill-portion` or fixed `width`), and bound to sorting fields directly in the KDL template.
+- **Data-Driven UI Hierarchy**: UI layouts are defined using KDL schema files in bundled layouts directory (`./layouts/`) and user layouts directory (`user_layouts_dir()` via [`paths`](crates/paths/src/lib.rs)), parsed into [`LayoutTemplate`](crates/layout/src/schema.rs).
+- **Customizable String Templates**: Layouts define view item presentations under a `view-formats` node (`ViewFormatsConfig`). String substitutions and conditional brackets (`[...]`) are powered by [`format_template`](crates/model/src/template.rs). See [`docs/string-formatting.md`](docs/string-formatting.md) for full syntax details.
+- **Dynamic Table Columns & Size Constraints**: Library table columns can be defined, reordered, sized (`fill-portion` or fixed `width`), and bound to sorting fields directly in the KDL template (`ColumnFormatConfig`).
 
 ---
 
@@ -183,22 +183,22 @@ cargo test --workspace
 
 ### Application Entry & GUI Lifecycle
 
-- [`crates/ui/src/main.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/main.rs): Application entry point; logging init, window configuration, and default font configuration.
-- [`crates/ui/src/app.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs): The central [`App`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs#L22-L83) struct, [`update`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs#L187) state machine, and [`view`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs#L1012) layout composition.
-- [`crates/ui/src/config.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/config.rs): Persistent configuration state (`theme_name`, `primary_font`, `tab_order`, `page_size`, tile dimensions, `gapless`, scrobbling credentials).
-- [`crates/ui/src/state.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/state.rs): Persistent runtime application and player state (`active_tab`, `settings_tab`, `volume`, `is_shuffle`, `is_repeat`, view modes, sort fields).
-- [`crates/ui/src/message.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/message.rs): [`Message`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/message.rs#L28-L77) enum representing all UI events and user interactions.
+- [`crates/ui/src/main.rs`](crates/ui/src/main.rs): Application entry point; logging init, window configuration, and default font configuration.
+- [`crates/ui/src/app.rs`](crates/ui/src/app.rs): The central [`App`](crates/ui/src/app.rs) struct, [`update`](crates/ui/src/app.rs) state machine, and [`view`](crates/ui/src/app.rs) layout composition.
+- [`crates/config/src/config.rs`](crates/config/src/config.rs): Persistent configuration state [`AppConfig`](crates/config/src/config.rs) (`theme_name`, `primary_font`, `tab_order`, `page_size`, tile dimensions, `gapless`, `resampling`, `watch_library`, scrobbling credentials).
+- [`crates/config/src/state.rs`](crates/config/src/state.rs): Persistent runtime application and player state [`AppState`](crates/config/src/state.rs) (`active_tab`, `settings_tab`, `volume`, `is_shuffle`, `is_repeat`, view modes, sort fields).
+- [`crates/ui/src/message.rs`](crates/ui/src/message.rs): [`Message`](crates/ui/src/message.rs) enum representing all UI events and user interactions.
 
-### Views Directory ([`crates/ui/src/views/`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views))
+### Views Directory ([`crates/ui/src/views/`](crates/ui/src/views))
 
-- [`library.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/library.rs): Virtualized track list table and grid views, search bar, sortable column headers, pagination controls.
-- [`albums.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/albums.rs): Album catalog aggregated by artist and album name with cover art grid/list display, sorting, and per-album Play / Shuffle All actions.
-- [`artists.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/artists.rs): Artist catalog with track count and duration summaries plus Play / Shuffle All actions.
-- [`playlists.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/playlists.rs): Playlist catalog/detail (M3U) and the Queues section rendered from [`QueueStore`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/queue.rs).
-- [`now_playing.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/now_playing.rs): Now Playing view with large cover art, track metadata, and scrollable lyrics.
-- [`settings.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/settings.rs): Dedicated settings tabs for Appearance, Playback, Library management, and Scrobbling.
-- [`player_bar.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/player_bar.rs): Persistent bottom player bar with cover thumbnail, track info, seek slider, playback buttons, shuffle, repeat, favorite toggle, and volume control.
-- [`status_bar.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/views/status_bar.rs): Bottom status bar displaying track and catalog counts, active filter indicators, and library scanning status.
+- [`library.rs`](crates/ui/src/views/library.rs): Virtualized track list table and grid views (`LibraryView`), search bar, sortable column headers, pagination controls.
+- [`albums.rs`](crates/ui/src/views/albums.rs): Album catalog aggregated by artist and album name (`AlbumsView`) with cover art grid/list display, sorting, and per-album Play / Shuffle All actions.
+- [`artists.rs`](crates/ui/src/views/artists.rs): Artist catalog (`ArtistsView`) with track count and duration summaries plus Play / Shuffle All actions.
+- [`playlists.rs`](crates/ui/src/views/playlists.rs): Playlist catalog/detail (M3U) and the Queues section rendered from [`QueueStore`](crates/queue/src/lib.rs) (`PlaylistsView`).
+- [`now_playing.rs`](crates/ui/src/views/now_playing.rs): Now Playing view (`NowPlayingView`) with large cover art, track metadata, and scrollable lyrics.
+- [`settings.rs`](crates/ui/src/views/settings.rs): Dedicated settings tabs (`SettingsView`) for Appearance ("Appearance & interface"), Playback ("Playback preferences"), Library ("Library & storage"), and Scrobbling ("Scrobbling & social audio").
+- [`player_bar.rs`](crates/ui/src/views/player_bar.rs): Persistent bottom player bar (`PlayerBar`) with cover thumbnail, track info, seek slider, playback buttons, shuffle, repeat, favorite toggle, and volume control.
+- [`status_bar.rs`](crates/ui/src/views/status_bar.rs): Bottom status bar (`StatusBar`) displaying track and catalog counts, active filter indicators, and library scanning status.
 
 ---
 
@@ -206,37 +206,37 @@ cargo test --workspace
 
 ### Recipe 1: Adding a New Vector Icon
 
-1. Open [`crates/ui/src/icons.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/icons.rs).
+1. Open [`crates/components/src/icons.rs`](crates/components/src/icons.rs).
 2. Add a `pub const MY_ICON_SVG: &str = r#"<svg xmlns=... viewBox="0 0 24 24"><path ... fill="currentColor"/></svg>"#;`.
 3. Render in any view:
     ```rust
-    use crate::icons;
-    let my_icon = icons::icon(icons::MY_ICON_SVG, 16.0, theme_cfg.primary_color());
+    use components::icons;
+    let my_icon = icons::icon(icons::MY_ICON_SVG, 16.0, theme_cfg.primary);
     ```
 
 ### Recipe 2: Adding a New Audio Command
 
-1. In [`crates/audio/src/commands.rs`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/commands.rs), add the variant to [`AudioCommand`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/commands.rs#L4):
+1. In [`crates/audio/src/commands.rs`](crates/audio/src/commands.rs), add the variant to [`AudioCommand`](crates/audio/src/commands.rs):
     ```rust
     pub enum AudioCommand {
         // ... existing variants
         SetPlaybackSpeed(f32),
     }
     ```
-2. In [`crates/audio/src/engine.rs`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/engine.rs#L42), add a helper method to [`AudioController`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/engine.rs#L42):
+2. In [`crates/audio/src/engine.rs`](crates/audio/src/engine.rs), add a helper method to [`AudioController`](crates/audio/src/engine.rs):
     ```rust
     pub fn set_playback_speed(&self, speed: f32) {
         self.send(AudioCommand::SetPlaybackSpeed(speed));
     }
     ```
-3. Handle the command in the worker loop (`handle_command` in [`crates/audio/src/engine.rs`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/engine.rs)).
+3. Handle the command in the worker loop (`handle_command` in [`crates/audio/src/engine.rs`](crates/audio/src/engine.rs)).
 
 ### Recipe 3: Adding a New Database Query or Index
 
-1. In [`crates/db/src/lib.rs`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs), update the schema creation in `init_schema()` if adding indices or tables.
-2. Add query methods to [`LibraryDatabase`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs). Always paginate or return lightweight summary types rather than loading all full track rows.
-3. If the query filters tracks, extend [`filter_clause`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs) and the [`TrackFilter`](file:///home/curstantine/Code/Personal/melody/crates/model/src/search.rs) field set instead of appending raw SQL at the call site.
-4. Add a unit test in [`crates/db/src/lib.rs`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs).
+1. In [`crates/db/src/lib.rs`](crates/db/src/lib.rs), update the schema creation in `init_schema()` if adding indices or tables.
+2. Add query methods to [`LibraryDatabase`](crates/db/src/lib.rs). Always paginate or return lightweight summary types rather than loading all full track rows.
+3. If the query filters tracks, extend `filter_clause` in [`crates/db/src/lib.rs`](crates/db/src/lib.rs) and the [`TrackFilter`](crates/model/src/search.rs) field set instead of appending raw SQL at the call site.
+4. Add a unit test in [`crates/db/src/lib.rs`](crates/db/src/lib.rs).
 
 ### Recipe 4: Adding a New Theme
 
@@ -262,28 +262,28 @@ cargo test --workspace
     lg = 8.0
     xl = 16.0
     ```
-2. The theme will be automatically discovered at launch from `./themes/` or `~/.config/melody/themes/`.
+2. The theme will be automatically discovered at launch from `./themes/` or `user_themes_dir()` (`~/.config/melody/themes/` on Linux, `%APPDATA%\curstantine\melody\themes` on Windows).
 
 ### Recipe 5: Adding a New Scoped Search Field
 
-1. Add the field to [`TrackFilter`](file:///home/curstantine/Code/Personal/melody/crates/model/src/search.rs)
-   and parse it in `TrackFilter::parse` (add the key to the `known` list and the
+1. Add the field to [`TrackFilter`](crates/model/src/search.rs)
+   and parse it in `TrackFilter::parse` (add the key to `split_field` known list and the
    match arm).
 2. Emit the field in `to_query_string()` (for the search box round-trip) and, if
    it can name a queue, in `queue_name()`.
-3. Bind it in [`filter_clause`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs)
+3. Bind it in `filter_clause` in [`crates/db/src/lib.rs`](crates/db/src/lib.rs)
    so `get_total_track_count` / `get_track_rows_window` /
    `get_all_track_rows_filtered` all honour it.
-4. Add parser unit tests in `crates/model/src/search.rs` and a DB assertion in
-   [`crates/db/src/lib.rs`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs).
+4. Add parser unit tests in [`crates/model/src/search.rs`](crates/model/src/search.rs) and a DB assertion in
+   [`crates/db/src/lib.rs`](crates/db/src/lib.rs).
 
 ### Recipe 6: Adding a New Playback Queue Source
 
-1. Add the variant to [`QueueSource`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/queue.rs)
+1. Add the variant to [`QueueSource`](crates/queue/src/lib.rs)
    and its `as_str` / `from_str` mappings.
-2. Build the queue with [`create_queue_from_tracks`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs)
+2. Build the queue with `create_queue_from_tracks` in [`crates/ui/src/app.rs`](crates/ui/src/app.rs)
    (it reuses a same-named queue) and persist via `persist_active_queue_task`.
-3. For library-derived scopes, extend [`queue_source_for_filter`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/app.rs)
+3. For library-derived scopes, extend `queue_source_for_filter` in [`crates/ui/src/app.rs`](crates/ui/src/app.rs)
    and the `TrackFilter::queue_name` rules.
 
 ### Recipe 7: Adding a Custom KDL Layout
@@ -308,19 +308,19 @@ cargo test --workspace
         }
     }
     ```
-2. The layout will be automatically discovered at launch from `./layouts/` or `~/.config/melody/layouts/`.
-3. In **Settings → Appearance**, select the new layout or click **Reload Layouts from Disk**.
-4. See [`docs/string-formatting.md`](file:///home/curstantine/Code/Personal/melody/docs/string-formatting.md) for available placeholder keys and conditional brackets syntax.
+2. The layout will be automatically discovered at launch from `./layouts/` or `user_layouts_dir()`.
+3. In **Settings → Appearance**, select the new layout or click **Reload layouts from disk**.
+4. See [`docs/string-formatting.md`](docs/string-formatting.md) for available placeholder keys and conditional brackets syntax.
 
 ---
 
 ## 7. Strict Rules & Anti-Patterns to Avoid
 
 - ❌ **NEVER block the audio thread**: Do not acquire UI mutexes, perform disk scans, or make network calls in CPAL callbacks or the audio worker loop.
-- ❌ **NEVER pull entire track tables into memory for rendering**: Never run `SELECT *` without `LIMIT`/`OFFSET` in render paths. Memory footprint must remain within ~30–50 MB. The single sanctioned exception is materializing a playback queue via [`get_all_track_rows_filtered`](file:///home/curstantine/Code/Personal/melody/crates/db/src/lib.rs).
-- ❌ **NEVER use Unicode emojis for UI controls**: Always use vector SVGs via [`icons.rs`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/icons.rs).
-- ❌ **NEVER bypass disk thumbnail caching**: Do not load raw uncompressed audio visuals or high-res artwork directly into UI textures for list/grid items; use [`get_or_create_thumbnail`](file:///home/curstantine/Code/Personal/melody/crates/thumbnail/src/lib.rs).
-- ❌ **NEVER break cross-platform support**: Use platform-agnostic abstractions or `#[cfg(target_os = "...")]` guards. Ensure path handling uses `PathBuf` and `directories`.
+- ❌ **NEVER pull entire track tables into memory for rendering**: Never run `SELECT *` without `LIMIT`/`OFFSET` in render paths. Memory footprint must remain within ~30–50 MB. The single sanctioned exception is materializing a playback queue via [`get_all_track_rows_filtered`](crates/db/src/lib.rs).
+- ❌ **NEVER use Unicode emojis for UI controls**: Always use vector SVGs via [`crates/components/src/icons.rs`](crates/components/src/icons.rs).
+- ❌ **NEVER bypass disk thumbnail caching**: Do not load raw uncompressed audio visuals or high-res artwork directly into UI textures for list/grid items; use [`get_or_create_thumbnail`](crates/thumbnail/src/lib.rs).
+- ❌ **NEVER break cross-platform support**: Use platform-agnostic abstractions or `#[cfg(target_os = "...")]` guards. Ensure path handling uses `PathBuf`, `directories`, and centralized paths from [`paths`](crates/paths/src/lib.rs).
 
 ---
 
@@ -333,4 +333,4 @@ Before completing any task, run the pre-commit checks and ensure they all pass:
 3. `cargo test --workspace` passes all unit and integration tests.
 4. `cargo check --workspace` returns 0 errors.
 5. Code formatting and comments preserve existing documentation integrity.
-6. Any new files or modified functions are linked in your responses using GitHub markdown format `[symbol](file:///path/to/file#Lline)`.
+6. Any new files or modified functions are linked in your responses using GitHub markdown format `[symbol](crates/path/to/file.rs#L123)`.

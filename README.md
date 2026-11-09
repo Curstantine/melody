@@ -1,46 +1,26 @@
 # Melody
 
-A modern, native music player built in pure Rust. It renders crisp interfaces with **[Iced](https://github.com/iced-rs/iced)**, decodes and resamples audio cleanly with **[FFmpeg](https://github.com/zmwangx/rust-ffmpeg)**, outputs audio using **[CPAL](https://github.com/RustAudio/cpal)**, and manages persistent library data with an embedded **[Turso](https://github.com/tursodatabase/turso)**.
+Simple, modern, music player.
 
-## Workspace Layout
+## Screenshots
 
-```
-melody/
-├── flake.nix             # Nix dev shell with all native graphic/audio libraries
-├── themes/               # TOML color themes (hot-reloadable)
-│   ├── default.toml
-│   ├── midnight_amber.toml
-│   └── xcode_default_darker.toml
-├── layouts/              # Declarative KDL layouts and view format definitions
-│   ├── default.kdl
-│   ├── reversed.kdl
-│   └── sidebar.kdl
-├── docs/                 # Documentation (string formatting, guides)
-└── crates/
-    ├── core/         # Embedded Turso SQLite engine, FFmpeg metadata extraction, thumbnail caching, M3U playlists, scoped search filters, template formatting, queue persistence
-    ├── audio/        # Audio worker thread, CPAL playback, FFmpeg decoding & resampling, lock-free ring buffer
-    ├── plugins/      # Plugin contracts, MPRIS (Linux), Scrobbling (ListenBrainz & Last.fm), lyrics, event dispatchers
-    └── ui/           # Iced GUI, KDL layouts, views (Library, Albums, Artists, Playlists, Now Playing, Settings), DB-backed playback queues
-```
+| Albums View | Library View |
+| :---: | :---: |
+| ![Albums View](.github/assets/01.png) | ![Library View](.github/assets/02.png) |
+| **Playlists** | **Queues** |
+| ![Playlists View](.github/assets/03.png) | ![Queues View](.github/assets/04.png) |
 
-## Views & Features
+## Features
 
 - **Tracks (Library)**: Fast, virtualized track browser with customizable page sizes, configurable and sortable column headers, and scoped search (`artist:…`, `album:"…"`, `album_artist:…`, `genre:…`, `year:…`, `title:…` plus free text). Clicking an album or artist tiles into its exact scope.
 - **Albums & Artists**: Aggregated catalog views with cover art, flexible grid/list layouts, configurable tile dimensions, and context menu options including "Play Next" and "Add to Queue". Album tiles carry play/shuffle actions; artist tiles are click-to-filter, with play/shuffle kept in list rows.
-- **Playlists & Queues**: M3U/M3U8 playlists (Melody-managed files plus external references) with import, rename, play next, and queue support. DB-backed playback queues (`playback_queues` / `playback_queue_tracks`) — every playback context (album, artist, search, playlist, all songs) becomes a named, reusable queue with a virtualized detail view.
+- **Playlists & Queues**: M3U/M3U8 playlists with import, rename, play next, and queue support. DB-backed playback queues (`playback_queues` / `playback_queue_tracks`) — every playback context (album, artist, search, playlist, all songs) becomes a named, reusable queue with a virtualized detail view.
 - **Lyrics & Now Playing**: Dedicated player view showcasing artwork, track metadata, and scrollable lyrics with configurable cover sizes.
 - **Player Bar**: Persistent bottom controls featuring live seek scrubbing, volume controls, shuffle, repeat, track favoriting, and now-playing details.
 - **Status Bar**: Live catalog counts, active filter indicators, and library scanning progress.
 - **Declarative KDL Layouts & View Formatting**: Fully data-driven layout engine defined in KDL files (`layouts/`). Define custom UI element positioning, dynamic library table columns, and view string templates with conditional syntax (e.g. `line2="{artist}[ • {year_label}]"`). See [String Formatting Documentation](docs/string-formatting.md).
-- **Settings**:
-    - **Appearance**: Select themes, configure primary system fonts, customize pagination limits, set card/tile dimensions, and choose layout files.
-    - **Library**: Manage indexed folders, rescan metadata, inspect database file size, and view or clear the thumbnail cache.
-    - **Scrobbling**: Built-in scrobbler support for ListenBrainz and Last.fm with customizable scrobble thresholds and now-playing updates.
-- **Integrations**:
-    - **Linux MPRIS**: Native desktop media controls, track metadata, and playback status integration via D-Bus.
-- **Icons**: Inline vector SVGs sourced from [Boxicons](https://boxicons.com) (MIT), tinted at render time — no emoji or font-dependent glyphs.
 
-## Getting Started
+## Developing
 
 ### Prerequisites
 
@@ -90,18 +70,6 @@ Build an optimized release binary:
 cargo build --workspace --release
 ```
 
-## Configuration & Data Paths
-
-Melody stores settings and cached data according to standard OS conventions:
-
-- **Database**: `~/.local/share/melody/library.db` (Linux) / OS app data directory — tracks, playlist file refs, and playback queues
-- **Config**: `~/.config/melody/config.toml` (Linux) / OS config directory
-- **Playlists**: `~/.local/share/melody/playlists/` (Linux) / OS app data directory — Melody-managed `.m3u8` files (external playlists may live anywhere)
-- **Thumbnail Cache**: `~/.cache/melody/thumbnails/` (Linux) / OS cache directory
-- **Themes**: `./themes/` or `~/.config/melody/themes/`
-- **Layouts**: `./layouts/` or `~/.config/melody/layouts/`
-
 ## License
 
 Licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at your option.
-

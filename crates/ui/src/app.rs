@@ -430,14 +430,14 @@ impl App {
 
     pub fn title(&self) -> String {
         let base = match &self.current_track {
-            Some(track) => format!("{} - {} | Melody", track.title, track.artist),
+            Some(track) => format!("{} - {} • Melody", track.title, track.artist),
             None => "Melody".to_string(),
         };
-        if paths::is_debug() {
-            format!("{base} [DEBUG]")
-        } else {
-            base
-        }
+
+        #[cfg(debug_assertions)]
+        let base = format!("{base} [DEBUG]");
+
+        base
     }
 
     pub fn theme(&self) -> Theme {

@@ -17,6 +17,7 @@ pub fn app_name() -> &'static str {
 }
 
 /// Returns true if running in a debug build.
+#[inline]
 pub fn is_debug() -> bool {
     cfg!(debug_assertions)
 }
