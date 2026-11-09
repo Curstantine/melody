@@ -2,6 +2,8 @@ use core_engine::{format_template, ArtistSummary, SortDirection, TrackFilter};
 use iced::widget::{column, container, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length, Padding};
 
+use super::ScrollOffset;
+
 use crate::components;
 use crate::icons;
 use crate::message::{ArtistSortField, Message, ViewMode};
@@ -51,7 +53,7 @@ pub struct ArtistsView {
     pub columns: usize,
     pub viewport_height: f32,
     last_viewport_width: f32,
-    last_scroll_y: f32,
+    pub scroll_offset: ScrollOffset,
     /// Precomputed catalog totals so the status bar never folds over every
     /// artist on every frame.
     pub total_tracks: usize,
@@ -86,7 +88,7 @@ impl ArtistsView {
             columns: DEFAULT_COLUMNS,
             viewport_height: DEFAULT_VIEWPORT_HEIGHT,
             last_viewport_width: 0.0,
-            last_scroll_y: 0.0,
+            scroll_offset: ScrollOffset::default(),
             total_tracks: 0,
             total_albums: 0,
             status_count_str: String::new(),
@@ -140,7 +142,7 @@ impl ArtistsView {
         Self::sort_artists(&mut artists, self.sort_field, self.sort_dir);
         self.artists = artists;
         self.recompute_totals();
-        self.last_scroll_y = 0.0;
+        self.scroll_offset.set(0.0);
         self.window_start = 0;
         self.window_end = self.default_window_end();
     }
@@ -253,7 +255,7 @@ impl ArtistsView {
         viewport_width: f32,
         viewport_height: f32,
     ) -> bool {
-        self.last_scroll_y = scroll_y;
+        self.scroll_offset.set(scroll_y);
         if viewport_width > 0.0 {
             self.last_viewport_width = viewport_width;
         }
@@ -296,8 +298,31 @@ impl ArtistsView {
         }
     }
 
-    fn refresh_window(&mut self) -> bool {
-        let y = self.last_scroll_y;
+    pub fn check_scroll(&self, scroll_y: f32) -> bool {
+        let total = self.artists.len();
+        if total == 0 {
+            return false;
+        }
+
+        let per_row = self.items_per_row();
+        let row_h = self.row_height().max(1.0);
+        let total_rows = self.total_rows();
+
+        let first_row = (scroll_y.max(0.0) / row_h).floor() as usize;
+        let visible_rows = ((self.viewport_height / row_h).ceil() as usize + 1).max(1);
+        let buffer_rows = visible_rows;
+
+        let start_row = first_row.saturating_sub(buffer_rows);
+        let end_row = (first_row + visible_rows + buffer_rows).min(total_rows);
+
+        let new_start = (start_row * per_row).min(total);
+        let new_end = (end_row * per_row).min(total);
+
+        new_start != self.window_start || new_end != self.window_end
+    }
+
+    pub fn refresh_window(&mut self) -> bool {
+        let y = self.scroll_offset.get();
         let width = self.last_viewport_width;
         let height = self.viewport_height;
         self.recompute_window(y, width, height)
@@ -312,6 +337,7 @@ impl ArtistsView {
         // Replace rather than clear so the backing allocation is dropped.
         self.artists = Vec::new();
         self.rendered_window = Vec::new();
+        self.scroll_offset.set(0.0);
         self.window_start = 0;
         self.window_end = 0;
         self.total_tracks = 0;
@@ -481,13 +507,22 @@ impl ArtistsView {
             content = content.push(Space::new().height(bottom).boxed());
         }
 
+        let scroll_offset = &self.scroll_offset;
         scrollable(container(content).width(Length::Fill).padding(Padding {
             left: 16.0,
             right: 16.0,
             ..Default::default()
         }))
         .id(iced::widget::Id::new("artists_scroll"))
-        .on_scroll(|scroll| Message::ArtistsScrolled(scroll.viewport))
+        .on_scroll(move |scroll| {
+            let y = scroll.viewport.absolute_offset().y;
+            scroll_offset.set(y);
+            if self.check_scroll(y) {
+                Some(Message::ArtistsScrolled(scroll.viewport))
+            } else {
+                None
+            }
+        })
         .height(Length::Fill)
         .style(styles::scrollable_style(theme_cfg))
         .boxed()
@@ -563,9 +598,18 @@ impl ArtistsView {
             content = content.push(Space::new().height(bottom).boxed());
         }
 
+        let scroll_offset = &self.scroll_offset;
         scrollable(content)
             .id(iced::widget::Id::new("artists_scroll"))
-            .on_scroll(|scroll| Message::ArtistsScrolled(scroll.viewport))
+            .on_scroll(move |scroll| {
+                let y = scroll.viewport.absolute_offset().y;
+                scroll_offset.set(y);
+                if self.check_scroll(y) {
+                    Some(Message::ArtistsScrolled(scroll.viewport))
+                } else {
+                    None
+                }
+            })
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
             .boxed()
@@ -578,6 +622,39 @@ mod tests {
     use crate::layout::ArtistsFormatConfig;
     use crate::theme::ThemeConfig;
     use core_engine::ArtistSummary;
+
+    #[test]
+    fn test_artists_scroll_state_persists_and_resets() {
+        let mut artists_view = ArtistsView::new(ViewMode::List, ArtistSortField::Artist);
+        let artists_list: Vec<ArtistSummary> = (0..50)
+            .map(|i| ArtistSummary {
+                artist: format!("Artist {}", i).into(),
+                track_count: 5,
+                album_count: 2,
+                stats_label: "2 albums • 5 tracks".to_string(),
+            })
+            .collect();
+        artists_view.set_artists(artists_list);
+        assert_eq!(artists_view.scroll_offset.get(), 0.0);
+
+        artists_view.on_scroll_metrics(800.0, 1000.0, 600.0);
+        assert_eq!(artists_view.scroll_offset.get(), 800.0);
+
+        // refresh_window retains scroll position
+        artists_view.refresh_window();
+        assert_eq!(artists_view.scroll_offset.get(), 800.0);
+
+        // toggle_sort preserves scroll position
+        artists_view.toggle_sort(ArtistSortField::TrackCount);
+        assert_eq!(artists_view.scroll_offset.get(), 800.0);
+
+        artists_view.on_scroll_metrics(400.0, 1000.0, 600.0);
+        assert_eq!(artists_view.scroll_offset.get(), 400.0);
+
+        // clear() resets scroll
+        artists_view.clear();
+        assert_eq!(artists_view.scroll_offset.get(), 0.0);
+    }
 
     #[test]
     fn test_artists_view_component_state() {

@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
+use super::ScrollOffset;
+
 use core_engine::{format_duration, format_template, AlbumSummary, SortDirection, TrackFilter};
 use iced::widget::{column, container, image, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length};
@@ -74,7 +76,7 @@ pub struct AlbumsView {
     pub columns: usize,
     pub viewport_height: f32,
     last_viewport_width: f32,
-    last_scroll_y: f32,
+    pub scroll_offset: ScrollOffset,
     /// Cover keys with an in-flight request, mapped to the id of the request
     /// that owns them and the instant it started. Ownership prevents results
     /// from an abandoned request from corrupting a newer request for the same
@@ -118,7 +120,7 @@ impl AlbumsView {
             columns: DEFAULT_COLUMNS,
             viewport_height: DEFAULT_VIEWPORT_HEIGHT,
             last_viewport_width: 0.0,
-            last_scroll_y: 0.0,
+            scroll_offset: ScrollOffset::default(),
             in_flight: HashMap::new(),
             failed: HashSet::new(),
             next_request_id: 0,
@@ -187,7 +189,7 @@ impl AlbumsView {
         self.recompute_totals();
         self.failed.clear();
         self.in_flight.clear();
-        self.last_scroll_y = 0.0;
+        self.scroll_offset.set(0.0);
         self.window_start = 0;
         self.window_end = self.default_window_end();
     }
@@ -289,7 +291,7 @@ impl AlbumsView {
         viewport_width: f32,
         viewport_height: f32,
     ) -> bool {
-        self.last_scroll_y = scroll_y;
+        self.scroll_offset.set(scroll_y);
         if viewport_width > 0.0 {
             self.last_viewport_width = viewport_width;
         }
@@ -346,8 +348,31 @@ impl AlbumsView {
         }
     }
 
-    fn refresh_window(&mut self) -> bool {
-        let y = self.last_scroll_y;
+    pub fn check_scroll(&self, scroll_y: f32) -> bool {
+        let total = self.albums.len();
+        if total == 0 {
+            return false;
+        }
+
+        let per_row = self.items_per_row();
+        let row_h = self.row_height().max(1.0);
+        let total_rows = self.total_rows();
+
+        let first_row = (scroll_y.max(0.0) / row_h).floor() as usize;
+        let visible_rows = ((self.viewport_height / row_h).ceil() as usize + 1).max(1);
+        let buffer_rows = visible_rows;
+
+        let start_row = first_row.saturating_sub(buffer_rows);
+        let end_row = (first_row + visible_rows + buffer_rows).min(total_rows);
+
+        let new_start = (start_row * per_row).min(total);
+        let new_end = (end_row * per_row).min(total);
+
+        new_start != self.window_start || new_end != self.window_end
+    }
+
+    pub fn refresh_window(&mut self) -> bool {
+        let y = self.scroll_offset.get();
         let width = self.last_viewport_width;
         let height = self.viewport_height;
         self.recompute_window(y, width, height)
@@ -492,6 +517,9 @@ impl AlbumsView {
         self.failed = HashSet::new();
         self.total_tracks = 0;
         self.total_duration_ms = 0;
+        self.scroll_offset.set(0.0);
+        self.window_start = 0;
+        self.window_end = self.default_window_end();
         self.recompute_totals();
         self.clear_covers();
     }
@@ -501,9 +529,6 @@ impl AlbumsView {
         self.album_covers = HashMap::new();
         self.cover_order = VecDeque::new();
         self.in_flight = HashMap::new();
-        self.last_scroll_y = 0.0;
-        self.window_start = 0;
-        self.window_end = self.default_window_end();
     }
 
     pub fn visible_albums(&self) -> &[AlbumSummary] {
@@ -524,6 +549,8 @@ impl AlbumsView {
         let artist = album.artist.as_bytes();
         let album_name = album.album.as_bytes();
         let total_len = artist.len() + 1 + album_name.len();
+
+        // Note(Curstantine): fast-path, 1024 byte key from artist/album name.
         if total_len <= 1024 {
             let mut buf = [0u8; 1024];
             buf[..artist.len()].copy_from_slice(artist);
@@ -533,6 +560,7 @@ impl AlbumsView {
                 return self.album_covers.get(key);
             }
         }
+
         let key = cover_key(album);
         self.album_covers.get(&key)
     }
@@ -691,9 +719,18 @@ impl AlbumsView {
             content = content.push(Space::new().height(bottom).boxed());
         }
 
+        let scroll_offset = &self.scroll_offset;
         scrollable(container(content).width(Length::Fill).padding([0, 16]))
             .id(iced::widget::Id::new("albums_scroll"))
-            .on_scroll(|scroll| Message::AlbumsScrolled(scroll.viewport))
+            .on_scroll(move |scroll| {
+                let y = scroll.viewport.absolute_offset().y;
+                scroll_offset.set(y);
+                if self.check_scroll(y) {
+                    Some(Message::AlbumsScrolled(scroll.viewport))
+                } else {
+                    None
+                }
+            })
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
             .boxed()
@@ -775,9 +812,18 @@ impl AlbumsView {
             content = content.push(Space::new().height(bottom).boxed());
         }
 
+        let scroll_offset = &self.scroll_offset;
         scrollable(content)
             .id(iced::widget::Id::new("albums_scroll"))
-            .on_scroll(|scroll| Message::AlbumsScrolled(scroll.viewport))
+            .on_scroll(move |scroll| {
+                let y = scroll.viewport.absolute_offset().y;
+                scroll_offset.set(y);
+                if self.check_scroll(y) {
+                    Some(Message::AlbumsScrolled(scroll.viewport))
+                } else {
+                    None
+                }
+            })
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
             .boxed()
@@ -1064,6 +1110,32 @@ mod tests {
     fn test_scroll_messages_variants() {
         fn check_message(_m: Message) {}
         check_message(Message::NextTrack);
+    }
+
+    #[test]
+    fn test_albums_scroll_state_persists_across_cover_clearing() {
+        let mut albums_view = AlbumsView::new(ViewMode::Tile, AlbumSortField::Title);
+        let albums_list = sample_albums(100);
+        albums_view.set_albums(albums_list);
+        assert_eq!(albums_view.scroll_offset.get(), 0.0);
+
+        // Simulate scrolling down
+        albums_view.on_scroll_metrics(1500.0, 1000.0, 800.0);
+        assert_eq!(albums_view.scroll_offset.get(), 1500.0);
+        assert!(albums_view.window_start > 0);
+
+        // Clearing covers (e.g. cache flush) should NOT wipe out the scroll offset
+        albums_view.clear_covers();
+        assert_eq!(albums_view.scroll_offset.get(), 1500.0);
+
+        // Refreshing window keeps window matching scroll_offset
+        albums_view.refresh_window();
+        assert_eq!(albums_view.scroll_offset.get(), 1500.0);
+
+        // But full clear() resets scroll
+        albums_view.clear();
+        assert_eq!(albums_view.scroll_offset.get(), 0.0);
+        assert_eq!(albums_view.window_start, 0);
     }
 
     #[test]

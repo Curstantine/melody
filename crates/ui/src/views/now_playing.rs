@@ -7,6 +7,8 @@ use crate::icons;
 use crate::message::Message;
 use crate::theme::{styles, ThemeConfig};
 
+use super::ScrollOffset;
+
 pub const DEFAULT_NOW_PLAYING_COVER_SIZE: u32 = 260;
 
 /// Pre-rendered display strings so Now Playing rendering performs no string allocations per frame.
@@ -28,6 +30,7 @@ pub struct NowPlayingView {
     pub current_lyrics: Option<String>,
     pub cover_size: u32,
     pub cached: CachedNowPlaying,
+    pub scroll_offset: ScrollOffset,
 }
 
 impl Default for NowPlayingView {
@@ -36,6 +39,7 @@ impl Default for NowPlayingView {
             current_lyrics: None,
             cover_size: DEFAULT_NOW_PLAYING_COVER_SIZE,
             cached: CachedNowPlaying::default(),
+            scroll_offset: ScrollOffset::default(),
         }
     }
 }
@@ -51,6 +55,7 @@ impl NowPlayingView {
             current_lyrics: None,
             cover_size,
             cached: CachedNowPlaying::default(),
+            scroll_offset: ScrollOffset::default(),
         }
     }
 
@@ -67,6 +72,7 @@ impl NowPlayingView {
             if self.cached.track_id == Some(track.id) {
                 return;
             }
+            self.scroll_offset.set(0.0);
             self.cached.track_id = Some(track.id);
             self.cached.artist_album = format!("{} • {}", track.artist, track.album);
 
@@ -151,6 +157,7 @@ impl NowPlayingView {
 
     pub fn clear(&mut self) {
         self.current_lyrics = None;
+        self.scroll_offset.set(0.0);
         self.update_track(None);
         self.update_next_track(None);
         self.update_tech_info(None);
@@ -205,7 +212,13 @@ impl NowPlayingView {
                     .boxed()
                 };
 
+                let scroll_offset = &self.scroll_offset;
                 let lyrics_panel = scrollable(lyrics_body)
+                    .id(iced::widget::Id::new("lyrics_scroll"))
+                    .on_scroll(move |scroll| {
+                        scroll_offset.set(scroll.viewport.absolute_offset().y);
+                        None::<Message>
+                    })
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .style(styles::scrollable_style(theme_cfg));
@@ -461,6 +474,45 @@ mod tests {
     use super::*;
     use crate::theme::ThemeConfig;
     use core_engine::{AudioTechnicalInfo, Track, TrackRow};
+
+    #[test]
+    fn test_now_playing_scroll_state() {
+        let mut view = NowPlayingView::new();
+        assert_eq!(view.scroll_offset.get(), 0.0);
+        view.scroll_offset.set(175.0);
+        assert_eq!(view.scroll_offset.get(), 175.0);
+
+        // Updating track to a new track resets scroll
+        let track = Track {
+            id: 2,
+            file_path: "/music/track2.flac".to_string(),
+            title: "Track 2".to_string(),
+            artist: "Artist".to_string(),
+            album_artist: None,
+            album: "Album".to_string(),
+            genre: None,
+            duration_ms: 100_000,
+            track_num: None,
+            disc_num: None,
+            year: None,
+            composer: None,
+            label: None,
+            musicbrainz_track_id: None,
+            musicbrainz_artist_id: None,
+            musicbrainz_album_id: None,
+            added_timestamp: 1700000000,
+        };
+        view.update_track(Some(&track));
+        assert_eq!(view.scroll_offset.get(), 0.0);
+
+        view.scroll_offset.set(90.0);
+        // Updating track to the SAME track does not reset scroll
+        view.update_track(Some(&track));
+        assert_eq!(view.scroll_offset.get(), 90.0);
+
+        view.clear();
+        assert_eq!(view.scroll_offset.get(), 0.0);
+    }
 
     #[test]
     fn test_now_playing_empty_state_renders() {

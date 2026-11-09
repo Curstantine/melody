@@ -9,7 +9,7 @@ use core_engine::{
 };
 use crossbeam_channel::Receiver;
 use iced::futures::SinkExt;
-use iced::widget::operation::scrollable::{snap_to, RelativeOffset};
+use iced::widget::operation::scrollable::{scroll_to, snap_to, AbsoluteOffset, RelativeOffset};
 use iced::widget::operation::Animation;
 use iced::widget::{button, column, container, image, mouse_area, row, Space, Widget};
 use iced::{Alignment, Background, Color, Element, Length, Subscription, Task, Theme};
@@ -989,6 +989,7 @@ impl App {
             Message::SelectTab(tab) => {
                 self.active_tab = tab;
                 let save_task = self.save_state_task();
+                let scroll_task = self.restore_tab_scroll_task(tab);
                 match tab {
                     ViewTab::Albums => {
                         let load_task = if self.albums.is_empty() {
@@ -998,22 +999,30 @@ impl App {
                                 Message::AlbumsLoaded,
                             )
                         } else {
+                            self.albums.refresh_window();
+                            self.albums.recompute_rendered_window(
+                                &self.layout_manager.current_template.view_formats.albums,
+                            );
                             self.load_visible_album_covers_task()
                         };
-                        Task::batch([save_task, load_task])
+                        Task::batch([save_task, load_task, scroll_task])
                     }
                     ViewTab::Artists => {
-                        self.albums.clear_covers();
-                        if self.artists.is_empty() {
+                        let load_task = if self.artists.is_empty() {
                             let db = self.db.clone();
                             let load_task = Task::perform(
                                 async move { db.get_artists().await.unwrap_or_default() },
                                 Message::ArtistsLoaded,
                             );
-                            Task::batch([save_task, load_task])
+                            Task::batch([save_task, load_task, scroll_task])
                         } else {
-                            save_task
-                        }
+                            self.artists.refresh_window();
+                            self.artists.recompute_rendered_window(
+                                &self.layout_manager.current_template.view_formats.artists,
+                            );
+                            Task::batch([save_task, scroll_task])
+                        };
+                        load_task
                     }
                     ViewTab::Settings => {
                         let mut tasks = vec![save_task, self.load_storage_stats_task()];
@@ -1025,18 +1034,14 @@ impl App {
                         Task::batch(tasks)
                     }
                     ViewTab::Playlists => {
-                        self.albums.clear_covers();
                         let db = self.db.clone();
                         let refresh = Task::perform(
                             async move { db.get_playlists().await.unwrap_or_default() },
                             Message::PlaylistsLoaded,
                         );
-                        Task::batch([save_task, refresh])
+                        Task::batch([save_task, refresh, scroll_task])
                     }
-                    _ => {
-                        self.albums.clear_covers();
-                        save_task
-                    }
+                    _ => Task::batch([save_task, scroll_task]),
                 }
             }
 
@@ -1102,7 +1107,12 @@ impl App {
 
             Message::SearchDebounced(seq) => {
                 if seq == self.search_seq {
-                    self.reload_tracks_task()
+                    let snap = snap_to(
+                        iced::widget::Id::new("library_tracks"),
+                        RelativeOffset::START,
+                        Animation::Instant,
+                    );
+                    Task::batch([self.reload_tracks_task(), snap])
                 } else {
                     Task::none()
                 }
@@ -1110,7 +1120,12 @@ impl App {
 
             Message::SortChanged(field) => {
                 self.library.toggle_sort(field);
-                self.reload_tracks_task()
+                let snap = snap_to(
+                    iced::widget::Id::new("library_tracks"),
+                    RelativeOffset::START,
+                    Animation::Instant,
+                );
+                Task::batch([self.reload_tracks_task(), snap])
             }
 
             Message::SetPageSize(size) => {
@@ -1130,7 +1145,19 @@ impl App {
                 } else {
                     Task::none()
                 };
-                Task::batch([self.save_state_task(), covers])
+                let scroll = if self.albums.scroll_offset.get() > 0.0 {
+                    scroll_to(
+                        iced::widget::Id::new("albums_scroll"),
+                        AbsoluteOffset {
+                            x: 0.0,
+                            y: self.albums.scroll_offset.get(),
+                        },
+                        Animation::Instant,
+                    )
+                } else {
+                    Task::none()
+                };
+                Task::batch([self.save_state_task(), covers, scroll])
             }
 
             Message::SetArtistsViewMode(mode) => {
@@ -1139,7 +1166,19 @@ impl App {
                         &self.layout_manager.current_template.view_formats.artists,
                     );
                 }
-                self.save_state_task()
+                let scroll = if self.artists.scroll_offset.get() > 0.0 {
+                    scroll_to(
+                        iced::widget::Id::new("artists_scroll"),
+                        AbsoluteOffset {
+                            x: 0.0,
+                            y: self.artists.scroll_offset.get(),
+                        },
+                        Animation::Instant,
+                    )
+                } else {
+                    Task::none()
+                };
+                Task::batch([self.save_state_task(), scroll])
             }
 
             Message::SetAlbumTileWidth(width) => {
@@ -1926,7 +1965,6 @@ impl App {
             }
 
             Message::SelectAlbum(album_name) => {
-                self.albums.clear_covers();
                 self.active_tab = ViewTab::Tracks;
                 // Exact album scope so the library shows only this album,
                 // instead of every track whose title/artist contains the name.
@@ -1935,20 +1973,73 @@ impl App {
                 // Present the album in disc/track order rather than title order.
                 self.library.sort_field = SortField::TrackNum;
                 self.library.sort_dir = SortDirection::Ascending;
-                Task::batch([self.reload_tracks_task(), self.save_state_task()])
+                let snap = snap_to(
+                    iced::widget::Id::new("library_tracks"),
+                    RelativeOffset::START,
+                    Animation::Instant,
+                );
+                Task::batch([self.reload_tracks_task(), self.save_state_task(), snap])
             }
 
             Message::SelectArtist(artist_name) => {
                 self.active_tab = ViewTab::Tracks;
                 self.library
                     .set_filter(TrackFilter::artist(artist_name.as_ref()));
-                Task::batch([self.reload_tracks_task(), self.save_state_task()])
+                let snap = snap_to(
+                    iced::widget::Id::new("library_tracks"),
+                    RelativeOffset::START,
+                    Animation::Instant,
+                );
+                Task::batch([self.reload_tracks_task(), self.save_state_task(), snap])
             }
 
             // ── Playlists ───────────────────────────────────────────────────
             Message::PlaylistSectionChanged(section) => {
                 self.playlists.set_section(section);
-                Task::none()
+                let scroll_task = match section {
+                    PlaylistSection::Playlists => {
+                        let id = if self.playlists.selected_id.is_some() {
+                            "playlist_detail_scroll"
+                        } else {
+                            "playlists_scroll"
+                        };
+                        let y = if self.playlists.selected_id.is_some() {
+                            self.playlists.last_detail_scroll.get()
+                        } else {
+                            self.playlists.last_playlists_scroll.get()
+                        };
+                        if y > 0.0 {
+                            scroll_to(
+                                iced::widget::Id::new(id),
+                                AbsoluteOffset { x: 0.0, y },
+                                Animation::Instant,
+                            )
+                        } else {
+                            snap_to(
+                                iced::widget::Id::new(id),
+                                RelativeOffset::START,
+                                Animation::Instant,
+                            )
+                        }
+                    }
+                    PlaylistSection::Queues => {
+                        let y = self.playlists.last_queue_scroll.get();
+                        if y > 0.0 {
+                            scroll_to(
+                                iced::widget::Id::new("queue_scroll"),
+                                AbsoluteOffset { x: 0.0, y },
+                                Animation::Instant,
+                            )
+                        } else {
+                            snap_to(
+                                iced::widget::Id::new("queue_scroll"),
+                                RelativeOffset::START,
+                                Animation::Instant,
+                            )
+                        }
+                    }
+                };
+                Task::batch([self.save_state_task(), scroll_task])
             }
 
             Message::PlaylistsLoaded(playlists) => {
@@ -1971,7 +2062,18 @@ impl App {
                 self.drag_detail_order_changed = false;
                 if id < 0 {
                     self.playlists.clear_detail();
-                    return Task::none();
+                    return if self.playlists.last_playlists_scroll.get() > 0.0 {
+                        scroll_to(
+                            iced::widget::Id::new("playlists_scroll"),
+                            AbsoluteOffset {
+                                x: 0.0,
+                                y: self.playlists.last_playlists_scroll.get(),
+                            },
+                            Animation::Instant,
+                        )
+                    } else {
+                        Task::none()
+                    };
                 }
                 let Some(playlist) = self.playlist_by_id(id) else {
                     return Task::none();
@@ -2972,7 +3074,11 @@ impl App {
                 self.artists.recompute_rendered_window(
                     &self.layout_manager.current_template.view_formats.artists,
                 );
-                Task::none()
+                snap_to(
+                    iced::widget::Id::new("artists_scroll"),
+                    RelativeOffset::START,
+                    Animation::Instant,
+                )
             }
 
             Message::ArtistsScrolled(viewport) => {
@@ -3833,6 +3939,99 @@ impl App {
             },
             |(offset, rows)| Message::TrackWindowLoaded { offset, rows },
         )
+    }
+
+    fn restore_tab_scroll_task(&self, tab: ViewTab) -> Task<Message> {
+        match tab {
+            ViewTab::Tracks => {
+                let y = self.library.scroll_offset.get();
+                if y > 0.0 {
+                    scroll_to(
+                        iced::widget::Id::new("library_tracks"),
+                        AbsoluteOffset { x: 0.0, y },
+                        Animation::Instant,
+                    )
+                } else {
+                    Task::none()
+                }
+            }
+            ViewTab::Albums => {
+                let y = self.albums.scroll_offset.get();
+                if y > 0.0 {
+                    scroll_to(
+                        iced::widget::Id::new("albums_scroll"),
+                        AbsoluteOffset { x: 0.0, y },
+                        Animation::Instant,
+                    )
+                } else {
+                    Task::none()
+                }
+            }
+            ViewTab::Artists => {
+                let y = self.artists.scroll_offset.get();
+                if y > 0.0 {
+                    scroll_to(
+                        iced::widget::Id::new("artists_scroll"),
+                        AbsoluteOffset { x: 0.0, y },
+                        Animation::Instant,
+                    )
+                } else {
+                    Task::none()
+                }
+            }
+            ViewTab::Playlists => match self.playlists.section {
+                PlaylistSection::Playlists => {
+                    if self.playlists.selected_id.is_some() {
+                        let y = self.playlists.last_detail_scroll.get();
+                        if y > 0.0 {
+                            scroll_to(
+                                iced::widget::Id::new("playlist_detail_scroll"),
+                                AbsoluteOffset { x: 0.0, y },
+                                Animation::Instant,
+                            )
+                        } else {
+                            Task::none()
+                        }
+                    } else {
+                        let y = self.playlists.last_playlists_scroll.get();
+                        if y > 0.0 {
+                            scroll_to(
+                                iced::widget::Id::new("playlists_scroll"),
+                                AbsoluteOffset { x: 0.0, y },
+                                Animation::Instant,
+                            )
+                        } else {
+                            Task::none()
+                        }
+                    }
+                }
+                PlaylistSection::Queues => {
+                    let y = self.playlists.last_queue_scroll.get();
+                    if y > 0.0 {
+                        scroll_to(
+                            iced::widget::Id::new("queue_scroll"),
+                            AbsoluteOffset { x: 0.0, y },
+                            Animation::Instant,
+                        )
+                    } else {
+                        Task::none()
+                    }
+                }
+            },
+            ViewTab::Lyrics => {
+                let y = self.now_playing.scroll_offset.get();
+                if y > 0.0 {
+                    scroll_to(
+                        iced::widget::Id::new("lyrics_scroll"),
+                        AbsoluteOffset { x: 0.0, y },
+                        Animation::Instant,
+                    )
+                } else {
+                    Task::none()
+                }
+            }
+            ViewTab::Settings => Task::none(),
+        }
     }
 
     fn playlist_contains_track(&self, playlist_id: i64, track: &TrackRow) -> bool {

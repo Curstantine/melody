@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use super::ScrollOffset;
 use core_engine::{format_template, SortDirection, SortField, TrackFilter, TrackRow};
 use iced::widget::{
     button, column, container, mouse_area, row, scrollable, text_input, Space, Widget,
@@ -50,6 +51,7 @@ pub struct LibraryView {
     /// Row offset of an in-flight window request, used to avoid duplicate loads.
     pub pending_window: Option<usize>,
     pub last_visible_offset: usize,
+    pub scroll_offset: ScrollOffset,
     /// Pre-rendered status strings so StatusBar rendering does not allocate per frame.
     pub status_count_str: String,
     pub status_filter_str: String,
@@ -73,6 +75,7 @@ impl LibraryView {
             last_track_click: None,
             pending_window: None,
             last_visible_offset: 0,
+            scroll_offset: ScrollOffset::default(),
             status_count_str: String::new(),
             status_filter_str: String::new(),
             status_settings_str: String::new(),
@@ -120,6 +123,7 @@ impl LibraryView {
         self.total_tracks = total;
         self.window_start = 0;
         self.pending_window = None;
+        self.scroll_offset.set(0.0);
         self.update_status_strings();
     }
 
@@ -134,6 +138,7 @@ impl LibraryView {
     pub fn set_search_query(&mut self, query: String) {
         self.filter = TrackFilter::parse(&query);
         self.search_query = query;
+        self.scroll_offset.set(0.0);
         self.update_status_strings();
     }
 
@@ -141,6 +146,7 @@ impl LibraryView {
     pub fn set_filter(&mut self, filter: TrackFilter) {
         self.search_query = filter.to_query_string();
         self.filter = filter;
+        self.scroll_offset.set(0.0);
         self.update_status_strings();
     }
 
@@ -163,6 +169,7 @@ impl LibraryView {
             self.sort_field = field;
             self.sort_dir = SortDirection::Ascending;
         }
+        self.scroll_offset.set(0.0);
     }
 
     pub fn set_page_size(&mut self, size: usize) {
@@ -193,6 +200,7 @@ impl LibraryView {
     /// pixels. Returns the row offset to load when the visible range leaves the
     /// buffered window, or `None` if the current window still covers it.
     pub fn on_scroll_offset(&mut self, scroll_y: f32) -> Option<usize> {
+        self.scroll_offset.set(scroll_y);
         if self.total_tracks == 0 || self.row_height <= 0.0 {
             return None;
         }
@@ -224,6 +232,36 @@ impl LibraryView {
         Some(desired)
     }
 
+    /// Checks whether scrolling to `scroll_y` requires loading a new track window from the database.
+    pub fn needs_reload(&self, scroll_y: f32) -> bool {
+        if self.total_tracks == 0 || self.row_height <= 0.0 {
+            return false;
+        }
+
+        let first_visible = (scroll_y.max(0.0) / self.row_height).floor() as usize;
+        let window_end = self.window_start + self.rows.len();
+        let visible_rows = self.page_size.max(1);
+        let near_top = first_visible < self.window_start;
+        let near_bottom = first_visible + visible_rows > window_end;
+        if !near_top && !near_bottom {
+            return false;
+        }
+
+        let capacity = self.window_capacity();
+        let max_start = self.total_tracks.saturating_sub(capacity);
+        let buffer = self.page_size * WINDOW_BUFFER_PAGES;
+        let desired = first_visible.saturating_sub(buffer).min(max_start);
+
+        if desired == self.window_start && !self.rows.is_empty() {
+            return false;
+        }
+        if self.pending_window == Some(desired) {
+            return false;
+        }
+
+        true
+    }
+
     /// Convenience wrapper over [`Self::on_scroll_offset`] for iced viewports.
     pub fn on_scroll(&mut self, viewport: &iced::widget::scrollable::Viewport) -> Option<usize> {
         self.on_scroll_offset(viewport.absolute_offset().y)
@@ -235,6 +273,8 @@ impl LibraryView {
         self.total_tracks = 0;
         self.window_start = 0;
         self.pending_window = None;
+        self.last_visible_offset = 0;
+        self.scroll_offset.set(0.0);
         self.selected_track_id = None;
         self.last_track_click = None;
         self.update_status_strings();
@@ -512,9 +552,18 @@ impl LibraryView {
                 items = items.push(Space::new().height(bottom_spacer).boxed());
             }
 
+            let scroll_offset = &self.scroll_offset;
             scrollable(items)
                 .id(iced::widget::Id::new("library_tracks"))
-                .on_scroll(|scroll| Message::LibraryScrolled(scroll.viewport))
+                .on_scroll(move |scroll| {
+                    let y = scroll.viewport.absolute_offset().y;
+                    scroll_offset.set(y);
+                    if self.needs_reload(y) {
+                        Some(Message::LibraryScrolled(scroll.viewport))
+                    } else {
+                        None
+                    }
+                })
                 .height(Length::Fill)
                 .width(Length::Fill)
                 .style(styles::scrollable_style(theme_cfg))
@@ -624,6 +673,35 @@ mod tests {
         // The viewport sits comfortably inside the buffered window.
         assert_eq!(view.on_scroll_offset(0.0), None);
         assert_eq!(view.on_scroll_offset(ROW_HEIGHT * 40.0), None);
+    }
+
+    #[test]
+    fn library_scroll_state_tracks_and_resets() {
+        let mut view = LibraryView::new(50);
+        let capacity = view.window_capacity();
+        view.set_window(make_rows(0, capacity), 10_000);
+        assert_eq!(view.scroll_offset.get(), 0.0);
+
+        view.on_scroll_offset(350.0);
+        assert_eq!(view.scroll_offset.get(), 350.0);
+
+        // Sort toggle resets scroll
+        view.toggle_sort(SortField::Artist);
+        assert_eq!(view.scroll_offset.get(), 0.0);
+
+        view.on_scroll_offset(500.0);
+        assert_eq!(view.scroll_offset.get(), 500.0);
+
+        // Search query change resets scroll
+        view.set_search_query("test".to_string());
+        assert_eq!(view.scroll_offset.get(), 0.0);
+
+        view.on_scroll_offset(700.0);
+        assert_eq!(view.scroll_offset.get(), 700.0);
+
+        // Filter change resets scroll
+        view.set_filter(TrackFilter::album("test"));
+        assert_eq!(view.scroll_offset.get(), 0.0);
     }
 
     #[test]

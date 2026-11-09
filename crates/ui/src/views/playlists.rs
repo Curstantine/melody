@@ -8,6 +8,8 @@ use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length};
 use std::collections::HashMap;
 use std::time::Instant;
 
+use super::ScrollOffset;
+
 use crate::components::{self, text, TrackMenuContext};
 use crate::icons;
 use crate::message::{Message, PlaylistItem, PlaylistSection, PlaylistSortField, ViewMode};
@@ -93,6 +95,9 @@ pub struct PlaylistsView {
     /// window around the visible scroll range is built each frame, mirroring
     /// the library view; spacers keep the scrollbar proportional.
     pub queue_window_start: usize,
+    pub last_playlists_scroll: ScrollOffset,
+    pub last_detail_scroll: ScrollOffset,
+    pub last_queue_scroll: ScrollOffset,
     /// Cached cover handles for playlist preview tiles (up to 4 tracks per playlist).
     pub playlist_covers: HashMap<i64, Vec<image::Handle>>,
 }
@@ -131,6 +136,9 @@ impl PlaylistsView {
             selected_queue_track: None,
             hovered_queue_row: None,
             queue_window_start: 0,
+            last_playlists_scroll: ScrollOffset::default(),
+            last_detail_scroll: ScrollOffset::default(),
+            last_queue_scroll: ScrollOffset::default(),
         }
     }
 
@@ -143,6 +151,7 @@ impl PlaylistsView {
     /// iced preserves scroll offsets across content swaps.
     pub fn reset_queue_window(&mut self) {
         self.queue_window_start = 0;
+        self.last_queue_scroll.set(0.0);
         self.last_queue_click = None;
         self.selected_queue_track = None;
         self.hovered_queue_row = None;
@@ -153,6 +162,7 @@ impl PlaylistsView {
     /// [`crate::views::library::LibraryView::on_scroll_offset`], but the data
     /// is already in memory so no follow-up load is needed.
     pub fn on_queue_scroll_offset(&mut self, scroll_y: f32, total: usize) -> bool {
+        self.last_queue_scroll.set(scroll_y);
         if total == 0 || QUEUE_ROW_HEIGHT <= 0.0 {
             return false;
         }
@@ -254,6 +264,7 @@ impl PlaylistsView {
         self.last_detail_click = None;
         self.selected_detail_track = None;
         self.hovered_detail_row = None;
+        self.last_detail_scroll.set(0.0);
     }
 
     pub fn clear_detail(&mut self) {
@@ -269,6 +280,7 @@ impl PlaylistsView {
         self.selected_detail_track = None;
         self.hovered_detail_row = None;
         self.renaming = false;
+        self.last_detail_scroll.set(0.0);
     }
 
     pub fn recompute_rendered_playlists(
@@ -753,8 +765,13 @@ impl PlaylistsView {
             );
         }
 
+        let scroll_offset = &self.last_playlists_scroll;
         scrollable(list)
             .id(iced::widget::Id::new("playlists_scroll"))
+            .on_scroll(move |scroll| {
+                scroll_offset.set(scroll.viewport.absolute_offset().y);
+                None::<Message>
+            })
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg))
             .boxed()
@@ -849,12 +866,17 @@ impl PlaylistsView {
             grid = grid.push(tile_row);
         }
 
+        let scroll_offset = &self.last_playlists_scroll;
         scrollable(container(grid).width(Length::Fill).padding(iced::Padding {
             left: 16.0,
             right: 16.0,
             ..Default::default()
         }))
         .id(iced::widget::Id::new("playlists_scroll"))
+        .on_scroll(move |scroll| {
+            scroll_offset.set(scroll.viewport.absolute_offset().y);
+            None::<Message>
+        })
         .height(Length::Fill)
         .style(styles::scrollable_style(theme_cfg))
         .boxed()
@@ -1123,10 +1145,15 @@ impl PlaylistsView {
             }
         }
 
+        let scroll_offset = &self.last_detail_scroll;
         column![
             header_block,
             scrollable(list)
                 .id(iced::widget::Id::new("playlist_detail_scroll"))
+                .on_scroll(move |scroll| {
+                    scroll_offset.set(scroll.viewport.absolute_offset().y);
+                    None::<Message>
+                })
                 .height(Length::Fill)
                 .style(styles::scrollable_style(theme_cfg)),
         ]
@@ -1319,6 +1346,10 @@ impl PlaylistsView {
             }
         }
 
+        let scroll_offset = &self.last_queue_scroll;
+        let total_tracks = active.len();
+        let cur_window_start = self.queue_window_start;
+
         column![
             container(chips).padding(iced::Padding {
                 top: 0.0,
@@ -1330,7 +1361,18 @@ impl PlaylistsView {
             save_form,
             scrollable(list)
                 .id(iced::widget::Id::new("queue_scroll"))
-                .on_scroll(|scroll| Message::QueueScrolled(scroll.viewport))
+                .on_scroll(move |scroll| {
+                    let y = scroll.viewport.absolute_offset().y;
+                    scroll_offset.set(y);
+                    if total_tracks > 0 && QUEUE_ROW_HEIGHT > 0.0 {
+                        let first_visible = (y.max(0.0) / QUEUE_ROW_HEIGHT).floor() as usize;
+                        let desired = queue_window_start(total_tracks, first_visible);
+                        if desired != cur_window_start {
+                            return Some(Message::QueueScrolled(scroll.viewport));
+                        }
+                    }
+                    None
+                })
                 .height(Length::Fill)
                 .style(styles::scrollable_style(theme_cfg)),
         ]
@@ -1780,12 +1822,35 @@ mod tests {
         let mut view = detail_view();
         view.on_detail_click(7, 0);
         view.hovered_detail_row = Some((7, 0));
+        view.last_detail_scroll.set(120.0);
         view.clear_detail();
         assert!(view.detail_entries.is_empty());
         assert!(view.selected_detail_track.is_none());
         assert!(view.hovered_detail_row.is_none());
         assert!(view.last_detail_click.is_none());
+        assert_eq!(view.last_detail_scroll.get(), 0.0);
         assert_eq!(view.section, PlaylistSection::Playlists);
+    }
+
+    #[test]
+    fn test_playlists_scroll_state_tracks() {
+        let mut view = PlaylistsView::new(ViewMode::List, PlaylistSortField::Name);
+        assert_eq!(view.last_playlists_scroll.get(), 0.0);
+        assert_eq!(view.last_detail_scroll.get(), 0.0);
+        assert_eq!(view.last_queue_scroll.get(), 0.0);
+
+        view.last_playlists_scroll.set(300.0);
+        view.last_detail_scroll.set(150.0);
+        view.on_queue_scroll_offset(450.0, 100);
+        assert_eq!(view.last_queue_scroll.get(), 450.0);
+
+        view.clear_detail();
+        assert_eq!(view.last_detail_scroll.get(), 0.0);
+        // Catalog scroll is still preserved after closing detail
+        assert_eq!(view.last_playlists_scroll.get(), 300.0);
+
+        view.reset_queue_window();
+        assert_eq!(view.last_queue_scroll.get(), 0.0);
     }
 
     #[test]
