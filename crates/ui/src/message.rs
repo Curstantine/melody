@@ -369,6 +369,15 @@ pub enum Message {
     DebouncedConfigSave(u64),
     ConfigSaved,
 
+    // Updates
+    CheckForUpdates,
+    UpdateCheckFinished(Result<Option<updater::UpdateInfo>, String>),
+    StartUpdateDownload(updater::UpdateInfo),
+    UpdateDownloadProgress(i16),
+    UpdateDownloadFinished(Result<updater::UpdateInfo, String>),
+    ApplyUpdateAndRestart,
+    OpenUrl(String),
+
     // Runtime state persistence
     SaveState,
     DebouncedStateSave(u64),
@@ -769,6 +778,17 @@ impl std::fmt::Debug for Message {
                 f.debug_tuple("DebouncedConfigSave").field(seq).finish()
             }
             Self::ConfigSaved => write!(f, "ConfigSaved"),
+            Self::CheckForUpdates => write!(f, "CheckForUpdates"),
+            Self::UpdateCheckFinished(r) => f.debug_tuple("UpdateCheckFinished").field(r).finish(),
+            Self::StartUpdateDownload(i) => f.debug_tuple("StartUpdateDownload").field(i).finish(),
+            Self::UpdateDownloadProgress(p) => {
+                f.debug_tuple("UpdateDownloadProgress").field(p).finish()
+            }
+            Self::UpdateDownloadFinished(r) => {
+                f.debug_tuple("UpdateDownloadFinished").field(r).finish()
+            }
+            Self::ApplyUpdateAndRestart => write!(f, "ApplyUpdateAndRestart"),
+            Self::OpenUrl(u) => f.debug_tuple("OpenUrl").field(u).finish(),
             Self::SaveState => write!(f, "SaveState"),
             Self::DebouncedStateSave(seq) => {
                 f.debug_tuple("DebouncedStateSave").field(seq).finish()

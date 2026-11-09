@@ -112,6 +112,12 @@ pub const RADIO_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="
 /// Boxicons `chevron-left`.
 pub const ARROW_LEFT_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M14.29 6.29L8.59 12l5.7 5.71l1.42-1.42l-4.3-4.29l4.3-4.29z"/></svg>"#;
 
+/// Boxicons `download`.
+pub const DOWNLOAD_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m12 16l4-5h-3V4h-2v7H8z"/><path fill="currentColor" d="M20 18H4v-7H2v7c0 1.103.897 2 2 2h16c1.103 0 2-.897 2-2v-7h-2z"/></svg>"#;
+
+/// Boxicons `export` / external link.
+pub const EXTERNAL_LINK_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m13 3l3.293 3.293l-7 7l1.414 1.414l7-7L21 11V3z"/><path fill="currentColor" d="M19 19H5V5h7l-2-2H5c-1.103 0-2 .897-2 2v14c0 1.103.897 2 2 2h14c1.103 0 2-.897 2-2v-5l-2-2z"/></svg>"#;
+
 static SVG_CACHE: OnceLock<Mutex<HashMap<&'static str, Handle>>> = OnceLock::new();
 
 pub fn handle_for_svg(svg_str: &'static str) -> Handle {

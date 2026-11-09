@@ -353,6 +353,7 @@ impl App {
                     Message::PlaylistsLoaded,
                 )
             },
+            Task::perform(updater::check_for_updates(), Message::UpdateCheckFinished),
         ];
 
         if app.active_tab == ViewTab::Albums {
@@ -3174,6 +3175,120 @@ impl App {
             }
 
             Message::StateSaved => Task::none(),
+
+            Message::CheckForUpdates => {
+                self.settings
+                    .set_update_status(updater::UpdateStatus::Checking);
+                Task::perform(updater::check_for_updates(), Message::UpdateCheckFinished)
+            }
+
+            Message::UpdateCheckFinished(result) => {
+                match result {
+                    Ok(Some(info)) => {
+                        self.settings
+                            .set_update_status(updater::UpdateStatus::Available(info));
+                    }
+                    Ok(None) => {
+                        self.settings
+                            .set_update_status(updater::UpdateStatus::UpToDate);
+                    }
+                    Err(err) => {
+                        self.settings
+                            .set_update_status(updater::UpdateStatus::Failed(err));
+                    }
+                }
+                Task::none()
+            }
+
+            Message::StartUpdateDownload(info) => {
+                self.settings
+                    .set_update_status(updater::UpdateStatus::Downloading {
+                        info: info.clone(),
+                        percent: 0,
+                    });
+                Task::stream(iced::stream::channel(100, async move |mut sender| {
+                    let mut cb_sender = sender.clone();
+                    let info_clone = info.clone();
+                    let res = tokio::task::spawn_blocking(move || {
+                        updater::download_update(move |pct| {
+                            let _ = cb_sender.try_send(Message::UpdateDownloadProgress(pct));
+                        })
+                    })
+                    .await;
+
+                    match res {
+                        Ok(Ok(())) => {
+                            let _ = sender
+                                .send(Message::UpdateDownloadFinished(Ok(info_clone)))
+                                .await;
+                        }
+                        Ok(Err(err)) => {
+                            let _ = sender.send(Message::UpdateDownloadFinished(Err(err))).await;
+                        }
+                        Err(join_err) => {
+                            let _ = sender
+                                .send(Message::UpdateDownloadFinished(Err(join_err.to_string())))
+                                .await;
+                        }
+                    }
+                }))
+            }
+
+            Message::UpdateDownloadProgress(percent) => {
+                if let updater::UpdateStatus::Downloading { ref info, .. } =
+                    self.settings.update_status
+                {
+                    self.settings
+                        .set_update_status(updater::UpdateStatus::Downloading {
+                            info: info.clone(),
+                            percent,
+                        });
+                }
+                Task::none()
+            }
+
+            Message::UpdateDownloadFinished(result) => {
+                match result {
+                    Ok(info) => {
+                        self.settings
+                            .set_update_status(updater::UpdateStatus::ReadyToRestart { info });
+                    }
+                    Err(err) => {
+                        self.settings
+                            .set_update_status(updater::UpdateStatus::Failed(err));
+                    }
+                }
+                Task::none()
+            }
+
+            Message::ApplyUpdateAndRestart => {
+                let state = self.to_state();
+                let state_path = self.state_path;
+                let config = self.to_config();
+                let config_path = self.config_path;
+
+                Task::perform(
+                    async move {
+                        tokio::task::spawn_blocking(move || {
+                            state.save_to_path(state_path);
+                            config.save_to_path(config_path);
+                            updater::apply_update_and_restart()
+                        })
+                        .await
+                        .map_err(|e| e.to_string())
+                        .and_then(|r| r)
+                    },
+                    |res| match res {
+                        Ok(()) => Message::StateSaved,
+                        Err(err) => Message::UpdateDownloadFinished(Err(err)),
+                    },
+                )
+            }
+
+            Message::OpenUrl(url) => {
+                updater::open_in_browser(&url);
+                Task::none()
+            }
         }
     }
 

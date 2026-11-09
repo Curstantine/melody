@@ -93,6 +93,7 @@ pub struct SettingsView {
     pub library_folders: Vec<String>,
     pub scrobble_test_status: Option<(plugins::scrobbler::ScrobbleService, Result<String, String>)>,
     pub fonts_loaded: bool,
+    pub update_status: updater::UpdateStatus,
 }
 
 impl SettingsView {
@@ -107,6 +108,7 @@ impl SettingsView {
             library_folders: Vec::new(),
             scrobble_test_status: None,
             fonts_loaded,
+            update_status: updater::UpdateStatus::Idle,
         }
     }
 
@@ -131,6 +133,10 @@ impl SettingsView {
         status: Option<(plugins::scrobbler::ScrobbleService, Result<String, String>)>,
     ) {
         self.scrobble_test_status = status;
+    }
+
+    pub fn set_update_status(&mut self, status: updater::UpdateStatus) {
+        self.update_status = status;
     }
 
     pub fn view<'a>(
@@ -201,6 +207,8 @@ impl SettingsView {
             .on_press(Message::SelectSettingsTab(tab))
         };
 
+        let update_section = self.view_update_section(theme_cfg);
+
         container(row![
             column![
                 sidebar_title,
@@ -227,15 +235,219 @@ impl SettingsView {
                     icons::RADIO_SVG,
                     "Scrobbling",
                     "ListenBrainz & Last.fm",
-                )
+                ),
+                Space::new().height(Length::Fill),
+                update_section,
             ]
-            .width(SIDEBAR_WIDTH),
+            .width(SIDEBAR_WIDTH)
+            .height(Length::Fill),
             border_hori(1.0, theme_cfg.border_color())
         ])
         .width(Length::Fixed(SIDEBAR_WIDTH + 1.0))
         .height(Length::Fill)
         .style(styles::sidebar_container(theme_cfg))
         .boxed()
+    }
+
+    fn view_update_section<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+        let current_version = env!("CARGO_PKG_VERSION");
+
+        let content = match &self.update_status {
+            updater::UpdateStatus::Available(info) => {
+                let update_btn = button(
+                    row![
+                        icons::icon(icons::DOWNLOAD_SVG, 13.0, Color::WHITE),
+                        Space::new().width(SPACE_MD),
+                        text(theme_cfg, "Update & restart")
+                            .size(12)
+                            .color(Color::WHITE),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .width(Length::Fill)
+                .padding(BUTTON_PADDING_MD)
+                .style(styles::primary_button(theme_cfg))
+                .on_press(Message::StartUpdateDownload(info.clone()));
+
+                let status_label = row![
+                    icons::icon(icons::DOWNLOAD_SVG, 11.0, theme_cfg.primary_color()),
+                    Space::new().width(SPACE_SM),
+                    text(theme_cfg, format!("{} ready", info.version))
+                        .size(11)
+                        .color(theme_cfg.primary_color()),
+                ]
+                .align_y(Alignment::Center);
+
+                let release_link = button(
+                    row![
+                        text(theme_cfg, "View release notes")
+                            .size(10)
+                            .color(theme_cfg.text_muted_color()),
+                        Space::new().width(SPACE_SM),
+                        icons::icon(icons::EXTERNAL_LINK_SVG, 10.0, theme_cfg.text_muted_color()),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .padding([2, 0])
+                .style(styles::ghost_button(theme_cfg, false))
+                .on_press(Message::OpenUrl(info.release_url.clone()));
+
+                let ver_label = text(theme_cfg, format!("v{current_version}"))
+                    .size(10)
+                    .color(theme_cfg.text_muted_color());
+
+                column![
+                    update_btn,
+                    column![status_label, release_link, ver_label].spacing(2),
+                ]
+                .spacing(SPACE_SM)
+                .width(Length::Fill)
+            }
+            updater::UpdateStatus::Downloading { info, percent } => {
+                let downloading_btn = button(
+                    row![
+                        icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.primary_color()),
+                        Space::new().width(SPACE_MD),
+                        text(
+                            theme_cfg,
+                            format!("Downloading {}%...", percent.clamp(&0, &100)),
+                        )
+                        .size(12)
+                        .color(theme_cfg.primary_color()),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .width(Length::Fill)
+                .padding(BUTTON_PADDING_MD)
+                .style(styles::ghost_button(theme_cfg, false));
+
+                let info_label = text(theme_cfg, format!("Downloading {}", info.version))
+                    .size(11)
+                    .color(theme_cfg.text_color());
+
+                let ver_label = text(theme_cfg, format!("v{current_version}"))
+                    .size(10)
+                    .color(theme_cfg.text_muted_color());
+
+                column![downloading_btn, column![info_label, ver_label].spacing(2),]
+                    .spacing(SPACE_SM)
+                    .width(Length::Fill)
+            }
+            updater::UpdateStatus::ReadyToRestart { info } => {
+                let restart_btn = button(
+                    row![
+                        icons::icon(icons::REFRESH_SVG, 13.0, Color::WHITE),
+                        Space::new().width(SPACE_MD),
+                        text(theme_cfg, "Restart now").size(12).color(Color::WHITE),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .width(Length::Fill)
+                .padding(BUTTON_PADDING_MD)
+                .style(styles::primary_button(theme_cfg))
+                .on_press(Message::ApplyUpdateAndRestart);
+
+                let status_label = row![
+                    icons::icon(icons::DOWNLOAD_SVG, 11.0, theme_cfg.accent_color()),
+                    Space::new().width(SPACE_SM),
+                    text(theme_cfg, format!("{} downloaded", info.version))
+                        .size(11)
+                        .color(theme_cfg.accent_color()),
+                ]
+                .align_y(Alignment::Center);
+
+                let release_link = button(
+                    row![
+                        text(theme_cfg, "View release notes")
+                            .size(10)
+                            .color(theme_cfg.text_muted_color()),
+                        Space::new().width(SPACE_SM),
+                        icons::icon(icons::EXTERNAL_LINK_SVG, 10.0, theme_cfg.text_muted_color()),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .padding([2, 0])
+                .style(styles::ghost_button(theme_cfg, false))
+                .on_press(Message::OpenUrl(info.release_url.clone()));
+
+                let ver_label = text(theme_cfg, format!("v{current_version}"))
+                    .size(10)
+                    .color(theme_cfg.text_muted_color());
+
+                column![
+                    restart_btn,
+                    column![status_label, release_link, ver_label].spacing(2),
+                ]
+                .spacing(SPACE_SM)
+                .width(Length::Fill)
+            }
+            updater::UpdateStatus::Checking => {
+                let checking_btn = button(
+                    row![
+                        icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text_muted_color()),
+                        Space::new().width(SPACE_MD),
+                        text(theme_cfg, "Checking for updates...")
+                            .size(12)
+                            .color(theme_cfg.text_muted_color()),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .width(Length::Fill)
+                .padding(BUTTON_PADDING_MD)
+                .style(styles::ghost_button(theme_cfg, false));
+
+                let ver_label = text(theme_cfg, format!("v{current_version}"))
+                    .size(10)
+                    .color(theme_cfg.text_muted_color());
+
+                column![checking_btn, ver_label]
+                    .spacing(SPACE_SM)
+                    .width(Length::Fill)
+            }
+            updater::UpdateStatus::UpToDate => {
+                let ver_label = text(theme_cfg, format!("v{current_version} • Up to date"))
+                    .size(10)
+                    .color(theme_cfg.text_muted_color());
+
+                column![ver_label].width(Length::Fill)
+            }
+            updater::UpdateStatus::Idle => {
+                let ver_label = text(theme_cfg, format!("v{current_version}"))
+                    .size(10)
+                    .color(theme_cfg.text_muted_color());
+
+                column![ver_label].width(Length::Fill)
+            }
+            updater::UpdateStatus::Failed(_) => {
+                let check_btn = button(
+                    row![
+                        icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text_color()),
+                        Space::new().width(SPACE_MD),
+                        text(theme_cfg, "Check for updates")
+                            .size(12)
+                            .color(theme_cfg.text_color()),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .width(Length::Fill)
+                .padding(BUTTON_PADDING_MD)
+                .style(styles::ghost_button(theme_cfg, false))
+                .on_press(Message::CheckForUpdates);
+
+                let ver_label = text(theme_cfg, format!("v{current_version} • Check failed"))
+                    .size(10)
+                    .color(theme_cfg.text_muted_color());
+
+                column![check_btn, ver_label]
+                    .spacing(SPACE_SM)
+                    .width(Length::Fill)
+            }
+        };
+
+        container(content)
+            .padding(SIDEBAR_PADDING)
+            .width(Length::Fill)
+            .boxed()
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -1768,6 +1980,7 @@ mod tests {
                 library_folders: folders.clone(),
                 scrobble_test_status: None,
                 fonts_loaded: true,
+                update_status: updater::UpdateStatus::Idle,
             };
 
             let theme_names_vec = vec![DEFAULT_THEME_NAME.to_string(), "Nord".to_string()];
@@ -1844,6 +2057,7 @@ mod tests {
             library_folders: Vec::new(),
             scrobble_test_status: None,
             fonts_loaded: true,
+            update_status: updater::UpdateStatus::Idle,
         };
         let theme_names_vec = vec![DEFAULT_THEME_NAME.to_string()];
         let layout_names_vec = vec!["Default".to_string()];
@@ -1892,5 +2106,43 @@ mod tests {
         };
 
         let _element = settings_view.view(&theme_cfg, ctx);
+    }
+
+    #[test]
+    fn test_settings_sidebar_update_status_rendering() {
+        let theme_cfg = ThemeConfig::default();
+        let mut settings_view = SettingsView::new(SettingsTab::Appearance, Vec::new());
+
+        // Test Available status
+        let update_info = updater::UpdateInfo {
+            version: "v9.9.9".to_string(),
+            release_url: env!("CARGO_PKG_REPOSITORY").to_string(),
+        };
+        settings_view.set_update_status(updater::UpdateStatus::Available(update_info.clone()));
+        drop(settings_view.view_sidebar(&theme_cfg));
+
+        // Test Downloading status
+        settings_view.set_update_status(updater::UpdateStatus::Downloading {
+            info: update_info.clone(),
+            percent: 45,
+        });
+        drop(settings_view.view_sidebar(&theme_cfg));
+
+        // Test ReadyToRestart status
+        settings_view
+            .set_update_status(updater::UpdateStatus::ReadyToRestart { info: update_info });
+        drop(settings_view.view_sidebar(&theme_cfg));
+
+        // Test Checking status
+        settings_view.set_update_status(updater::UpdateStatus::Checking);
+        drop(settings_view.view_sidebar(&theme_cfg));
+
+        // Test UpToDate status
+        settings_view.set_update_status(updater::UpdateStatus::UpToDate);
+        drop(settings_view.view_sidebar(&theme_cfg));
+
+        // Test Failed status
+        settings_view.set_update_status(updater::UpdateStatus::Failed("Network error".to_string()));
+        drop(settings_view.view_sidebar(&theme_cfg));
     }
 }

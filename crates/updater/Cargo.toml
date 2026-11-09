@@ -1,0 +1,12 @@
+[package]
+name = "updater"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+velopack.workspace = true
+tracing.workspace = true
+tokio = { workspace = true, features = ["rt"] }

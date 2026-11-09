@@ -1,10 +1,10 @@
 [package]
 name = "ui"
-workspace = "../.."
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
 default-run = "melody"
 
 [[bin]]
@@ -21,13 +21,13 @@ OriginalFilename = "melody.exe"
 core_engine.workspace = true
 audio.workspace = true
 plugins.workspace = true
+updater.workspace = true
 # NOTE: `web-colors` (an iced default feature) is deliberately disabled: it
 # switches the wgpu text pipeline to non-gamma-corrected ("Web") blending,
 # which renders glyph edges thinner/sharper than 0.13. Opting out restores
 # gamma-correct ("Accurate") blending. Everything else mirrors iced defaults.
 iced = { workspace = true, features = [
   "wgpu",
-  "tiny-skia",
   "crisp",
   "thread-pool",
   "linux-theme-detection",
@@ -42,7 +42,7 @@ iced = { workspace = true, features = [
 ] }
 crossbeam-channel.workspace = true
 kdl.workspace = true
-serde = { workspace = true, features = ["derive"] }
+serde.workspace = true
 toml.workspace = true
 walkdir.workspace = true
 rfd.workspace = true
@@ -51,7 +51,6 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "time"] }
 url.workspace = true
-velopack.workspace = true
 
 # Profiling dependencies (optional)
 tracy-client = { workspace = true, optional = true, default-features = false, features = ["enable"] }

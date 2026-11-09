@@ -33,6 +33,7 @@ melody/
     ├── core/                    # Centralized paths, Turso database, FFmpeg metadata extraction, thumbnail caching, template formatting
     ├── audio/                   # Dedicated audio worker thread, CPAL playback, FFmpeg decoder & resampler, lock-free ring buffer
     ├── plugins/                 # Extensibility framework, host contracts, lyrics, discord presence hooks
+    ├── updater/                 # Velopack integration, application lifecycle hooks, GitHub update checking, browser launching
     └── ui/                      # Iced GUI entry point, Elm state machine, views, persistent config, theming, KDL layout runtime
 ```
 
@@ -43,7 +44,8 @@ melody/
 | **`core`** | [`crates/core`](file:///home/curstantine/Code/Personal/melody/crates/core/src/lib.rs) | Centralized storage paths, async Turso local database schema & queries, viewport windowing, FFmpeg metadata parsing, cover art extraction & disk thumbnail caching, template string formatter engine. | `turso`, `ffmpeg-next`, `image`, `directories`, `serde`, `thiserror`, `walkdir` |
 | **`audio`** | [`crates/audio`](file:///home/curstantine/Code/Personal/melody/crates/audio/src/lib.rs) | Lock-free audio worker thread, CPAL output stream, SPSC ring buffer, FFmpeg packet demuxing/decoding/resampling, atomic status reporting. | `cpal`, `ffmpeg-next`, `ringbuf`, `crossbeam-channel`, `thiserror` |
 | **`plugins`** | [`crates/plugins`](file:///home/curstantine/Code/Personal/melody/crates/plugins/src/lib.rs) | Plugin contracts, event dispatch (`on_track_change`, `on_playback_end`), lyrics fetcher, RPC stubs. | `serde`, `serde_json`, `tracing` |
-| **`ui`** | [`crates/ui`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/main.rs) | Application state, Model-View-Update cycle, system font picker, SVG icons, runtime theme manager, KDL layout definitions, views, and persistent configuration. | `iced`, `rfd`, `directories`, `toml`, `kdl`, `core`, `audio`, `plugins` |
+| **`updater`** | [`crates/updater`](file:///home/curstantine/Code/Personal/melody/crates/updater/src/lib.rs) | Velopack runtime hooks, GitHub release update checking, browser opening helpers. | `velopack`, `tracing`, `tokio` |
+| **`ui`** | [`crates/ui`](file:///home/curstantine/Code/Personal/melody/crates/ui/src/main.rs) | Application state, Model-View-Update cycle, system font picker, SVG icons, runtime theme manager, KDL layout definitions, views, and persistent configuration. | `iced`, `rfd`, `directories`, `toml`, `kdl`, `core`, `audio`, `plugins`, `updater` |
 
 ---
 
