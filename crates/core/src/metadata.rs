@@ -216,7 +216,7 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
     let mut musicbrainz_album_id: Option<String> = None;
 
     let mut parse_tag = |key: &str, val_str: &str| {
-        let val = sanitize_tag_string(val_str);
+        let val = sanitize_tag_bytes(val_str.as_bytes());
         if val.is_empty() {
             return;
         }
@@ -320,10 +320,6 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
         musicbrainz_artist_id,
         musicbrainz_album_id,
     })
-}
-
-pub fn sanitize_tag_string(raw: &str) -> String {
-    sanitize_tag_bytes(raw.as_bytes())
 }
 
 pub fn sanitize_tag_bytes(bytes: &[u8]) -> String {

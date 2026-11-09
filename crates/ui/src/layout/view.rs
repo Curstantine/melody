@@ -113,7 +113,7 @@ impl App {
                     .width(Length::Fill)
                     .height(Length::Fixed(*size))
                     .style(move |_| container::Style {
-                        background: Some(iced::Background::Color(theme_cfg.border_color())),
+                        background: Some(iced::Background::Color(theme_cfg.border)),
                         ..Default::default()
                     })
                     .boxed(),
@@ -121,7 +121,7 @@ impl App {
                     .width(Length::Fixed(*size))
                     .height(Length::Fill)
                     .style(move |_| container::Style {
-                        background: Some(iced::Background::Color(theme_cfg.border_color())),
+                        background: Some(iced::Background::Color(theme_cfg.border)),
                         ..Default::default()
                     })
                     .boxed(),
@@ -300,11 +300,11 @@ impl App {
             let is_hovered = self.hovered_tab == Some(tab);
 
             let tab_icon_color = if is_selected || is_dragging {
-                theme_cfg.primary_color()
+                theme_cfg.primary
             } else if is_hovered {
-                theme_cfg.text_color()
+                theme_cfg.text
             } else {
-                theme_cfg.text_muted_color()
+                theme_cfg.text_muted
             };
 
             let tab_inner = row![
@@ -313,11 +313,11 @@ impl App {
                     .size(11)
                     .line_height(1.0)
                     .color(if is_selected || is_dragging {
-                        theme_cfg.primary_color()
+                        theme_cfg.primary
                     } else if is_hovered {
-                        theme_cfg.text_color()
+                        theme_cfg.text
                     } else {
-                        theme_cfg.text_muted_color()
+                        theme_cfg.text_muted
                     }),
             ]
             .spacing(6)
@@ -354,9 +354,9 @@ impl App {
             icons::SETTINGS_SVG,
             14.0,
             if self.active_tab == ViewTab::Settings {
-                theme_cfg.primary_color()
+                theme_cfg.primary
             } else {
-                theme_cfg.text_muted_color()
+                theme_cfg.text_muted
             },
         ))
         .padding([4, 8])
@@ -399,16 +399,16 @@ impl App {
                             icons::SETTINGS_SVG,
                             12.0,
                             if settings_is_selected {
-                                theme_cfg.primary_color()
+                                theme_cfg.primary
                             } else {
-                                theme_cfg.text_muted_color()
+                                theme_cfg.text_muted
                             },
                         ),
                         text(theme_cfg, "Settings").size(11).line_height(1.0).color(
                             if settings_is_selected {
-                                theme_cfg.primary_color()
+                                theme_cfg.primary
                             } else {
-                                theme_cfg.text_muted_color()
+                                theme_cfg.text_muted
                             }
                         )
                     ]

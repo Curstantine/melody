@@ -166,11 +166,6 @@ impl LibraryWatcher {
         Ok(())
     }
 
-    /// Returns the list of currently watched directories.
-    pub fn watched_folders(&self) -> Vec<PathBuf> {
-        self.watched_folders.iter().cloned().collect()
-    }
-
     /// Returns whether a folder is currently being watched.
     pub fn is_watching<P: AsRef<Path>>(&self, path: P) -> bool {
         self.watched_folders.contains(path.as_ref())

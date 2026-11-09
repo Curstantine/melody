@@ -153,11 +153,6 @@ impl AppState {
         }
     }
 
-    pub fn save(&self) {
-        let path = core_engine::state_file();
-        self.save_to_path(path);
-    }
-
     pub fn save_to_path(&self, path: &Path) {
         match toml::to_string_pretty(self) {
             Ok(content) => {

@@ -70,19 +70,19 @@ impl<'a> CatalogRow<'a> {
 
         let mut subtitle = row![text(theme_cfg, subtitle_left)
             .size(11)
-            .color(theme_cfg.text_muted_color())];
+            .color(theme_cfg.text_muted)];
         if !subtitle_right.is_empty() {
             subtitle = subtitle
                 .push(
                     text(theme_cfg, " • ")
                         .size(11)
-                        .color(theme_cfg.text_muted_color())
+                        .color(theme_cfg.text_muted)
                         .boxed(),
                 )
                 .push(
                     text(theme_cfg, subtitle_right)
                         .size(11)
-                        .color(theme_cfg.text_muted_color())
+                        .color(theme_cfg.text_muted)
                         .boxed(),
                 );
         }
@@ -90,7 +90,7 @@ impl<'a> CatalogRow<'a> {
         let title_block = column![
             text(theme_cfg, title)
                 .size(13)
-                .color(theme_cfg.text_color())
+                .color(theme_cfg.text)
                 .wrapping(Wrapping::None)
                 .ellipsis(Ellipsis::End),
             subtitle,
@@ -102,12 +102,8 @@ impl<'a> CatalogRow<'a> {
 
         if let Some((top, bottom)) = details {
             let details_col = column![
-                text(theme_cfg, top)
-                    .size(12)
-                    .color(theme_cfg.text_muted_color()),
-                text(theme_cfg, bottom)
-                    .size(11)
-                    .color(theme_cfg.text_muted_color()),
+                text(theme_cfg, top).size(12).color(theme_cfg.text_muted),
+                text(theme_cfg, bottom).size(11).color(theme_cfg.text_muted),
             ]
             .spacing(2)
             .align_x(Alignment::End)
@@ -133,23 +129,15 @@ impl<'a> CatalogRow<'a> {
             None => select_btn.boxed(),
         };
 
-        let play_btn = button(icons::icon(
-            icons::PLAY_SVG,
-            14.0,
-            theme_cfg.text_muted_color(),
-        ))
-        .style(styles::icon_control_button(theme_cfg))
-        .padding(4)
-        .on_press(on_play);
+        let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text_muted))
+            .style(styles::icon_control_button(theme_cfg))
+            .padding(4)
+            .on_press(on_play);
 
-        let shuffle_btn = button(icons::icon(
-            icons::SHUFFLE_SVG,
-            14.0,
-            theme_cfg.text_muted_color(),
-        ))
-        .style(styles::icon_control_button(theme_cfg))
-        .padding(4)
-        .on_press(on_shuffle);
+        let shuffle_btn = button(icons::icon(icons::SHUFFLE_SVG, 14.0, theme_cfg.text_muted))
+            .style(styles::icon_control_button(theme_cfg))
+            .padding(4)
+            .on_press(on_shuffle);
 
         let actions = row![play_btn, shuffle_btn]
             .spacing(4)
@@ -220,19 +208,19 @@ impl<'a> CatalogTile<'a> {
                 row![
                     text(theme_cfg, mid_left)
                         .size(11)
-                        .color(theme_cfg.text_muted_color())
+                        .color(theme_cfg.text_muted)
                         .width(Length::Fill)
                         .wrapping(Wrapping::None)
                         .ellipsis(Ellipsis::End),
                     text(theme_cfg, mid_right)
                         .size(11)
-                        .color(theme_cfg.text_muted_color()),
+                        .color(theme_cfg.text_muted),
                 ]
                 .align_y(Alignment::Center),
                 if bottom_right.is_empty() {
                     row![text(theme_cfg, bottom_left)
                         .size(10)
-                        .color(theme_cfg.text_muted_color())
+                        .color(theme_cfg.text_muted)
                         .width(Length::Fill)
                         .wrapping(Wrapping::None)
                         .ellipsis(Ellipsis::End),]
@@ -241,11 +229,11 @@ impl<'a> CatalogTile<'a> {
                     row![
                         text(theme_cfg, bottom_left)
                             .size(10)
-                            .color(theme_cfg.text_muted_color()),
+                            .color(theme_cfg.text_muted),
                         Space::new().width(Length::Fill),
                         text(theme_cfg, bottom_right)
                             .size(10)
-                            .color(theme_cfg.text_muted_color()),
+                            .color(theme_cfg.text_muted),
                     ]
                     .align_y(Alignment::Center)
                 },
@@ -261,19 +249,15 @@ impl<'a> CatalogTile<'a> {
             .padding(0)
             .on_press(on_select);
 
-        let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text_color()))
+        let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text))
             .style(styles::icon_control_button(theme_cfg))
             .padding(4)
             .on_press(on_play);
 
-        let shuffle_btn = button(icons::icon(
-            icons::SHUFFLE_SVG,
-            14.0,
-            theme_cfg.text_color(),
-        ))
-        .style(styles::icon_control_button(theme_cfg))
-        .padding(4)
-        .on_press(on_shuffle);
+        let shuffle_btn = button(icons::icon(icons::SHUFFLE_SVG, 14.0, theme_cfg.text))
+            .style(styles::icon_control_button(theme_cfg))
+            .padding(4)
+            .on_press(on_shuffle);
 
         let actions = container(row![play_btn, shuffle_btn].spacing(4))
             .width(tile_w)
@@ -371,27 +355,23 @@ impl<'a> TrackRow<'a> {
         } = self;
 
         let number_color = if highlighted {
-            theme_cfg.primary_color()
+            theme_cfg.primary
         } else {
-            theme_cfg.text_muted_color()
+            theme_cfg.text_muted
         };
         let title_color = match &on_press {
-            None => theme_cfg.text_muted_color(),
-            Some(_) if highlighted => theme_cfg.primary_color(),
-            Some(_) => theme_cfg.text_color(),
+            None => theme_cfg.text_muted,
+            Some(_) if highlighted => theme_cfg.primary,
+            Some(_) => theme_cfg.text,
         };
 
         let slot_content: Element<'_, Message> = if show_handle {
-            container(icons::icon(
-                icons::QUEUE_SVG,
-                12.0,
-                theme_cfg.text_muted_color(),
-            ))
-            .width(TRACK_ROW_SLOT_WIDTH)
-            .height(TRACK_ROW_HEIGHT)
-            .center_x(TRACK_ROW_SLOT_WIDTH)
-            .center_y(TRACK_ROW_HEIGHT)
-            .boxed()
+            container(icons::icon(icons::QUEUE_SVG, 12.0, theme_cfg.text_muted))
+                .width(TRACK_ROW_SLOT_WIDTH)
+                .height(TRACK_ROW_HEIGHT)
+                .center_x(TRACK_ROW_SLOT_WIDTH)
+                .center_y(TRACK_ROW_HEIGHT)
+                .boxed()
         } else {
             container(
                 text(theme_cfg, format_index(index))
@@ -425,13 +405,13 @@ impl<'a> TrackRow<'a> {
                 .ellipsis(Ellipsis::End),
             text(theme_cfg, artist)
                 .size(11)
-                .color(theme_cfg.text_muted_color())
+                .color(theme_cfg.text_muted)
                 .width(Length::FillPortion(4))
                 .wrapping(Wrapping::None)
                 .ellipsis(Ellipsis::End),
             text(theme_cfg, duration)
                 .size(12)
-                .color(theme_cfg.text_muted_color())
+                .color(theme_cfg.text_muted)
                 .width(TRACK_ROW_DURATION_WIDTH),
         ]
         .spacing(8)
@@ -457,14 +437,10 @@ impl<'a> TrackRow<'a> {
         }
         let body: Element<'_, Message> = area.boxed();
 
-        let remove_btn = button(icons::icon(
-            icons::TRASH_SVG,
-            12.0,
-            theme_cfg.text_muted_color(),
-        ))
-        .style(styles::icon_control_button(theme_cfg))
-        .padding([3, 5])
-        .on_press(on_remove);
+        let remove_btn = button(icons::icon(icons::TRASH_SVG, 12.0, theme_cfg.text_muted))
+            .style(styles::icon_control_button(theme_cfg))
+            .padding([3, 5])
+            .on_press(on_remove);
 
         // The highlight wraps the whole row so the background spans the handle
         // slot, the content, and the delete button.

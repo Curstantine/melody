@@ -66,11 +66,6 @@ pub fn intern(s: &str) -> InternedStr {
     global().intern(s)
 }
 
-/// Interns an optional string, preserving `None`.
-pub fn intern_opt(s: Option<&str>) -> Option<InternedStr> {
-    s.map(intern)
-}
-
 /// Drops every pooled string. Call when the library is cleared to avoid
 /// retaining metadata from a previous scan.
 pub fn clear() {
@@ -93,13 +88,6 @@ mod tests {
         let b = intern("Pink Floyd");
         assert!(Arc::ptr_eq(&a, &b));
         assert!(distinct_count() >= 1);
-    }
-
-    #[test]
-    fn intern_opt_preserves_none() {
-        assert!(intern_opt(None).is_none());
-        let some = intern_opt(Some("Yes")).unwrap();
-        assert_eq!(&*some, "Yes");
     }
 
     #[test]

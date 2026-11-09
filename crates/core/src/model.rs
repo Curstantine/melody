@@ -91,10 +91,6 @@ pub struct TrackRow {
 }
 
 impl TrackRow {
-    pub fn formatted_duration(&self) -> &str {
-        &self.duration_label
-    }
-
     pub fn display_artist(&self) -> &str {
         if self.artist.is_empty() {
             "Unknown Artist"

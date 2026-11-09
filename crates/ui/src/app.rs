@@ -553,7 +553,7 @@ impl App {
                         self.current_blurred_cover = None;
                         self.current_next_cover = None;
                         self.current_tech_info = None;
-                        self.now_playing.set_lyrics(None);
+                        self.now_playing.current_lyrics = None;
 
                         self.plugin_manager.on_track_change(&TrackMetadata {
                             title: title.clone(),
@@ -716,7 +716,7 @@ impl App {
                     self.current_blurred_cover = None;
                     self.current_next_cover = None;
                     self.current_tech_info = None;
-                    self.now_playing.set_lyrics(None);
+                    self.now_playing.current_lyrics = None;
                     self.sync_now_playing();
 
                     // Notify plugins synchronously (cheap state updates).
@@ -759,7 +759,7 @@ impl App {
                     self.current_blurred_cover = None;
                     self.current_next_cover = None;
                     self.current_tech_info = None;
-                    self.now_playing.set_lyrics(None);
+                    self.now_playing.current_lyrics = None;
                     self.sync_now_playing();
 
                     self.queue_next_gapless_track();
@@ -797,7 +797,7 @@ impl App {
                 self.current_blurred_cover = blurred.map(image::Handle::from_bytes);
                 self.current_next_cover = next_cover.map(image::Handle::from_bytes);
                 self.current_tech_info = tech_info;
-                self.now_playing.set_lyrics(lyrics);
+                self.now_playing.current_lyrics = lyrics;
                 self.sync_now_playing();
                 Task::none()
             }
@@ -1159,7 +1159,7 @@ impl App {
             }
 
             Message::SetPageSize(size) => {
-                self.library.set_page_size(size);
+                self.library.page_size = size;
                 Task::batch([self.save_config_task(), self.reload_tracks_task()])
             }
 
@@ -1236,7 +1236,7 @@ impl App {
             }
 
             Message::SetNowPlayingCoverSize(size) => {
-                self.now_playing.set_cover_size(size);
+                self.now_playing.cover_size = size;
                 self.save_config_debounced()
             }
 
@@ -1625,7 +1625,7 @@ impl App {
             Message::ContextNewPlaylistWithTracks(tracks) => {
                 self.context_menu = None;
                 self.active_tab = ViewTab::Playlists;
-                self.playlists.set_section(PlaylistSection::Playlists);
+                self.playlists.section = PlaylistSection::Playlists;
                 self.playlists.creating = true;
                 self.playlists.new_name_input.clear();
                 self.pending_playlist_tracks = tracks;
@@ -1758,7 +1758,7 @@ impl App {
             }
 
             Message::LibraryFoldersLoaded(folders) => {
-                self.settings.set_library_folders(folders.clone());
+                self.settings.library_folders = folders.clone();
                 if self.watch_library {
                     if let Some(ref mut watcher) = self.library_watcher {
                         let _ = watcher.update_folders(&folders);
@@ -1984,7 +1984,7 @@ impl App {
             }
 
             Message::SelectSettingsTab(tab) => {
-                self.settings.select_tab(tab);
+                self.settings.active_tab = tab;
                 let mut tasks = vec![self.save_state_task(), self.load_storage_stats_task()];
                 if tab == SettingsTab::Appearance {
                     if let Some(font_task) = self.ensure_fonts_task() {
@@ -2025,7 +2025,7 @@ impl App {
 
             // ── Playlists ───────────────────────────────────────────────────
             Message::PlaylistSectionChanged(section) => {
-                self.playlists.set_section(section);
+                self.playlists.section = section;
                 let scroll_task = match section {
                     PlaylistSection::Playlists => {
                         let id = if self.playlists.selected_id.is_some() {
@@ -2212,8 +2212,12 @@ impl App {
                 }
             },
 
-            Message::PlayPlaylist(id) => self.open_playlist(id, 0),
-            Message::PlayPlaylistItem(id, index) => self.open_playlist(id, index),
+            Message::PlayPlaylist(id) => {
+                self.resolve_playlist_intent(id, PlaylistOpenIntent::Play { start_index: 0 })
+            }
+            Message::PlayPlaylistItem(id, index) => {
+                self.resolve_playlist_intent(id, PlaylistOpenIntent::Play { start_index: index })
+            }
             Message::PlaylistPlayNext(id) => {
                 self.resolve_playlist_intent(id, PlaylistOpenIntent::PlayNext)
             }
@@ -2228,7 +2232,7 @@ impl App {
                     .playlists
                     .detail_items
                     .get(index)
-                    .is_some_and(|item| item.is_available());
+                    .is_some_and(|item| item.track_id.is_some());
                 if !self.playlists.on_detail_click(playlist_id, index) {
                     return Task::none();
                 }
@@ -2472,7 +2476,7 @@ impl App {
             }
 
             Message::SetPlaylistsViewMode(mode) => {
-                self.playlists.set_view_mode(mode);
+                self.playlists.view_mode = mode;
                 self.save_state_task()
             }
 
@@ -2535,7 +2539,7 @@ impl App {
                     &self.layout_manager.current_template.view_formats.queue,
                     &self.queues,
                 );
-                self.playlists.set_section(PlaylistSection::Queues);
+                self.playlists.section = PlaylistSection::Queues;
                 Task::batch([self.persist_active_queue_task(), snap_queue_scroll_top()])
             }
             Message::QueueSelect(id) => {
@@ -3015,7 +3019,7 @@ impl App {
             }
 
             Message::ScrobbleTestFinished(service, res) => {
-                self.settings.set_scrobble_test_status(Some((service, res)));
+                self.settings.scrobble_test_status = Some((service, res));
                 Task::none()
             }
 
@@ -3177,35 +3181,30 @@ impl App {
             Message::StateSaved => Task::none(),
 
             Message::CheckForUpdates => {
-                self.settings
-                    .set_update_status(updater::UpdateStatus::Checking);
+                self.settings.update_status = updater::UpdateStatus::Checking;
                 Task::perform(updater::check_for_updates(), Message::UpdateCheckFinished)
             }
 
             Message::UpdateCheckFinished(result) => {
                 match result {
                     Ok(Some(info)) => {
-                        self.settings
-                            .set_update_status(updater::UpdateStatus::Available(info));
+                        self.settings.update_status = updater::UpdateStatus::Available(info);
                     }
                     Ok(None) => {
-                        self.settings
-                            .set_update_status(updater::UpdateStatus::UpToDate);
+                        self.settings.update_status = updater::UpdateStatus::UpToDate;
                     }
                     Err(err) => {
-                        self.settings
-                            .set_update_status(updater::UpdateStatus::Failed(err));
+                        self.settings.update_status = updater::UpdateStatus::Failed(err);
                     }
                 }
                 Task::none()
             }
 
             Message::StartUpdateDownload(info) => {
-                self.settings
-                    .set_update_status(updater::UpdateStatus::Downloading {
-                        info: info.clone(),
-                        percent: 0,
-                    });
+                self.settings.update_status = updater::UpdateStatus::Downloading {
+                    info: info.clone(),
+                    percent: 0,
+                };
                 Task::stream(iced::stream::channel(100, async move |mut sender| {
                     let mut cb_sender = sender.clone();
                     let info_clone = info.clone();
@@ -3238,11 +3237,10 @@ impl App {
                 if let updater::UpdateStatus::Downloading { ref info, .. } =
                     self.settings.update_status
                 {
-                    self.settings
-                        .set_update_status(updater::UpdateStatus::Downloading {
-                            info: info.clone(),
-                            percent,
-                        });
+                    self.settings.update_status = updater::UpdateStatus::Downloading {
+                        info: info.clone(),
+                        percent,
+                    };
                 }
                 Task::none()
             }
@@ -3250,12 +3248,11 @@ impl App {
             Message::UpdateDownloadFinished(result) => {
                 match result {
                     Ok(info) => {
-                        self.settings
-                            .set_update_status(updater::UpdateStatus::ReadyToRestart { info });
+                        self.settings.update_status =
+                            updater::UpdateStatus::ReadyToRestart { info };
                     }
                     Err(err) => {
-                        self.settings
-                            .set_update_status(updater::UpdateStatus::Failed(err));
+                        self.settings.update_status = updater::UpdateStatus::Failed(err);
                     }
                 }
                 Task::none()
@@ -3635,11 +3632,6 @@ impl App {
             .iter()
             .find(|p| p.id == id)
             .cloned()
-    }
-
-    /// Resolves a playlist and plays it, optionally starting at `start_index`.
-    fn open_playlist(&self, id: i64, start_index: usize) -> Task<Message> {
-        self.resolve_playlist_intent(id, PlaylistOpenIntent::Play { start_index })
     }
 
     fn resolve_playlist_intent(&self, id: i64, intent: PlaylistOpenIntent) -> Task<Message> {
@@ -4307,24 +4299,24 @@ impl App {
 
         let dialog_content = column![
             row![
-                icons::icon(icons::DISC_SVG, 16.0, theme_cfg.primary_color()),
+                icons::icon(icons::DISC_SVG, 16.0, theme_cfg.primary),
                 Space::new().width(8),
                 components::text(theme_cfg, header)
                     .size(14)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text),
             ]
             .align_y(Alignment::Center),
             Space::new().height(12),
             components::text(theme_cfg, message_text)
                 .size(12)
-                .color(theme_cfg.text_muted_color()),
+                .color(theme_cfg.text_muted),
             Space::new().height(20),
             row![
                 Space::new().width(Length::Fill),
                 button(
                     components::text(theme_cfg, "Cancel")
                         .size(12)
-                        .color(theme_cfg.text_muted_color())
+                        .color(theme_cfg.text_muted)
                 )
                 .padding([6, 14])
                 .style(styles::ghost_button(theme_cfg, false))
@@ -4411,7 +4403,7 @@ async fn resolve_playlist(db: LibraryDatabase, file_path: String) -> PlaylistRes
                 items.push(PlaylistItem {
                     title: row.title.clone(),
                     artist: row.display_artist().to_string(),
-                    duration_label: row.formatted_duration().to_string(),
+                    duration_label: row.duration_label.clone(),
                     track_id: Some(id),
                 });
                 tracks.push(row.clone());

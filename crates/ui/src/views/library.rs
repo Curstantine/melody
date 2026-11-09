@@ -172,10 +172,6 @@ impl LibraryView {
         self.scroll_offset.set(0.0);
     }
 
-    pub fn set_page_size(&mut self, size: usize) {
-        self.page_size = size;
-    }
-
     /// Handles a track click event. Returns `true` if it's a double-click (meaning playback should start).
     pub fn on_track_click(&mut self, id: i64) -> bool {
         let now = std::time::Instant::now();
@@ -328,7 +324,7 @@ impl LibraryView {
             "Search tracks... (album:\"…\" artist:… genre:… year:…)",
             &self.search_query,
         )
-        .font(theme_cfg.font())
+        .font(theme_cfg.font)
         .size(12)
         .on_input(Message::SearchInputChanged)
         .padding([4, 8])
@@ -336,13 +332,9 @@ impl LibraryView {
         .width(Length::Fill);
 
         let toolbar = row![
-            container(icons::icon(
-                icons::SEARCH_SVG,
-                16.0,
-                theme_cfg.text_muted_color(),
-            ))
-            .width(24)
-            .center_x(24),
+            container(icons::icon(icons::SEARCH_SVG, 16.0, theme_cfg.text_muted,))
+                .width(24)
+                .center_x(24),
             search_input,
         ]
         .spacing(8)
@@ -367,7 +359,7 @@ impl LibraryView {
                 row![
                     text(theme_cfg, label).size(12),
                     Space::new().width(4),
-                    icons::icon(sort_icon_svg, 12.0, theme_cfg.primary_color()),
+                    icons::icon(sort_icon_svg, 12.0, theme_cfg.primary),
                 ]
                 .align_y(Alignment::Center)
                 .boxed()
@@ -382,21 +374,20 @@ impl LibraryView {
                 .on_press(Message::SortChanged(field))
         };
 
-        let mut table_header = row![container(
-            text(theme_cfg, "#")
-                .size(12)
-                .color(theme_cfg.text_muted_color()),
-        )
-        .width(36)
-        .center_x(36),]
-        .spacing(8)
-        .align_y(Alignment::Center)
-        .padding(iced::Padding {
-            top: 2.0,
-            right: 16.0,
-            bottom: 2.0,
-            left: 0.0,
-        });
+        let mut table_header =
+            row![
+                container(text(theme_cfg, "#").size(12).color(theme_cfg.text_muted),)
+                    .width(36)
+                    .center_x(36),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center)
+            .padding(iced::Padding {
+                top: 2.0,
+                right: 16.0,
+                bottom: 2.0,
+                left: 0.0,
+            });
 
         for col in &format_cfg.columns {
             let width = col.width.to_iced_length();
@@ -406,7 +397,7 @@ impl LibraryView {
                 container(
                     text(theme_cfg, &col.header)
                         .size(12)
-                        .color(theme_cfg.text_muted_color()),
+                        .color(theme_cfg.text_muted),
                 )
                 .width(width)
                 .padding([2, 0])
@@ -447,7 +438,7 @@ impl LibraryView {
                                 icons::PLAY_SVG
                             },
                             12.0,
-                            theme_cfg.primary_color(),
+                            theme_cfg.primary,
                         ))
                         .width(36)
                         .height(24)
@@ -464,12 +455,12 @@ impl LibraryView {
                     let index_element: Element<'a, Message> = if let Some(r) = rendered {
                         text(theme_cfg, r.display_index.as_str())
                             .size(12)
-                            .color(theme_cfg.text_muted_color())
+                            .color(theme_cfg.text_muted)
                             .boxed()
                     } else {
                         text(theme_cfg, format!("{}", display_index))
                             .size(12)
-                            .color(theme_cfg.text_muted_color())
+                            .color(theme_cfg.text_muted)
                             .boxed()
                     };
 
@@ -495,11 +486,11 @@ impl LibraryView {
                 for (col_idx, col) in format_cfg.columns.iter().enumerate() {
                     let is_primary_col = col_idx == 0;
                     let text_color = if is_primary_col && is_active {
-                        theme_cfg.primary_color()
+                        theme_cfg.primary
                     } else if is_primary_col {
-                        theme_cfg.text_color()
+                        theme_cfg.text
                     } else {
-                        theme_cfg.text_muted_color()
+                        theme_cfg.text_muted
                     };
                     let text_size = if is_primary_col { 13 } else { 12 };
                     let width = col.width.to_iced_length();

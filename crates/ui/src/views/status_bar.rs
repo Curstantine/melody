@@ -43,7 +43,7 @@ pub struct StatusBar;
 
 impl StatusBar {
     pub fn view<'a>(theme_cfg: &'a ThemeConfig, ctx: StatusBarContext<'a>) -> Element<'a, Message> {
-        let muted = theme_cfg.text_muted_color();
+        let muted = theme_cfg.text_muted;
 
         let left_items: Element<'a, Message> = match ctx.active_tab {
             ViewTab::Tracks => {
@@ -197,14 +197,11 @@ impl StatusBar {
             .align_y(Alignment::Center)
             .padding([0, 10]);
 
-        container(column![
-            border_vert(1.0, theme_cfg.border_color()),
-            status_row
-        ])
-        .style(styles::status_bar_container(theme_cfg))
-        .width(Length::Fill)
-        .height(25)
-        .boxed()
+        container(column![border_vert(1.0, theme_cfg.border), status_row])
+            .style(styles::status_bar_container(theme_cfg))
+            .width(Length::Fill)
+            .height(25)
+            .boxed()
     }
 }
 

@@ -11,8 +11,8 @@ pub fn sync_titlebar_theme(window_id: Option<Id>, theme: &ThemeConfig) -> Task<M
         use iced::window::raw_window_handle::RawWindowHandle;
 
         // Match the topbar/navbar background color token (theme.surface)
-        let bg = theme.surface_color();
-        let text = theme.text_color();
+        let bg = theme.surface;
+        let text = theme.text;
         // Relative luminance to pick dark vs light caption button styling
         let luminance = 0.2126 * bg.r + 0.7152 * bg.g + 0.0722 * bg.b;
         let is_dark = luminance < 0.5;

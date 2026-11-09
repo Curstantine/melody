@@ -21,7 +21,7 @@ directories.workspace = true
 md-5.workspace = true
 turso.workspace = true
 encoding_rs.workspace = true
-tokio = { workspace = true, features = ["rt", "sync"] }
+tokio = { workspace = true, features = ["sync"] }
 notify.workspace = true
 crossbeam-channel.workspace = true
 

@@ -31,12 +31,6 @@ pub struct PlaylistItem {
     pub track_id: Option<i64>,
 }
 
-impl PlaylistItem {
-    pub fn is_available(&self) -> bool {
-        self.track_id.is_some()
-    }
-}
-
 /// Outcome of resolving an M3U file against the indexed library.
 #[derive(Debug, Clone)]
 pub struct PlaylistResolution {

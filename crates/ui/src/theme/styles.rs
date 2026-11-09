@@ -6,8 +6,8 @@ use super::ThemeConfig;
 
 pub fn main_background(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_theme| container::Style {
-        background: Some(Background::Color(cfg.bg_color())),
-        text_color: Some(cfg.text_color()),
+        background: Some(Background::Color(cfg.background)),
+        text_color: Some(cfg.text),
         border: Border::default(),
         shadow: Shadow::default(),
         snap: true,
@@ -16,8 +16,8 @@ pub fn main_background(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style
 
 pub fn sidebar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_theme| container::Style {
-        background: Some(Background::Color(cfg.surface_color())),
-        text_color: Some(cfg.text_color()),
+        background: Some(Background::Color(cfg.surface)),
+        text_color: Some(cfg.text),
         ..Default::default()
     }
 }
@@ -33,16 +33,16 @@ pub fn player_bar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::
 
 pub fn top_bar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_theme| container::Style {
-        background: Some(Background::Color(cfg.surface_color())),
-        text_color: Some(cfg.text_color()),
+        background: Some(Background::Color(cfg.surface)),
+        text_color: Some(cfg.text),
         ..Default::default()
     }
 }
 
 pub fn status_bar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_theme| container::Style {
-        background: Some(Background::Color(cfg.surface_color())),
-        text_color: Some(cfg.text_muted_color()),
+        background: Some(Background::Color(cfg.surface)),
+        text_color: Some(cfg.text_muted),
         ..Default::default()
     }
 }
@@ -56,42 +56,42 @@ pub fn header_tab_container(
     move |_theme| {
         let (bg, text, border) = if is_dragging {
             (
-                blend_color(cfg.surface_hover_color(), cfg.primary_color(), 0.15),
-                cfg.primary_color(),
+                blend_color(cfg.surface_hover, cfg.primary, 0.15),
+                cfg.primary,
                 Border {
-                    color: cfg.primary_color(),
+                    color: cfg.primary,
                     width: 1.0,
-                    radius: cfg.radius_sm(),
+                    radius: cfg.border_radius.sm,
                 },
             )
         } else if is_active {
             (
-                cfg.surface_hover_color(),
-                cfg.primary_color(),
+                cfg.surface_hover,
+                cfg.primary,
                 Border {
                     color: Color::TRANSPARENT,
                     width: 1.0,
-                    radius: cfg.radius_sm(),
+                    radius: cfg.border_radius.sm,
                 },
             )
         } else if is_hovered {
             (
-                cfg.surface_hover_color(),
-                cfg.text_color(),
+                cfg.surface_hover,
+                cfg.text,
                 Border {
                     color: Color::TRANSPARENT,
                     width: 1.0,
-                    radius: cfg.radius_sm(),
+                    radius: cfg.border_radius.sm,
                 },
             )
         } else {
             (
                 Color::TRANSPARENT,
-                cfg.text_muted_color(),
+                cfg.text_muted,
                 Border {
                     color: Color::TRANSPARENT,
                     width: 1.0,
-                    radius: cfg.radius_sm(),
+                    radius: cfg.border_radius.sm,
                 },
             )
         };
@@ -111,26 +111,26 @@ pub fn pick_list_style(
 ) -> impl Fn(&Theme, pick_list::Status) -> pick_list::Style + '_ {
     move |_theme, status| {
         let border_color = match status {
-            pick_list::Status::Opened { .. } => cfg.primary_color(),
-            pick_list::Status::Hovered => cfg.accent_color(),
-            _ => cfg.border_color(),
+            pick_list::Status::Opened { .. } => cfg.primary,
+            pick_list::Status::Hovered => cfg.accent,
+            _ => cfg.border,
         };
 
         let handle_color = match status {
-            pick_list::Status::Opened { .. } => cfg.primary_color(),
-            pick_list::Status::Hovered => cfg.text_color(),
-            _ => cfg.text_muted_color(),
+            pick_list::Status::Opened { .. } => cfg.primary,
+            pick_list::Status::Hovered => cfg.text,
+            _ => cfg.text_muted,
         };
 
         pick_list::Style {
-            text_color: cfg.text_color(),
-            placeholder_color: cfg.text_muted_color(),
+            text_color: cfg.text,
+            placeholder_color: cfg.text_muted,
             handle_color,
-            background: Background::Color(cfg.surface_color()),
+            background: Background::Color(cfg.surface),
             border: Border {
                 color: border_color,
                 width: 1.0,
-                radius: cfg.radius_sm(),
+                radius: cfg.border_radius.sm,
             },
         }
     }
@@ -138,15 +138,15 @@ pub fn pick_list_style(
 
 pub fn menu_style(cfg: &ThemeConfig) -> impl Fn(&Theme) -> menu::Style + '_ {
     move |_theme| menu::Style {
-        text_color: cfg.text_color(),
-        background: Background::Color(cfg.surface_color()),
+        text_color: cfg.text,
+        background: Background::Color(cfg.surface),
         border: Border {
-            color: cfg.border_color(),
+            color: cfg.border,
             width: 1.0,
-            radius: cfg.radius_sm(),
+            radius: cfg.border_radius.sm,
         },
-        selected_text_color: cfg.primary_color(),
-        selected_background: Background::Color(cfg.surface_hover_color()),
+        selected_text_color: cfg.primary,
+        selected_background: Background::Color(cfg.surface_hover),
         shadow: Shadow::default(),
     }
 }
@@ -162,7 +162,7 @@ pub fn player_bar_button(
         let active_bg = blend_color(bar_bg, bar_fg, 0.22);
         let normal_fg = cfg.player_bar_text_color();
         let highlight_fg = if is_active {
-            cfg.primary_color()
+            cfg.primary
         } else {
             cfg.player_bar_text_color()
         };
@@ -170,7 +170,7 @@ pub fn player_bar_button(
         let (bg, text) = match status {
             button::Status::Active => {
                 if is_active {
-                    (active_bg, cfg.primary_color())
+                    (active_bg, cfg.primary)
                 } else {
                     (Color::TRANSPARENT, normal_fg)
                 }
@@ -187,7 +187,7 @@ pub fn player_bar_button(
             background: Some(Background::Color(bg)),
             text_color: text,
             border: Border {
-                radius: cfg.radius_xl(),
+                radius: cfg.border_radius.xl,
                 ..Border::default()
             },
             shadow: Shadow::default(),
@@ -200,7 +200,7 @@ pub fn player_bar_play_button(
     cfg: &ThemeConfig,
 ) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
-        let primary = cfg.primary_color();
+        let primary = cfg.primary;
         let bar_bg = cfg.player_bar_bg_color();
         let bg = match status {
             button::Status::Active => primary,
@@ -214,7 +214,7 @@ pub fn player_bar_play_button(
             background: Some(Background::Color(bg)),
             text_color: fg,
             border: Border {
-                radius: cfg.radius_xl(),
+                radius: cfg.border_radius.xl,
                 ..Border::default()
             },
             shadow: Shadow::default(),
@@ -229,13 +229,13 @@ pub fn table_row_container(
 ) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_theme| {
         let bg = if is_selected {
-            cfg.surface_hover_color()
+            cfg.surface_hover
         } else {
             Color::TRANSPARENT
         };
         container::Style {
             background: Some(Background::Color(bg)),
-            text_color: Some(cfg.text_color()),
+            text_color: Some(cfg.text),
             border: Border::default(),
             shadow: Shadow::default(),
             snap: true,
@@ -255,28 +255,28 @@ pub fn queue_row_container(
         if is_dragging {
             container::Style {
                 background: Some(Background::Color(blend_color(
-                    cfg.surface_hover_color(),
-                    cfg.primary_color(),
+                    cfg.surface_hover,
+                    cfg.primary,
                     0.15,
                 ))),
-                text_color: Some(cfg.text_color()),
+                text_color: Some(cfg.text),
                 border: Border {
-                    color: cfg.border_color(),
+                    color: cfg.border,
                     width: 1.0,
-                    radius: cfg.radius_sm(),
+                    radius: cfg.border_radius.sm,
                 },
                 shadow: Shadow::default(),
                 snap: true,
             }
         } else {
             let bg = if is_selected {
-                cfg.surface_hover_color()
+                cfg.surface_hover
             } else {
                 Color::TRANSPARENT
             };
             container::Style {
                 background: Some(Background::Color(bg)),
-                text_color: Some(cfg.text_color()),
+                text_color: Some(cfg.text),
                 border: Border::default(),
                 shadow: Shadow::default(),
                 snap: true,
@@ -288,10 +288,10 @@ pub fn queue_row_container(
 pub fn tile(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
         let text = match status {
-            button::Status::Active => cfg.text_color(),
-            button::Status::Hovered => cfg.primary_color(),
-            button::Status::Pressed => cfg.text_color(),
-            button::Status::Disabled => cfg.text_muted_color(),
+            button::Status::Active => cfg.text,
+            button::Status::Hovered => cfg.primary,
+            button::Status::Pressed => cfg.text,
+            button::Status::Disabled => cfg.text_muted,
         };
 
         button::Style {
@@ -307,17 +307,17 @@ pub fn tile(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Sty
 pub fn list_row(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
         let (bg, text) = match status {
-            button::Status::Active => (Color::TRANSPARENT, cfg.text_color()),
-            button::Status::Hovered => (cfg.surface_hover_color(), cfg.primary_color()),
-            button::Status::Pressed => (cfg.surface_hover_color(), cfg.text_color()),
-            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted_color()),
+            button::Status::Active => (Color::TRANSPARENT, cfg.text),
+            button::Status::Hovered => (cfg.surface_hover, cfg.primary),
+            button::Status::Pressed => (cfg.surface_hover, cfg.text),
+            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted),
         };
 
         button::Style {
             background: Some(Background::Color(bg)),
             text_color: text,
             border: Border {
-                radius: cfg.radius_xs(),
+                radius: cfg.border_radius.xs,
                 ..Border::default()
             },
             shadow: Shadow::default(),
@@ -334,21 +334,21 @@ pub fn ghost_button(
         let (bg, text) = match status {
             button::Status::Active => {
                 if is_active {
-                    (cfg.surface_hover_color(), cfg.primary_color())
+                    (cfg.surface_hover, cfg.primary)
                 } else {
-                    (Color::TRANSPARENT, cfg.text_color())
+                    (Color::TRANSPARENT, cfg.text)
                 }
             }
-            button::Status::Hovered => (cfg.surface_hover_color(), cfg.primary_color()),
-            button::Status::Pressed => (cfg.surface_hover_color(), cfg.text_color()),
-            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted_color()),
+            button::Status::Hovered => (cfg.surface_hover, cfg.primary),
+            button::Status::Pressed => (cfg.surface_hover, cfg.text),
+            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted),
         };
 
         button::Style {
             background: Some(Background::Color(bg)),
             text_color: text,
             border: Border {
-                radius: cfg.radius_md(),
+                radius: cfg.border_radius.md,
                 ..Border::default()
             },
             shadow: Shadow::default(),
@@ -365,26 +365,26 @@ pub fn column_header_button(
         let text_color = match status {
             button::Status::Active => {
                 if is_active {
-                    cfg.primary_color()
+                    cfg.primary
                 } else {
-                    cfg.text_muted_color()
+                    cfg.text_muted
                 }
             }
             button::Status::Hovered => {
                 if is_active {
-                    blend_color(cfg.primary_color(), Color::WHITE, 0.25)
+                    blend_color(cfg.primary, Color::WHITE, 0.25)
                 } else {
-                    cfg.text_color()
+                    cfg.text
                 }
             }
             button::Status::Pressed => {
                 if is_active {
-                    cfg.primary_color()
+                    cfg.primary
                 } else {
-                    cfg.text_color()
+                    cfg.text
                 }
             }
-            button::Status::Disabled => cfg.text_muted_color(),
+            button::Status::Disabled => cfg.text_muted,
         };
 
         button::Style {
@@ -402,17 +402,17 @@ pub fn icon_control_button(
 ) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
         let (bg, text) = match status {
-            button::Status::Active => (Color::TRANSPARENT, cfg.text_color()),
-            button::Status::Hovered => (cfg.surface_hover_color(), cfg.primary_color()),
-            button::Status::Pressed => (cfg.surface_hover_color(), cfg.text_muted_color()),
-            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted_color()),
+            button::Status::Active => (Color::TRANSPARENT, cfg.text),
+            button::Status::Hovered => (cfg.surface_hover, cfg.primary),
+            button::Status::Pressed => (cfg.surface_hover, cfg.text_muted),
+            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted),
         };
 
         button::Style {
             background: Some(Background::Color(bg)),
             text_color: text,
             border: Border {
-                radius: cfg.radius_xl(),
+                radius: cfg.border_radius.xl,
                 ..Border::default()
             },
             shadow: Shadow::default(),
@@ -429,20 +429,20 @@ pub fn settings_nav_button(
         let (bg, text) = match status {
             button::Status::Active => {
                 if is_active {
-                    (cfg.surface_hover_color(), cfg.primary_color())
+                    (cfg.surface_hover, cfg.primary)
                 } else {
-                    (Color::TRANSPARENT, cfg.text_color())
+                    (Color::TRANSPARENT, cfg.text)
                 }
             }
             button::Status::Hovered => {
                 if is_active {
-                    (cfg.surface_hover_color(), cfg.primary_color())
+                    (cfg.surface_hover, cfg.primary)
                 } else {
-                    (cfg.surface_hover_color(), cfg.text_color())
+                    (cfg.surface_hover, cfg.text)
                 }
             }
-            button::Status::Pressed => (cfg.surface_hover_color(), cfg.primary_color()),
-            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted_color()),
+            button::Status::Pressed => (cfg.surface_hover, cfg.primary),
+            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted),
         };
 
         button::Style {
@@ -455,7 +455,7 @@ pub fn settings_nav_button(
 
 pub fn danger_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
-        let danger = cfg.danger_color();
+        let danger = cfg.danger;
         let with_alpha = |a: f32| Color {
             r: danger.r,
             g: danger.g,
@@ -474,18 +474,14 @@ pub fn danger_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> bu
                 blend_color(danger, Color::WHITE, 0.08),
                 with_alpha(1.0),
             ),
-            button::Status::Disabled => (
-                Color::TRANSPARENT,
-                cfg.text_muted_color(),
-                cfg.border_color(),
-            ),
+            button::Status::Disabled => (Color::TRANSPARENT, cfg.text_muted, cfg.border),
         };
 
         button::Style {
             background: Some(Background::Color(bg)),
             text_color: text,
             border: Border {
-                radius: cfg.radius_sm(),
+                radius: cfg.border_radius.sm,
                 color: border_color,
                 width: 1.0,
             },
@@ -500,21 +496,21 @@ pub fn search_input_style(
 ) -> impl Fn(&Theme, text_input::Status) -> text_input::Style + '_ {
     move |_theme, status| {
         let border_color = match status {
-            text_input::Status::Focused { .. } => cfg.primary_color(),
-            text_input::Status::Hovered => cfg.accent_color(),
-            _ => cfg.border_color(),
+            text_input::Status::Focused { .. } => cfg.primary,
+            text_input::Status::Hovered => cfg.accent,
+            _ => cfg.border,
         };
 
         text_input::Style {
-            background: Background::Color(cfg.surface_color()),
+            background: Background::Color(cfg.surface),
             border: Border {
                 color: border_color,
                 width: 1.0,
-                radius: cfg.radius_sm(),
+                radius: cfg.border_radius.sm,
             },
-            placeholder: cfg.text_muted_color(),
-            value: cfg.text_color(),
-            selection: cfg.accent_color(),
+            placeholder: cfg.text_muted,
+            value: cfg.text,
+            selection: cfg.accent,
         }
     }
 }
@@ -533,7 +529,7 @@ pub fn seek_slider_style(
                 ),
                 width: if is_hovered { 3.0 } else { 2.0 },
                 border: Border {
-                    radius: cfg.radius_xs(),
+                    radius: cfg.border_radius.xs,
                     ..Border::default()
                 },
             },
@@ -565,7 +561,7 @@ pub fn volume_slider_style(
                 ),
                 width: 4.0,
                 border: Border {
-                    radius: cfg.radius_xs(),
+                    radius: cfg.border_radius.xs,
                     ..Border::default()
                 },
             },
@@ -597,7 +593,7 @@ pub fn settings_slider_style(
                 ),
                 width: 4.0,
                 border: Border {
-                    radius: cfg.radius_xs(),
+                    radius: cfg.border_radius.xs,
                     ..Border::default()
                 },
             },
@@ -607,7 +603,7 @@ pub fn settings_slider_style(
                 },
                 background: Background::Color(cfg.slider_active_color()),
                 border_width: 1.0,
-                border_color: cfg.border_color(),
+                border_color: cfg.border,
             },
         }
     }
@@ -649,15 +645,15 @@ pub fn scrollable_style(
 
         let make_rail = |is_hovered: bool| {
             let scroller_color = if is_hovered {
-                cfg.text_muted_color()
+                cfg.text_muted
             } else {
-                blend_color(cfg.border_color(), cfg.text_muted_color(), 0.35)
+                blend_color(cfg.border, cfg.text_muted, 0.35)
             };
 
             scrollable::Rail {
                 background: Some(Background::Color(blend_color(
-                    cfg.bg_color(),
-                    cfg.border_color(),
+                    cfg.background,
+                    cfg.border,
                     0.25,
                 ))),
                 border: Border::default(),
@@ -674,14 +670,14 @@ pub fn scrollable_style(
             horizontal_rail: make_rail(horizontal_hovered),
             gap: None,
             auto_scroll: scrollable::AutoScroll {
-                background: Background::Color(cfg.surface_color()),
+                background: Background::Color(cfg.surface),
                 border: Border {
-                    color: cfg.border_color(),
+                    color: cfg.border,
                     width: 1.0,
-                    radius: cfg.radius_lg(),
+                    radius: cfg.border_radius.lg,
                 },
                 shadow: Shadow::default(),
-                icon: cfg.text_muted_color(),
+                icon: cfg.text_muted,
             },
         }
     }
@@ -698,39 +694,35 @@ pub fn toggler_style(cfg: &ThemeConfig) -> impl Fn(&Theme, toggler::Status) -> t
 
         let background = if is_toggled {
             if is_hovered {
-                blend_color(cfg.primary_color(), cfg.surface_color(), 0.15)
+                blend_color(cfg.primary, cfg.surface, 0.15)
             } else {
-                cfg.primary_color()
+                cfg.primary
             }
         } else if is_hovered {
-            blend_color(cfg.slider_rail_color(), cfg.text_muted_color(), 0.25)
+            blend_color(cfg.slider_rail_color(), cfg.text_muted, 0.25)
         } else {
             cfg.slider_rail_color()
         };
 
         let foreground = if is_toggled {
-            let primary = cfg.primary_color();
+            let primary = cfg.primary;
             let is_primary_bright =
                 (0.299 * primary.r + 0.587 * primary.g + 0.114 * primary.b) > 0.5;
             if is_primary_bright {
-                cfg.surface_color()
+                cfg.surface
             } else {
                 Color::WHITE
             }
         } else if is_hovered {
-            cfg.text_color()
+            cfg.text
         } else {
-            cfg.text_muted_color()
+            cfg.text_muted
         };
 
         toggler::Style {
             background: background.into(),
             background_border_width: 1.0,
-            background_border_color: if is_toggled {
-                cfg.primary_color()
-            } else {
-                cfg.border_color()
-            },
+            background_border_color: if is_toggled { cfg.primary } else { cfg.border },
             foreground: foreground.into(),
             foreground_border_width: 0.0,
             foreground_border_color: Color::TRANSPARENT,
@@ -743,12 +735,12 @@ pub fn toggler_style(cfg: &ThemeConfig) -> impl Fn(&Theme, toggler::Status) -> t
 
 pub fn context_menu_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_theme| container::Style {
-        background: Some(Background::Color(cfg.surface_color())),
-        text_color: Some(cfg.text_color()),
+        background: Some(Background::Color(cfg.surface)),
+        text_color: Some(cfg.text),
         border: Border {
-            color: cfg.border_color(),
+            color: cfg.border,
             width: 1.0,
-            radius: cfg.radius_md(),
+            radius: cfg.border_radius.md,
         },
         shadow: Shadow {
             color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
@@ -764,16 +756,16 @@ pub fn context_menu_item(
     is_danger: bool,
 ) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
-        let hover_bg = cfg.surface_hover_color();
+        let hover_bg = cfg.surface_hover;
         let normal_fg = if is_danger {
             Color::from_rgb(0.95, 0.3, 0.3)
         } else {
-            cfg.text_color()
+            cfg.text
         };
         let hover_fg = if is_danger {
             Color::from_rgb(1.0, 0.4, 0.4)
         } else {
-            cfg.primary_color()
+            cfg.primary
         };
 
         match status {
@@ -788,21 +780,17 @@ pub fn context_menu_item(
                 background: Some(Background::Color(hover_bg)),
                 text_color: hover_fg,
                 border: Border {
-                    radius: cfg.radius_sm(),
+                    radius: cfg.border_radius.sm,
                     ..Default::default()
                 },
                 shadow: Shadow::default(),
                 snap: true,
             },
             button::Status::Pressed => button::Style {
-                background: Some(Background::Color(blend_color(
-                    hover_bg,
-                    cfg.primary_color(),
-                    0.15,
-                ))),
+                background: Some(Background::Color(blend_color(hover_bg, cfg.primary, 0.15))),
                 text_color: hover_fg,
                 border: Border {
-                    radius: cfg.radius_sm(),
+                    radius: cfg.border_radius.sm,
                     ..Default::default()
                 },
                 shadow: Shadow::default(),
@@ -810,7 +798,7 @@ pub fn context_menu_item(
             },
             button::Status::Disabled => button::Style {
                 background: Some(Background::Color(Color::TRANSPARENT)),
-                text_color: cfg.text_muted_color(),
+                text_color: cfg.text_muted,
                 border: Border::default(),
                 shadow: Shadow::default(),
                 snap: true,
@@ -822,17 +810,17 @@ pub fn context_menu_item(
 pub fn primary_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
         let bg = match status {
-            button::Status::Active => cfg.primary_color(),
-            button::Status::Hovered => blend_color(cfg.primary_color(), Color::WHITE, 0.15),
-            button::Status::Pressed => blend_color(cfg.primary_color(), Color::BLACK, 0.15),
-            button::Status::Disabled => cfg.surface_hover_color(),
+            button::Status::Active => cfg.primary,
+            button::Status::Hovered => blend_color(cfg.primary, Color::WHITE, 0.15),
+            button::Status::Pressed => blend_color(cfg.primary, Color::BLACK, 0.15),
+            button::Status::Disabled => cfg.surface_hover,
         };
 
         button::Style {
             background: Some(Background::Color(bg)),
             text_color: Color::WHITE,
             border: Border {
-                radius: cfg.radius_md(),
+                radius: cfg.border_radius.md,
                 ..Border::default()
             },
             shadow: Shadow::default(),
@@ -843,11 +831,11 @@ pub fn primary_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> b
 
 pub fn dialog_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_| container::Style {
-        background: Some(Background::Color(cfg.surface_color())),
+        background: Some(Background::Color(cfg.surface)),
         border: Border {
-            color: cfg.border_color(),
+            color: cfg.border,
             width: 1.0,
-            radius: cfg.radius_lg(),
+            radius: cfg.border_radius.lg,
         },
         shadow: Shadow {
             color: Color::from_rgba(0.0, 0.0, 0.0, 0.45),

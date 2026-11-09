@@ -142,10 +142,6 @@ impl PlaylistsView {
         }
     }
 
-    pub fn set_section(&mut self, section: PlaylistSection) {
-        self.section = section;
-    }
-
     /// Resets the queue detail window to the top (queue switch, delete
     /// fallback, rebuild). Callers also snap the scrollable to the top since
     /// iced preserves scroll offsets across content swaps.
@@ -197,10 +193,6 @@ impl PlaylistsView {
             self.last_queue_click = Some((queue_id, index, now));
             false
         }
-    }
-
-    pub fn set_view_mode(&mut self, mode: ViewMode) {
-        self.view_mode = mode;
     }
 
     pub fn set_sort_field(&mut self, field: PlaylistSortField) {
@@ -675,14 +667,10 @@ impl PlaylistsView {
                 )
             };
 
-            let subtitle = text(theme_cfg, line2)
-                .size(11)
-                .color(theme_cfg.text_muted_color());
+            let subtitle = text(theme_cfg, line2).size(11).color(theme_cfg.text_muted);
 
             let title_block = column![
-                text(theme_cfg, line1)
-                    .size(13)
-                    .color(theme_cfg.text_color()),
+                text(theme_cfg, line1).size(13).color(theme_cfg.text),
                 subtitle,
             ]
             .spacing(2)
@@ -691,7 +679,7 @@ impl PlaylistsView {
             let details = column![
                 text(theme_cfg, details_label)
                     .size(12)
-                    .color(theme_cfg.text_muted_color()),
+                    .color(theme_cfg.text_muted),
                 text(
                     theme_cfg,
                     if playlist.managed {
@@ -701,7 +689,7 @@ impl PlaylistsView {
                     },
                 )
                 .size(10)
-                .color(theme_cfg.text_muted_color()),
+                .color(theme_cfg.text_muted),
             ]
             .spacing(2)
             .align_x(Alignment::End)
@@ -726,23 +714,15 @@ impl PlaylistsView {
             )
             .on_right_press(Message::OpenPlaylistContextMenu(playlist.clone()));
 
-            let play_btn = button(icons::icon(
-                icons::PLAY_SVG,
-                12.0,
-                theme_cfg.primary_color(),
-            ))
-            .style(styles::icon_control_button(theme_cfg))
-            .padding([4, 6])
-            .on_press(Message::PlayPlaylist(playlist.id));
+            let play_btn = button(icons::icon(icons::PLAY_SVG, 12.0, theme_cfg.primary))
+                .style(styles::icon_control_button(theme_cfg))
+                .padding([4, 6])
+                .on_press(Message::PlayPlaylist(playlist.id));
 
-            let delete_btn = button(icons::icon(
-                icons::TRASH_SVG,
-                12.0,
-                theme_cfg.text_muted_color(),
-            ))
-            .style(styles::icon_control_button(theme_cfg))
-            .padding([4, 6])
-            .on_press(Message::DeletePlaylist(playlist.id));
+            let delete_btn = button(icons::icon(icons::TRASH_SVG, 12.0, theme_cfg.text_muted))
+                .style(styles::icon_control_button(theme_cfg))
+                .padding([4, 6])
+                .on_press(Message::DeletePlaylist(playlist.id));
 
             // The highlight wraps the whole row so the background spans the
             // content and the action buttons.
@@ -812,9 +792,7 @@ impl PlaylistsView {
             let meta = container(
                 column![
                     text(theme_cfg, line1).size(12),
-                    text(theme_cfg, line2)
-                        .size(10)
-                        .color(theme_cfg.text_muted_color()),
+                    text(theme_cfg, line2).size(10).color(theme_cfg.text_muted),
                 ]
                 .spacing(3)
                 .padding(6),
@@ -827,12 +805,12 @@ impl PlaylistsView {
                 .padding(0)
                 .on_press(Message::SelectPlaylist(playlist.id));
 
-            let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text_color()))
+            let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text))
                 .style(styles::icon_control_button(theme_cfg))
                 .padding(4)
                 .on_press(Message::PlayPlaylist(playlist.id));
 
-            let delete_btn = button(icons::icon(icons::TRASH_SVG, 14.0, theme_cfg.text_color()))
+            let delete_btn = button(icons::icon(icons::TRASH_SVG, 14.0, theme_cfg.text))
                 .style(styles::icon_control_button(theme_cfg))
                 .padding(4)
                 .on_press(Message::DeletePlaylist(playlist.id));
@@ -893,21 +871,17 @@ impl PlaylistsView {
             ))
             .width(Length::Fill);
 
-        let create = button(
-            text(theme_cfg, "Create")
-                .size(12)
-                .color(theme_cfg.text_color()),
-        )
-        .padding([7, 16])
-        .style(styles::ghost_button(theme_cfg, false))
-        .on_press(Message::NewPlaylistNameSubmitted(
-            self.new_name_input.clone(),
-        ));
+        let create = button(text(theme_cfg, "Create").size(12).color(theme_cfg.text))
+            .padding([7, 16])
+            .style(styles::ghost_button(theme_cfg, false))
+            .on_press(Message::NewPlaylistNameSubmitted(
+                self.new_name_input.clone(),
+            ));
 
         let cancel = button(
             text(theme_cfg, "Cancel")
                 .size(12)
-                .color(theme_cfg.text_muted_color()),
+                .color(theme_cfg.text_muted),
         )
         .padding([7, 16])
         .style(styles::ghost_button(theme_cfg, false))
@@ -917,13 +891,13 @@ impl PlaylistsView {
             column![
                 text(theme_cfg, "Create a new playlist")
                     .size(16)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text),
                 text(
                     theme_cfg,
                     "A new .m3u8 file will be created in the Melody playlists directory."
                 )
                 .size(11)
-                .color(theme_cfg.text_muted_color()),
+                .color(theme_cfg.text_muted),
                 Space::new().height(8),
                 row![
                     input,
@@ -964,22 +938,18 @@ impl PlaylistsView {
                     ))
                     .width(Length::Fixed(280.0)),
                 Space::new().width(8),
-                button(
-                    text(theme_cfg, "Save")
-                        .size(12)
-                        .color(theme_cfg.text_color())
-                )
-                .padding([6, 12])
-                .style(styles::ghost_button(theme_cfg, false))
-                .on_press(Message::RenamePlaylistSubmitted(
-                    playlist_id,
-                    self.rename_input.clone()
-                )),
+                button(text(theme_cfg, "Save").size(12).color(theme_cfg.text))
+                    .padding([6, 12])
+                    .style(styles::ghost_button(theme_cfg, false))
+                    .on_press(Message::RenamePlaylistSubmitted(
+                        playlist_id,
+                        self.rename_input.clone()
+                    )),
                 Space::new().width(4),
                 button(
                     text(theme_cfg, "Cancel")
                         .size(12)
-                        .color(theme_cfg.text_muted_color())
+                        .color(theme_cfg.text_muted)
                 )
                 .padding([6, 12])
                 .style(styles::ghost_button(theme_cfg, false))
@@ -991,10 +961,10 @@ impl PlaylistsView {
             column![
                 text(theme_cfg, self.detail_name.as_str())
                     .size(15)
-                    .color(theme_cfg.text_color()),
+                    .color(theme_cfg.text),
                 text(theme_cfg, self.detail_tracks_str.as_str())
                     .size(11)
-                    .color(theme_cfg.text_muted_color()),
+                    .color(theme_cfg.text_muted),
             ]
             .spacing(2)
             .boxed()
@@ -1073,7 +1043,7 @@ impl PlaylistsView {
                 }
             };
             for (index, item) in self.detail_items.iter().enumerate() {
-                let available = item.is_available();
+                let available = item.track_id.is_some();
                 let on_right_press = item.track_id.map(|track_id| Message::OpenTrackContextMenu {
                     track_id,
                     context: TrackMenuContext::Playlist { playlist_id, index },
@@ -1392,10 +1362,10 @@ impl PlaylistsView {
     ) -> Element<'a, Message> {
         row![
             column![
-                text(theme_cfg, name).size(15).color(theme_cfg.text_color()),
+                text(theme_cfg, name).size(15).color(theme_cfg.text),
                 text(theme_cfg, track_count_str)
                     .size(11)
-                    .color(theme_cfg.text_muted_color()),
+                    .color(theme_cfg.text_muted),
             ]
             .spacing(2)
             .width(Length::Fill),
@@ -1437,19 +1407,15 @@ impl PlaylistsView {
                     .on_submit(Message::QueueSaveSubmitted(self.queue_save_input.clone()))
                     .width(Length::Fixed(280.0)),
                 Space::new().width(8),
-                button(
-                    text(theme_cfg, "Save")
-                        .size(12)
-                        .color(theme_cfg.text_color())
-                )
-                .padding([6, 12])
-                .style(styles::ghost_button(theme_cfg, false))
-                .on_press(Message::QueueSaveSubmitted(self.queue_save_input.clone())),
+                button(text(theme_cfg, "Save").size(12).color(theme_cfg.text))
+                    .padding([6, 12])
+                    .style(styles::ghost_button(theme_cfg, false))
+                    .on_press(Message::QueueSaveSubmitted(self.queue_save_input.clone())),
                 Space::new().width(4),
                 button(
                     text(theme_cfg, "Cancel")
                         .size(12)
-                        .color(theme_cfg.text_muted_color())
+                        .color(theme_cfg.text_muted)
                 )
                 .padding([6, 12])
                 .style(styles::ghost_button(theme_cfg, false))
@@ -1483,8 +1449,8 @@ fn render_playlist_tile_cover<'a>(
     size: f32,
     on_press: Message,
 ) -> Element<'a, Message> {
-    let radius = theme_cfg.radius_md();
-    let border_color = theme_cfg.border_color();
+    let radius = theme_cfg.border_radius.md;
+    let border_color = theme_cfg.border;
 
     match covers {
         Some(list) if list.len() >= 4 => {
@@ -1564,7 +1530,7 @@ fn render_playlist_tile_cover<'a>(
                 radius,
                 icons::PLAYLIST_SVG,
                 size * 0.34,
-                theme_cfg.primary_color(),
+                theme_cfg.primary,
                 on_press,
             )
         }
@@ -1575,7 +1541,7 @@ fn render_playlist_tile_cover<'a>(
             radius,
             icons::PLAYLIST_SVG,
             size * 0.34,
-            theme_cfg.primary_color(),
+            theme_cfg.primary,
             on_press,
         ),
     }

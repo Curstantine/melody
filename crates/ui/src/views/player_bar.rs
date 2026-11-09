@@ -99,7 +99,7 @@ impl PlayerBar {
             theme_cfg,
             current_cover,
             46.0,
-            theme_cfg.radius_xs(),
+            theme_cfg.border_radius.xs,
             icons::DISC_SVG,
             22.0,
             bar_fg,
@@ -110,12 +110,12 @@ impl PlayerBar {
                 components::Marquee::new(&track.title)
                     .size(13.0)
                     .color(bar_fg)
-                    .font(theme_cfg.font())
+                    .font(theme_cfg.font)
                     .animating(is_playing),
                 components::Marquee::new(&self.artist_album)
                     .size(11.0)
                     .color(bar_muted)
-                    .font(theme_cfg.font())
+                    .font(theme_cfg.font)
                     .animating(is_playing),
             ],
             None => column![
@@ -289,7 +289,7 @@ impl PlayerBar {
             icons::SHUFFLE_SVG,
             15.0,
             if is_shuffle {
-                theme_cfg.primary_color()
+                theme_cfg.primary
             } else {
                 bar_fg
             },
@@ -301,11 +301,7 @@ impl PlayerBar {
         let repeat_btn = button(icons::icon(
             icons::REPEAT_SVG,
             15.0,
-            if is_repeat {
-                theme_cfg.primary_color()
-            } else {
-                bar_fg
-            },
+            if is_repeat { theme_cfg.primary } else { bar_fg },
         ))
         .padding([6, 8])
         .style(styles::player_bar_button(theme_cfg, is_repeat))

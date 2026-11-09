@@ -72,60 +72,28 @@ use serde::{Deserializer, Serializer};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BorderRadiusConfig {
-    pub xs: f32,
-    pub sm: f32,
-    pub md: f32,
-    pub lg: f32,
-    pub xl: f32,
+    pub xs: Radius,
+    pub sm: Radius,
+    pub md: Radius,
+    pub lg: Radius,
+    pub xl: Radius,
 }
 
-pub fn default_radius_xs() -> f32 {
-    2.0
-}
-pub fn default_radius_sm() -> f32 {
-    4.0
-}
-pub fn default_radius_md() -> f32 {
-    6.0
-}
-pub fn default_radius_lg() -> f32 {
-    8.0
-}
-pub fn default_radius_xl() -> f32 {
-    16.0
-}
+const DEFAULT_RADIUS_XS: f32 = 2.0;
+const DEFAULT_RADIUS_SM: f32 = 4.0;
+const DEFAULT_RADIUS_MD: f32 = 6.0;
+const DEFAULT_RADIUS_LG: f32 = 8.0;
+const DEFAULT_RADIUS_XL: f32 = 16.0;
 
 impl Default for BorderRadiusConfig {
     fn default() -> Self {
         Self {
-            xs: default_radius_xs(),
-            sm: default_radius_sm(),
-            md: default_radius_md(),
-            lg: default_radius_lg(),
-            xl: default_radius_xl(),
+            xs: Radius::from(DEFAULT_RADIUS_XS),
+            sm: Radius::from(DEFAULT_RADIUS_SM),
+            md: Radius::from(DEFAULT_RADIUS_MD),
+            lg: Radius::from(DEFAULT_RADIUS_LG),
+            xl: Radius::from(DEFAULT_RADIUS_XL),
         }
-    }
-}
-
-impl BorderRadiusConfig {
-    pub fn xs(&self) -> Radius {
-        Radius::from(self.xs)
-    }
-
-    pub fn sm(&self) -> Radius {
-        Radius::from(self.sm)
-    }
-
-    pub fn md(&self) -> Radius {
-        Radius::from(self.md)
-    }
-
-    pub fn lg(&self) -> Radius {
-        Radius::from(self.lg)
-    }
-
-    pub fn xl(&self) -> Radius {
-        Radius::from(self.xl)
     }
 }
 
@@ -136,11 +104,11 @@ impl Serialize for BorderRadiusConfig {
     {
         use serde::ser::SerializeStruct;
         let mut s = serializer.serialize_struct("BorderRadiusConfig", 5)?;
-        s.serialize_field("xs", &self.xs)?;
-        s.serialize_field("sm", &self.sm)?;
-        s.serialize_field("md", &self.md)?;
-        s.serialize_field("lg", &self.lg)?;
-        s.serialize_field("xl", &self.xl)?;
+        s.serialize_field("xs", &self.xs.top_left)?;
+        s.serialize_field("sm", &self.sm.top_left)?;
+        s.serialize_field("md", &self.md.top_left)?;
+        s.serialize_field("lg", &self.lg.top_left)?;
+        s.serialize_field("xl", &self.xl.top_left)?;
         s.end()
     }
 }
@@ -180,19 +148,19 @@ impl<'de> Deserialize<'de> for BorderRadiusConfig {
                 let r = v as f32;
                 if r <= 0.0 {
                     Ok(BorderRadiusConfig {
-                        xs: 0.0,
-                        sm: 0.0,
-                        md: 0.0,
-                        lg: 0.0,
-                        xl: 0.0,
+                        xs: Radius::from(0.0),
+                        sm: Radius::from(0.0),
+                        md: Radius::from(0.0),
+                        lg: Radius::from(0.0),
+                        xl: Radius::from(0.0),
                     })
                 } else {
                     Ok(BorderRadiusConfig {
-                        xs: (r * 0.5).round(),
-                        sm: r,
-                        md: (r * 1.5).round(),
-                        lg: (r * 2.0).round(),
-                        xl: (r * 4.0).round(),
+                        xs: Radius::from((r * 0.5).round()),
+                        sm: Radius::from(r),
+                        md: Radius::from((r * 1.5).round()),
+                        lg: Radius::from((r * 2.0).round()),
+                        xl: Radius::from((r * 4.0).round()),
                     })
                 }
             }
@@ -221,11 +189,11 @@ impl<'de> Deserialize<'de> for BorderRadiusConfig {
                 }
 
                 Ok(BorderRadiusConfig {
-                    xs: xs.unwrap_or_else(default_radius_xs),
-                    sm: sm.unwrap_or_else(default_radius_sm),
-                    md: md.unwrap_or_else(default_radius_md),
-                    lg: lg.unwrap_or_else(default_radius_lg),
-                    xl: xl.unwrap_or_else(default_radius_xl),
+                    xs: Radius::from(xs.unwrap_or(DEFAULT_RADIUS_XS)),
+                    sm: Radius::from(sm.unwrap_or(DEFAULT_RADIUS_SM)),
+                    md: Radius::from(md.unwrap_or(DEFAULT_RADIUS_MD)),
+                    lg: Radius::from(lg.unwrap_or(DEFAULT_RADIUS_LG)),
+                    xl: Radius::from(xl.unwrap_or(DEFAULT_RADIUS_XL)),
                 })
             }
         }
@@ -306,65 +274,6 @@ pub fn parse_hex(hex: &str) -> Color {
 }
 
 impl ThemeConfig {
-    pub fn radius_xs(&self) -> Radius {
-        self.border_radius.xs()
-    }
-
-    pub fn radius_sm(&self) -> Radius {
-        self.border_radius.sm()
-    }
-
-    pub fn radius_md(&self) -> Radius {
-        self.border_radius.md()
-    }
-
-    pub fn radius_lg(&self) -> Radius {
-        self.border_radius.lg()
-    }
-
-    pub fn radius_xl(&self) -> Radius {
-        self.border_radius.xl()
-    }
-    pub fn bg_color(&self) -> Color {
-        self.background
-    }
-
-    pub fn surface_color(&self) -> Color {
-        self.surface
-    }
-
-    pub fn surface_hover_color(&self) -> Color {
-        self.surface_hover
-    }
-
-    pub fn border_color(&self) -> Color {
-        self.border
-    }
-
-    pub fn primary_color(&self) -> Color {
-        self.primary
-    }
-
-    pub fn accent_color(&self) -> Color {
-        self.accent
-    }
-
-    pub fn text_color(&self) -> Color {
-        self.text
-    }
-
-    pub fn text_muted_color(&self) -> Color {
-        self.text_muted
-    }
-
-    pub fn success_color(&self) -> Color {
-        self.success
-    }
-
-    pub fn danger_color(&self) -> Color {
-        self.danger
-    }
-
     pub fn player_bar_bg_color(&self) -> Color {
         self.player_bar_bg.unwrap_or(self.surface)
     }
@@ -383,21 +292,17 @@ impl ThemeConfig {
 
     pub fn to_seed(&self) -> Seed {
         Seed {
-            background: self.bg_color(),
-            text: self.text_color(),
-            primary: self.primary_color(),
-            success: self.success_color(),
-            warning: self.accent_color(),
-            danger: self.danger_color(),
+            background: self.background,
+            text: self.text,
+            primary: self.primary,
+            success: self.success,
+            warning: self.accent,
+            danger: self.danger,
         }
     }
 
     pub fn to_iced_theme(&self) -> Theme {
         Theme::custom(self.name.clone(), self.to_seed())
-    }
-
-    pub fn font(&self) -> iced::Font {
-        self.font
     }
 
     /// Recomputes the cached [`iced::Font`] from the current `font_family`.
@@ -614,24 +519,14 @@ mod tests {
     #[test]
     fn test_border_radius_defaults_and_helpers() {
         let config = BorderRadiusConfig::default();
-        assert_eq!(config.xs, 2.0);
-        assert_eq!(config.sm, 4.0);
-        assert_eq!(config.md, 6.0);
-        assert_eq!(config.lg, 8.0);
-        assert_eq!(config.xl, 16.0);
-
-        assert_eq!(config.xs(), Radius::from(2.0));
-        assert_eq!(config.sm(), Radius::from(4.0));
-        assert_eq!(config.md(), Radius::from(6.0));
-        assert_eq!(config.lg(), Radius::from(8.0));
-        assert_eq!(config.xl(), Radius::from(16.0));
+        assert_eq!(config.xs, Radius::from(2.0));
+        assert_eq!(config.sm, Radius::from(4.0));
+        assert_eq!(config.md, Radius::from(6.0));
+        assert_eq!(config.lg, Radius::from(8.0));
+        assert_eq!(config.xl, Radius::from(16.0));
 
         let theme = ThemeConfig::default();
-        assert_eq!(theme.radius_xs(), Radius::from(2.0));
-        assert_eq!(theme.radius_sm(), Radius::from(4.0));
-        assert_eq!(theme.radius_md(), Radius::from(6.0));
-        assert_eq!(theme.radius_lg(), Radius::from(8.0));
-        assert_eq!(theme.radius_xl(), Radius::from(16.0));
+        assert_eq!(theme.border_radius, config);
     }
 
     #[test]
@@ -658,11 +553,11 @@ lg = 7.0
 xl = 12.0
 "##;
         let theme: ThemeConfig = toml::from_str(toml_detailed).unwrap();
-        assert_eq!(theme.border_radius.xs, 1.0);
-        assert_eq!(theme.border_radius.sm, 3.0);
-        assert_eq!(theme.border_radius.md, 5.0);
-        assert_eq!(theme.border_radius.lg, 7.0);
-        assert_eq!(theme.border_radius.xl, 12.0);
+        assert_eq!(theme.border_radius.xs, Radius::from(1.0));
+        assert_eq!(theme.border_radius.sm, Radius::from(3.0));
+        assert_eq!(theme.border_radius.md, Radius::from(5.0));
+        assert_eq!(theme.border_radius.lg, Radius::from(7.0));
+        assert_eq!(theme.border_radius.xl, Radius::from(12.0));
 
         // 2. Aliased [radius] table
         let toml_aliased = r##"
@@ -686,11 +581,11 @@ lg = 6.0
 xl = 10.0
 "##;
         let theme: ThemeConfig = toml::from_str(toml_aliased).unwrap();
-        assert_eq!(theme.border_radius.xs, 0.0);
-        assert_eq!(theme.border_radius.sm, 2.0);
-        assert_eq!(theme.border_radius.md, 4.0);
-        assert_eq!(theme.border_radius.lg, 6.0);
-        assert_eq!(theme.border_radius.xl, 10.0);
+        assert_eq!(theme.border_radius.xs, Radius::from(0.0));
+        assert_eq!(theme.border_radius.sm, Radius::from(2.0));
+        assert_eq!(theme.border_radius.md, Radius::from(4.0));
+        assert_eq!(theme.border_radius.lg, Radius::from(6.0));
+        assert_eq!(theme.border_radius.xl, Radius::from(10.0));
 
         // 3. Partial [border_radius] (defaults for omitted fields)
         let toml_partial = r##"
@@ -711,11 +606,11 @@ sm = 10.0
 lg = 20.0
 "##;
         let theme: ThemeConfig = toml::from_str(toml_partial).unwrap();
-        assert_eq!(theme.border_radius.xs, 2.0); // default
-        assert_eq!(theme.border_radius.sm, 10.0);
-        assert_eq!(theme.border_radius.md, 6.0); // default
-        assert_eq!(theme.border_radius.lg, 20.0);
-        assert_eq!(theme.border_radius.xl, 16.0); // default
+        assert_eq!(theme.border_radius.xs, Radius::from(2.0)); // default
+        assert_eq!(theme.border_radius.sm, Radius::from(10.0));
+        assert_eq!(theme.border_radius.md, Radius::from(6.0)); // default
+        assert_eq!(theme.border_radius.lg, Radius::from(20.0));
+        assert_eq!(theme.border_radius.xl, Radius::from(16.0)); // default
 
         // 4. Uniform zero radius (e.g. brutalist / sharp square theme)
         let toml_zero = r##"
@@ -733,10 +628,10 @@ danger = "#888888"
 border_radius = 0.0
 "##;
         let theme: ThemeConfig = toml::from_str(toml_zero).unwrap();
-        assert_eq!(theme.border_radius.xs, 0.0);
-        assert_eq!(theme.border_radius.sm, 0.0);
-        assert_eq!(theme.border_radius.md, 0.0);
-        assert_eq!(theme.border_radius.lg, 0.0);
-        assert_eq!(theme.border_radius.xl, 0.0);
+        assert_eq!(theme.border_radius.xs, Radius::from(0.0));
+        assert_eq!(theme.border_radius.sm, Radius::from(0.0));
+        assert_eq!(theme.border_radius.md, Radius::from(0.0));
+        assert_eq!(theme.border_radius.lg, Radius::from(0.0));
+        assert_eq!(theme.border_radius.xl, Radius::from(0.0));
     }
 }

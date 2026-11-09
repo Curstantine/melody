@@ -48,7 +48,7 @@ fn menu_header<'a>(theme_cfg: &'a ThemeConfig, label: &str) -> Element<'a, Messa
         text(theme_cfg, truncate_str(label, 26))
             .size(11)
             .wrapping(iced::widget::text::Wrapping::None)
-            .color(theme_cfg.text_muted_color()),
+            .color(theme_cfg.text_muted),
     )
     .padding([3, 8])
     .width(Length::Fill)
@@ -60,7 +60,7 @@ fn menu_separator<'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
         .width(Length::Fill)
         .height(1)
         .style(move |_| container::Style {
-            background: Some(Background::Color(theme_cfg.border_color())),
+            background: Some(Background::Color(theme_cfg.border)),
             ..Default::default()
         })
         .boxed()
@@ -77,7 +77,7 @@ fn menu_item<'a>(
     let icon_color = if is_danger {
         Color::from_rgb(0.95, 0.35, 0.35)
     } else {
-        theme_cfg.text_muted_color()
+        theme_cfg.text_muted
     };
 
     let mut content = row![
@@ -91,9 +91,9 @@ fn menu_item<'a>(
     .width(Length::Fill);
 
     if has_submenu {
-        content = content.push(Space::new().width(Length::Fill).boxed()).push(
-            icons::icon(icons::CHEVRON_RIGHT_SVG, 11.0, theme_cfg.text_muted_color()).boxed(),
-        );
+        content = content
+            .push(Space::new().width(Length::Fill).boxed())
+            .push(icons::icon(icons::CHEVRON_RIGHT_SVG, 11.0, theme_cfg.text_muted).boxed());
     }
 
     button(content)
@@ -514,7 +514,7 @@ pub fn render_context_menu<'a>(
                         text(theme_cfg, "No playlists yet")
                             .size(11)
                             .wrapping(iced::widget::text::Wrapping::None)
-                            .color(theme_cfg.text_muted_color()),
+                            .color(theme_cfg.text_muted),
                     )
                     .padding([5, 8])
                     .boxed(),

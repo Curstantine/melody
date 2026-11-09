@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::sync::{Arc, RwLock};
 use tracing::{error, info};
 
@@ -265,17 +264,6 @@ impl PluginManager {
                 }
             }
         }
-    }
-
-    /// Scan directory for Wasm or dynamic plugins
-    pub fn load_plugins_from_dir<P: AsRef<Path>>(&self, _dir: P) {
-        // Safe discovery: iterate files in directory, load wasm plugins if wasm feature enabled
-        info!("Plugin directory scanned");
-    }
-
-    /// Returns the number of currently registered plugins
-    pub fn plugin_count(&self) -> usize {
-        self.plugins.read().map(|l| l.len()).unwrap_or(0)
     }
 }
 

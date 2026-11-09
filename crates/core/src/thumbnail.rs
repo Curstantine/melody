@@ -12,11 +12,6 @@ pub const THUMB_DIM_DEFAULT: u32 = 256;
 pub const THUMB_DIM_HIGH: u32 = 300;
 pub const EXCEPTION_MIN_SIZE: usize = 100_000;
 
-/// Returns the platform-specific directory where cover thumbnails are cached on disk
-pub fn thumbnail_cache_dir() -> &'static Path {
-    paths::thumbnail_cache_dir()
-}
-
 /// Generates a deterministic hash-based cache key for a given track path and thumbnail dimension
 pub fn compute_thumbnail_cache_key(track_path: &Path, max_dim: u32) -> String {
     let mut hasher = Md5::new();
@@ -46,7 +41,7 @@ pub fn compute_thumbnail_cache_key(track_path: &Path, max_dim: u32) -> String {
 /// Retrieves an existing thumbnail from disk cache, or extracts, downscales, and caches it.
 /// Returns small JPEG bytes (~8-15 KB) suitable for smooth GPU texture rendering.
 pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8>> {
-    let cache_dir = thumbnail_cache_dir();
+    let cache_dir = paths::thumbnail_cache_dir();
     let cache_key = compute_thumbnail_cache_key(track_path, max_dim);
 
     let thumb_file = cache_dir.join(format!("{}.jpg", cache_key));
@@ -148,7 +143,7 @@ pub struct CacheStats {
 
 /// Calculates the number of thumbnail cache files and their total footprint in bytes
 pub fn get_thumbnail_cache_stats() -> CacheStats {
-    let dir = thumbnail_cache_dir();
+    let dir = paths::thumbnail_cache_dir();
     let mut file_count = 0;
     let mut total_bytes = 0;
 
@@ -173,7 +168,7 @@ pub fn get_thumbnail_cache_stats() -> CacheStats {
 
 /// Deletes all cached thumbnail files and negative lookup markers from disk
 pub fn clear_thumbnail_cache() -> std::io::Result<usize> {
-    let dir = thumbnail_cache_dir();
+    let dir = paths::thumbnail_cache_dir();
     let mut removed = 0;
 
     if dir.is_dir() {

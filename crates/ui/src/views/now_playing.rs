@@ -54,14 +54,6 @@ impl NowPlayingView {
         }
     }
 
-    pub fn set_cover_size(&mut self, size: u32) {
-        self.cover_size = size;
-    }
-
-    pub fn set_lyrics(&mut self, lyrics: Option<String>) {
-        self.current_lyrics = lyrics;
-    }
-
     pub fn update_track(&mut self, track: Option<&Track>) {
         if let Some(track) = track {
             if self.cached.track_id == Some(track.id) {
@@ -180,29 +172,26 @@ impl NowPlayingView {
                     theme_cfg,
                     current_cover,
                     cover_size,
-                    theme_cfg.radius_md(),
+                    theme_cfg.border_radius.md,
                     icons::ALBUM_SVG,
                     cover_icon_size,
-                    theme_cfg.primary_color(),
+                    theme_cfg.primary,
                 );
 
                 let lyrics_body: Element<'a, Message> = if let Some(ref lyr) = self.current_lyrics {
-                    text(theme_cfg, lyr)
-                        .size(15)
-                        .color(theme_cfg.text_color())
-                        .boxed()
+                    text(theme_cfg, lyr).size(15).color(theme_cfg.text).boxed()
                 } else {
                     column![
                         text(theme_cfg, "No lyrics found for this track.")
                             .size(14)
-                            .color(theme_cfg.text_color()),
+                            .color(theme_cfg.text),
                         Space::new().height(4),
                         text(
                             theme_cfg,
                             "Place a .lrc file in the same directory or configure a lyrics plugin."
                         )
                         .size(12)
-                        .color(theme_cfg.text_muted_color()),
+                        .color(theme_cfg.text_muted),
                     ]
                     .boxed()
                 };
@@ -225,7 +214,7 @@ impl NowPlayingView {
 
                 let title = text(theme_cfg, &track.title)
                     .size(17)
-                    .color(theme_cfg.text_color())
+                    .color(theme_cfg.text)
                     .align_y(Alignment::Center);
 
                 let artist_album_str = if !self.cached.artist_album.is_empty() {
@@ -235,11 +224,11 @@ impl NowPlayingView {
                 };
                 let artist_album_text = text(theme_cfg, artist_album_str)
                     .size(13)
-                    .color(theme_cfg.text_muted_color());
+                    .color(theme_cfg.text_muted);
 
                 let details_row = text(theme_cfg, self.cached.details_row.as_str())
                     .size(11)
-                    .color(theme_cfg.text_muted_color());
+                    .color(theme_cfg.text_muted);
 
                 // Optional tags (Album Artist, Composer, Label)
                 let mut extra_tags = column![].spacing(2);
@@ -247,14 +236,14 @@ impl NowPlayingView {
                     extra_tags = extra_tags.push(
                         text(theme_cfg, alb_artist.as_str())
                             .size(11)
-                            .color(theme_cfg.text_muted_color()),
+                            .color(theme_cfg.text_muted),
                     );
                 }
                 if let Some(ref comp) = self.cached.composer_tag {
                     extra_tags = extra_tags.push(
                         text(theme_cfg, comp.as_str())
                             .size(11)
-                            .color(theme_cfg.text_muted_color()),
+                            .color(theme_cfg.text_muted),
                     );
                 }
 
@@ -263,10 +252,8 @@ impl NowPlayingView {
                 if is_repeat {
                     up_next_tags = up_next_tags.push(
                         row![
-                            icons::icon(icons::REPEAT_SVG, 10.0, theme_cfg.primary_color()),
-                            text(theme_cfg, "Repeat")
-                                .size(10)
-                                .color(theme_cfg.primary_color()),
+                            icons::icon(icons::REPEAT_SVG, 10.0, theme_cfg.primary),
+                            text(theme_cfg, "Repeat").size(10).color(theme_cfg.primary),
                         ]
                         .spacing(3)
                         .align_y(Alignment::Center),
@@ -275,10 +262,8 @@ impl NowPlayingView {
                 if is_shuffle {
                     up_next_tags = up_next_tags.push(
                         row![
-                            icons::icon(icons::SHUFFLE_SVG, 10.0, theme_cfg.primary_color()),
-                            text(theme_cfg, "Shuffle")
-                                .size(10)
-                                .color(theme_cfg.primary_color()),
+                            icons::icon(icons::SHUFFLE_SVG, 10.0, theme_cfg.primary),
+                            text(theme_cfg, "Shuffle").size(10).color(theme_cfg.primary),
                         ]
                         .spacing(3)
                         .align_y(Alignment::Center),
@@ -286,9 +271,7 @@ impl NowPlayingView {
                 }
 
                 let up_next_header = row![
-                    text(theme_cfg, "Up next")
-                        .size(11)
-                        .color(theme_cfg.primary_color()),
+                    text(theme_cfg, "Up next").size(11).color(theme_cfg.primary),
                     Space::new().width(Length::Fill),
                     up_next_tags,
                 ]
@@ -298,7 +281,7 @@ impl NowPlayingView {
                 let next_track_item: Element<'a, Message> = match next_track {
                     Some(next) => {
                         let next_id = next.id;
-                        let next_duration = next.formatted_duration();
+                        let next_duration = next.duration_label.as_str();
                         let next_title = &next.title;
                         let next_subtitle = if !self.cached.next_subtitle.is_empty() {
                             self.cached.next_subtitle.as_str()
@@ -310,26 +293,24 @@ impl NowPlayingView {
                             theme_cfg,
                             next_cover,
                             32.0,
-                            theme_cfg.radius_sm(),
+                            theme_cfg.border_radius.sm,
                             icons::DISC_SVG,
                             16.0,
-                            theme_cfg.primary_color(),
+                            theme_cfg.primary,
                         );
 
                         let next_info = column![
-                            text(theme_cfg, next_title)
-                                .size(12)
-                                .color(theme_cfg.text_color()),
+                            text(theme_cfg, next_title).size(12).color(theme_cfg.text),
                             text(theme_cfg, next_subtitle)
                                 .size(11)
-                                .color(theme_cfg.text_muted_color()),
+                                .color(theme_cfg.text_muted),
                         ]
                         .spacing(2)
                         .width(Length::Fill);
 
                         let duration_tag = text(theme_cfg, next_duration)
                             .size(11)
-                            .color(theme_cfg.text_muted_color());
+                            .color(theme_cfg.text_muted);
 
                         button(
                             row![next_cover_widget, next_info, duration_tag,]
@@ -343,7 +324,7 @@ impl NowPlayingView {
                     }
                     None => text(theme_cfg, "No upcoming tracks")
                         .size(11)
-                        .color(theme_cfg.text_muted_color())
+                        .color(theme_cfg.text_muted)
                         .boxed(),
                 };
 
@@ -352,7 +333,7 @@ impl NowPlayingView {
                     if !self.cached.tech_properties.is_empty() {
                         let mut prop_col = column![text(theme_cfg, "Properties")
                             .size(11)
-                            .color(theme_cfg.primary_color()),]
+                            .color(theme_cfg.primary),]
                         .spacing(4);
 
                         for (label, val) in &self.cached.tech_properties {
@@ -360,11 +341,9 @@ impl NowPlayingView {
                                 row![
                                     text(theme_cfg, *label)
                                         .size(11)
-                                        .color(theme_cfg.text_muted_color())
+                                        .color(theme_cfg.text_muted)
                                         .width(80),
-                                    text(theme_cfg, val.as_str())
-                                        .size(11)
-                                        .color(theme_cfg.text_color()),
+                                    text(theme_cfg, val.as_str()).size(11).color(theme_cfg.text),
                                 ]
                                 .align_y(Alignment::Center)
                                 .boxed(),
@@ -383,9 +362,9 @@ impl NowPlayingView {
                         artist_album_text,
                         details_row,
                         extra_tags,
-                        components::border_vert(1.0, theme_cfg.border_color()),
+                        components::border_vert(1.0, theme_cfg.border),
                         tech_info_section,
-                        components::border_vert(1.0, theme_cfg.border_color()),
+                        components::border_vert(1.0, theme_cfg.border),
                         up_next_header,
                         next_track_item,
                     ]
@@ -400,13 +379,13 @@ impl NowPlayingView {
                     left: 14.0,
                 })
                 .style(move |_| container::Style {
-                    background: Some(iced::Background::Color(theme_cfg.surface_color())),
+                    background: Some(iced::Background::Color(theme_cfg.surface)),
                     border: iced::Border {
-                        radius: theme_cfg.radius_md(),
-                        color: theme_cfg.border_color(),
+                        radius: theme_cfg.border_radius.md,
+                        color: theme_cfg.border,
                         width: 1.0,
                     },
-                    text_color: Some(theme_cfg.text_color()),
+                    text_color: Some(theme_cfg.text),
                     ..Default::default()
                 });
 
@@ -514,7 +493,7 @@ mod tests {
         let theme_cfg = ThemeConfig::default();
         let mut now_playing_view = NowPlayingView::default();
         assert_eq!(now_playing_view.cover_size, 260);
-        now_playing_view.set_cover_size(300);
+        now_playing_view.cover_size = 300;
         assert_eq!(now_playing_view.cover_size, 300);
 
         let _element =
@@ -572,8 +551,10 @@ mod tests {
         };
 
         let lyrics_text = "[00:00.00] Cruising down the neon street\n[00:15.00] Bass in the night";
-        let mut now_playing_view = NowPlayingView::default();
-        now_playing_view.set_lyrics(Some(lyrics_text.to_string()));
+        let mut now_playing_view = NowPlayingView {
+            current_lyrics: Some(lyrics_text.to_string()),
+            ..Default::default()
+        };
         now_playing_view.update_track(Some(&track));
         now_playing_view.update_next_track(Some(&next_track));
         now_playing_view.update_tech_info(Some(&tech_info));

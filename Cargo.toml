@@ -25,7 +25,7 @@ ffmpeg-next = { version = "9.0.0", default-features = false, features = ["codec"
 futures-lite = "2.6"
 iced = { git = "https://github.com/iced-rs/iced.git", rev = "8ff48c42b0d5188223501ea1ccc506fd5beaf36a", default-features = false }
 image = { version = "0.25", default-features = false }
-kdl = "6.7"
+kdl = { version = "6.7", features = ["v1-fallback"] }
 md-5 = "0.11"
 mpris-server = "0.11.0"
 notify = "8.2"

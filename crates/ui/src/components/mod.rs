@@ -26,15 +26,12 @@ pub use context_menu::{
 pub use marquee::Marquee;
 pub use spinner::Spinner;
 
-/// A text widget configured with adaptive text shaping:
-/// - Uses `Shaping::Basic` for pure ASCII text for zero-cost immediate shaping and high frame rates.
-/// - Uses `Shaping::Advanced` for Chinese, Japanese, Korean, and multilingual Unicode characters
-///   to ensure cross-script font fallback without tofu or missing glyphs.
+/// A text widget configured with the active theme font.
 pub fn text<'a>(
     theme_cfg: &ThemeConfig,
     content: impl Into<Cow<'a, str>>,
 ) -> iced::widget::Text<'a> {
-    iced::widget::text(content.into()).font(theme_cfg.font())
+    iced::widget::text(content.into()).font(theme_cfg.font)
 }
 
 pub fn border_vert<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
@@ -67,9 +64,9 @@ pub fn chip<'a>(
     on_press: Message,
 ) -> Element<'a, Message> {
     button(text(theme_cfg, label.into()).size(11).color(if is_active {
-        theme_cfg.primary_color()
+        theme_cfg.primary
     } else {
-        theme_cfg.text_muted_color()
+        theme_cfg.text_muted
     }))
     .padding([3, 6])
     .style(styles::ghost_button(theme_cfg, is_active))
@@ -86,9 +83,9 @@ pub fn chip_with_icon<'a>(
     on_press: Message,
 ) -> Element<'a, Message> {
     let color = if is_active {
-        theme_cfg.primary_color()
+        theme_cfg.primary
     } else {
-        theme_cfg.text_muted_color()
+        theme_cfg.text_muted
     };
 
     button(
@@ -155,9 +152,9 @@ pub fn sort_chip<'a, T: Copy + PartialEq>(
 ) -> Element<'a, Message> {
     let is_active = active_field == field;
     let text_color = if is_active {
-        theme_cfg.primary_color()
+        theme_cfg.primary
     } else {
-        theme_cfg.text_muted_color()
+        theme_cfg.text_muted
     };
 
     let content: Element<'a, Message> = if is_active {
@@ -194,7 +191,7 @@ pub fn sort_chip_list<'a, T: Copy + PartialEq>(
     let mut sort_row = row![
         text(theme_cfg, "Sort:")
             .size(11)
-            .color(theme_cfg.text_muted_color()),
+            .color(theme_cfg.text_muted),
         Space::new().width(4),
     ]
     .spacing(4)
@@ -222,12 +219,10 @@ pub fn empty_state<'a>(
 ) -> Element<'a, Message> {
     container(
         column![
-            text(theme_cfg, title)
-                .size(16)
-                .color(theme_cfg.text_color()),
+            text(theme_cfg, title).size(16).color(theme_cfg.text),
             text(theme_cfg, subtitle)
                 .size(13)
-                .color(theme_cfg.text_muted_color()),
+                .color(theme_cfg.text_muted),
         ]
         .spacing(8)
         .align_x(Alignment::Center),
@@ -249,8 +244,8 @@ pub fn cover_art<'a>(
     fallback_icon_color: iced::Color,
 ) -> Element<'a, Message> {
     let radius: Radius = radius.into();
-    let border_color = theme_cfg.border_color();
-    let placeholder_bg = theme_cfg.surface_color();
+    let border_color = theme_cfg.border;
+    let placeholder_bg = theme_cfg.surface;
 
     match cover {
         Some(handle) => container(
@@ -315,7 +310,7 @@ pub fn catalog_cover_art<'a>(
     on_press: Message,
 ) -> Element<'a, Message> {
     let radius: Radius = radius.into();
-    let border_color = theme_cfg.border_color();
+    let border_color = theme_cfg.border;
 
     match cover {
         Some(handle) => {
@@ -364,8 +359,8 @@ pub fn catalog_cover_art<'a>(
             iced::widget::stack([image_layer.boxed(), overlay_btn.boxed()]).boxed()
         }
         None => {
-            let placeholder_bg = theme_cfg.surface_color();
-            let placeholder_hover_bg = theme_cfg.surface_hover_color();
+            let placeholder_bg = theme_cfg.surface;
+            let placeholder_hover_bg = theme_cfg.surface_hover;
 
             let placeholder_content = container(icons::icon(
                 fallback_icon_svg,
@@ -411,15 +406,13 @@ pub fn settings_header<'a>(
     title: &'static str,
     description: Option<&'static str>,
 ) -> Element<'a, Message> {
-    let mut header = column![text(theme_cfg, title)
-        .size(20)
-        .color(theme_cfg.text_color()),];
+    let mut header = column![text(theme_cfg, title).size(20).color(theme_cfg.text),];
 
     if let Some(x) = description {
         header = header.push(
             text(theme_cfg, x)
                 .size(12)
-                .color(theme_cfg.text_muted_color())
+                .color(theme_cfg.text_muted)
                 .boxed(),
         );
     }
@@ -434,11 +427,9 @@ pub fn settings_card<'a>(
     content: Element<'a, Message>,
 ) -> Element<'a, Message> {
     column![
-        text(theme_cfg, title)
-            .size(11)
-            .color(theme_cfg.primary_color()),
+        text(theme_cfg, title).size(11).color(theme_cfg.primary),
         Space::new().height(4),
-        border_vert(1.0, theme_cfg.border_color()),
+        border_vert(1.0, theme_cfg.border),
         Space::new().height(12),
         content
     ]
@@ -453,21 +444,17 @@ pub fn metric_box<'a>(
 ) -> Element<'a, Message> {
     container(
         column![
-            text(theme_cfg, value)
-                .size(16)
-                .color(theme_cfg.text_color()),
-            text(theme_cfg, label)
-                .size(11)
-                .color(theme_cfg.text_muted_color()),
+            text(theme_cfg, value).size(16).color(theme_cfg.text),
+            text(theme_cfg, label).size(11).color(theme_cfg.text_muted),
         ]
         .spacing(2)
         .padding([8, 12]),
     )
     .style(move |_theme| container::Style {
-        background: Some(iced::Background::Color(theme_cfg.surface_color())),
+        background: Some(iced::Background::Color(theme_cfg.surface)),
         border: Border {
-            radius: theme_cfg.radius_sm(),
-            color: theme_cfg.border_color(),
+            radius: theme_cfg.border_radius.sm,
+            color: theme_cfg.border,
             width: 1.0,
         },
         ..Default::default()
@@ -482,9 +469,7 @@ pub fn scanning_indicator<'a>(
     progress: Option<(usize, usize)>,
 ) -> Element<'a, Message> {
     let handle = iced::widget::svg::Handle::from_memory(icons::REFRESH_SVG.as_bytes());
-    let spinner = Spinner::new(handle)
-        .size(11.0)
-        .color(theme_cfg.text_muted_color());
+    let spinner = Spinner::new(handle).size(11.0).color(theme_cfg.text_muted);
 
     let label = match progress {
         Some((cur, tot)) if tot > 0 => format!("Scanning library... ({}/{})", cur, tot),
@@ -496,7 +481,7 @@ pub fn scanning_indicator<'a>(
         text(theme_cfg, label)
             .size(11)
             .line_height(1.0)
-            .color(theme_cfg.text_muted_color()),
+            .color(theme_cfg.text_muted),
     ]
     .spacing(4)
     .align_y(Alignment::Center)
@@ -506,16 +491,14 @@ pub fn scanning_indicator<'a>(
 /// A rotating indicator shown while background album thumbnails are being cached to disk.
 pub fn thumbnail_caching_indicator<'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
     let handle = iced::widget::svg::Handle::from_memory(icons::REFRESH_SVG.as_bytes());
-    let spinner = Spinner::new(handle)
-        .size(11.0)
-        .color(theme_cfg.text_muted_color());
+    let spinner = Spinner::new(handle).size(11.0).color(theme_cfg.text_muted);
 
     row![
         spinner,
         text(theme_cfg, "Caching album artwork...")
             .size(11)
             .line_height(1.0)
-            .color(theme_cfg.text_muted_color()),
+            .color(theme_cfg.text_muted),
     ]
     .spacing(4)
     .align_y(Alignment::Center)
@@ -588,10 +571,10 @@ mod tests {
             &theme_cfg,
             None,
             160.0,
-            theme_cfg.radius_md(),
+            theme_cfg.border_radius.md,
             icons::DISC_SVG,
             50.0,
-            theme_cfg.primary_color(),
+            theme_cfg.primary,
             Message::CloseContextMenu,
         );
         let _rendered_placeholder = placeholder;
@@ -601,10 +584,10 @@ mod tests {
             &theme_cfg,
             None,
             140.0,
-            theme_cfg.radius_md(),
+            theme_cfg.border_radius.md,
             icons::USER_AVATAR_SVG,
             45.0,
-            theme_cfg.primary_color(),
+            theme_cfg.primary,
             Message::CloseContextMenu,
         );
         let tile = CatalogTile {
