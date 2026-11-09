@@ -10,7 +10,7 @@ use thumbnail::CacheStats;
 
 use serde::{Deserialize, Serialize};
 
-pub use components::{ContextMenuSubmenu, TrackMenuContext};
+pub use components::{ContextMenuAction, TrackMenuContext};
 
 /// A single row in an opened playlist's detail list.
 #[derive(Debug, Clone)]
@@ -178,32 +178,7 @@ pub enum Message {
         name: String,
     },
     OpenPlayerBarContextMenu,
-    CloseContextMenu,
-    ToggleContextMenuSubmenu(Option<ContextMenuSubmenu>),
-    ContextPlayTrack(i64),
-    ContextPlayNext(TrackRow),
-    ContextAddToQueue(TrackRow),
-    ContextAddTracksToQueue(Vec<TrackRow>),
-    ContextPlayTracksNext(Vec<TrackRow>),
-    ContextPlayAlbumNext(AlbumSummary),
-    ContextAddAlbumToQueue(AlbumSummary),
-    ContextPlayArtistNext(ArtistSummary),
-    ContextAddArtistToQueue(ArtistSummary),
-    ContextAddTrackToPlaylist {
-        track: TrackRow,
-        playlist_id: i64,
-    },
-    ContextAddAlbumToPlaylist {
-        album: AlbumSummary,
-        playlist_id: i64,
-    },
-    ContextAddArtistToPlaylist {
-        artist: ArtistSummary,
-        playlist_id: i64,
-    },
-    ContextNewPlaylistWithTracks(Vec<TrackRow>),
-    ContextNewPlaylistWithAlbum(AlbumSummary),
-    ContextNewPlaylistWithArtist(ArtistSummary),
+    ContextMenu(ContextMenuAction),
     WindowResized(iced::Size),
     CancelDuplicatePrompt,
     ConfirmDuplicatePrompt,
@@ -290,6 +265,7 @@ pub enum Message {
     RenamePlaylistCancelled,
     DeletePlaylist(i64),
     PlaylistSortChanged(PlaylistSortField),
+    NewPlaylistWithTracks(Vec<TrackRow>),
 
     // Queues
     QueueNew,
@@ -336,6 +312,8 @@ pub enum Message {
     QueueSaveCancelled,
     QueuesPersisted,
     QueueScrolled(iced::widget::scrollable::Viewport),
+    QueuePlayTracksNext(Vec<TrackRow>),
+    QueueAddTracks(Vec<TrackRow>),
 
     // Themes & Settings
     SelectSettingsTab(SettingsTab),
@@ -487,72 +465,7 @@ impl std::fmt::Debug for Message {
                 .field("name", name)
                 .finish(),
             Self::OpenPlayerBarContextMenu => write!(f, "OpenPlayerBarContextMenu"),
-            Self::CloseContextMenu => write!(f, "CloseContextMenu"),
-            Self::ToggleContextMenuSubmenu(sub) => f
-                .debug_tuple("ToggleContextMenuSubmenu")
-                .field(sub)
-                .finish(),
-            Self::ContextPlayTrack(id) => f.debug_tuple("ContextPlayTrack").field(id).finish(),
-            Self::ContextPlayNext(track) => {
-                f.debug_tuple("ContextPlayNext").field(&track.id).finish()
-            }
-            Self::ContextAddToQueue(track) => {
-                f.debug_tuple("ContextAddToQueue").field(&track.id).finish()
-            }
-            Self::ContextAddTracksToQueue(tracks) => f
-                .debug_struct("ContextAddTracksToQueue")
-                .field("len", &tracks.len())
-                .finish(),
-            Self::ContextPlayTracksNext(tracks) => f
-                .debug_struct("ContextPlayTracksNext")
-                .field("len", &tracks.len())
-                .finish(),
-            Self::ContextPlayAlbumNext(a) => f
-                .debug_struct("ContextPlayAlbumNext")
-                .field("album", &a.album)
-                .finish(),
-            Self::ContextAddAlbumToQueue(a) => f
-                .debug_struct("ContextAddAlbumToQueue")
-                .field("album", &a.album)
-                .finish(),
-            Self::ContextPlayArtistNext(a) => f
-                .debug_struct("ContextPlayArtistNext")
-                .field("artist", &a.artist)
-                .finish(),
-            Self::ContextAddArtistToQueue(a) => f
-                .debug_struct("ContextAddArtistToQueue")
-                .field("artist", &a.artist)
-                .finish(),
-            Self::ContextAddTrackToPlaylist { track, playlist_id } => f
-                .debug_struct("ContextAddTrackToPlaylist")
-                .field("track_id", &track.id)
-                .field("playlist_id", playlist_id)
-                .finish(),
-            Self::ContextAddAlbumToPlaylist { album, playlist_id } => f
-                .debug_struct("ContextAddAlbumToPlaylist")
-                .field("album", &album.album)
-                .field("playlist_id", playlist_id)
-                .finish(),
-            Self::ContextAddArtistToPlaylist {
-                artist,
-                playlist_id,
-            } => f
-                .debug_struct("ContextAddArtistToPlaylist")
-                .field("artist", &artist.artist)
-                .field("playlist_id", playlist_id)
-                .finish(),
-            Self::ContextNewPlaylistWithTracks(tracks) => f
-                .debug_struct("ContextNewPlaylistWithTracks")
-                .field("len", &tracks.len())
-                .finish(),
-            Self::ContextNewPlaylistWithAlbum(a) => f
-                .debug_struct("ContextNewPlaylistWithAlbum")
-                .field("album", &a.album)
-                .finish(),
-            Self::ContextNewPlaylistWithArtist(a) => f
-                .debug_struct("ContextNewPlaylistWithArtist")
-                .field("artist", &a.artist)
-                .finish(),
+            Self::ContextMenu(action) => f.debug_tuple("ContextMenu").field(action).finish(),
             Self::WindowResized(size) => f.debug_tuple("WindowResized").field(size).finish(),
             Self::CancelDuplicatePrompt => write!(f, "CancelDuplicatePrompt"),
             Self::ConfirmDuplicatePrompt => write!(f, "ConfirmDuplicatePrompt"),
@@ -683,6 +596,10 @@ impl std::fmt::Debug for Message {
             Self::RenamePlaylistCancelled => write!(f, "RenamePlaylistCancelled"),
             Self::DeletePlaylist(id) => f.debug_tuple("DeletePlaylist").field(id).finish(),
             Self::PlaylistSortChanged(s) => f.debug_tuple("PlaylistSortChanged").field(s).finish(),
+            Self::NewPlaylistWithTracks(tracks) => f
+                .debug_struct("NewPlaylistWithTracks")
+                .field("len", &tracks.len())
+                .finish(),
             Self::QueueNew => write!(f, "QueueNew"),
             Self::QueueSelect(id) => f.debug_tuple("QueueSelect").field(id).finish(),
             Self::QueueDelete(id) => f.debug_tuple("QueueDelete").field(id).finish(),
@@ -743,6 +660,14 @@ impl std::fmt::Debug for Message {
             Self::QueueSaveCancelled => write!(f, "QueueSaveCancelled"),
             Self::QueuesPersisted => write!(f, "QueuesPersisted"),
             Self::QueueScrolled(v) => f.debug_tuple("QueueScrolled").field(v).finish(),
+            Self::QueuePlayTracksNext(tracks) => f
+                .debug_struct("QueuePlayTracksNext")
+                .field("len", &tracks.len())
+                .finish(),
+            Self::QueueAddTracks(tracks) => f
+                .debug_struct("QueueAddTracks")
+                .field("len", &tracks.len())
+                .finish(),
             Self::SelectSettingsTab(t) => f.debug_tuple("SelectSettingsTab").field(t).finish(),
             Self::SelectTheme(s) => f.debug_tuple("SelectTheme").field(s).finish(),
             Self::ReloadThemes => write!(f, "ReloadThemes"),

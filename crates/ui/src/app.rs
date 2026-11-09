@@ -1282,7 +1282,7 @@ impl App {
                                     position,
                                 }
                             } else {
-                                Message::CloseContextMenu
+                                Message::ContextMenu(ContextMenuAction::Close)
                             }
                         },
                     )
@@ -1362,64 +1362,9 @@ impl App {
                 Task::none()
             }
 
-            Message::CloseContextMenu => {
-                self.context_menu = None;
-                Task::none()
-            }
+            Message::ContextMenu(action) => self.handle_context_menu(action),
 
-            Message::ToggleContextMenuSubmenu(sub) => {
-                if let Some(ref mut menu) = self.context_menu {
-                    menu.submenu = sub;
-                }
-                Task::none()
-            }
-
-            Message::ContextPlayTrack(id) => {
-                self.context_menu = None;
-                self.start_library_playback(id)
-            }
-
-            Message::ContextPlayNext(track) => {
-                self.context_menu = None;
-                if self.queues.active.is_none() {
-                    self.queues.create(DEFAULT_QUEUE_NAME);
-                }
-                if let Some(queue) = self.queues.active_queue_mut() {
-                    queue.insert_next(track);
-                }
-                self.queues.touch_active_summary();
-                self.persist_active_queue_task()
-            }
-
-            Message::ContextAddToQueue(track) => {
-                self.context_menu = None;
-                if self.queue_contains_track(&track) {
-                    self.duplicate_prompt = Some(DuplicatePromptState {
-                        target: DuplicateTarget::Queue { track },
-                    });
-                    Task::none()
-                } else {
-                    self.execute_add_track_to_queue(track)
-                }
-            }
-
-            Message::ContextAddTracksToQueue(tracks) => {
-                self.context_menu = None;
-                if !tracks.is_empty() {
-                    if self.queues.active.is_none() {
-                        self.queues.create(DEFAULT_QUEUE_NAME);
-                    }
-                    if let Some(queue) = self.queues.active_queue_mut() {
-                        queue.append_many(tracks);
-                    }
-                    self.queues.touch_active_summary();
-                    return self.persist_active_queue_task();
-                }
-                Task::none()
-            }
-
-            Message::ContextPlayTracksNext(tracks) => {
-                self.context_menu = None;
+            Message::QueuePlayTracksNext(tracks) => {
                 if !tracks.is_empty() {
                     if self.queues.active.is_none() {
                         self.queues.create(DEFAULT_QUEUE_NAME);
@@ -1433,239 +1378,27 @@ impl App {
                 Task::none()
             }
 
-            Message::ContextPlayAlbumNext(album) => {
-                self.context_menu = None;
-                let db = self.db.clone();
-                let filter = TrackFilter::album(album.album.as_ref());
-                Task::perform(
-                    async move {
-                        db.get_all_track_rows_filtered(
-                            Some(&filter),
-                            SortField::TrackNum,
-                            SortDirection::Ascending,
-                        )
-                        .await
-                        .unwrap_or_default()
-                    },
-                    Message::ContextPlayTracksNext,
-                )
-            }
-
-            Message::ContextAddAlbumToQueue(album) => {
-                self.context_menu = None;
-                let db = self.db.clone();
-                let filter = TrackFilter::album(album.album.as_ref());
-                Task::perform(
-                    async move {
-                        db.get_all_track_rows_filtered(
-                            Some(&filter),
-                            SortField::TrackNum,
-                            SortDirection::Ascending,
-                        )
-                        .await
-                        .unwrap_or_default()
-                    },
-                    Message::ContextAddTracksToQueue,
-                )
-            }
-
-            Message::ContextPlayArtistNext(artist) => {
-                self.context_menu = None;
-                let db = self.db.clone();
-                let filter = TrackFilter::artist(artist.artist.as_ref());
-                Task::perform(
-                    async move {
-                        db.get_all_track_rows_filtered(
-                            Some(&filter),
-                            SortField::TrackNum,
-                            SortDirection::Ascending,
-                        )
-                        .await
-                        .unwrap_or_default()
-                    },
-                    Message::ContextPlayTracksNext,
-                )
-            }
-
-            Message::ContextAddArtistToQueue(artist) => {
-                self.context_menu = None;
-                let db = self.db.clone();
-                let filter = TrackFilter::artist(artist.artist.as_ref());
-                Task::perform(
-                    async move {
-                        db.get_all_track_rows_filtered(
-                            Some(&filter),
-                            SortField::TrackNum,
-                            SortDirection::Ascending,
-                        )
-                        .await
-                        .unwrap_or_default()
-                    },
-                    Message::ContextAddTracksToQueue,
-                )
-            }
-
-            Message::ContextAddTrackToPlaylist { track, playlist_id } => {
-                self.context_menu = None;
-                if self.playlist_contains_track(playlist_id, &track) {
-                    let playlist_name = self
-                        .playlist_by_id(playlist_id)
-                        .map(|p| p.name.clone())
-                        .unwrap_or_else(|| "Playlist".to_string());
-                    self.duplicate_prompt = Some(DuplicatePromptState {
-                        target: DuplicateTarget::Playlist {
-                            track,
-                            playlist_id,
-                            playlist_name,
-                        },
-                    });
-                    Task::none()
-                } else {
-                    self.execute_add_track_to_playlist(track, playlist_id)
+            Message::QueueAddTracks(tracks) => {
+                if !tracks.is_empty() {
+                    if self.queues.active.is_none() {
+                        self.queues.create(DEFAULT_QUEUE_NAME);
+                    }
+                    if let Some(queue) = self.queues.active_queue_mut() {
+                        queue.append_many(tracks);
+                    }
+                    self.queues.touch_active_summary();
+                    return self.persist_active_queue_task();
                 }
+                Task::none()
             }
 
-            Message::ContextAddAlbumToPlaylist { album, playlist_id } => {
-                self.context_menu = None;
-                let playlist = self.playlist_by_id(playlist_id);
-                if let Some(p) = playlist {
-                    let path = PathBuf::from(&p.file_path);
-                    let file_path = p.file_path.clone();
-                    let name = p.name.clone();
-                    let db = self.db.clone();
-                    let filter = TrackFilter::album(album.album.as_ref());
-                    let is_open = self.playlists.selected_id == Some(playlist_id);
-                    let reload_detail = if is_open {
-                        self.resolve_playlist_intent(playlist_id, PlaylistOpenIntent::View)
-                    } else {
-                        Task::none()
-                    };
-
-                    let save_task = Task::perform(
-                        async move {
-                            let tracks = db
-                                .get_all_track_rows_filtered(
-                                    Some(&filter),
-                                    SortField::TrackNum,
-                                    SortDirection::Ascending,
-                                )
-                                .await
-                                .unwrap_or_default();
-
-                            let wrote = tokio::task::spawn_blocking(move || {
-                                db::append_tracks_to_m3u(&path, &tracks)
-                            })
-                            .await
-                            .ok()
-                            .and_then(|r| r.ok());
-
-                            if let Some(count) = wrote {
-                                let _ = db.upsert_playlist_file(&file_path, &name, count).await;
-                            }
-                            db.get_playlists().await.unwrap_or_default()
-                        },
-                        Message::PlaylistsLoaded,
-                    );
-                    Task::batch([save_task, reload_detail])
-                } else {
-                    Task::none()
-                }
-            }
-
-            Message::ContextAddArtistToPlaylist {
-                artist,
-                playlist_id,
-            } => {
-                self.context_menu = None;
-                let playlist = self.playlist_by_id(playlist_id);
-                if let Some(p) = playlist {
-                    let path = PathBuf::from(&p.file_path);
-                    let file_path = p.file_path.clone();
-                    let name = p.name.clone();
-                    let db = self.db.clone();
-                    let filter = TrackFilter::artist(artist.artist.as_ref());
-                    let is_open = self.playlists.selected_id == Some(playlist_id);
-                    let reload_detail = if is_open {
-                        self.resolve_playlist_intent(playlist_id, PlaylistOpenIntent::View)
-                    } else {
-                        Task::none()
-                    };
-
-                    let save_task = Task::perform(
-                        async move {
-                            let tracks = db
-                                .get_all_track_rows_filtered(
-                                    Some(&filter),
-                                    SortField::TrackNum,
-                                    SortDirection::Ascending,
-                                )
-                                .await
-                                .unwrap_or_default();
-
-                            let wrote = tokio::task::spawn_blocking(move || {
-                                db::append_tracks_to_m3u(&path, &tracks)
-                            })
-                            .await
-                            .ok()
-                            .and_then(|r| r.ok());
-
-                            if let Some(count) = wrote {
-                                let _ = db.upsert_playlist_file(&file_path, &name, count).await;
-                            }
-                            db.get_playlists().await.unwrap_or_default()
-                        },
-                        Message::PlaylistsLoaded,
-                    );
-                    Task::batch([save_task, reload_detail])
-                } else {
-                    Task::none()
-                }
-            }
-
-            Message::ContextNewPlaylistWithTracks(tracks) => {
-                self.context_menu = None;
+            Message::NewPlaylistWithTracks(tracks) => {
                 self.active_tab = ViewTab::Playlists;
                 self.playlists.section = PlaylistSection::Playlists;
                 self.playlists.creating = true;
                 self.playlists.new_name_input.clear();
                 self.pending_playlist_tracks = tracks;
                 Task::none()
-            }
-
-            Message::ContextNewPlaylistWithAlbum(album) => {
-                self.context_menu = None;
-                let db = self.db.clone();
-                let filter = TrackFilter::album(album.album.as_ref());
-                Task::perform(
-                    async move {
-                        db.get_all_track_rows_filtered(
-                            Some(&filter),
-                            SortField::TrackNum,
-                            SortDirection::Ascending,
-                        )
-                        .await
-                        .unwrap_or_default()
-                    },
-                    Message::ContextNewPlaylistWithTracks,
-                )
-            }
-
-            Message::ContextNewPlaylistWithArtist(artist) => {
-                self.context_menu = None;
-                let db = self.db.clone();
-                let filter = TrackFilter::artist(artist.artist.as_ref());
-                Task::perform(
-                    async move {
-                        db.get_all_track_rows_filtered(
-                            Some(&filter),
-                            SortField::TrackNum,
-                            SortDirection::Ascending,
-                        )
-                        .await
-                        .unwrap_or_default()
-                    },
-                    Message::ContextNewPlaylistWithTracks,
-                )
             }
 
             Message::ConfirmDuplicatePrompt => {
@@ -4252,6 +3985,293 @@ impl App {
         self.persist_active_queue_task()
     }
 
+    fn handle_context_menu(&mut self, action: ContextMenuAction) -> Task<Message> {
+        if let ContextMenuAction::ToggleSubmenu(sub) = action {
+            if let Some(ref mut menu) = self.context_menu {
+                menu.submenu = sub;
+            }
+            return Task::none();
+        }
+
+        self.context_menu = None;
+
+        match action {
+            ContextMenuAction::Close => Task::none(),
+            ContextMenuAction::ToggleSubmenu(_) => unreachable!(),
+
+            // Track actions
+            ContextMenuAction::PlayTrack(id) => self.start_library_playback(id),
+            ContextMenuAction::PlayPlaylistItem { playlist_id, index } => {
+                self.update(Message::PlayPlaylistItem(playlist_id, index))
+            }
+            ContextMenuAction::PlayNextTrack(track) => {
+                if self.queues.active.is_none() {
+                    self.queues.create(DEFAULT_QUEUE_NAME);
+                }
+                if let Some(queue) = self.queues.active_queue_mut() {
+                    queue.insert_next(track);
+                }
+                self.queues.touch_active_summary();
+                self.persist_active_queue_task()
+            }
+            ContextMenuAction::AddTrackToQueue(track) => {
+                if self.queue_contains_track(&track) {
+                    self.duplicate_prompt = Some(DuplicatePromptState {
+                        target: DuplicateTarget::Queue { track },
+                    });
+                    Task::none()
+                } else {
+                    self.execute_add_track_to_queue(track)
+                }
+            }
+            ContextMenuAction::GoToAlbum(album) => self.update(Message::SelectAlbum(album)),
+            ContextMenuAction::GoToArtist(artist) => self.update(Message::SelectArtist(artist)),
+            ContextMenuAction::RemoveFromPlaylist { playlist_id, index } => {
+                self.update(Message::PlaylistRemoveTrack { playlist_id, index })
+            }
+            ContextMenuAction::RemoveFromQueue { queue_id, index } => {
+                self.update(Message::QueueRemoveTrack { queue_id, index })
+            }
+
+            // Album actions
+            ContextMenuAction::PlayAlbum { album, shuffle } => self.update(Message::PlayScope {
+                filter: TrackFilter::album(album.as_ref()),
+                name: album,
+                shuffle,
+            }),
+            ContextMenuAction::PlayNextAlbum(album) => {
+                let db = self.db.clone();
+                let filter = TrackFilter::album(album.album.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::QueuePlayTracksNext,
+                )
+            }
+            ContextMenuAction::AddAlbumToQueue(album) => {
+                let db = self.db.clone();
+                let filter = TrackFilter::album(album.album.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::QueueAddTracks,
+                )
+            }
+
+            // Artist actions
+            ContextMenuAction::PlayArtist { artist, shuffle } => self.update(Message::PlayScope {
+                filter: TrackFilter::artist(artist.as_ref()),
+                name: artist,
+                shuffle,
+            }),
+            ContextMenuAction::PlayNextArtist(artist) => {
+                let db = self.db.clone();
+                let filter = TrackFilter::artist(artist.artist.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::QueuePlayTracksNext,
+                )
+            }
+            ContextMenuAction::AddArtistToQueue(artist) => {
+                let db = self.db.clone();
+                let filter = TrackFilter::artist(artist.artist.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::QueueAddTracks,
+                )
+            }
+
+            // Playlist actions
+            ContextMenuAction::PlayPlaylist(id) => self.update(Message::PlayPlaylist(id)),
+            ContextMenuAction::PlayNextPlaylist(id) => self.update(Message::PlaylistPlayNext(id)),
+            ContextMenuAction::AddPlaylistToQueue(id) => self.update(Message::PlaylistToQueue(id)),
+            ContextMenuAction::RenamePlaylist(id) => self.update(Message::RenamePlaylist(id)),
+            ContextMenuAction::DeletePlaylist(id) => self.update(Message::DeletePlaylist(id)),
+
+            // Queue actions
+            ContextMenuAction::PlayQueue(id) => self.update(Message::QueueSelect(id)),
+            ContextMenuAction::DeleteQueue(id) => self.update(Message::QueueDelete(id)),
+
+            // Submenu actions
+            ContextMenuAction::NewPlaylistWithTrack(track) => {
+                self.update(Message::NewPlaylistWithTracks(vec![track]))
+            }
+            ContextMenuAction::NewPlaylistWithAlbum(album) => {
+                let db = self.db.clone();
+                let filter = TrackFilter::album(album.album.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::NewPlaylistWithTracks,
+                )
+            }
+            ContextMenuAction::NewPlaylistWithArtist(artist) => {
+                let db = self.db.clone();
+                let filter = TrackFilter::artist(artist.artist.as_ref());
+                Task::perform(
+                    async move {
+                        db.get_all_track_rows_filtered(
+                            Some(&filter),
+                            SortField::TrackNum,
+                            SortDirection::Ascending,
+                        )
+                        .await
+                        .unwrap_or_default()
+                    },
+                    Message::NewPlaylistWithTracks,
+                )
+            }
+            ContextMenuAction::AddTrackToPlaylist { track, playlist_id } => {
+                if self.playlist_contains_track(playlist_id, &track) {
+                    let playlist_name = self
+                        .playlist_by_id(playlist_id)
+                        .map(|p| p.name.clone())
+                        .unwrap_or_else(|| "Playlist".to_string());
+                    self.duplicate_prompt = Some(DuplicatePromptState {
+                        target: DuplicateTarget::Playlist {
+                            track,
+                            playlist_id,
+                            playlist_name,
+                        },
+                    });
+                    Task::none()
+                } else {
+                    self.execute_add_track_to_playlist(track, playlist_id)
+                }
+            }
+            ContextMenuAction::AddAlbumToPlaylist { album, playlist_id } => {
+                let playlist = self.playlist_by_id(playlist_id);
+                if let Some(p) = playlist {
+                    let path = PathBuf::from(&p.file_path);
+                    let file_path = p.file_path.clone();
+                    let name = p.name.clone();
+                    let db = self.db.clone();
+                    let filter = TrackFilter::album(album.album.as_ref());
+                    let is_open = self.playlists.selected_id == Some(playlist_id);
+                    let reload_detail = if is_open {
+                        self.resolve_playlist_intent(playlist_id, PlaylistOpenIntent::View)
+                    } else {
+                        Task::none()
+                    };
+
+                    let save_task = Task::perform(
+                        async move {
+                            let tracks = db
+                                .get_all_track_rows_filtered(
+                                    Some(&filter),
+                                    SortField::TrackNum,
+                                    SortDirection::Ascending,
+                                )
+                                .await
+                                .unwrap_or_default();
+
+                            let wrote = tokio::task::spawn_blocking(move || {
+                                db::append_tracks_to_m3u(&path, &tracks)
+                            })
+                            .await
+                            .ok()
+                            .and_then(|r| r.ok());
+
+                            if let Some(count) = wrote {
+                                let _ = db.upsert_playlist_file(&file_path, &name, count).await;
+                            }
+                            db.get_playlists().await.unwrap_or_default()
+                        },
+                        Message::PlaylistsLoaded,
+                    );
+                    Task::batch([save_task, reload_detail])
+                } else {
+                    Task::none()
+                }
+            }
+            ContextMenuAction::AddArtistToPlaylist {
+                artist,
+                playlist_id,
+            } => {
+                let playlist = self.playlist_by_id(playlist_id);
+                if let Some(p) = playlist {
+                    let path = PathBuf::from(&p.file_path);
+                    let file_path = p.file_path.clone();
+                    let name = p.name.clone();
+                    let db = self.db.clone();
+                    let filter = TrackFilter::artist(artist.artist.as_ref());
+                    let is_open = self.playlists.selected_id == Some(playlist_id);
+                    let reload_detail = if is_open {
+                        self.resolve_playlist_intent(playlist_id, PlaylistOpenIntent::View)
+                    } else {
+                        Task::none()
+                    };
+
+                    let save_task = Task::perform(
+                        async move {
+                            let tracks = db
+                                .get_all_track_rows_filtered(
+                                    Some(&filter),
+                                    SortField::TrackNum,
+                                    SortDirection::Ascending,
+                                )
+                                .await
+                                .unwrap_or_default();
+
+                            let wrote = tokio::task::spawn_blocking(move || {
+                                db::append_tracks_to_m3u(&path, &tracks)
+                            })
+                            .await
+                            .ok()
+                            .and_then(|r| r.ok());
+
+                            if let Some(count) = wrote {
+                                let _ = db.upsert_playlist_file(&file_path, &name, count).await;
+                            }
+                            db.get_playlists().await.unwrap_or_default()
+                        },
+                        Message::PlaylistsLoaded,
+                    );
+                    Task::batch([save_task, reload_detail])
+                } else {
+                    Task::none()
+                }
+            }
+        }
+    }
+
     fn render_duplicate_prompt<'a>(
         &'a self,
         prompt: &'a DuplicatePromptState,
@@ -4351,73 +4371,7 @@ impl App {
                 &self.playlists.playlists,
                 theme_cfg,
                 self.window_size,
-                |action| match action {
-                    ContextMenuAction::Close => Message::CloseContextMenu,
-                    ContextMenuAction::ToggleSubmenu(sub) => Message::ToggleContextMenuSubmenu(sub),
-                    ContextMenuAction::PlayTrack(id) => Message::ContextPlayTrack(id),
-                    ContextMenuAction::PlayPlaylistItem { playlist_id, index } => {
-                        Message::PlayPlaylistItem(playlist_id, index)
-                    }
-                    ContextMenuAction::PlayNextTrack(track) => Message::ContextPlayNext(track),
-                    ContextMenuAction::AddTrackToQueue(track) => Message::ContextAddToQueue(track),
-                    ContextMenuAction::GoToAlbum(album) => Message::SelectAlbum(album),
-                    ContextMenuAction::GoToArtist(artist) => Message::SelectArtist(artist),
-                    ContextMenuAction::RemoveFromPlaylist { playlist_id, index } => {
-                        Message::PlaylistRemoveTrack { playlist_id, index }
-                    }
-                    ContextMenuAction::RemoveFromQueue { queue_id, index } => {
-                        Message::QueueRemoveTrack { queue_id, index }
-                    }
-                    ContextMenuAction::PlayAlbum { album, shuffle } => Message::PlayScope {
-                        filter: model::TrackFilter::album(album.as_ref()),
-                        name: album,
-                        shuffle,
-                    },
-                    ContextMenuAction::PlayNextAlbum(album) => Message::ContextPlayAlbumNext(album),
-                    ContextMenuAction::AddAlbumToQueue(album) => {
-                        Message::ContextAddAlbumToQueue(album)
-                    }
-                    ContextMenuAction::PlayArtist { artist, shuffle } => Message::PlayScope {
-                        filter: model::TrackFilter::artist(artist.as_ref()),
-                        name: artist,
-                        shuffle,
-                    },
-                    ContextMenuAction::PlayNextArtist(artist) => {
-                        Message::ContextPlayArtistNext(artist)
-                    }
-                    ContextMenuAction::AddArtistToQueue(artist) => {
-                        Message::ContextAddArtistToQueue(artist)
-                    }
-                    ContextMenuAction::PlayPlaylist(id) => Message::PlayPlaylist(id),
-                    ContextMenuAction::PlayNextPlaylist(id) => Message::PlaylistPlayNext(id),
-                    ContextMenuAction::AddPlaylistToQueue(id) => Message::PlaylistToQueue(id),
-                    ContextMenuAction::RenamePlaylist(id) => Message::RenamePlaylist(id),
-                    ContextMenuAction::DeletePlaylist(id) => Message::DeletePlaylist(id),
-                    ContextMenuAction::PlayQueue(id) => Message::QueueSelect(id),
-                    ContextMenuAction::DeleteQueue(id) => Message::QueueDelete(id),
-                    ContextMenuAction::NewPlaylistWithTrack(track) => {
-                        Message::ContextNewPlaylistWithTracks(vec![track])
-                    }
-                    ContextMenuAction::NewPlaylistWithAlbum(album) => {
-                        Message::ContextNewPlaylistWithAlbum(album)
-                    }
-                    ContextMenuAction::NewPlaylistWithArtist(artist) => {
-                        Message::ContextNewPlaylistWithArtist(artist)
-                    }
-                    ContextMenuAction::AddTrackToPlaylist { track, playlist_id } => {
-                        Message::ContextAddTrackToPlaylist { track, playlist_id }
-                    }
-                    ContextMenuAction::AddAlbumToPlaylist { album, playlist_id } => {
-                        Message::ContextAddAlbumToPlaylist { album, playlist_id }
-                    }
-                    ContextMenuAction::AddArtistToPlaylist {
-                        artist,
-                        playlist_id,
-                    } => Message::ContextAddArtistToPlaylist {
-                        artist,
-                        playlist_id,
-                    },
-                },
+                Message::ContextMenu,
             ));
         }
         if let Some(ref prompt) = self.duplicate_prompt {
