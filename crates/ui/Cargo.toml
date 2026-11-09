@@ -11,22 +11,6 @@ default-run = "melody"
 name = "melody"
 path = "src/main.rs"
 
-[package.metadata.appimage]
-name = "Melody"
-icon = "../../assets/melody.png"
-desktop_entry = "../../assets/melody.desktop"
-assets = [
-    "../../themes",
-    "../../layouts",
-]
-auto_link = false
-
-[package.metadata.wix]
-name = "Melody"
-path-guid = "0750FF61-7342-4681-8E6B-A349D2D293F6"
-upgrade-guid = "37AEE279-1BDE-4A0F-96B1-7145E5003745"
-product-icon = "wix/Product.ico"
-
 [package.metadata.winres]
 name = "Melody"
 FileDescription = "Melody"
@@ -67,6 +51,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "time"] }
 url.workspace = true
+velopack.workspace = true
 
 # Profiling dependencies (optional)
 tracy-client = { workspace = true, optional = true, default-features = false, features = ["enable"] }

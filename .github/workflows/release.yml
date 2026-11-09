@@ -99,10 +99,10 @@ jobs:
           "$binDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           "ffmpeg-bin=$binDir" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-          # Ensure WiX toolset bin directory is in PATH if present
-          if ($env:WIX -and (Test-Path "$env:WIX\bin")) {
-            "$env:WIX\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          }
+      - name: Set up .NET (for Velopack packaging)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
       # --- Build Release Binary ---
       - name: Build release binary
@@ -116,39 +116,53 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             RELEASE_TAG="${{ inputs.tag }}"
           fi
+          CLEAN_VERSION="${RELEASE_TAG#v}"
 
           mkdir -p dist-pkg
 
-          # 1. Install AppImage packaging tools
-          cargo install cargo-appimage
-          sudo wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool.bin
-          sudo chmod +x /usr/local/bin/appimagetool.bin
-          printf '#!/bin/sh\nexport APPIMAGE_EXTRACT_AND_RUN=1\nunset SOURCE_DATE_EPOCH\nexec /usr/local/bin/appimagetool.bin --comp zstd "$@"\n' | sudo tee /usr/local/bin/appimagetool > /dev/null
-          sudo chmod +x /usr/local/bin/appimagetool
+          # 1. Install Velopack CLI
+          dotnet tool install -g vpk
 
-          # 2. Build Linux AppImage
-          (cd crates/ui && APPIMAGE_EXTRACT_AND_RUN=1 cargo appimage --target=${{ matrix.target }})
+          # 2. Download previous release assets for delta generation (if available)
+          vpk download github --repoUrl "https://github.com/${{ github.repository }}" --token "${{ secrets.GITHUB_TOKEN }}" --outputDir dist-pkg --channel linux || true
 
-          # Locate built AppImage (cargo-appimage outputs in the crate root or target)
-          APPIMAGE_FILE=$(find crates/ui target . -maxdepth 3 -name "*.AppImage" -not -path "*/dist-pkg/*" -type f | head -n 1)
-          if [ -z "$APPIMAGE_FILE" ]; then
-            echo "::error::AppImage was not generated"
-            exit 1
+          # 3. Prepare staging directory with all runtime assets
+          STAGING_DIR="dist-staging"
+          mkdir -p "$STAGING_DIR"
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$STAGING_DIR/"
+          cp -r themes "$STAGING_DIR/"
+          cp -r layouts "$STAGING_DIR/"
+
+          # 4. Build Linux AppImage via Velopack
+          vpk pack \
+            --packId melody \
+            --packVersion "$CLEAN_VERSION" \
+            --packTitle Melody \
+            --packAuthors Curstantine \
+            --packDir "$STAGING_DIR" \
+            --mainExe "${{ matrix.binary_name }}" \
+            --icon assets/melody.png \
+            --categories "AudioVideo;Audio;Player;Music;" \
+            --channel linux \
+            --outputDir dist-pkg
+
+          # 5. Rename AppImage to melody-<tag>.AppImage
+          APPIMAGE_FILE=$(find dist-pkg -maxdepth 2 -name "*.AppImage" -type f | head -n 1)
+          if [ -n "$APPIMAGE_FILE" ]; then
+            mv "$APPIMAGE_FILE" "dist-pkg/melody-${RELEASE_TAG}.AppImage"
+            chmod +x "dist-pkg/melody-${RELEASE_TAG}.AppImage"
           fi
-          echo "Found AppImage at: $APPIMAGE_FILE"
-          APPIMAGE_DEST="dist-pkg/melody-${RELEASE_TAG}-${{ matrix.target }}.AppImage"
-          cp "$APPIMAGE_FILE" "$APPIMAGE_DEST"
-          chmod +x "$APPIMAGE_DEST"
 
-          # 3. Create portable tar.gz archive
-          ARCHIVE_DIR="melody-${RELEASE_TAG}-${{ matrix.target }}"
-          mkdir -p "$ARCHIVE_DIR"
-          cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$ARCHIVE_DIR/"
-          cp -r themes "$ARCHIVE_DIR/"
-          cp -r layouts "$ARCHIVE_DIR/"
-          tar -czvf "dist-pkg/${ARCHIVE_DIR}.tar.gz" "$ARCHIVE_DIR"
+          # 6. Create portable tar.gz archive: melody-<tag>-portable.tar.gz
+          PORTABLE_DIR="melody-${RELEASE_TAG}"
+          mkdir -p "$PORTABLE_DIR"
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$PORTABLE_DIR/"
+          cp -r themes "$PORTABLE_DIR/"
+          cp -r layouts "$PORTABLE_DIR/"
+          tar -czvf "dist-pkg/melody-${RELEASE_TAG}-portable.tar.gz" "$PORTABLE_DIR"
+          rm -rf "$PORTABLE_DIR"
 
-      # --- Package Windows Artifacts (MSI installer + portable zip) ---
+      # --- Package Windows Artifacts (Velopack Setup.exe + portable zip) ---
       - name: Package Windows release artifacts
         if: runner.os == 'Windows'
         shell: pwsh
@@ -157,60 +171,53 @@ jobs:
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
             $tag = "${{ inputs.tag }}"
           }
+          $cleanVersion = $tag.TrimStart('v')
 
           New-Item -ItemType Directory -Path "dist-pkg" -Force
 
-          # 1. Install cargo-wix
-          cargo install cargo-wix
+          # 1. Install Velopack CLI
+          dotnet tool install -g vpk
 
-          # 2. Populate WiX FFmpeg fragment dynamically with only the required FFmpeg DLLs
+          # 2. Download previous release assets for delta generation (if available)
+          try {
+            vpk download github --repoUrl "https://github.com/${{ github.repository }}" --token "${{ secrets.GITHUB_TOKEN }}" --outputDir dist-pkg --channel windows
+          } catch {
+            Write-Host "No previous release found or download skipped; proceeding with full release build."
+          }
+
+          # 3. Prepare staging directory with all runtime files & FFmpeg DLLs
+          $stagingDir = "dist-staging"
+          New-Item -ItemType Directory -Path $stagingDir -Force
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" -Destination $stagingDir
+          Copy-Item -Recurse "themes" -Destination $stagingDir
+          Copy-Item -Recurse "layouts" -Destination $stagingDir
           $binDir = "${{ steps.setup-ffmpeg.outputs.ffmpeg-bin }}"
           $dlls = Get-ChildItem -Path $binDir -Filter "*.dll" | Where-Object { $_.Name -match '^(avcodec|avformat|avutil|swresample)' }
-          $xml = @"
-          <?xml version='1.0' encoding='utf-8'?>
-          <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
-            <Fragment>
-              <ComponentGroup Id='FFmpegDlls' Directory='Bin'>
-          "@
-          foreach ($dll in $dlls) {
-              $id = "dll_" + [System.Guid]::NewGuid().ToString("N")
-              $cmpId = "cmp_" + [System.Guid]::NewGuid().ToString("N")
-              $src = $dll.FullName.Replace("&", "&amp;")
-              $xml += @"
-                <Component Id='$cmpId' Guid='*'>
-                  <File Id='$id' Source='$src' KeyPath='yes' />
-                </Component>
-          "@
-          }
-          $xml += @"
-              </ComponentGroup>
-            </Fragment>
-          </Wix>
-          "@
-          Set-Content -Path "crates/ui/wix/ffmpeg.wxs" -Value $xml
-
-          # 3. Build Windows MSI installer via cargo-wix
-          $msiName = "melody-$tag-${{ matrix.target }}.msi"
-          $targetBinDir = (Resolve-Path "target/${{ matrix.target }}/release").Path
-          $msiOut = Join-Path (Resolve-Path "dist-pkg").Path $msiName
-          try {
-            Push-Location crates/ui
-            cargo wix -p ui --no-build --nocapture --target ${{ matrix.target }} --target-bin-dir "$targetBinDir" -o "$msiOut"
-            if ($LASTEXITCODE -ne 0) { throw "cargo-wix failed with exit code $LASTEXITCODE" }
-          } finally {
-            Pop-Location
-          }
-
-          # 4. Create portable zip archive
-          $archiveDir = "melody-$tag-${{ matrix.target }}"
-          New-Item -ItemType Directory -Path $archiveDir -Force
-          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" -Destination $archiveDir
-          Copy-Item -Recurse "themes" -Destination $archiveDir
-          Copy-Item -Recurse "layouts" -Destination $archiveDir
           $dlls | ForEach-Object {
-            Copy-Item $_.FullName -Destination $archiveDir
+            Copy-Item $_.FullName -Destination $stagingDir
           }
-          Compress-Archive -Path "$archiveDir\*" -DestinationPath "dist-pkg\$archiveDir.zip"
+
+          # 4. Build Windows installer via Velopack
+          vpk pack `
+            --packId melody `
+            --packVersion $cleanVersion `
+            --packTitle Melody `
+            --packAuthors Curstantine `
+            --packDir $stagingDir `
+            --mainExe melody.exe `
+            --icon assets/melody.ico `
+            --channel windows `
+            --outputDir dist-pkg
+
+          # 5. Rename installer and portable zip to melody-<tag>-setup.exe and melody-<tag>-portable.zip
+          $setupExe = Get-ChildItem -Path "dist-pkg" -Filter "*Setup.exe" | Select-Object -First 1
+          if ($setupExe) {
+            Move-Item $setupExe.FullName "dist-pkg/melody-$tag-setup.exe" -Force
+          }
+          $portableZip = Get-ChildItem -Path "dist-pkg" -Filter "*Portable.zip" | Select-Object -First 1
+          if ($portableZip) {
+            Move-Item $portableZip.FullName "dist-pkg/melody-$tag-portable.zip" -Force
+          }
 
       - name: Upload artifacts to GitHub Actions
         uses: actions/upload-artifact@v4
@@ -236,7 +243,7 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p dist
-          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.msi" -o -name "*.AppImage" \) -exec cp {} dist/ \;
+          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.msi" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.nupkg" -o -name "*.json" \) -exec cp {} dist/ \;
           ls -la dist/
 
       - name: Determine tag

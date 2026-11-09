@@ -41,6 +41,7 @@ tracy-client = { version = "0.18", default-features = false }
 turso = { version = "0.8.3", default-features = false }
 ureq = "3.4.2"
 url = "2.5"
+velopack = "1.2"
 walkdir = "2.5"
 windows = "0.62"
 

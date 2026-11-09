@@ -25,6 +25,8 @@ use iced::window;
 use tracing::info;
 
 fn main() -> iced::Result {
+    velopack::VelopackApp::build().run();
+
     core_engine::init_app_start_time();
 
     // Initialize logging / tracing
