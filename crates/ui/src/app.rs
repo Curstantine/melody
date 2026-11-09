@@ -1251,8 +1251,39 @@ impl App {
             }
 
             Message::WindowResized(size) => {
+                let width_diff = size.width - self.window_size.width;
                 self.window_size = size;
-                self.save_state_debounced()
+                let save_task = self.save_state_debounced();
+                let refresh_task = if width_diff.abs() > 0.5 {
+                    match self.active_tab {
+                        ViewTab::Albums => {
+                            if self.albums.on_window_resized(width_diff) {
+                                self.albums.recompute_rendered_window(
+                                    &self.layout_manager.current_template.view_formats.albums,
+                                );
+                                self.load_visible_album_covers_task()
+                            } else {
+                                Task::none()
+                            }
+                        }
+                        ViewTab::Artists => {
+                            if self.artists.on_window_resized(width_diff) {
+                                self.artists.recompute_rendered_window(
+                                    &self.layout_manager.current_template.view_formats.artists,
+                                );
+                            }
+                            Task::none()
+                        }
+                        _ => {
+                            self.albums.on_window_resized(width_diff);
+                            self.artists.on_window_resized(width_diff);
+                            Task::none()
+                        }
+                    }
+                } else {
+                    Task::none()
+                };
+                Task::batch([save_task, refresh_task])
             }
 
             Message::OpenTrackContextMenu { track_id, context } => {

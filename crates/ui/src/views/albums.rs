@@ -312,9 +312,11 @@ impl AlbumsView {
             return changed;
         }
 
+        let old_cols = self.columns;
         if self.view_mode == ViewMode::Tile && self.last_viewport_width > 0.0 {
             self.columns = columns_for_width(self.last_viewport_width, self.tile_width);
         }
+        let cols_changed = self.columns != old_cols;
 
         let per_row = self.items_per_row();
         let row_h = self.row_height().max(1.0);
@@ -330,7 +332,7 @@ impl AlbumsView {
         let new_start = (start_row * per_row).min(total);
         let new_end = (end_row * per_row).min(total);
 
-        if new_start != self.window_start || new_end != self.window_end {
+        if new_start != self.window_start || new_end != self.window_end || cols_changed {
             self.window_start = new_start;
             self.window_end = new_end;
 
@@ -353,18 +355,55 @@ impl AlbumsView {
         }
     }
 
-    pub fn check_scroll(&self, scroll_y: f32) -> bool {
+    pub fn check_viewport(&self, viewport: &iced::widget::scrollable::Viewport) -> bool {
+        self.check_scroll_metrics(
+            viewport.absolute_offset().y,
+            viewport.bounds.width,
+            viewport.bounds.height,
+        )
+    }
+
+    pub fn check_scroll_metrics(
+        &self,
+        scroll_y: f32,
+        viewport_width: f32,
+        viewport_height: f32,
+    ) -> bool {
         let total = self.albums.len();
         if total == 0 {
             return false;
         }
 
-        let per_row = self.items_per_row();
+        let width = if viewport_width > 0.0 {
+            viewport_width
+        } else {
+            self.last_viewport_width
+        };
+        let height = if viewport_height > 0.0 {
+            viewport_height
+        } else {
+            self.viewport_height
+        };
+
+        let new_cols = if self.view_mode == ViewMode::Tile && width > 0.0 {
+            columns_for_width(width, self.tile_width)
+        } else {
+            self.columns
+        };
+
+        if self.view_mode == ViewMode::Tile && new_cols != self.columns {
+            return true;
+        }
+
+        let per_row = match self.view_mode {
+            ViewMode::Tile => new_cols.max(1),
+            ViewMode::List => 1,
+        };
         let row_h = self.row_height().max(1.0);
-        let total_rows = self.total_rows();
+        let total_rows = total.div_ceil(per_row);
 
         let first_row = (scroll_y.max(0.0) / row_h).floor() as usize;
-        let visible_rows = ((self.viewport_height / row_h).ceil() as usize + 1).max(1);
+        let visible_rows = ((height / row_h).ceil() as usize + 1).max(1);
         let buffer_rows = visible_rows;
 
         let start_row = first_row.saturating_sub(buffer_rows);
@@ -374,6 +413,15 @@ impl AlbumsView {
         let new_end = (end_row * per_row).min(total);
 
         new_start != self.window_start || new_end != self.window_end
+    }
+
+    pub fn on_window_resized(&mut self, width_diff: f32) -> bool {
+        if width_diff.abs() > 0.5 && self.last_viewport_width > 0.0 {
+            self.last_viewport_width = (self.last_viewport_width + width_diff).max(0.0);
+            self.refresh_window()
+        } else {
+            false
+        }
     }
 
     pub fn refresh_window(&mut self) -> bool {
@@ -730,7 +778,7 @@ impl AlbumsView {
             .on_scroll(move |scroll| {
                 let y = scroll.viewport.absolute_offset().y;
                 scroll_offset.set(y);
-                if self.check_scroll(y) {
+                if self.check_viewport(&scroll.viewport) {
                     Some(Message::AlbumsScrolled(scroll.viewport))
                 } else {
                     None
@@ -823,7 +871,7 @@ impl AlbumsView {
             .on_scroll(move |scroll| {
                 let y = scroll.viewport.absolute_offset().y;
                 scroll_offset.set(y);
-                if self.check_scroll(y) {
+                if self.check_viewport(&scroll.viewport) {
                     Some(Message::AlbumsScrolled(scroll.viewport))
                 } else {
                     None
@@ -1114,6 +1162,31 @@ mod tests {
     fn test_scroll_messages_variants() {
         fn check_message(_m: Message) {}
         check_message(Message::NextTrack);
+    }
+
+    #[test]
+    fn test_albums_window_resize_rebuilds_columns() {
+        let mut albums_view = AlbumsView::new(ViewMode::Tile, AlbumSortField::Title);
+        let albums_list = sample_albums(100);
+        albums_view.set_albums(albums_list);
+
+        // Initial layout at 800px width
+        assert!(albums_view.on_scroll_metrics(0.0, 800.0, 600.0));
+        let initial_cols = albums_view.columns;
+        assert_eq!(initial_cols, 5);
+
+        // At the exact same scroll position (0.0), resizing window to 1400px width
+        // must report that the viewport changed without any scrolling.
+        assert!(albums_view.check_scroll_metrics(0.0, 1400.0, 600.0));
+        assert!(albums_view.on_scroll_metrics(0.0, 1400.0, 600.0));
+        assert_eq!(albums_view.columns, 8);
+
+        // A tiny scroll that doesn't change visible rows or columns should return false
+        assert!(!albums_view.check_scroll_metrics(2.0, 1400.0, 600.0));
+
+        // on_window_resized updates last_viewport_width and rebuilds window
+        assert!(albums_view.on_window_resized(-600.0));
+        assert_eq!(albums_view.columns, 5);
     }
 
     #[test]
