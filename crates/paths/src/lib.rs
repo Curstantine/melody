@@ -163,7 +163,7 @@ pub fn bundled_themes_dir() -> Option<PathBuf> {
         if let Some(exe_dir) = exe_path.parent() {
             #[cfg(windows)]
             {
-                let candidate = exe_dir.join("../themes");
+                let candidate = exe_dir.join("./themes");
                 if candidate.is_dir() {
                     return Some(candidate);
                 }
@@ -221,7 +221,7 @@ pub fn bundled_layouts_dir() -> Option<PathBuf> {
         if let Some(exe_dir) = exe_path.parent() {
             #[cfg(windows)]
             {
-                let candidate = exe_dir.join("../layouts");
+                let candidate = exe_dir.join("./layouts");
                 if candidate.is_dir() {
                     return Some(candidate);
                 }
