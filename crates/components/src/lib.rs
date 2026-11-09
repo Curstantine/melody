@@ -1,30 +1,41 @@
-use core_engine::SortDirection;
-use iced::border::Radius;
-use iced::widget::{button, column, container, image, row, Space, Widget};
-use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length, Shadow};
-
-use crate::icons;
-use crate::message::{Message, ViewMode};
-use crate::theme::{styles, ThemeConfig};
-
 use std::borrow::Cow;
+
+use iced::{
+    border::Radius,
+    widget::{button, column, container, image, row, Space, Widget},
+    Alignment, Background, Border, Color, ContentFit, Element, Length, Shadow,
+};
+use serde::{Deserialize, Serialize};
+
+use model::SortDirection;
+use theme::ThemeConfig;
 
 pub mod catalog;
 pub mod context_menu;
+pub mod icons;
 pub mod marquee;
 pub mod spinner;
-#[allow(unused_imports)]
-pub use catalog::{
-    CatalogRow, CatalogTile, TrackRow, CATALOG_LIST_ART_SIZE, CATALOG_LIST_ROW_HEIGHT,
-    CATALOG_ROW_SPACING, CATALOG_TILE_META_HEIGHT, TRACK_ROW_HEIGHT,
+pub mod styles;
+
+pub use crate::{
+    catalog::{
+        CatalogRow, CatalogTile, TrackRow, CATALOG_LIST_ART_SIZE, CATALOG_LIST_ROW_HEIGHT,
+        CATALOG_ROW_SPACING, CATALOG_TILE_META_HEIGHT, TRACK_ROW_HEIGHT,
+    },
+    context_menu::{
+        render_context_menu, ContextMenuAction, ContextMenuState, ContextMenuSubmenu,
+        ContextMenuTarget, TrackMenuContext,
+    },
+    marquee::Marquee,
+    spinner::Spinner,
 };
-#[allow(unused_imports)]
-pub use context_menu::{
-    render_context_menu, ContextMenuState, ContextMenuSubmenu, ContextMenuTarget, TrackMenuContext,
-};
-#[allow(unused_imports)]
-pub use marquee::Marquee;
-pub use spinner::Spinner;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ViewMode {
+    #[default]
+    List,
+    Tile,
+}
 
 /// A text widget configured with the active theme font.
 pub fn text<'a>(
@@ -34,7 +45,7 @@ pub fn text<'a>(
     iced::widget::text(content.into()).font(theme_cfg.font)
 }
 
-pub fn border_vert<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
+pub fn border_vert<'a, M: 'a>(width: f32, color: Color) -> iced::Element<'a, M> {
     container("")
         .width(Length::Fill)
         .height(width)
@@ -45,7 +56,7 @@ pub fn border_vert<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
         .boxed()
 }
 
-pub fn border_hori<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
+pub fn border_hori<'a, M: 'a>(width: f32, color: Color) -> iced::Element<'a, M> {
     container("")
         .width(width)
         .height(Length::Fill)
@@ -57,12 +68,12 @@ pub fn border_hori<'a>(width: f32, color: Color) -> iced::Element<'a, Message> {
 }
 
 /// A reusable chip button with active state styling.
-pub fn chip<'a>(
+pub fn chip<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
     label: impl Into<String>,
     is_active: bool,
-    on_press: Message,
-) -> Element<'a, Message> {
+    on_press: M,
+) -> Element<'a, M> {
     button(text(theme_cfg, label.into()).size(11).color(if is_active {
         theme_cfg.primary
     } else {
@@ -75,13 +86,13 @@ pub fn chip<'a>(
 }
 
 /// A reusable chip button with an icon and label.
-pub fn chip_with_icon<'a>(
+pub fn chip_with_icon<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
     icon_svg: &'static str,
     label: impl Into<String>,
     is_active: bool,
-    on_press: Message,
-) -> Element<'a, Message> {
+    on_press: M,
+) -> Element<'a, M> {
     let color = if is_active {
         theme_cfg.primary
     } else {
@@ -103,12 +114,12 @@ pub fn chip_with_icon<'a>(
 }
 
 /// A chip button representing a view mode (List or Tiles).
-pub fn view_mode_chip<'a>(
+pub fn view_mode_chip<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
     mode: ViewMode,
     is_active: bool,
-    on_press: Message,
-) -> Element<'a, Message> {
+    on_press: M,
+) -> Element<'a, M> {
     let (icon_svg, label) = match mode {
         ViewMode::Tile => (icons::GRID_VIEW_SVG, "Tiles"),
         ViewMode::List => (icons::LIST_VIEW_SVG, "List"),
@@ -117,11 +128,11 @@ pub fn view_mode_chip<'a>(
 }
 
 /// A unified view mode toggle row containing List and Tiles mode chips.
-pub fn view_mode_toggle<'a>(
+pub fn view_mode_toggle<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
     active_mode: ViewMode,
-    on_change: impl Fn(ViewMode) -> Message,
-) -> Element<'a, Message> {
+    on_change: impl Fn(ViewMode) -> M,
+) -> Element<'a, M> {
     row![
         view_mode_chip(
             theme_cfg,
@@ -142,14 +153,14 @@ pub fn view_mode_toggle<'a>(
 }
 
 /// A sort chip displaying the field label and an active sort direction indicator arrow.
-pub fn sort_chip<'a, T: Copy + PartialEq>(
+pub fn sort_chip<'a, T: Copy + PartialEq, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
     label: &'a str,
     field: T,
     active_field: T,
     sort_dir: SortDirection,
-    on_press: Message,
-) -> Element<'a, Message> {
+    on_press: M,
+) -> Element<'a, M> {
     let is_active = active_field == field;
     let text_color = if is_active {
         theme_cfg.primary
@@ -157,7 +168,7 @@ pub fn sort_chip<'a, T: Copy + PartialEq>(
         theme_cfg.text_muted
     };
 
-    let content: Element<'a, Message> = if is_active {
+    let content: Element<'a, M> = if is_active {
         let sort_icon_svg = match sort_dir {
             SortDirection::Ascending => icons::CHEVRON_UP_SVG,
             SortDirection::Descending => icons::CHEVRON_DOWN_SVG,
@@ -181,13 +192,13 @@ pub fn sort_chip<'a, T: Copy + PartialEq>(
 }
 
 /// A unified sort chip list with a "Sort:" label and multiple sort chips.
-pub fn sort_chip_list<'a, T: Copy + PartialEq>(
+pub fn sort_chip_list<'a, T: Copy + PartialEq, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
     options: &[(&'a str, T)],
     active_field: T,
     sort_dir: SortDirection,
-    on_press: impl Fn(T) -> Message,
-) -> Element<'a, Message> {
+    on_press: impl Fn(T) -> M,
+) -> Element<'a, M> {
     let mut sort_row = row![
         text(theme_cfg, "Sort:")
             .size(11)
@@ -212,11 +223,11 @@ pub fn sort_chip_list<'a, T: Copy + PartialEq>(
 }
 
 /// A centered empty state view with a title and muted description.
-pub fn empty_state<'a>(
+pub fn empty_state<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
     title: &'a str,
     subtitle: &'a str,
-) -> Element<'a, Message> {
+) -> Element<'a, M> {
     container(
         column![
             text(theme_cfg, title).size(16).color(theme_cfg.text),
@@ -234,7 +245,7 @@ pub fn empty_state<'a>(
 }
 
 /// A container displaying cover art image or a fallback vector icon placeholder.
-pub fn cover_art<'a>(
+pub fn cover_art<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
     cover: Option<&image::Handle>,
     size: f32,
@@ -242,7 +253,7 @@ pub fn cover_art<'a>(
     fallback_icon_svg: &'static str,
     fallback_icon_size: f32,
     fallback_icon_color: iced::Color,
-) -> Element<'a, Message> {
+) -> Element<'a, M> {
     let radius: Radius = radius.into();
     let border_color = theme_cfg.border;
     let placeholder_bg = theme_cfg.surface;
@@ -299,7 +310,7 @@ pub fn cover_art<'a>(
 ///
 /// Clicks trigger the provided `on_press` message.
 #[allow(clippy::too_many_arguments)]
-pub fn catalog_cover_art<'a>(
+pub fn catalog_cover_art<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
     cover: Option<&image::Handle>,
     size: f32,
@@ -307,8 +318,8 @@ pub fn catalog_cover_art<'a>(
     fallback_icon_svg: &'static str,
     fallback_icon_size: f32,
     fallback_icon_color: iced::Color,
-    on_press: Message,
-) -> Element<'a, Message> {
+    on_press: M,
+) -> Element<'a, M> {
     let radius: Radius = radius.into();
     let border_color = theme_cfg.border;
 
@@ -401,11 +412,11 @@ pub fn catalog_cover_art<'a>(
     }
 }
 
-pub fn settings_header<'a>(
+pub fn settings_header<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
     title: &'static str,
     description: Option<&'static str>,
-) -> Element<'a, Message> {
+) -> Element<'a, M> {
     let mut header = column![text(theme_cfg, title).size(20).color(theme_cfg.text),];
 
     if let Some(x) = description {
@@ -421,11 +432,11 @@ pub fn settings_header<'a>(
 }
 
 /// A card container with a primary colored title header.
-pub fn settings_card<'a>(
+pub fn settings_card<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
     title: &'static str,
-    content: Element<'a, Message>,
-) -> Element<'a, Message> {
+    content: Element<'a, M>,
+) -> Element<'a, M> {
     column![
         text(theme_cfg, title).size(11).color(theme_cfg.primary),
         Space::new().height(4),
@@ -437,11 +448,11 @@ pub fn settings_card<'a>(
 }
 
 /// A metric card displaying a prominent value and muted label.
-pub fn metric_box<'a>(
+pub fn metric_box<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
     label: &'static str,
     value: String,
-) -> Element<'a, Message> {
+) -> Element<'a, M> {
     container(
         column![
             text(theme_cfg, value).size(16).color(theme_cfg.text),
@@ -464,10 +475,10 @@ pub fn metric_box<'a>(
 }
 
 /// A self-contained scanning indicator component powered by the `Spinner` widget.
-pub fn scanning_indicator<'a>(
+pub fn scanning_indicator<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
     progress: Option<(usize, usize)>,
-) -> Element<'a, Message> {
+) -> Element<'a, M> {
     let handle = iced::widget::svg::Handle::from_memory(icons::REFRESH_SVG.as_bytes());
     let spinner = Spinner::new(handle).size(11.0).color(theme_cfg.text_muted);
 
@@ -489,7 +500,7 @@ pub fn scanning_indicator<'a>(
 }
 
 /// A rotating indicator shown while background album thumbnails are being cached to disk.
-pub fn thumbnail_caching_indicator<'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+pub fn thumbnail_caching_indicator<'a, M: 'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, M> {
     let handle = iced::widget::svg::Handle::from_memory(icons::REFRESH_SVG.as_bytes());
     let spinner = Spinner::new(handle).size(11.0).color(theme_cfg.text_muted);
 
@@ -508,10 +519,12 @@ pub fn thumbnail_caching_indicator<'a>(theme_cfg: &'a ThemeConfig) -> Element<'a
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::icons;
-    use crate::message::Message;
-    use crate::theme::ThemeConfig;
-    use iced::widget::Widget;
+    use theme::ThemeConfig;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum TestMessage {
+        CloseContextMenu,
+    }
 
     #[test]
     fn test_adaptive_cjk_text_creation() {
@@ -538,9 +551,9 @@ mod tests {
             mid_right: "2024".into(),
             bottom_left: "12 tracks".into(),
             bottom_right: "45:00".into(),
-            on_select: Message::CloseContextMenu,
-            on_play: Message::CloseContextMenu,
-            on_shuffle: Message::CloseContextMenu,
+            on_select: TestMessage::CloseContextMenu,
+            on_play: TestMessage::CloseContextMenu,
+            on_shuffle: TestMessage::CloseContextMenu,
             on_right_press: None,
         };
         let _rendered = tile.view();
@@ -552,9 +565,9 @@ mod tests {
             subtitle_left: "Very Long Artist Name".into(),
             subtitle_right: "2024".into(),
             details: Some(("12 tracks".into(), "45:00".into())),
-            on_select: Message::CloseContextMenu,
-            on_play: Message::CloseContextMenu,
-            on_shuffle: Message::CloseContextMenu,
+            on_select: TestMessage::CloseContextMenu,
+            on_play: TestMessage::CloseContextMenu,
+            on_shuffle: TestMessage::CloseContextMenu,
             on_right_press: None,
             width: iced::Length::Fill,
             height: iced::Length::Fixed(56.0),
@@ -575,7 +588,7 @@ mod tests {
             icons::DISC_SVG,
             50.0,
             theme_cfg.primary,
-            Message::CloseContextMenu,
+            TestMessage::CloseContextMenu,
         );
         let _rendered_placeholder = placeholder;
 
@@ -588,7 +601,7 @@ mod tests {
             icons::USER_AVATAR_SVG,
             45.0,
             theme_cfg.primary,
-            Message::CloseContextMenu,
+            TestMessage::CloseContextMenu,
         );
         let tile = CatalogTile {
             theme: &theme_cfg,
@@ -599,10 +612,10 @@ mod tests {
             mid_right: "".into(),
             bottom_left: "".into(),
             bottom_right: "".into(),
-            on_select: Message::CloseContextMenu,
-            on_play: Message::CloseContextMenu,
-            on_shuffle: Message::CloseContextMenu,
-            on_right_press: Some(Message::CloseContextMenu),
+            on_select: TestMessage::CloseContextMenu,
+            on_play: TestMessage::CloseContextMenu,
+            on_shuffle: TestMessage::CloseContextMenu,
+            on_right_press: Some(TestMessage::CloseContextMenu),
         };
         let _rendered_tile = tile.view();
     }

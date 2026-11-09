@@ -1,25 +1,16 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use core_engine::{
-    AlbumSummary, ArtistSummary, AudioTechnicalInfo, CacheStats, PlaylistEntry, PlaylistSummary,
-    ScanSummary, SortField, Track, TrackFilter, TrackRow,
+use db::{PlaylistEntry, ScanSummary};
+use metadata::AudioTechnicalInfo;
+use model::{
+    AlbumSummary, ArtistSummary, PlaylistSummary, SortField, Track, TrackFilter, TrackRow,
 };
+use thumbnail::CacheStats;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TrackMenuContext {
-    Library,
-    Playlist { playlist_id: i64, index: usize },
-    Queue { queue_id: u64, index: usize },
-    PlayerBar,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ContextMenuSubmenu {
-    Playlists,
-}
+pub use components::{ContextMenuSubmenu, TrackMenuContext};
 
 /// A single row in an opened playlist's detail list.
 #[derive(Debug, Clone)]
@@ -103,12 +94,7 @@ pub enum PlaylistSortField {
     DateAdded,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub enum ViewMode {
-    #[default]
-    List,
-    Tile,
-}
+pub use components::ViewMode;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum AlbumSortField {

@@ -28,14 +28,18 @@ pub fn is_supported_audio_path<P: AsRef<Path>>(path: P) -> bool {
         .unwrap_or(false)
 }
 
-use crate::intern;
-use crate::metadata::extract_metadata;
-use crate::model::{
-    format_duration, AlbumSummary, ArtistSummary, NewTrack, PlaylistSummary, QueueRecord,
-    SortDirection, SortField, Track, TrackIdHeader, TrackRow,
+use metadata::extract_metadata;
+use model::{
+    format_duration, intern, AlbumSummary, ArtistSummary, NewTrack, PlaylistSummary, QueueRecord,
+    SortDirection, SortField, Track, TrackFilter, TrackIdHeader, TrackRow,
 };
-use crate::paths;
-use crate::search::TrackFilter;
+
+pub mod playlist;
+pub use playlist::{
+    append_tracks_to_m3u, is_supported_playlist_file, normalize_path, parse_m3u,
+    parse_m3u_preview_paths, parse_m3u_str, playlist_name_from_path, resolve_entry_path,
+    sanitize_playlist_filename, write_m3u, ParsedPlaylist, PlaylistEntry, PlaylistError,
+};
 
 /// Maximum bound variables per `WHERE ... IN (...)` lookup. Chunked lookups
 /// stay clear of SQLite's variable limit for very large id/path sets.
@@ -2128,7 +2132,7 @@ mod tests {
 
         // Construct a title with CP1252 / invalid UTF-8 byte (0x92 = right single quote in CP1252) and null byte
         let raw_bytes = b"the 8 o\x92clock\x00 news is going crazy";
-        let sanitized = crate::metadata::sanitize_tag_bytes(raw_bytes);
+        let sanitized = metadata::sanitize_tag_bytes(raw_bytes);
         assert_eq!(sanitized, "the 8 o’clock news is going crazy");
 
         let track = NewTrack {

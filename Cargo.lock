@@ -473,7 +473,6 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 name = "audio"
 version = "0.3.2"
 dependencies = [
- "core",
  "cpal",
  "crossbeam-channel",
  "ffmpeg-next",
@@ -947,6 +946,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "components"
+version = "0.3.2"
+dependencies = [
+ "iced",
+ "model",
+ "serde",
+ "theme",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -988,25 +997,6 @@ dependencies = [
  "serde_json",
  "time",
  "url",
-]
-
-[[package]]
-name = "core"
-version = "0.3.2"
-dependencies = [
- "crossbeam-channel",
- "directories",
- "encoding_rs",
- "ffmpeg-next",
- "image",
- "md-5",
- "notify",
- "serde",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "turso",
- "walkdir",
 ]
 
 [[package]]
@@ -1420,6 +1410,21 @@ name = "data-url"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
+
+[[package]]
+name = "db"
+version = "0.3.2"
+dependencies = [
+ "encoding_rs",
+ "metadata",
+ "model",
+ "paths",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "turso",
+ "walkdir",
+]
 
 [[package]]
 name = "debugid"
@@ -3436,6 +3441,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "metadata"
+version = "0.3.2"
+dependencies = [
+ "crossbeam-channel",
+ "encoding_rs",
+ "ffmpeg-next",
+ "model",
+ "notify",
+ "thiserror 2.0.21",
+ "tracing",
+]
+
+[[package]]
 name = "miette"
 version = "5.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3516,6 +3534,13 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "model"
+version = "0.3.2"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -4264,6 +4289,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
 
 [[package]]
+name = "paths"
+version = "0.3.2"
+dependencies = [
+ "directories",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4350,15 +4382,16 @@ name = "plugins"
 version = "0.3.2"
 dependencies = [
  "async-io",
- "core",
  "crossbeam-channel",
  "extism",
  "futures-lite",
  "md-5",
  "mpris-server",
+ "paths",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+ "thumbnail",
  "tracing",
  "ureq",
  "url",
@@ -5733,6 +5766,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "theme"
+version = "0.3.2"
+dependencies = [
+ "iced",
+ "paths",
+ "serde",
+ "toml 1.2.1+spec-1.1.0",
+ "tracing",
+ "walkdir",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5779,6 +5824,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ad99c4c6d32803332c548b1af0540b357b3f5fc0be8f6c6bfe8b2e6ae784070"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "thumbnail"
+version = "0.3.2"
+dependencies = [
+ "image",
+ "md-5",
+ "metadata",
+ "paths",
+ "tracing",
 ]
 
 [[package]]
@@ -6359,14 +6415,20 @@ name = "ui"
 version = "0.3.2"
 dependencies = [
  "audio",
- "core",
+ "components",
  "crossbeam-channel",
+ "db",
  "iced",
  "kdl 6.7.1",
+ "metadata",
+ "model",
+ "paths",
  "plugins",
  "rfd",
  "serde",
+ "theme",
  "thiserror 2.0.21",
+ "thumbnail",
  "tokio",
  "toml 1.2.1+spec-1.1.0",
  "tracing",

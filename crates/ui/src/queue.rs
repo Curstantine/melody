@@ -6,7 +6,7 @@
 //! for the rest and the persisted membership itself live in the database
 //! (`playback_queues` / `playback_queue_tracks`).
 
-use core_engine::{QueueRecord, TrackRow};
+use model::{QueueRecord, TrackRow};
 
 pub const DEFAULT_QUEUE_NAME: &str = "Queue";
 
@@ -92,7 +92,7 @@ pub struct QueueSummary {
     pub source_playlist: Option<String>,
 }
 
-impl core_engine::FieldLookup for QueueSummary {
+impl model::FieldLookup for QueueSummary {
     fn lookup(&self, key: &str) -> Option<std::borrow::Cow<'_, str>> {
         match key {
             "id" => Some(std::borrow::Cow::Owned(self.id.to_string())),
@@ -462,7 +462,7 @@ impl QueueStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core_engine::{QueueRecord, TrackRow};
+    use model::{QueueRecord, TrackRow};
     use std::sync::Arc;
 
     fn track(id: i64) -> TrackRow {

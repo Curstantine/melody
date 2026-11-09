@@ -2,7 +2,7 @@ use iced::overlay::menu;
 use iced::widget::{button, container, pick_list, scrollable, slider, text_input, toggler};
 use iced::{Background, Border, Color, Shadow, Theme};
 
-use super::ThemeConfig;
+use theme::ThemeConfig;
 
 pub fn main_background(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_theme| container::Style {

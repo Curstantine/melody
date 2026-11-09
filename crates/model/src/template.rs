@@ -127,7 +127,6 @@ pub fn format_template(template: &str, lookup: &impl FieldLookup) -> String {
             result.push('}');
             i += 2;
         } else if bytes[i] == b'[' {
-            // Find matching ']'
             let start = i + 1;
             let mut depth = 1;
             let mut end = start;
@@ -144,13 +143,11 @@ pub fn format_template(template: &str, lookup: &impl FieldLookup) -> String {
 
             if depth == 0 {
                 let inner_slice = &template[start..end];
-                // Check if all placeholders in inner_slice are satisfied
                 if all_placeholders_satisfied(inner_slice, lookup) {
                     format_template_direct_into(&mut result, inner_slice, lookup);
                 }
                 i = end + 1;
             } else {
-                // Unclosed '[', emit as literal
                 result.push('[');
                 i += 1;
             }
@@ -487,13 +484,11 @@ mod tests {
             genre: None,
         };
 
-        // Conditional bracket group [ • {year}] is omitted cleanly because year is None
         assert_eq!(
             format_template("{title}[ • {year}]", &track),
             "Unknown Track"
         );
 
-        // Dangling separator without brackets is cleaned up
         assert_eq!(format_template("{title} • {year}", &track), "Unknown Track");
     }
 
@@ -512,7 +507,6 @@ mod tests {
             duration_label: "7:52".to_string(),
         };
 
-        // Both exact field name (album) and alias (title) work
         assert_eq!(
             format_template("{album}", &album),
             "Yūaku no Inori - Anima immortalis est."

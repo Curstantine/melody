@@ -1,6 +1,6 @@
 # String Formatting & View Templates
 
-Melody includes a lightweight, flexible template formatting engine in [`core_engine::template`](file:///crates/core/src/template.rs) (accessible via [`format_template`](file:///crates/core/src/template.rs#L112)). It allows users to dynamically customize how tracks, albums, artists, playlists, and queues are displayed throughout the UI via KDL layout files.
+Melody includes a lightweight, flexible template formatting engine in [`model::template`](file:///crates/model/src/template.rs) (accessible via [`format_template`](file:///crates/model/src/template.rs#L112)). It allows users to dynamically customize how tracks, albums, artists, playlists, and queues are displayed throughout the UI via KDL layout files.
 
 ---
 

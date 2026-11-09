@@ -1,0 +1,15 @@
+[package]
+name = "theme"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+paths.workspace = true
+iced = { workspace = true, features = ["advanced", "thread-pool"] }
+serde.workspace = true
+toml.workspace = true
+tracing.workspace = true
+walkdir.workspace = true

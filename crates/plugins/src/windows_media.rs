@@ -404,9 +404,9 @@ mod win {
         // Thumbnail resolution: probe thumbnail cache
         let path = PathBuf::from(&track.file_path);
         // Ensure thumbnail is available in cache
-        let _ = core_engine::get_or_create_thumbnail(&path, 500);
-        let key = core_engine::compute_thumbnail_cache_key(&path, 500);
-        let thumb_file = core_engine::thumbnail_cache_dir().join(format!("{}.jpg", key));
+        let _ = thumbnail::get_or_create_thumbnail(&path, 500);
+        let key = thumbnail::compute_thumbnail_cache_key(&path, 500);
+        let thumb_file = paths::thumbnail_cache_dir().join(format!("{}.jpg", key));
         if thumb_file.is_file() {
             let clean_path = thumb_file.to_string_lossy().to_string();
             if let Ok(file_async) = StorageFile::GetFileFromPathAsync(&HSTRING::from(&clean_path)) {

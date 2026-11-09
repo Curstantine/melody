@@ -1,16 +1,17 @@
 use std::collections::VecDeque;
 
 use super::ScrollOffset;
-use core_engine::{format_template, SortDirection, SortField, TrackFilter, TrackRow};
 use iced::widget::{
     button, column, container, mouse_area, row, scrollable, text_input, Space, Widget,
 };
 use iced::{Alignment, Element, Length};
+use model::{format_template, SortDirection, SortField, TrackFilter, TrackRow};
 
-use crate::components::{self, text, TrackMenuContext};
+use crate::components::{self, text};
 use crate::icons;
-use crate::message::Message;
-use crate::theme::{styles, ThemeConfig};
+use crate::message::{Message, TrackMenuContext};
+use components::styles;
+use theme::ThemeConfig;
 
 /// Fixed pixel height of a single track row. The virtualization math depends on
 /// every row rendering at exactly this height.
@@ -580,7 +581,7 @@ mod tests {
     use super::*;
     use crate::layout::LibraryFormatConfig;
     use crate::theme::ThemeConfig;
-    use core_engine::TrackRow;
+    use model::TrackRow;
 
     /// Simulated catalog size for the virtualization tests.
     const LARGE_LIBRARY_TRACK_COUNT: usize = 100_000;

@@ -6,8 +6,9 @@ use crate::components::text;
 use crate::icons;
 use crate::layout::schema::{ContainerStyle, LayoutComponent, LayoutNode, Orientation};
 use crate::message::{Message, ViewTab};
-use crate::theme::{styles, ThemeConfig};
 use crate::views::{self, StatusBar, StatusBarContext};
+use components::styles;
+use theme::ThemeConfig;
 
 impl App {
     pub fn render_layout<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {

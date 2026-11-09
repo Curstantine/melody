@@ -1,4 +1,4 @@
-use core_engine::SortField;
+use model::SortField;
 use thiserror::Error;
 
 /// Configuration for a single column in the library table view.

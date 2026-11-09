@@ -5,8 +5,8 @@ use iced::widget::{button, column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length, Padding};
 
 use crate::icons;
-use crate::message::Message;
-use crate::theme::{styles, ThemeConfig};
+use crate::styles;
+use theme::ThemeConfig;
 
 use super::text;
 
@@ -27,32 +27,23 @@ const DETAILS_WIDTH: f32 = 100.0;
 /// The component owns the full look — leading art, typography, details
 /// column, and play/shuffle actions. Callers supply pre-rendered strings and
 /// their context-specific messages (album vs. artist scope).
-pub struct CatalogRow<'a> {
+pub struct CatalogRow<'a, M> {
     pub theme: &'a ThemeConfig,
-    /// Leading artwork element (caller-built via `components::cover_art` so
-    /// each view keeps its own fallback icon and image cache).
-    pub leading: Element<'a, Message>,
+    pub leading: Element<'a, M>,
     pub title: Cow<'a, str>,
-    /// Split subtitle so callers pass borrowed labels without allocating a
-    /// combined string: rendered as `left`, or `left • right` when `right` is
-    /// non-empty.
     pub subtitle_left: Cow<'a, str>,
     pub subtitle_right: Cow<'a, str>,
-    /// Optional right-hand `(top, bottom)` details. `None` renders no details
-    /// column (artists); `Some` renders tracks/duration (albums).
     pub details: Option<(Cow<'a, str>, Cow<'a, str>)>,
-    pub on_select: Message,
-    pub on_play: Message,
-    pub on_shuffle: Message,
-    pub on_right_press: Option<Message>,
+    pub on_select: M,
+    pub on_play: M,
+    pub on_shuffle: M,
+    pub on_right_press: Option<M>,
     pub width: Length,
     pub height: Length,
 }
 
-impl<'a> CatalogRow<'a> {
-    /// Builds the shared catalog list row element with the caller-provided
-    /// outer sizing, so callers don't wrap it for virtualization.
-    pub fn view(self) -> Element<'a, Message> {
+impl<'a, M: Clone + 'static> CatalogRow<'a, M> {
+    pub fn view(self) -> Element<'a, M> {
         let Self {
             theme: theme_cfg,
             leading,
@@ -122,7 +113,7 @@ impl<'a> CatalogRow<'a> {
             .height(Length::Fill)
             .on_press(on_select);
 
-        let select_element: Element<'a, Message> = match on_right_press {
+        let select_element: Element<'a, M> = match on_right_press {
             Some(msg) => iced::widget::mouse_area(select_btn)
                 .on_right_press(msg)
                 .boxed(),
@@ -162,24 +153,23 @@ impl<'a> CatalogRow<'a> {
 /// block below, and play/shuffle overlay buttons anchored to the artwork.
 /// Callers supply the leading artwork (keeping each view's fallback icon and
 /// image cache) plus pre-rendered labels and context messages.
-pub struct CatalogTile<'a> {
+pub struct CatalogTile<'a, M> {
     pub theme: &'a ThemeConfig,
     pub tile_width: f32,
-    pub leading: Element<'a, Message>,
+    pub leading: Element<'a, M>,
     pub title: Cow<'a, str>,
     pub mid_left: Cow<'a, str>,
     pub mid_right: Cow<'a, str>,
     pub bottom_left: Cow<'a, str>,
     pub bottom_right: Cow<'a, str>,
-    pub on_select: Message,
-    pub on_play: Message,
-    pub on_shuffle: Message,
-    pub on_right_press: Option<Message>,
+    pub on_select: M,
+    pub on_play: M,
+    pub on_shuffle: M,
+    pub on_right_press: Option<M>,
 }
 
-impl<'a> CatalogTile<'a> {
-    /// Builds the shared catalog tile element.
-    pub fn view(self) -> Element<'a, Message> {
+impl<'a, M: Clone + 'static> CatalogTile<'a, M> {
+    pub fn view(self) -> Element<'a, M> {
         let Self {
             theme: theme_cfg,
             tile_width: tile_w,
@@ -197,9 +187,6 @@ impl<'a> CatalogTile<'a> {
 
         let meta = container(
             column![
-                // Single-line title: width-bounded with no wrapping and ellipsis
-                // so long Latin and CJK titles truncate with an ellipsis at the
-                // tile edge instead of wrapping or hard clipping.
                 text(theme_cfg, title)
                     .size(13)
                     .width(Length::Fill)
@@ -283,11 +270,9 @@ impl<'a> CatalogTile<'a> {
 
 /// Height of a track row in the open-playlist and queue lists.
 pub const TRACK_ROW_HEIGHT: f32 = 26.0;
-
 /// Width of the leading track-number / drag-handle slot. Fixed in both
 /// states so the number/handle swap never shifts layout or re-fires hover.
 const TRACK_ROW_SLOT_WIDTH: f32 = 36.0;
-
 /// Width of the duration label column.
 const TRACK_ROW_DURATION_WIDTH: f32 = 64.0;
 
@@ -308,7 +293,7 @@ fn format_index(index: usize) -> Cow<'static, str> {
     }
 }
 
-pub struct TrackRow<'a> {
+pub struct TrackRow<'a, M> {
     pub theme: &'a ThemeConfig,
     /// Zero-based position; rendered as `index + 1` in the leading slot.
     pub index: usize,
@@ -319,23 +304,22 @@ pub struct TrackRow<'a> {
     /// background with primary-colored title and track number.
     pub highlighted: bool,
     pub dragging: bool,
-    /// Reveals the drag handle in place of the track number.
     pub show_handle: bool,
     /// Click action for the row body. `None` marks an unmatched playlist
     /// entry: muted title with no click action (still draggable and
     /// removable).
-    pub on_press: Option<Message>,
-    pub on_right_press: Option<Message>,
-    pub drag_start: Message,
-    pub drag_release: Message,
-    pub hover_enter: Message,
-    pub hover_exit: Message,
-    pub on_remove: Message,
+    pub on_press: Option<M>,
+    pub on_right_press: Option<M>,
+    pub drag_start: M,
+    pub drag_release: M,
+    pub hover_enter: M,
+    pub hover_exit: M,
+    pub on_remove: M,
 }
 
-impl<'a> TrackRow<'a> {
+impl<'a, M: Clone + 'static> TrackRow<'a, M> {
     /// Builds the shared track row element.
-    pub fn view(self) -> Element<'a, Message> {
+    pub fn view(self) -> Element<'a, M> {
         let Self {
             theme: theme_cfg,
             index,
@@ -365,7 +349,7 @@ impl<'a> TrackRow<'a> {
             Some(_) => theme_cfg.text,
         };
 
-        let slot_content: Element<'_, Message> = if show_handle {
+        let slot_content: Element<'_, M> = if show_handle {
             container(icons::icon(icons::QUEUE_SVG, 12.0, theme_cfg.text_muted))
                 .width(TRACK_ROW_SLOT_WIDTH)
                 .height(TRACK_ROW_HEIGHT)
@@ -422,8 +406,6 @@ impl<'a> TrackRow<'a> {
             .width(Length::Fill)
             .height(TRACK_ROW_HEIGHT);
 
-        // Single click selects (arming double-click to play). Unavailable rows
-        // stay unclickable for playback but remain draggable via the handle.
         let mut area = iced::widget::mouse_area(row_container)
             .on_enter(hover_enter)
             .on_exit(hover_exit);
@@ -435,15 +417,13 @@ impl<'a> TrackRow<'a> {
         if let Some(message) = on_right_press {
             area = area.on_right_press(message);
         }
-        let body: Element<'_, Message> = area.boxed();
+        let body: Element<'_, M> = area.boxed();
 
         let remove_btn = button(icons::icon(icons::TRASH_SVG, 12.0, theme_cfg.text_muted))
             .style(styles::icon_control_button(theme_cfg))
             .padding([3, 5])
             .on_press(on_remove);
 
-        // The highlight wraps the whole row so the background spans the handle
-        // slot, the content, and the delete button.
         container(
             row![slot, body, remove_btn]
                 .spacing(4)

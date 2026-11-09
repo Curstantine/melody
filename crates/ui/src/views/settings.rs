@@ -10,7 +10,8 @@ use iced::{Alignment, Border, Color, Element, Length};
 use crate::components::{self, border_hori, text};
 use crate::icons;
 use crate::message::{Message, SettingsTab, ViewMode};
-use crate::theme::{styles, ThemeConfig};
+use components::styles;
+use theme::ThemeConfig;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Spacing & Padding Constants

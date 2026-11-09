@@ -3,7 +3,28 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use thiserror::Error;
 
-use crate::model::NewTrack;
+use model::NewTrack;
+
+pub mod watcher;
+pub use watcher::{LibraryWatcher, WatcherError};
+
+/// Supported audio file extensions for library indexing.
+pub const SUPPORTED_AUDIO_EXTENSIONS: &[&str] = &[
+    "mp3", "flac", "ogg", "oga", "wav", "m4a", "aac", "alac", "opus", "aiff",
+];
+
+/// Returns `true` if the given path has a supported audio file extension.
+pub fn is_supported_audio_path<P: AsRef<Path>>(path: P) -> bool {
+    let path = path.as_ref();
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| {
+            SUPPORTED_AUDIO_EXTENSIONS
+                .iter()
+                .any(|&s| ext.eq_ignore_ascii_case(s))
+        })
+        .unwrap_or(false)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AudioTechnicalInfo {
@@ -97,16 +118,6 @@ pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTech
         }
     };
 
-    let channel_layout = match channels {
-        1 => "Mono".to_string(),
-        2 => "Stereo".to_string(),
-        3 => "2.1 Surround".to_string(),
-        4 => "Quadraphonic".to_string(),
-        6 => "5.1 Surround".to_string(),
-        8 => "7.1 Surround".to_string(),
-        ch => format!("{} ch", ch),
-    };
-
     let codec_id = codec_params.id();
     let codec_name = match codec_id {
         ffmpeg_next::codec::Id::FLAC => "FLAC".to_string(),
@@ -136,6 +147,14 @@ pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTech
         }
     };
 
+    let channel_layout = match channels {
+        1 => "Mono".to_string(),
+        2 => "Stereo".to_string(),
+        6 => "5.1 Surround".to_string(),
+        8 => "7.1 Surround".to_string(),
+        n => format!("{n} Channels"),
+    };
+
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -152,17 +171,12 @@ pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTech
     }
     .to_string();
 
-    let bitrate_kbps = if duration_ms > 0 && file_size_bytes > 0 {
-        let dur_secs = duration_ms as f64 / 1000.0;
-        let kbps = (file_size_bytes as f64 * 8.0) / dur_secs / 1000.0;
-        Some(kbps.round() as u32)
+    let bitrate_kbps = if ictx.bit_rate() > 0 {
+        Some((ictx.bit_rate() / 1000) as u32)
+    } else if duration_ms > 0 && file_size_bytes > 0 {
+        Some(((file_size_bytes * 8) / duration_ms) as u32)
     } else {
-        let br = ictx.bit_rate();
-        if br > 0 {
-            Some((br / 1000) as u32)
-        } else {
-            None
-        }
+        None
     };
 
     Some(AudioTechnicalInfo {
@@ -275,7 +289,6 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
     let mut duration_ms = 0u64;
     let format_dur = ictx.duration();
     if format_dur > 0 {
-        // format_dur is in AV_TIME_BASE units (microseconds)
         duration_ms = (format_dur as u64) / 1000;
     } else if let Some(ref st) = audio_stream {
         let dur = st.duration();
@@ -337,7 +350,6 @@ pub fn sanitize_tag_bytes(bytes: &[u8]) -> String {
 
     let has_consecutive_non_ascii = filtered.windows(2).any(|w| w[0] >= 0x80 && w[1] >= 0x80);
 
-    // If there are consecutive non-ASCII bytes, it's typically multibyte Asian text (GBK/Shift-JIS)
     if has_consecutive_non_ascii {
         let (cow_gbk, had_errors_gbk) = encoding_rs::GB18030.decode_without_bom_handling(&filtered);
         if !had_errors_gbk {
@@ -351,14 +363,12 @@ pub fn sanitize_tag_bytes(bytes: &[u8]) -> String {
         }
     }
 
-    // Try Windows-1252 (CP1252 covers smart quotes like 0x92, dashes, accented Latin)
     let (cow_1252, had_errors_1252) =
         encoding_rs::WINDOWS_1252.decode_without_bom_handling(&filtered);
     if !had_errors_1252 {
         return cow_1252.trim().to_string();
     }
 
-    // If not tried yet, try GB18030
     if !has_consecutive_non_ascii {
         let (cow_gbk, had_errors_gbk) = encoding_rs::GB18030.decode_without_bom_handling(&filtered);
         if !had_errors_gbk {
@@ -366,7 +376,6 @@ pub fn sanitize_tag_bytes(bytes: &[u8]) -> String {
         }
     }
 
-    // Safe fallback: Lossy UTF-8
     String::from_utf8_lossy(&filtered).trim().to_string()
 }
 
@@ -396,13 +405,7 @@ fn parse_index_slash(val: &str) -> Option<u32> {
     }
 }
 
-/// Extracts album cover art image data from either embedded audio metadata
-/// (attached pictures / cover art streams, native FLAC picture blocks, ID3 APIC frames)
-/// or directory image files (`cover.jpg`, `folder.png`, `front.jpg`, etc.).
 pub fn extract_cover_art(path: &Path) -> Option<Vec<u8>> {
-    // 1. Fast-path for FLAC files: parse native FLAC metadata blocks directly.
-    // FFmpeg's flac demuxer drops picture blocks when MIME type length is 0 (unspecified),
-    // which is permitted by the FLAC specification and common in various rippers/encoders.
     let is_flac = path
         .extension()
         .and_then(|e| e.to_str())
@@ -417,7 +420,6 @@ pub fn extract_cover_art(path: &Path) -> Option<Vec<u8>> {
 
     init_ffmpeg();
 
-    // 2. Try reading embedded visual art via FFmpeg attached pictures
     if let Ok(ictx) = ffmpeg_next::format::input(path) {
         for stream in ictx.streams() {
             let is_attached_pic = stream
@@ -441,7 +443,6 @@ pub fn extract_cover_art(path: &Path) -> Option<Vec<u8>> {
         }
     }
 
-    // 3. Fallbacks for containers where FFmpeg may have missed attached pictures
     if !is_flac {
         if let Some(art) = extract_flac_picture(path) {
             return Some(art);
@@ -452,22 +453,14 @@ pub fn extract_cover_art(path: &Path) -> Option<Vec<u8>> {
         return Some(art);
     }
 
-    // 4. Fallback: check track parent directory for standard cover art filenames
     extract_directory_cover_art(path)
 }
 
-/// Extracts embedded cover art from a FLAC file's METADATA_BLOCK_PICTURE blocks.
-///
-/// FFmpeg's flac demuxer fails to expose attached picture streams when the embedded
-/// picture block has an empty or unspecified MIME type (`mime_type_len == 0`), which is
-/// explicitly valid per the FLAC specification. This function parses the FLAC container
-/// directly to retrieve embedded images.
 pub fn extract_flac_picture(path: &Path) -> Option<Vec<u8>> {
     let mut file = File::open(path).ok()?;
     let mut header = [0u8; 4];
     file.read_exact(&mut header).ok()?;
 
-    // Some FLAC files have an ID3v2 tag prepended before the "fLaC" marker
     if &header[0..3] == b"ID3" {
         let mut id3_rest = [0u8; 6];
         file.read_exact(&mut id3_rest).ok()?;
@@ -478,7 +471,7 @@ pub fn extract_flac_picture(path: &Path) -> Option<Vec<u8>> {
             | (id3_rest[5] as u64 & 0x7F);
         let mut total_skip = 10 + tag_size;
         if (flags & 0x10) != 0 {
-            total_skip += 10; // Footer present
+            total_skip += 10;
         }
         file.seek(SeekFrom::Start(total_skip)).ok()?;
         file.read_exact(&mut header).ok()?;
@@ -503,9 +496,7 @@ pub fn extract_flac_picture(path: &Path) -> Option<Vec<u8>> {
             | (block_header[3] as u64);
 
         if block_type == 6 {
-            // METADATA_BLOCK_PICTURE
             if let Some((pic_type, data)) = parse_flac_picture_block(&mut file, block_len) {
-                // Type 3 is Front Cover (preferred)
                 if pic_type == 3 {
                     return Some(data);
                 }
@@ -537,11 +528,9 @@ fn parse_flac_picture_block<R: Read + Seek>(
     let start_pos = reader.stream_position().ok()?;
     let mut u32_buf = [0u8; 4];
 
-    // 1. Picture type (4 bytes)
     reader.read_exact(&mut u32_buf).ok()?;
     let pic_type = u32::from_be_bytes(u32_buf);
 
-    // 2. MIME type length (4 bytes)
     reader.read_exact(&mut u32_buf).ok()?;
     let mime_len = u32::from_be_bytes(u32_buf) as u64;
 
@@ -551,7 +540,6 @@ fn parse_flac_picture_block<R: Read + Seek>(
     }
     reader.seek(SeekFrom::Current(mime_len as i64)).ok()?;
 
-    // 3. Description length (4 bytes)
     reader.read_exact(&mut u32_buf).ok()?;
     let desc_len = u32::from_be_bytes(u32_buf) as u64;
 
@@ -561,14 +549,11 @@ fn parse_flac_picture_block<R: Read + Seek>(
     }
     reader.seek(SeekFrom::Current(desc_len as i64)).ok()?;
 
-    // 4. Width (4), Height (4), Color Depth (4), Colors Used (4) = 16 bytes
     reader.seek(SeekFrom::Current(16)).ok()?;
 
-    // 5. Picture data length (4 bytes)
     reader.read_exact(&mut u32_buf).ok()?;
     let data_len = u32::from_be_bytes(u32_buf) as u64;
 
-    // Up to 35 MB picture data limit
     if data_len == 0 || data_len > 35 * 1024 * 1024 {
         let _ = reader.seek(SeekFrom::Start(start_pos + block_len));
         return None;
@@ -577,13 +562,11 @@ fn parse_flac_picture_block<R: Read + Seek>(
     let mut data = vec![0u8; data_len as usize];
     reader.read_exact(&mut data).ok()?;
 
-    // Ensure reader position moves to the exact end of this block
     let _ = reader.seek(SeekFrom::Start(start_pos + block_len));
 
     Some((pic_type, data))
 }
 
-/// Extracts embedded cover art from ID3v2 tags (APIC frame).
 pub fn extract_id3_picture(path: &Path) -> Option<Vec<u8>> {
     let mut file = File::open(path).ok()?;
     let mut header = [0u8; 10];
@@ -618,20 +601,17 @@ pub fn extract_id3_picture(path: &Path) -> Option<Vec<u8>> {
             break;
         }
 
-        // Check if we hit padding (null bytes)
         if frame_header[0] == 0 {
             break;
         }
 
         let frame_id = &frame_header[0..4];
         let frame_len = if major_version == 4 {
-            // Synchsafe integer in ID3v2.4
             ((frame_header[4] as u64 & 0x7F) << 21)
                 | ((frame_header[5] as u64 & 0x7F) << 14)
                 | ((frame_header[6] as u64 & 0x7F) << 7)
                 | (frame_header[7] as u64 & 0x7F)
         } else {
-            // Regular big-endian u32 in ID3v2.3
             ((frame_header[4] as u64) << 24)
                 | ((frame_header[5] as u64) << 16)
                 | ((frame_header[6] as u64) << 8)
@@ -673,14 +653,13 @@ fn parse_apic_frame(data: &[u8]) -> Option<(u8, Vec<u8>)> {
     let encoding = data[0];
     let mut idx = 1;
 
-    // MIME type is null-terminated ASCII string
     while idx < data.len() && data[idx] != 0 {
         idx += 1;
     }
     if idx >= data.len() {
         return None;
     }
-    idx += 1; // skip null terminator
+    idx += 1;
 
     if idx >= data.len() {
         return None;
@@ -688,15 +667,12 @@ fn parse_apic_frame(data: &[u8]) -> Option<(u8, Vec<u8>)> {
     let pic_type = data[idx];
     idx += 1;
 
-    // Description is null-terminated string based on encoding
     if encoding == 1 || encoding == 2 {
-        // UTF-16: 2 null bytes (aligned)
         while idx + 1 < data.len() && !(data[idx] == 0 && data[idx + 1] == 0) {
             idx += 2;
         }
         idx = (idx + 2).min(data.len());
     } else {
-        // ISO-8859-1 or UTF-8: 1 null byte
         while idx < data.len() && data[idx] != 0 {
             idx += 1;
         }
@@ -731,7 +707,6 @@ fn extract_directory_cover_art(path: &Path) -> Option<Vec<u8>> {
         "art.png",
     ];
 
-    // 1. Exact match fast-path
     for candidate in candidates {
         let img_path = parent.join(candidate);
         if img_path.is_file() {
@@ -743,7 +718,6 @@ fn extract_directory_cover_art(path: &Path) -> Option<Vec<u8>> {
         }
     }
 
-    // 2. Case-insensitive directory scan
     if let Ok(entries) = std::fs::read_dir(parent) {
         for entry in entries.flatten() {
             if let Ok(file_type) = entry.file_type() {
@@ -790,7 +764,7 @@ mod tests {
             channels: 2,
             channel_layout: "Stereo".to_string(),
             bitrate_kbps: Some(1536),
-            file_size_bytes: 52_428_800, // 50.0 MB
+            file_size_bytes: 52_428_800,
         };
 
         assert_eq!(info.formatted_file_size(), "50.0 MB");
@@ -828,7 +802,6 @@ mod tests {
         let extracted = extract_cover_art(&song_path);
         assert_eq!(extracted, Some(fake_img_data.to_vec()));
 
-        // Test non-existent cover
         let isolated_dir = temp_dir.join("no_cover_sub");
         let _ = std::fs::create_dir_all(&isolated_dir);
         let isolated_song = isolated_dir.join("song2.mp3");

@@ -3,16 +3,14 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use audio::{AudioController, AudioEngine};
-use core_engine::{
-    parse_m3u, write_m3u, LibraryDatabase, PlaylistEntry, PlaylistSummary, SortDirection,
-    SortField, Track, TrackFilter, TrackRow,
-};
 use crossbeam_channel::Receiver;
+use db::{parse_m3u, write_m3u, LibraryDatabase, PlaylistEntry};
 use iced::futures::SinkExt;
 use iced::widget::operation::scrollable::{scroll_to, snap_to, AbsoluteOffset, RelativeOffset};
 use iced::widget::operation::Animation;
 use iced::widget::{button, column, container, image, mouse_area, row, Space, Widget};
 use iced::{Alignment, Background, Color, Element, Length, Subscription, Task, Theme};
+use model::{PlaylistSummary, SortDirection, SortField, Track, TrackFilter, TrackRow};
 use plugins::scrobbler::{LastFmPlugin, ListenBrainzPlugin, ScrobbleService};
 #[cfg(target_os = "linux")]
 use plugins::MprisPlugin;
@@ -27,14 +25,16 @@ use crate::icons;
 use crate::layout::LayoutManager;
 use crate::message::{
     Message, PlaylistItem, PlaylistOpenIntent, PlaylistResolution, PlaylistSection, SettingsTab,
-    ViewTab,
+    TrackMenuContext, ViewTab,
 };
 use crate::queue::{queue_window_for_start, QueueSource, QueueStore, DEFAULT_QUEUE_NAME};
 use crate::state::AppState;
-use crate::theme::{styles, ThemeConfig, ThemeManager};
 use crate::views::{
     AlbumsView, ArtistsView, LibraryView, NowPlayingView, PlayerBar, PlaylistsView, SettingsView,
 };
+use components::styles;
+use components::{ContextMenuAction, ContextMenuState, ContextMenuTarget};
+use theme::{ThemeConfig, ThemeManager};
 
 /// Album covers resolved per background chunk. Bounds the `IN (...)` lookup
 /// and the `spawn_blocking` downscale batch behind album/artist scrolling.
@@ -99,7 +99,7 @@ pub struct App {
     pub(crate) current_cover: Option<image::Handle>,
     pub(crate) current_blurred_cover: Option<image::Handle>,
     pub(crate) current_next_cover: Option<image::Handle>,
-    pub(crate) current_tech_info: Option<core_engine::AudioTechnicalInfo>,
+    pub(crate) current_tech_info: Option<metadata::AudioTechnicalInfo>,
     pub(crate) is_playing: bool,
     pub(crate) position_ms: u64,
     pub(crate) duration_ms: u64,
@@ -125,7 +125,7 @@ pub struct App {
 
     // Library Watcher and Directory Monitoring
     pub(crate) watch_library: bool,
-    pub(crate) library_watcher: Option<core_engine::LibraryWatcher>,
+    pub(crate) library_watcher: Option<metadata::LibraryWatcher>,
     pub(crate) watcher_rx: Option<crossbeam_channel::Receiver<Vec<PathBuf>>>,
     pub(crate) pending_watcher_paths: Vec<PathBuf>,
 
@@ -138,12 +138,12 @@ pub struct App {
     pub(crate) state_save_seq: u64,
     pub(crate) search_seq: u64,
 
-    pub(crate) cache_stats: core_engine::CacheStats,
+    pub(crate) cache_stats: thumbnail::CacheStats,
     pub(crate) db_size_bytes: u64,
 
     pub(crate) media_controls_rx: Option<Receiver<PlayerAction>>,
 
-    pub(crate) context_menu: Option<components::ContextMenuState>,
+    pub(crate) context_menu: Option<ContextMenuState>,
     pub(crate) duplicate_prompt: Option<DuplicatePromptState>,
     pub(crate) window_size: iced::Size,
     pub(crate) pending_playlist_tracks: Vec<TrackRow>,
@@ -154,7 +154,7 @@ impl App {
         let t_new = std::time::Instant::now();
         info!("Initializing Melody Native Player application");
 
-        let db_path = core_engine::database_file();
+        let db_path = paths::database_file();
         info!("Using SQLite database at: {:?}", db_path);
 
         let db = tokio::runtime::Handle::current().block_on(async {
@@ -208,8 +208,8 @@ impl App {
         let mut layout_manager = LayoutManager::new();
         layout_manager.select_layout(&config.layout_name);
 
-        let config_path = core_engine::config_file();
-        let state_path = core_engine::state_file();
+        let config_path = paths::config_file();
+        let state_path = paths::state_file();
 
         let library = LibraryView::new(config.page_size);
         let albums = AlbumsView::with_tile_width(
@@ -318,7 +318,7 @@ impl App {
             config_save_seq: 0,
             state_save_seq: 0,
             search_seq: 0,
-            cache_stats: core_engine::CacheStats::default(),
+            cache_stats: thumbnail::CacheStats::default(),
             db_size_bytes: 0,
 
             media_controls_rx,
@@ -423,7 +423,7 @@ impl App {
         info!(
             "App loaded in {:?} (+{:?} since process start)",
             t_new.elapsed(),
-            core_engine::elapsed_since_app_start()
+            paths::elapsed_since_app_start()
         );
 
         (app, initial_task)
@@ -434,7 +434,7 @@ impl App {
             Some(track) => format!("{} - {} | Melody", track.title, track.artist),
             None => "Melody".to_string(),
         };
-        if core_engine::is_debug() {
+        if paths::is_debug() {
             format!("{base} [DEBUG]")
         } else {
             base
@@ -1259,9 +1259,9 @@ impl App {
             Message::OpenTrackContextMenu { track_id, context } => {
                 let position = self.cursor_position();
                 if let Some(track) = self.find_track_row(track_id) {
-                    self.context_menu = Some(components::ContextMenuState {
+                    self.context_menu = Some(ContextMenuState {
                         position,
-                        target: components::ContextMenuTarget::Track { track, context },
+                        target: ContextMenuTarget::Track { track, context },
                         submenu: None,
                     });
                     Task::none()
@@ -1294,9 +1294,9 @@ impl App {
                 context,
                 position,
             } => {
-                self.context_menu = Some(components::ContextMenuState {
+                self.context_menu = Some(ContextMenuState {
                     position,
-                    target: components::ContextMenuTarget::Track { track, context },
+                    target: ContextMenuTarget::Track { track, context },
                     submenu: None,
                 });
                 Task::none()
@@ -1305,9 +1305,9 @@ impl App {
             Message::OpenAlbumContextMenu(idx) => {
                 if let Some(album) = self.albums.albums.get(idx).cloned() {
                     let position = self.cursor_position();
-                    self.context_menu = Some(components::ContextMenuState {
+                    self.context_menu = Some(ContextMenuState {
                         position,
-                        target: components::ContextMenuTarget::Album(album),
+                        target: ContextMenuTarget::Album(album),
                         submenu: None,
                     });
                 }
@@ -1317,9 +1317,9 @@ impl App {
             Message::OpenArtistContextMenu(idx) => {
                 if let Some(artist) = self.artists.artists.get(idx).cloned() {
                     let position = self.cursor_position();
-                    self.context_menu = Some(components::ContextMenuState {
+                    self.context_menu = Some(ContextMenuState {
                         position,
-                        target: components::ContextMenuTarget::Artist(artist),
+                        target: ContextMenuTarget::Artist(artist),
                         submenu: None,
                     });
                 }
@@ -1328,9 +1328,9 @@ impl App {
 
             Message::OpenPlaylistContextMenu(playlist) => {
                 let position = self.cursor_position();
-                self.context_menu = Some(components::ContextMenuState {
+                self.context_menu = Some(ContextMenuState {
                     position,
-                    target: components::ContextMenuTarget::Playlist(playlist),
+                    target: ContextMenuTarget::Playlist(playlist),
                     submenu: None,
                 });
                 Task::none()
@@ -1338,9 +1338,9 @@ impl App {
 
             Message::OpenQueueContextMenu { id, name } => {
                 let position = self.cursor_position();
-                self.context_menu = Some(components::ContextMenuState {
+                self.context_menu = Some(ContextMenuState {
                     position,
-                    target: components::ContextMenuTarget::Queue { id, name },
+                    target: ContextMenuTarget::Queue { id, name },
                     submenu: None,
                 });
                 Task::none()
@@ -1350,11 +1350,11 @@ impl App {
                 if let Some(ref track) = self.current_track {
                     let track_row = TrackRow::from(track);
                     let position = self.cursor_position();
-                    self.context_menu = Some(components::ContextMenuState {
+                    self.context_menu = Some(ContextMenuState {
                         position,
-                        target: components::ContextMenuTarget::Track {
+                        target: ContextMenuTarget::Track {
                             track: track_row,
-                            context: components::TrackMenuContext::PlayerBar,
+                            context: TrackMenuContext::PlayerBar,
                         },
                         submenu: None,
                     });
@@ -1553,7 +1553,7 @@ impl App {
                                 .unwrap_or_default();
 
                             let wrote = tokio::task::spawn_blocking(move || {
-                                core_engine::append_tracks_to_m3u(&path, &tracks)
+                                db::append_tracks_to_m3u(&path, &tracks)
                             })
                             .await
                             .ok()
@@ -1603,7 +1603,7 @@ impl App {
                                 .unwrap_or_default();
 
                             let wrote = tokio::task::spawn_blocking(move || {
-                                core_engine::append_tracks_to_m3u(&path, &tracks)
+                                db::append_tracks_to_m3u(&path, &tracks)
                             })
                             .await
                             .ok()
@@ -1764,7 +1764,7 @@ impl App {
                         let _ = watcher.update_folders(&folders);
                     } else {
                         let (tx, rx) = crossbeam_channel::unbounded();
-                        match core_engine::LibraryWatcher::new(tx, Duration::from_millis(1000)) {
+                        match metadata::LibraryWatcher::new(tx, Duration::from_millis(1000)) {
                             Ok(mut watcher) => {
                                 let _ = watcher.update_folders(&folders);
                                 self.library_watcher = Some(watcher);
@@ -1857,7 +1857,7 @@ impl App {
                 if enabled {
                     if self.library_watcher.is_none() {
                         let (tx, rx) = crossbeam_channel::unbounded();
-                        match core_engine::LibraryWatcher::new(tx, Duration::from_millis(1000)) {
+                        match metadata::LibraryWatcher::new(tx, Duration::from_millis(1000)) {
                             Ok(mut watcher) => {
                                 let _ = watcher.update_folders(&self.settings.library_folders);
                                 self.library_watcher = Some(watcher);
@@ -1914,8 +1914,8 @@ impl App {
                 Task::perform(
                     async move {
                         tokio::task::spawn_blocking(move || {
-                            let _ = core_engine::clear_thumbnail_cache();
-                            let stats = core_engine::get_thumbnail_cache_stats();
+                            let _ = thumbnail::clear_thumbnail_cache();
+                            let stats = thumbnail::get_thumbnail_cache_stats();
                             let db_size = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
                             (stats, db_size)
                         })
@@ -2363,7 +2363,7 @@ impl App {
                     async move {
                         let path = unique_playlist_path(&name);
                         let count = if !pending_tracks.is_empty() {
-                            match core_engine::append_tracks_to_m3u(&path, &pending_tracks) {
+                            match db::append_tracks_to_m3u(&path, &pending_tracks) {
                                 Ok(c) => c,
                                 Err(e) => {
                                     warn!(
@@ -2422,7 +2422,7 @@ impl App {
                                 .file_stem()
                                 .and_then(|s| s.to_str())
                                 .unwrap_or_default();
-                            let sanitized = core_engine::sanitize_playlist_filename(&name);
+                            let sanitized = db::sanitize_playlist_filename(&name);
                             let new_path = if sanitized == old_stem {
                                 old_path.clone()
                             } else {
@@ -2508,7 +2508,7 @@ impl App {
                 Task::perform(
                     async move {
                         for path in paths {
-                            if !core_engine::is_supported_playlist_file(&path) {
+                            if !db::is_supported_playlist_file(&path) {
                                 continue;
                             }
                             match parse_m3u(&path) {
@@ -3356,21 +3356,16 @@ impl App {
             async move {
                 tokio::task::spawn_blocking(move || {
                     let cover =
-                        core_engine::get_or_create_thumbnail(&path, core_engine::THUMB_DIM_HIGH);
+                        thumbnail::get_or_create_thumbnail(&path, thumbnail::THUMB_DIM_HIGH);
 
-                    let blurred = cover
-                        .as_deref()
-                        .and_then(core_engine::generate_blurred_cover);
+                    let blurred = cover.as_deref().and_then(thumbnail::generate_blurred_cover);
 
-                    let tech_info = core_engine::extract_technical_info(&path, duration_ms);
+                    let tech_info = metadata::extract_technical_info(&path, duration_ms);
 
                     let lyrics = plugin_manager.fetch_lyrics(&artist, &title);
 
                     let next_cover = next_track_path.and_then(|nt_path| {
-                        core_engine::get_or_create_thumbnail(
-                            &nt_path,
-                            core_engine::THUMB_DIM_DEFAULT,
-                        )
+                        thumbnail::get_or_create_thumbnail(&nt_path, thumbnail::THUMB_DIM_DEFAULT)
                     });
 
                     (cover, blurred, next_cover, tech_info, lyrics)
@@ -3668,12 +3663,12 @@ impl App {
                     let mut results = Vec::with_capacity(targets.len());
                     for (id, m3u_path) in targets {
                         let track_paths =
-                            core_engine::parse_m3u_preview_paths(&m3u_path, 4).unwrap_or_default();
+                            db::parse_m3u_preview_paths(&m3u_path, 4).unwrap_or_default();
                         let mut covers = Vec::with_capacity(track_paths.len());
                         for track_path in track_paths {
-                            if let Some(bytes) = core_engine::get_or_create_thumbnail(
+                            if let Some(bytes) = thumbnail::get_or_create_thumbnail(
                                 &track_path,
-                                core_engine::THUMB_DIM_DEFAULT,
+                                thumbnail::THUMB_DIM_DEFAULT,
                             ) {
                                 if !bytes.is_empty() {
                                     covers.push(bytes);
@@ -3810,7 +3805,7 @@ impl App {
         Task::perform(
             async move {
                 tokio::task::spawn_blocking(move || {
-                    let stats = core_engine::get_thumbnail_cache_stats();
+                    let stats = thumbnail::get_thumbnail_cache_stats();
                     let db_size = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
                     (stats, db_size)
                 })
@@ -3920,9 +3915,9 @@ impl App {
                         // `None` bytes means "no cover available"; `Some` carries the
                         // downscaled JPEG. A missing path is treated as no cover.
                         let bytes = match path {
-                            Some(path) => core_engine::get_or_create_thumbnail(
+                            Some(path) => thumbnail::get_or_create_thumbnail(
                                 &path,
-                                core_engine::THUMB_DIM_DEFAULT,
+                                thumbnail::THUMB_DIM_DEFAULT,
                             )
                             .unwrap_or_default(),
                             None => Vec::new(),
@@ -3969,9 +3964,9 @@ impl App {
                         for chunk in paths.chunks(chunk_size.max(1)) {
                             s.spawn(move || {
                                 for path in chunk {
-                                    let _ = core_engine::get_or_create_thumbnail(
+                                    let _ = thumbnail::get_or_create_thumbnail(
                                         path,
-                                        core_engine::THUMB_DIM_DEFAULT,
+                                        thumbnail::THUMB_DIM_DEFAULT,
                                     );
                                 }
                             });
@@ -4184,7 +4179,7 @@ impl App {
         }
 
         if let Some(p) = self.playlist_by_id(playlist_id) {
-            if let Ok(parsed) = core_engine::parse_m3u(&p.file_path) {
+            if let Ok(parsed) = db::parse_m3u(&p.file_path) {
                 return parsed.entries.iter().any(|e| {
                     e.resolved_path.to_string_lossy() == track.file_path
                         || e.raw_path == track.file_path
@@ -4227,7 +4222,7 @@ impl App {
             let save_task = Task::perform(
                 async move {
                     let wrote = tokio::task::spawn_blocking(move || {
-                        core_engine::append_tracks_to_m3u(&path, &[track])
+                        db::append_tracks_to_m3u(&path, &[track])
                     })
                     .await
                     .ok()
@@ -4356,6 +4351,73 @@ impl App {
                 &self.playlists.playlists,
                 theme_cfg,
                 self.window_size,
+                |action| match action {
+                    ContextMenuAction::Close => Message::CloseContextMenu,
+                    ContextMenuAction::ToggleSubmenu(sub) => Message::ToggleContextMenuSubmenu(sub),
+                    ContextMenuAction::PlayTrack(id) => Message::ContextPlayTrack(id),
+                    ContextMenuAction::PlayPlaylistItem { playlist_id, index } => {
+                        Message::PlayPlaylistItem(playlist_id, index)
+                    }
+                    ContextMenuAction::PlayNextTrack(track) => Message::ContextPlayNext(track),
+                    ContextMenuAction::AddTrackToQueue(track) => Message::ContextAddToQueue(track),
+                    ContextMenuAction::GoToAlbum(album) => Message::SelectAlbum(album),
+                    ContextMenuAction::GoToArtist(artist) => Message::SelectArtist(artist),
+                    ContextMenuAction::RemoveFromPlaylist { playlist_id, index } => {
+                        Message::PlaylistRemoveTrack { playlist_id, index }
+                    }
+                    ContextMenuAction::RemoveFromQueue { queue_id, index } => {
+                        Message::QueueRemoveTrack { queue_id, index }
+                    }
+                    ContextMenuAction::PlayAlbum { album, shuffle } => Message::PlayScope {
+                        filter: model::TrackFilter::album(album.as_ref()),
+                        name: album,
+                        shuffle,
+                    },
+                    ContextMenuAction::PlayNextAlbum(album) => Message::ContextPlayAlbumNext(album),
+                    ContextMenuAction::AddAlbumToQueue(album) => {
+                        Message::ContextAddAlbumToQueue(album)
+                    }
+                    ContextMenuAction::PlayArtist { artist, shuffle } => Message::PlayScope {
+                        filter: model::TrackFilter::artist(artist.as_ref()),
+                        name: artist,
+                        shuffle,
+                    },
+                    ContextMenuAction::PlayNextArtist(artist) => {
+                        Message::ContextPlayArtistNext(artist)
+                    }
+                    ContextMenuAction::AddArtistToQueue(artist) => {
+                        Message::ContextAddArtistToQueue(artist)
+                    }
+                    ContextMenuAction::PlayPlaylist(id) => Message::PlayPlaylist(id),
+                    ContextMenuAction::PlayNextPlaylist(id) => Message::PlaylistPlayNext(id),
+                    ContextMenuAction::AddPlaylistToQueue(id) => Message::PlaylistToQueue(id),
+                    ContextMenuAction::RenamePlaylist(id) => Message::RenamePlaylist(id),
+                    ContextMenuAction::DeletePlaylist(id) => Message::DeletePlaylist(id),
+                    ContextMenuAction::PlayQueue(id) => Message::QueueSelect(id),
+                    ContextMenuAction::DeleteQueue(id) => Message::QueueDelete(id),
+                    ContextMenuAction::NewPlaylistWithTrack(track) => {
+                        Message::ContextNewPlaylistWithTracks(vec![track])
+                    }
+                    ContextMenuAction::NewPlaylistWithAlbum(album) => {
+                        Message::ContextNewPlaylistWithAlbum(album)
+                    }
+                    ContextMenuAction::NewPlaylistWithArtist(artist) => {
+                        Message::ContextNewPlaylistWithArtist(artist)
+                    }
+                    ContextMenuAction::AddTrackToPlaylist { track, playlist_id } => {
+                        Message::ContextAddTrackToPlaylist { track, playlist_id }
+                    }
+                    ContextMenuAction::AddAlbumToPlaylist { album, playlist_id } => {
+                        Message::ContextAddAlbumToPlaylist { album, playlist_id }
+                    }
+                    ContextMenuAction::AddArtistToPlaylist {
+                        artist,
+                        playlist_id,
+                    } => Message::ContextAddArtistToPlaylist {
+                        artist,
+                        playlist_id,
+                    },
+                },
             ));
         }
         if let Some(ref prompt) = self.duplicate_prompt {
@@ -4427,7 +4489,7 @@ async fn resolve_playlist(db: LibraryDatabase, file_path: String) -> PlaylistRes
             artist: "Not in library".to_string(),
             duration_label: entry
                 .duration_ms
-                .map(core_engine::format_duration)
+                .map(model::format_duration)
                 .unwrap_or_default(),
             track_id: None,
         });
@@ -4483,8 +4545,8 @@ fn shuffle_tracks(tracks: &mut [TrackRow]) {
 
 /// Returns a non-colliding `.m3u8` path inside the managed playlists directory.
 fn unique_playlist_path(name: &str) -> PathBuf {
-    let dir = core_engine::playlists_dir();
-    let base = core_engine::sanitize_playlist_filename(name);
+    let dir = paths::playlists_dir();
+    let base = db::sanitize_playlist_filename(name);
     let mut candidate = dir.join(format!("{}.m3u8", base));
     let mut counter = 2;
     while candidate.exists() {

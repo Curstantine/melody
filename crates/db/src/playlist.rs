@@ -18,7 +18,7 @@ use std::path::{Component, Path, PathBuf};
 
 use thiserror::Error;
 
-use crate::model::TrackRow;
+use model::TrackRow;
 
 #[derive(Error, Debug)]
 pub enum PlaylistError {
@@ -190,11 +190,9 @@ pub fn parse_m3u_str(content: &str, origin: &Path) -> ParsedPlaylist {
             continue;
         }
         if line.starts_with('#') {
-            // Unknown directive (`#EXTALB`, `#PLAYLIST`, comments, ...).
             continue;
         }
 
-        // Network streams are not supported by the local decoder; skip them.
         if is_remote_url(line) {
             pending = None;
             continue;
@@ -217,7 +215,6 @@ pub fn parse_m3u_str(content: &str, origin: &Path) -> ParsedPlaylist {
 }
 
 fn parse_extinf(rest: &str) -> (Option<String>, Option<u64>) {
-    // Format: <seconds>,<title>  (title may be omitted)
     let (secs_str, title) = match rest.split_once(',') {
         Some((s, t)) => (s, Some(t.trim().to_string())),
         None => (rest, None),
@@ -244,9 +241,6 @@ fn is_remote_url(line: &str) -> bool {
 }
 
 /// Writes entries to an extended M3U8 (UTF-8) playlist file.
-///
-/// Paths are written using absolute paths. The parent directory is
-/// created if it does not exist.
 pub fn write_m3u<P: AsRef<Path>>(path: P, entries: &[PlaylistEntry]) -> Result<(), PlaylistError> {
     let path = path.as_ref();
     let parent = path
@@ -513,11 +507,9 @@ mod tests {
             genre: None,
         };
 
-        // First append creates file with 1 track
         let count1 = append_tracks_to_m3u(&path, &[track1]).unwrap();
         assert_eq!(count1, 1);
 
-        // Second append adds track2 so count is 2
         let count2 = append_tracks_to_m3u(&path, &[track2]).unwrap();
         assert_eq!(count2, 2);
 

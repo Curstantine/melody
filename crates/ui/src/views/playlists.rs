@@ -1,20 +1,22 @@
-use core_engine::{
-    format_template, FieldLookup, PlaylistEntry, PlaylistSummary, SortDirection, TrackRow,
-};
+use db::PlaylistEntry;
 use iced::widget::{
     button, column, container, image, mouse_area, row, scrollable, text_input, Space, Widget,
 };
 use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length};
+use model::{format_template, FieldLookup, PlaylistSummary, SortDirection, TrackRow};
 use std::collections::HashMap;
 use std::time::Instant;
 
 use super::ScrollOffset;
 
-use crate::components::{self, text, TrackMenuContext};
+use crate::components::{self, text};
 use crate::icons;
-use crate::message::{Message, PlaylistItem, PlaylistSection, PlaylistSortField, ViewMode};
+use crate::message::{
+    Message, PlaylistItem, PlaylistSection, PlaylistSortField, TrackMenuContext, ViewMode,
+};
 use crate::queue::{queue_window_for_start, queue_window_start, QueueStore, QUEUE_ROW_HEIGHT};
-use crate::theme::{styles, ThemeConfig};
+use components::styles;
+use theme::ThemeConfig;
 
 /// Square playlist tile size in the Playlists catalog grid.
 pub const PLAYLIST_TILE_SIZE: f32 = 150.0;
@@ -1553,7 +1555,7 @@ mod tests {
     use crate::components::TrackRow;
     use crate::message::{PlaylistItem, PlaylistSection, PlaylistSortField, ViewMode};
     use crate::theme::ThemeConfig;
-    use core_engine::{parse_m3u, write_m3u, PlaylistEntry};
+    use db::{parse_m3u, write_m3u, PlaylistEntry};
     use std::path::PathBuf;
 
     fn item(title: &str, track_id: Option<i64>) -> PlaylistItem {

@@ -4,7 +4,8 @@ use iced::{Alignment, Element, Length};
 use crate::components::{border_vert, scanning_indicator, text, thumbnail_caching_indicator};
 use crate::icons;
 use crate::message::{Message, ViewTab};
-use crate::theme::{styles, ThemeConfig};
+use components::styles;
+use theme::ThemeConfig;
 
 #[derive(Debug, Clone, Copy)]
 pub struct StatusBarContext<'a> {

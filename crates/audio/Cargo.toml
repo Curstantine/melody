@@ -7,7 +7,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-core_engine.workspace = true
 cpal.workspace = true
 ffmpeg-next.workspace = true
 ringbuf.workspace = true

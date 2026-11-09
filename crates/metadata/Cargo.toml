@@ -1,0 +1,16 @@
+[package]
+name = "metadata"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+crossbeam-channel.workspace = true
+encoding_rs.workspace = true
+ffmpeg-next.workspace = true
+model.workspace = true
+notify.workspace = true
+thiserror.workspace = true
+tracing.workspace = true

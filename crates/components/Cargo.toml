@@ -1,0 +1,13 @@
+[package]
+name = "components"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+model.workspace = true
+theme.workspace = true
+iced = { workspace = true, features = ["advanced", "svg", "image", "thread-pool"] }
+serde.workspace = true

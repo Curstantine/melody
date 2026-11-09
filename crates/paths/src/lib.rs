@@ -104,37 +104,21 @@ pub fn app_paths() -> &'static AppPaths {
 }
 
 /// Directory where application configuration files (e.g. `config.toml`, themes) reside.
-///
-/// On Linux: `~/.config/melody`
-/// On macOS: `~/Library/Application Support/moe.curstantine.melody`
-/// On Windows: `AppData/Roaming/curstantine/melody/config`
 pub fn config_dir() -> &'static Path {
     &app_paths().config_dir
 }
 
 /// Directory where persistent application data (e.g. `library.db`) resides.
-///
-/// On Linux: `~/.local/share/melody`
-/// On macOS: `~/Library/Application Support/moe.curstantine.melody`
-/// On Windows: `AppData/Roaming/curstantine/melody/data`
 pub fn data_dir() -> &'static Path {
     &app_paths().data_dir
 }
 
 /// Directory where persistent runtime state files (e.g. `state.toml`) reside.
-///
-/// On Linux: `~/.local/state/melody`
-/// On macOS: `~/Library/Application Support/moe.curstantine.melody`
-/// On Windows: `AppData/Roaming/curstantine/melody/data`
 pub fn state_dir() -> &'static Path {
     &app_paths().state_dir
 }
 
 /// Directory where ephemeral caches (e.g. downscaled cover art thumbnails) reside.
-///
-/// On Linux: `~/.cache/melody`
-/// On macOS: `~/Library/Caches/moe.curstantine.melody`
-/// On Windows: `AppData/Local/curstantine/melody/cache`
 pub fn cache_dir() -> &'static Path {
     &app_paths().cache_dir
 }
@@ -170,17 +154,7 @@ pub fn user_layouts_dir() -> &'static Path {
 }
 
 /// Returns the bundled themes directory if found.
-///
-/// Returns the first existing hit:
-/// - Windows: WiX installation directory (`[APPLICATIONFOLDER]\themes`, i.e. `<exe_dir>/../themes`).
-/// - Linux / NixOS: `/share/melody/themes` relative to the installation prefix (`<exe_dir>/../share/melody/themes`
-///   or `/usr/share/melody/themes`, `/usr/local/share/melody/themes`).
-/// - macOS: `../Resources/themes` relative to executable.
-///
-/// In debug mode (`cfg!(debug_assertions)`), also falls back to local workspace paths
-/// (`themes`, `../themes`, `../../themes`) to support local development and tests.
 pub fn bundled_themes_dir() -> Option<PathBuf> {
-    // 1. Executable-relative installation directories (WiX installer on Windows, NixOS/FHS packages)
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
             #[cfg(windows)]
@@ -209,7 +183,6 @@ pub fn bundled_themes_dir() -> Option<PathBuf> {
         }
     }
 
-    // 2. System-wide /share/melody/themes directories (Linux / FHS / XDG)
     #[cfg(not(any(windows, target_os = "macos")))]
     {
         if let Ok(xdg_dirs) = std::env::var("XDG_DATA_DIRS") {
@@ -222,7 +195,6 @@ pub fn bundled_themes_dir() -> Option<PathBuf> {
         }
     }
 
-    // 3. Development / debug fallback: search relative to working directory
     #[cfg(debug_assertions)]
     {
         for rel in &[
@@ -240,22 +212,11 @@ pub fn bundled_themes_dir() -> Option<PathBuf> {
 }
 
 /// Returns the bundled layouts directory if found.
-///
-/// Returns the first existing hit:
-/// - Windows: WiX installation directory (`[APPLICATIONFOLDER]\layouts`, i.e. `<exe_dir>/../layouts`).
-/// - Linux / NixOS: `/share/melody/layouts` relative to the installation prefix (`<exe_dir>/../share/melody/layouts`
-///   or `/usr/share/melody/layouts`, `/usr/local/share/melody/layouts`).
-/// - macOS: `../Resources/layouts` relative to executable.
-///
-/// In debug mode (`cfg!(debug_assertions)`), also falls back to local workspace paths
-/// (`layouts`, `../layouts`, `../../layouts`) to support local development and tests.
 pub fn bundled_layouts_dir() -> Option<PathBuf> {
-    // 1. Executable-relative installation directories (WiX installer on Windows, NixOS/FHS packages)
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
             #[cfg(windows)]
             {
-                // WiX installs binary to [APPLICATIONFOLDER]\bin\melody.exe and layouts to [APPLICATIONFOLDER]\layouts
                 let candidate = exe_dir.join("../layouts");
                 if candidate.is_dir() {
                     return Some(candidate);
@@ -280,7 +241,6 @@ pub fn bundled_layouts_dir() -> Option<PathBuf> {
         }
     }
 
-    // 2. System-wide /share/melody/layouts directories (Linux / FHS / XDG)
     #[cfg(not(any(windows, target_os = "macos")))]
     {
         let xdg_dirs = std::env::var("XDG_DATA_DIRS")
@@ -293,7 +253,6 @@ pub fn bundled_layouts_dir() -> Option<PathBuf> {
         }
     }
 
-    // 3. Development / debug fallback: search relative to working directory
     #[cfg(debug_assertions)]
     {
         for rel in &[
@@ -311,9 +270,6 @@ pub fn bundled_layouts_dir() -> Option<PathBuf> {
 }
 
 /// Directory where Melody-managed `.m3u8` playlist files are stored.
-///
-/// External playlists may be referenced from anywhere on disk; this directory
-/// holds only the playlists the application itself creates or saves.
 pub fn playlists_dir() -> &'static Path {
     &app_paths().playlists_dir
 }
@@ -333,6 +289,21 @@ pub fn atomic_write(path: &Path, content: &str) -> std::io::Result<()> {
     std::fs::rename(&tmp_path, path)?;
 
     Ok(())
+}
+
+static APP_START_TIME: OnceLock<std::time::Instant> = OnceLock::new();
+
+/// Record the startup instant if not already set, returning the start time.
+pub fn init_app_start_time() -> std::time::Instant {
+    *APP_START_TIME.get_or_init(std::time::Instant::now)
+}
+
+/// Duration elapsed since `init_app_start_time` was first invoked.
+pub fn elapsed_since_app_start() -> std::time::Duration {
+    APP_START_TIME
+        .get()
+        .map(|t| t.elapsed())
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -361,7 +332,6 @@ mod tests {
 
     #[test]
     fn test_bundled_paths_discovery() {
-        // When running in workspace root, "themes" and "layouts" exist
         assert!(bundled_themes_dir().is_some());
         assert!(bundled_layouts_dir().is_some());
     }

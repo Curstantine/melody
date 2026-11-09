@@ -1,17 +1,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
-mod components;
+pub use components;
 pub mod config;
 mod font;
-mod icons;
+pub use components::icons;
 pub mod layout;
 #[path = "layout/view.rs"]
 mod layout_view;
 mod message;
 mod queue;
 pub mod state;
-mod theme;
+pub use theme;
 mod views;
 mod window_decorations;
 
@@ -27,7 +27,7 @@ use tracing::info;
 fn main() -> iced::Result {
     updater::init();
 
-    core_engine::init_app_start_time();
+    paths::init_app_start_time();
 
     // Initialize logging / tracing
     #[cfg(feature = "tracy")]
@@ -78,7 +78,7 @@ fn main() -> iced::Result {
 
     #[cfg(target_os = "linux")]
     {
-        window_settings.platform_specific.application_id = core_engine::app_name().to_string();
+        window_settings.platform_specific.application_id = paths::app_name().to_string();
     }
 
     #[cfg(target_os = "macos")]

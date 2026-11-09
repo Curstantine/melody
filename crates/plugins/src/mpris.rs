@@ -244,9 +244,9 @@ mod linux {
                 }
 
                 // If cover thumbnail exists in cache, expose artUrl
-                let thumb_path = core_engine::thumbnail_cache_dir().join(format!(
+                let thumb_path = paths::thumbnail_cache_dir().join(format!(
                     "{}.jpg",
-                    core_engine::compute_thumbnail_cache_key(&PathBuf::from(&track.file_path), 500)
+                    thumbnail::compute_thumbnail_cache_key(&PathBuf::from(&track.file_path), 500)
                 ));
                 if thumb_path.exists() {
                     if let Ok(art_url) = Url::from_file_path(&thumb_path) {
@@ -427,9 +427,9 @@ mod linux {
                 builder = builder.url(file_url.as_str());
             }
 
-            let thumb_path = core_engine::thumbnail_cache_dir().join(format!(
+            let thumb_path = paths::thumbnail_cache_dir().join(format!(
                 "{}.jpg",
-                core_engine::compute_thumbnail_cache_key(&PathBuf::from(&track.file_path), 500)
+                thumbnail::compute_thumbnail_cache_key(&PathBuf::from(&track.file_path), 500)
             ));
             if thumb_path.exists() {
                 if let Ok(art_url) = Url::from_file_path(&thumb_path) {

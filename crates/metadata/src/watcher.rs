@@ -26,9 +26,6 @@ pub struct LibraryWatcher {
 
 impl LibraryWatcher {
     /// Creates a new `LibraryWatcher`.
-    ///
-    /// Changes detected in watched folders are debounced by `debounce_duration`
-    /// before being sent as batches of `PathBuf` to `event_sender`.
     pub fn new(
         event_sender: Sender<Vec<PathBuf>>,
         debounce_duration: Duration,
@@ -222,12 +219,10 @@ mod tests {
         assert!(watcher.is_watching(&dir2));
         assert!(!watcher.is_watching(&dir3));
 
-        // Unwatch dir1
         watcher.unwatch_folder(&dir1).unwrap();
         assert!(!watcher.is_watching(&dir1));
         assert!(watcher.is_watching(&dir2));
 
-        // Update folders to dir2 and dir3
         watcher.update_folders(&[&dir2, &dir3]).unwrap();
         assert!(!watcher.is_watching(&dir1));
         assert!(watcher.is_watching(&dir2));
@@ -256,7 +251,6 @@ mod tests {
         let new_file = temp.join("test_song.flac");
         std::fs::write(&new_file, b"flac content").unwrap();
 
-        // Wait for debounced notification
         let received = rx.recv_timeout(Duration::from_millis(2000));
         assert!(received.is_ok(), "Watcher should emit debounced event");
         let paths = received.unwrap();

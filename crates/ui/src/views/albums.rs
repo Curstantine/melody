@@ -3,14 +3,15 @@ use std::time::{Duration, Instant};
 
 use super::ScrollOffset;
 
-use core_engine::{format_duration, format_template, AlbumSummary, SortDirection, TrackFilter};
 use iced::widget::{column, container, image, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length};
+use model::{format_duration, format_template, AlbumSummary, SortDirection, TrackFilter};
 
 use crate::components;
 use crate::icons;
 use crate::message::{AlbumSortField, Message, ViewMode};
-use crate::theme::{styles, ThemeConfig};
+use components::styles;
+use theme::ThemeConfig;
 
 #[cfg(test)]
 pub const DEFAULT_ALBUM_TILE_WIDTH: u32 = 140;
@@ -838,7 +839,7 @@ mod tests {
     use crate::message::ArtistSortField;
     use crate::theme::ThemeConfig;
     use crate::views::artists::ArtistsView;
-    use core_engine::{AlbumSummary, ArtistSummary};
+    use model::{AlbumSummary, ArtistSummary};
 
     fn sample_albums(count: usize) -> Vec<AlbumSummary> {
         (0..count)

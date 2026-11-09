@@ -1,11 +1,13 @@
-use core_engine::{AudioTechnicalInfo, Track, TrackRow};
 use iced::widget::{button, column, container, image, row, scrollable, stack, Space, Widget};
 use iced::{Alignment, ContentFit, Element, Length};
+use metadata::AudioTechnicalInfo;
+use model::{Track, TrackRow};
 
 use crate::components::{self, text};
 use crate::icons;
 use crate::message::Message;
-use crate::theme::{styles, ThemeConfig};
+use components::styles;
+use theme::ThemeConfig;
 
 use super::ScrollOffset;
 
@@ -447,7 +449,8 @@ impl NowPlayingView {
 mod tests {
     use super::*;
     use crate::theme::ThemeConfig;
-    use core_engine::{AudioTechnicalInfo, Track, TrackRow};
+    use metadata::AudioTechnicalInfo;
+    use model::{Track, TrackRow};
 
     #[test]
     fn test_now_playing_scroll_state() {

@@ -1,13 +1,14 @@
-use core_engine::{format_template, ArtistSummary, SortDirection, TrackFilter};
 use iced::widget::{column, container, row, scrollable, Space, Widget};
 use iced::{Alignment, Element, Length, Padding};
+use model::{format_template, ArtistSummary, SortDirection, TrackFilter};
 
 use super::ScrollOffset;
 
 use crate::components;
 use crate::icons;
 use crate::message::{ArtistSortField, Message, ViewMode};
-use crate::theme::{styles, ThemeConfig};
+use components::styles;
+use theme::ThemeConfig;
 
 #[cfg(test)]
 pub const DEFAULT_ARTIST_TILE_WIDTH: u32 = 140;
@@ -622,7 +623,7 @@ mod tests {
     use super::*;
     use crate::layout::ArtistsFormatConfig;
     use crate::theme::ThemeConfig;
-    use core_engine::ArtistSummary;
+    use model::ArtistSummary;
 
     #[test]
     fn test_artists_scroll_state_persists_and_resets() {

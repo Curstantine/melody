@@ -51,10 +51,10 @@ impl LayoutManager {
             .insert(default_template.name.clone(), default_template.clone());
 
         // 2. Load from disk: bundled layouts, then user layouts directory
-        if let Some(bundled) = core_engine::bundled_layouts_dir() {
+        if let Some(bundled) = paths::bundled_layouts_dir() {
             self.load_from_folder(&bundled);
         }
-        self.load_from_folder(core_engine::user_layouts_dir());
+        self.load_from_folder(paths::user_layouts_dir());
 
         // 3. Refresh active layout template
         if let Some(active) = self.layouts.get(&self.active_layout_name) {

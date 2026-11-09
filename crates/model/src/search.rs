@@ -133,9 +133,6 @@ impl TrackFilter {
 }
 
 /// Splits `input` into whitespace-separated tokens, honouring double quotes.
-///
-/// `album:"Foo Bar"` becomes the single token `album:Foo Bar`. A backslash
-/// inside quotes escapes the next character.
 fn tokenize(input: &str) -> Vec<String> {
     let mut tokens = Vec::new();
     let mut current = String::new();

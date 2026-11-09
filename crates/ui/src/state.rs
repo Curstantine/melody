@@ -100,13 +100,13 @@ impl AppState {
         }
     }
     pub fn load() -> Self {
-        let path = core_engine::state_file();
+        let path = paths::state_file();
         if path.exists() {
             Self::load_from_path(path)
         } else {
             // Backward-compatibility: if state.toml does not exist, attempt to load legacy
             // state properties previously stored in config.toml before falling back to defaults.
-            let legacy_config = core_engine::config_file();
+            let legacy_config = paths::config_file();
             if legacy_config.exists() {
                 if let Ok(content) = fs::read_to_string(legacy_config) {
                     if let Ok(state) = toml::from_str::<Self>(&content) {
@@ -156,7 +156,7 @@ impl AppState {
     pub fn save_to_path(&self, path: &Path) {
         match toml::to_string_pretty(self) {
             Ok(content) => {
-                if let Err(err) = core_engine::atomic_write(path, &content) {
+                if let Err(err) = paths::atomic_write(path, &content) {
                     error!("Failed to write state to {:?}: {}", path, err);
                 } else {
                     info!("Saved state to {:?}", path);

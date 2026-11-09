@@ -1,6 +1,18 @@
 [workspace]
 resolver = "2"
-members = ["crates/core", "crates/audio", "crates/plugins", "crates/updater", "crates/ui"]
+members = [
+    "crates/paths",
+    "crates/model",
+    "crates/thumbnail",
+    "crates/metadata",
+    "crates/db",
+    "crates/audio",
+    "crates/plugins",
+    "crates/updater",
+    "crates/theme",
+    "crates/components",
+    "crates/ui",
+]
 
 [workspace.package]
 version = "0.3.2"
@@ -10,10 +22,16 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/Curstantine/melody"
 
 [workspace.dependencies]
-core_engine = { package = "core", path = "crates/core" }
+paths = { path = "crates/paths" }
+model = { path = "crates/model" }
+thumbnail = { path = "crates/thumbnail" }
+metadata = { path = "crates/metadata" }
+db = { path = "crates/db" }
 audio = { path = "crates/audio" }
 plugins = { path = "crates/plugins" }
 updater = { path = "crates/updater" }
+theme = { path = "crates/theme" }
+components = { path = "crates/components" }
 
 async-io = "2.6"
 cpal = "0.18"

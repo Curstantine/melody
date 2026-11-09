@@ -213,7 +213,7 @@ impl Default for AppConfig {
 
 impl AppConfig {
     pub fn load() -> Self {
-        let path = core_engine::config_file();
+        let path = paths::config_file();
         if path.exists() {
             return Self::load_from_path(path);
         }
@@ -275,7 +275,7 @@ impl AppConfig {
     pub fn save_to_path(&self, path: &Path) {
         match toml::to_string_pretty(self) {
             Ok(content) => {
-                if let Err(err) = core_engine::atomic_write(path, &content) {
+                if let Err(err) = paths::atomic_write(path, &content) {
                     error!("Failed to write settings to {:?}: {}", path, err);
                 } else {
                     info!("Saved settings to {:?}", path);

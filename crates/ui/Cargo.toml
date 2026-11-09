@@ -18,10 +18,17 @@ ProductName = "Melody"
 OriginalFilename = "melody.exe"
 
 [dependencies]
-core_engine.workspace = true
+paths.workspace = true
+model.workspace = true
+thumbnail.workspace = true
+metadata.workspace = true
+db.workspace = true
 audio.workspace = true
 plugins.workspace = true
 updater.workspace = true
+theme.workspace = true
+components.workspace = true
+
 # NOTE: `web-colors` (an iced default feature) is deliberately disabled: it
 # switches the wgpu text pipeline to non-gamma-corrected ("Web") blending,
 # which renders glyph edges thinner/sharper than 0.13. Opting out restores
