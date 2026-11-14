@@ -39,4 +39,5 @@ pub enum SettingsTab {
     Playback,
     Library,
     Scrobbling,
+    Debug,
 }

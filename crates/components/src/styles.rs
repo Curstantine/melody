@@ -721,8 +721,8 @@ pub fn toggler_style(cfg: &ThemeConfig) -> impl Fn(&Theme, toggler::Status) -> t
 
         toggler::Style {
             background: background.into(),
-            background_border_width: 1.0,
-            background_border_color: if is_toggled { cfg.primary } else { cfg.border },
+            background_border_width: 0.0,
+            background_border_color: Color::TRANSPARENT,
             foreground: foreground.into(),
             foreground_border_width: 0.0,
             foreground_border_color: Color::TRANSPARENT,

@@ -286,6 +286,16 @@ pub enum Message {
         lyrics: Option<String>,
     },
     StorageStatsLoaded(CacheStats, u64),
+
+    // Debug playground samples
+    DebugNoop,
+    DebugToggle(bool),
+    DebugSliderChanged(f32),
+    DebugInputChanged(String),
+    DebugPickSelected(String),
+    DebugChipSelected(usize),
+    DebugViewModeChanged(ViewMode),
+    DebugSortChanged(SortField),
 }
 
 // Manual `Debug` so `iced_debug` never formats multi-KB payloads (cover JPEG
@@ -706,6 +716,16 @@ impl std::fmt::Debug for Message {
                 .field(stats)
                 .field(size)
                 .finish(),
+            Self::DebugNoop => f.write_str("DebugNoop"),
+            Self::DebugToggle(v) => f.debug_tuple("DebugToggle").field(v).finish(),
+            Self::DebugSliderChanged(v) => f.debug_tuple("DebugSliderChanged").field(v).finish(),
+            Self::DebugInputChanged(s) => f.debug_tuple("DebugInputChanged").field(s).finish(),
+            Self::DebugPickSelected(s) => f.debug_tuple("DebugPickSelected").field(s).finish(),
+            Self::DebugChipSelected(i) => f.debug_tuple("DebugChipSelected").field(i).finish(),
+            Self::DebugViewModeChanged(m) => {
+                f.debug_tuple("DebugViewModeChanged").field(m).finish()
+            }
+            Self::DebugSortChanged(s) => f.debug_tuple("DebugSortChanged").field(s).finish(),
         }
     }
 }

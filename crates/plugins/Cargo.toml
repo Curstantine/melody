@@ -11,16 +11,13 @@ paths.workspace = true
 thumbnail.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-thiserror.workspace = true
 tracing.workspace = true
-extism = { workspace = true, optional = true }
 ureq = { workspace = true, features = ["json"] }
 md-5.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 mpris-server.workspace = true
 async-io.workspace = true
-futures-lite.workspace = true
 crossbeam-channel.workspace = true
 url.workspace = true
 
@@ -35,7 +32,3 @@ windows = { workspace = true, features = [
     "Storage",
     "Storage_Streams",
 ] }
-
-[features]
-default = []
-wasm = ["extism"]

@@ -10,4 +10,3 @@ repository.workspace = true
 model.workspace = true
 theme.workspace = true
 iced = { workspace = true, features = ["advanced", "svg", "image", "thread-pool"] }
-serde.workspace = true

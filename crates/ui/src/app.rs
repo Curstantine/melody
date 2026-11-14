@@ -1834,6 +1834,45 @@ impl App {
                 Task::batch(tasks)
             }
 
+            Message::DebugNoop => Task::none(),
+            Message::DebugToggle(v) => {
+                self.settings.debug_state.toggler = v;
+                Task::none()
+            }
+            Message::DebugSliderChanged(v) => {
+                self.settings.debug_state.slider_val = v;
+                Task::none()
+            }
+            Message::DebugInputChanged(s) => {
+                self.settings.debug_state.input_val = s;
+                Task::none()
+            }
+            Message::DebugPickSelected(s) => {
+                self.settings.debug_state.selected_option = s;
+                Task::none()
+            }
+            Message::DebugChipSelected(i) => {
+                self.settings.debug_state.active_chip = i;
+                Task::none()
+            }
+            Message::DebugViewModeChanged(mode) => {
+                self.settings.debug_state.view_mode = mode;
+                Task::none()
+            }
+            Message::DebugSortChanged(field) => {
+                let st = &mut self.settings.debug_state;
+                if st.sort_field == field {
+                    st.sort_dir = match st.sort_dir {
+                        model::SortDirection::Ascending => model::SortDirection::Descending,
+                        model::SortDirection::Descending => model::SortDirection::Ascending,
+                    };
+                } else {
+                    st.sort_field = field;
+                    st.sort_dir = model::SortDirection::Ascending;
+                }
+                Task::none()
+            }
+
             Message::SelectAlbum(album_name) => {
                 self.active_tab = ViewTab::Tracks;
                 // Exact album scope so the library shows only this album,

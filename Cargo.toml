@@ -44,9 +44,7 @@ cpal = "0.18"
 crossbeam-channel = "0.5"
 directories = "6.0"
 encoding_rs = "0.8"
-extism = "1.41"
 ffmpeg-next = { version = "9.0.0", default-features = false, features = ["codec", "format", "software-resampling"] }
-futures-lite = "2.6"
 iced = { git = "https://github.com/iced-rs/iced.git", rev = "8ff48c42b0d5188223501ea1ccc506fd5beaf36a", default-features = false }
 image = { version = "0.25", default-features = false }
 kdl = { version = "6.7", features = ["v1-fallback"] }

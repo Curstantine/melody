@@ -8,5 +8,3 @@ repository.workspace = true
 
 [dependencies]
 model.workspace = true
-serde.workspace = true
-tracing.workspace = true

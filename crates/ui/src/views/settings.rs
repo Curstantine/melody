@@ -8,9 +8,11 @@ use iced::widget::{
 use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::message::Message;
+use components::Marquee;
 use components::{self, border_hori, icons, styles, text};
 use config::SettingsTab;
 use model::ViewMode;
+use model::{SortDirection, SortField};
 use theme::ThemeConfig;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,6 +90,34 @@ pub struct SettingsContext<'a> {
     pub is_repeat: bool,
 }
 
+/// Interactive sample state for the Debug settings page.
+#[derive(Debug, Clone)]
+pub struct DebugSampleState {
+    pub toggler: bool,
+    pub slider_val: f32,
+    pub input_val: String,
+    pub selected_option: String,
+    pub active_chip: usize,
+    pub view_mode: ViewMode,
+    pub sort_field: SortField,
+    pub sort_dir: SortDirection,
+}
+
+impl Default for DebugSampleState {
+    fn default() -> Self {
+        Self {
+            toggler: true,
+            slider_val: 0.65,
+            input_val: String::new(),
+            selected_option: "Option A".to_string(),
+            active_chip: 0,
+            view_mode: ViewMode::List,
+            sort_field: SortField::Title,
+            sort_dir: SortDirection::Ascending,
+        }
+    }
+}
+
 /// Self-contained state and view component for the Settings preferences screen.
 pub struct SettingsView {
     pub active_tab: SettingsTab,
@@ -96,6 +126,7 @@ pub struct SettingsView {
     pub scrobble_test_status: Option<(plugins::scrobbler::ScrobbleService, Result<String, String>)>,
     pub fonts_loaded: bool,
     pub update_status: updater::UpdateStatus,
+    pub debug_state: DebugSampleState,
 }
 
 impl SettingsView {
@@ -111,6 +142,7 @@ impl SettingsView {
             scrobble_test_status: None,
             fonts_loaded,
             update_status: updater::UpdateStatus::Idle,
+            debug_state: DebugSampleState::default(),
         }
     }
 
@@ -134,6 +166,7 @@ impl SettingsView {
             SettingsTab::Playback => self.view_playback(theme_cfg, &ctx),
             SettingsTab::Library => self.view_library(theme_cfg, &ctx),
             SettingsTab::Scrobbling => self.view_scrobbling(theme_cfg, &ctx),
+            SettingsTab::Debug => self.view_debug(theme_cfg),
         };
 
         let main_panel = scrollable(content)
@@ -192,44 +225,49 @@ impl SettingsView {
 
         let update_section = self.view_update_section(theme_cfg);
 
-        container(row![
-            column![
-                sidebar_title,
-                nav_item(
-                    SettingsTab::Appearance,
-                    icons::PALETTE_SVG,
-                    "Appearance",
-                    "Theme, views, fonts",
-                ),
-                nav_item(
-                    SettingsTab::Playback,
-                    icons::PLAY_CIRCLE_SVG,
-                    "Playback",
-                    "Audio engine & transitions",
-                ),
-                nav_item(
-                    SettingsTab::Library,
-                    icons::DATABASE_SVG,
-                    "Library",
-                    "Folders, indexes & cache",
-                ),
-                nav_item(
-                    SettingsTab::Scrobbling,
-                    icons::RADIO_SVG,
-                    "Scrobbling",
-                    "ListenBrainz & Last.fm",
-                ),
-                Space::new().height(Length::Fill),
-                update_section,
-            ]
-            .width(SIDEBAR_WIDTH)
-            .height(Length::Fill),
-            border_hori(1.0, theme_cfg.border)
-        ])
-        .width(Length::Fixed(SIDEBAR_WIDTH + 1.0))
-        .height(Length::Fill)
-        .style(styles::sidebar_container(theme_cfg))
-        .boxed()
+        let nav_col = column![
+            sidebar_title,
+            nav_item(
+                SettingsTab::Appearance,
+                icons::PALETTE_SVG,
+                "Appearance",
+                "Theme, views, fonts",
+            ),
+            nav_item(
+                SettingsTab::Playback,
+                icons::PLAY_CIRCLE_SVG,
+                "Playback",
+                "Audio engine & transitions",
+            ),
+            nav_item(
+                SettingsTab::Library,
+                icons::DATABASE_SVG,
+                "Library",
+                "Folders, indexes & cache",
+            ),
+            nav_item(
+                SettingsTab::Scrobbling,
+                icons::RADIO_SVG,
+                "Scrobbling",
+                "ListenBrainz & Last.fm",
+            ),
+            nav_item(
+                SettingsTab::Debug,
+                icons::BUG_SVG,
+                "Debug",
+                "Colors & UI components",
+            ),
+            Space::new().height(Length::Fill),
+            update_section,
+        ]
+        .width(SIDEBAR_WIDTH)
+        .height(Length::Fill);
+
+        container(row![nav_col, border_hori(1.0, theme_cfg.border)])
+            .width(Length::Fixed(SIDEBAR_WIDTH + 1.0))
+            .height(Length::Fill)
+            .style(styles::sidebar_container(theme_cfg))
+            .boxed()
     }
 
     fn view_update_section<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
@@ -1900,8 +1938,539 @@ impl SettingsView {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 5. Debug Section
+// ─────────────────────────────────────────────────────────────────────────────
+
+impl SettingsView {
+    fn view_debug<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+        let header = components::settings_header(
+            theme_cfg,
+            "Debug & component gallery",
+            Some("Live preview of all active theme color tokens and basic UI components"),
+        );
+
+        let colors_card = self.view_debug_colors(theme_cfg);
+        let typography_card = self.view_debug_typography(theme_cfg);
+        let buttons_card = self.view_debug_buttons(theme_cfg);
+        let controls_card = self.view_debug_controls(theme_cfg);
+        let feedback_card = self.view_debug_feedback(theme_cfg);
+        let icons_card = self.view_debug_icons(theme_cfg);
+
+        column![
+            header,
+            colors_card,
+            typography_card,
+            buttons_card,
+            controls_card,
+            feedback_card,
+            icons_card,
+            Space::new().height(PAGE_BOTTOM_SPACER),
+        ]
+        .spacing(PAGE_SPACING)
+        .padding(PAGE_PADDING)
+        .boxed()
+    }
+
+    fn view_debug_colors<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+        let tokens: [(&'static str, Color, bool); 14] = [
+            ("background", theme_cfg.background, false),
+            ("surface", theme_cfg.surface, false),
+            ("surface_hover", theme_cfg.surface_hover, false),
+            ("border", theme_cfg.border, false),
+            ("primary", theme_cfg.primary, false),
+            ("accent", theme_cfg.accent, false),
+            ("text", theme_cfg.text, false),
+            ("text_muted", theme_cfg.text_muted, false),
+            ("success", theme_cfg.success, false),
+            ("danger", theme_cfg.danger, false),
+            (
+                "player_bar_bg",
+                theme_cfg.player_bar_bg_color(),
+                theme_cfg.player_bar_bg.is_none(),
+            ),
+            (
+                "player_bar_text",
+                theme_cfg.player_bar_text_color(),
+                theme_cfg.player_bar_text.is_none(),
+            ),
+            (
+                "slider_active",
+                theme_cfg.slider_active_color(),
+                theme_cfg.slider_active.is_none(),
+            ),
+            (
+                "slider_rail",
+                theme_cfg.slider_rail_color(),
+                theme_cfg.slider_rail.is_none(),
+            ),
+        ];
+
+        let mut grid = column![].spacing(SPACE_LG);
+        for chunk in tokens.chunks(4) {
+            let mut r = row![].spacing(SPACE_LG);
+            for &(name, color, is_fallback) in chunk {
+                r = r.push(debug_color_tile(theme_cfg, name, color, is_fallback));
+            }
+            for _ in chunk.len()..4 {
+                r = r.push(
+                    container(Space::new())
+                        .width(Length::FillPortion(1))
+                        .boxed(),
+                );
+            }
+            grid = grid.push(r);
+        }
+
+        components::settings_card(theme_cfg, "Theme colors", grid.boxed())
+    }
+
+    fn view_debug_typography<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+        let scale_col = column![
+            text(theme_cfg, "Heading 20px — Primary text")
+                .size(20)
+                .color(theme_cfg.text),
+            text(theme_cfg, "Subheading 16px — Primary text")
+                .size(16)
+                .color(theme_cfg.text),
+            text(theme_cfg, "Body 13px — Default readable copy")
+                .size(13)
+                .color(theme_cfg.text),
+            text(theme_cfg, "Label 12px — Muted secondary text")
+                .size(12)
+                .color(theme_cfg.text_muted),
+            text(theme_cfg, "Caption 11px — Subtle metadata")
+                .size(11)
+                .color(theme_cfg.text_muted),
+            text(theme_cfg, "Micro 10px — Compact badges & hints")
+                .size(10)
+                .color(theme_cfg.text_muted),
+        ]
+        .spacing(SPACE_SM);
+
+        let semantic_row = row![
+            text(theme_cfg, "primary").size(12).color(theme_cfg.primary),
+            text(theme_cfg, "accent").size(12).color(theme_cfg.accent),
+            text(theme_cfg, "success").size(12).color(theme_cfg.success),
+            text(theme_cfg, "danger").size(12).color(theme_cfg.danger),
+            text(theme_cfg, "text").size(12).color(theme_cfg.text),
+            text(theme_cfg, "text_muted")
+                .size(12)
+                .color(theme_cfg.text_muted),
+        ]
+        .spacing(SPACE_LG)
+        .align_y(Alignment::Center);
+
+        let radii: [(&'static str, Radius); 5] = [
+            ("xs", theme_cfg.border_radius.xs),
+            ("sm", theme_cfg.border_radius.sm),
+            ("md", theme_cfg.border_radius.md),
+            ("lg", theme_cfg.border_radius.lg),
+            ("xl", theme_cfg.border_radius.xl),
+        ];
+
+        let mut radius_row = row![].spacing(SPACE_LG).align_y(Alignment::Center);
+        for (label, radius) in radii {
+            let border_color = theme_cfg.border;
+            let surface = theme_cfg.surface;
+            radius_row = radius_row.push(
+                container(text(theme_cfg, label).size(11).color(theme_cfg.text_muted))
+                    .padding([6, 12])
+                    .style(move |_| container::Style {
+                        background: Some(iced::Background::Color(surface)),
+                        border: Border {
+                            radius,
+                            color: border_color,
+                            width: 1.0,
+                        },
+                        ..Default::default()
+                    }),
+            );
+        }
+
+        components::settings_card(
+            theme_cfg,
+            "Typography & border radii",
+            column![scale_col, semantic_row, radius_row]
+                .spacing(SECTION_SPACING)
+                .boxed(),
+        )
+    }
+
+    fn view_debug_buttons<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+        let buttons_row = row![
+            button(
+                text(theme_cfg, "Primary")
+                    .size(12)
+                    .color(theme_cfg.background),
+            )
+            .padding(BUTTON_PADDING_MD)
+            .style(styles::primary_button(theme_cfg))
+            .on_press(Message::DebugNoop),
+            button(text(theme_cfg, "Ghost").size(12).color(theme_cfg.text))
+                .padding(BUTTON_PADDING_MD)
+                .style(styles::ghost_button(theme_cfg, false))
+                .on_press(Message::DebugNoop),
+            button(
+                text(theme_cfg, "Ghost active")
+                    .size(12)
+                    .color(theme_cfg.primary),
+            )
+            .padding(BUTTON_PADDING_MD)
+            .style(styles::ghost_button(theme_cfg, true))
+            .on_press(Message::DebugNoop),
+            button(text(theme_cfg, "Danger").size(12).color(theme_cfg.danger))
+                .padding(BUTTON_PADDING_MD)
+                .style(styles::danger_button(theme_cfg))
+                .on_press(Message::DebugNoop),
+            button(icons::icon(icons::SHUFFLE_SVG, 15.0, theme_cfg.text_muted))
+                .padding(BUTTON_PADDING_SM)
+                .style(styles::icon_control_button(theme_cfg))
+                .on_press(Message::DebugNoop),
+            button(icons::icon(
+                icons::PREV_SVG,
+                16.0,
+                theme_cfg.player_bar_text_color()
+            ))
+            .padding(BUTTON_PADDING_SM)
+            .style(styles::player_bar_button(theme_cfg, false))
+            .on_press(Message::DebugNoop),
+            button(icons::icon(icons::PLAY_SVG, 16.0, theme_cfg.background))
+                .padding([6, 10])
+                .style(styles::player_bar_play_button(theme_cfg))
+                .on_press(Message::DebugNoop),
+        ]
+        .spacing(SPACE_LG)
+        .align_y(Alignment::Center);
+
+        let chips_row = row![
+            components::chip(
+                theme_cfg,
+                "Chip A",
+                self.debug_state.active_chip == 0,
+                Message::DebugChipSelected(0),
+            ),
+            components::chip(
+                theme_cfg,
+                "Chip B",
+                self.debug_state.active_chip == 1,
+                Message::DebugChipSelected(1),
+            ),
+            components::chip_with_icon(
+                theme_cfg,
+                icons::PALETTE_SVG,
+                "With icon",
+                self.debug_state.active_chip == 2,
+                Message::DebugChipSelected(2),
+            ),
+            Space::new().width(SPACE_LG),
+            components::view_mode_toggle(
+                theme_cfg,
+                self.debug_state.view_mode,
+                Message::DebugViewModeChanged,
+            ),
+        ]
+        .spacing(CHIP_ROW_SPACING)
+        .align_y(Alignment::Center);
+
+        let sort_row = components::sort_chip_list(
+            theme_cfg,
+            &[
+                ("Title", SortField::Title),
+                ("Artist", SortField::Artist),
+                ("Album", SortField::Album),
+                ("Duration", SortField::Duration),
+            ],
+            self.debug_state.sort_field,
+            self.debug_state.sort_dir,
+            Message::DebugSortChanged,
+        );
+
+        components::settings_card(
+            theme_cfg,
+            "Buttons & chips",
+            column![buttons_row, chips_row, sort_row]
+                .spacing(SECTION_SPACING)
+                .boxed(),
+        )
+    }
+
+    fn view_debug_controls<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+        let toggler_row = row![
+            toggler(self.debug_state.toggler)
+                .on_toggle(Message::DebugToggle)
+                .size(TOGGLER_SIZE)
+                .style(styles::toggler_style(theme_cfg)),
+            Space::new().width(SPACE_MD),
+            text(
+                theme_cfg,
+                if self.debug_state.toggler {
+                    "Toggler (on)"
+                } else {
+                    "Toggler (off)"
+                },
+            )
+            .size(12)
+            .color(theme_cfg.text),
+        ]
+        .align_y(Alignment::Center);
+
+        let sliders_row = row![
+            column![
+                text(
+                    theme_cfg,
+                    format!(
+                        "Settings slider ({:.0}%)",
+                        self.debug_state.slider_val * 100.0
+                    ),
+                )
+                .size(11)
+                .color(theme_cfg.text_muted),
+                slider(
+                    0.0..=1.0,
+                    self.debug_state.slider_val,
+                    Message::DebugSliderChanged,
+                )
+                .step(0.01)
+                .width(Length::Fixed(SETTING_SLIDER_WIDTH))
+                .style(styles::settings_slider_style(theme_cfg)),
+            ]
+            .spacing(FORM_FIELD_SPACING),
+            column![
+                text(theme_cfg, "Seek slider")
+                    .size(11)
+                    .color(theme_cfg.text_muted),
+                slider(
+                    0.0..=1.0,
+                    self.debug_state.slider_val,
+                    Message::DebugSliderChanged,
+                )
+                .step(0.01)
+                .width(Length::Fixed(SETTING_SLIDER_WIDTH))
+                .style(styles::seek_slider_style(theme_cfg)),
+            ]
+            .spacing(FORM_FIELD_SPACING),
+            column![
+                text(theme_cfg, "Volume slider")
+                    .size(11)
+                    .color(theme_cfg.text_muted),
+                slider(
+                    0.0..=1.0,
+                    self.debug_state.slider_val,
+                    Message::DebugSliderChanged,
+                )
+                .step(0.01)
+                .width(Length::Fixed(120.0))
+                .style(styles::volume_slider_style(theme_cfg)),
+            ]
+            .spacing(FORM_FIELD_SPACING),
+        ]
+        .spacing(SPACE_LG)
+        .align_y(Alignment::Center);
+
+        let options = vec![
+            "Option A".to_string(),
+            "Option B".to_string(),
+            "Option C".to_string(),
+        ];
+
+        let inputs_row = row![
+            text_input("Sample text input...", &self.debug_state.input_val)
+                .on_input(Message::DebugInputChanged)
+                .padding(INPUT_PADDING)
+                .size(12)
+                .width(Length::Fixed(SETTING_DROPDOWN_WIDTH))
+                .style(styles::search_input_style(theme_cfg)),
+            pick_list(
+                Some(self.debug_state.selected_option.clone()),
+                options,
+                |opt: &String| opt.clone(),
+            )
+            .on_select(Message::DebugPickSelected)
+            .padding(INPUT_PADDING)
+            .text_size(12)
+            .width(Length::Fixed(180.0))
+            .style(styles::pick_list_style(theme_cfg))
+            .menu_style(styles::menu_style(theme_cfg)),
+        ]
+        .spacing(SPACE_LG)
+        .align_y(Alignment::Center);
+
+        components::settings_card(
+            theme_cfg,
+            "Form controls",
+            column![toggler_row, sliders_row, inputs_row]
+                .spacing(SECTION_SPACING)
+                .boxed(),
+        )
+    }
+
+    fn view_debug_feedback<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+        let metrics_row = row![
+            components::metric_box(theme_cfg, "Metric A", "1,234".to_string()),
+            components::metric_box(theme_cfg, "Metric B", "42.0 MB".to_string()),
+            components::metric_box(theme_cfg, "Metric C", "99.9%".to_string()),
+        ]
+        .spacing(SPACE_LG);
+
+        let indicators_row = row![
+            components::cover_art(
+                theme_cfg,
+                None,
+                56.0,
+                theme_cfg.border_radius.md,
+                icons::ALBUM_SVG,
+                24.0,
+                theme_cfg.text_muted,
+            ),
+            column![
+                components::scanning_indicator(theme_cfg, Some((12, 48))),
+                components::thumbnail_caching_indicator(theme_cfg),
+                container(
+                    Marquee::new(
+                        "Marquee sample — Scrolling long track or album metadata smoothly"
+                    )
+                    .size(12)
+                    .color(theme_cfg.text)
+                    .font(theme_cfg.font),
+                )
+                .width(Length::Fixed(240.0)),
+            ]
+            .spacing(SPACE_MD),
+        ]
+        .spacing(SPACE_LG)
+        .align_y(Alignment::Center);
+
+        let empty_preview = container(components::empty_state(
+            theme_cfg,
+            "Empty state title",
+            "Supporting muted subtitle for empty views",
+        ))
+        .style(move |_| container::Style {
+            background: Some(iced::Background::Color(theme_cfg.surface)),
+            border: Border {
+                radius: theme_cfg.border_radius.md,
+                color: theme_cfg.border,
+                width: 1.0,
+            },
+            ..Default::default()
+        });
+
+        components::settings_card(
+            theme_cfg,
+            "Containers, indicators & feedback",
+            column![metrics_row, indicators_row, empty_preview]
+                .spacing(SECTION_SPACING)
+                .boxed(),
+        )
+    }
+
+    fn view_debug_icons<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+        let sample_icons: [(&'static str, &'static str); 16] = [
+            ("Play", icons::PLAY_SVG),
+            ("Pause", icons::PAUSE_SVG),
+            ("Prev", icons::PREV_SVG),
+            ("Next", icons::NEXT_SVG),
+            ("Shuffle", icons::SHUFFLE_SVG),
+            ("Repeat", icons::REPEAT_SVG),
+            ("Search", icons::SEARCH_SVG),
+            ("Album", icons::ALBUM_SVG),
+            ("Music", icons::MUSIC_NOTE_SVG),
+            ("Playlist", icons::PLAYLIST_SVG),
+            ("Queue", icons::QUEUE_SVG),
+            ("Palette", icons::PALETTE_SVG),
+            ("Database", icons::DATABASE_SVG),
+            ("Radio", icons::RADIO_SVG),
+            ("Folder", icons::FOLDER_SVG),
+            ("Bug", icons::BUG_SVG),
+        ];
+
+        let mut grid = column![].spacing(SPACE_LG);
+        for chunk in sample_icons.chunks(8) {
+            let mut r = row![].spacing(SPACE_LG);
+            for &(label, svg) in chunk {
+                r = r.push(
+                    column![
+                        icons::icon(svg, 18.0, theme_cfg.text),
+                        text(theme_cfg, label).size(10).color(theme_cfg.text_muted),
+                    ]
+                    .spacing(SPACE_SM)
+                    .align_x(Alignment::Center)
+                    .width(Length::FillPortion(1)),
+                );
+            }
+            grid = grid.push(r);
+        }
+
+        components::settings_card(theme_cfg, "Vector icons", grid.boxed())
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
+
+fn format_color_hex(c: Color) -> String {
+    let r = (c.r.clamp(0.0, 1.0) * 255.0).round() as u8;
+    let g = (c.g.clamp(0.0, 1.0) * 255.0).round() as u8;
+    let b = (c.b.clamp(0.0, 1.0) * 255.0).round() as u8;
+    let a = (c.a.clamp(0.0, 1.0) * 255.0).round() as u8;
+    if a == 255 {
+        format!("#{:02X}{:02X}{:02X}", r, g, b)
+    } else {
+        format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a)
+    }
+}
+
+fn debug_color_tile<'a>(
+    theme_cfg: &'a ThemeConfig,
+    name: &'static str,
+    color: Color,
+    is_fallback: bool,
+) -> Element<'a, Message> {
+    let hex = format_color_hex(color);
+    let subtitle = if is_fallback {
+        format!("{hex} (fallback)")
+    } else {
+        hex
+    };
+    let border = theme_cfg.border;
+    let surface = theme_cfg.surface;
+
+    container(
+        row![
+            container(Space::new().width(28).height(28)).style(move |_| container::Style {
+                background: Some(iced::Background::Color(color)),
+                border: Border {
+                    radius: theme_cfg.border_radius.sm,
+                    color: border,
+                    width: 1.0,
+                },
+                ..Default::default()
+            }),
+            column![
+                text(theme_cfg, name).size(11).color(theme_cfg.text),
+                text(theme_cfg, subtitle)
+                    .size(10)
+                    .color(theme_cfg.text_muted),
+            ]
+            .spacing(2),
+        ]
+        .spacing(SPACE_LG)
+        .align_y(Alignment::Center),
+    )
+    .padding([8, 10])
+    .width(Length::FillPortion(1))
+    .style(move |_| container::Style {
+        background: Some(iced::Background::Color(surface)),
+        border: Border {
+            radius: theme_cfg.border_radius.sm,
+            color: border,
+            width: 1.0,
+        },
+        ..Default::default()
+    })
+    .boxed()
+}
 
 fn swatch_card<'a>(
     theme_cfg: &'a ThemeConfig,
@@ -1958,7 +2527,8 @@ mod tests {
         assert_ne!(tabs[0], tabs[1]);
         assert_ne!(tabs[1], tabs[2]);
         assert_ne!(tabs[2], tabs[3]);
-        assert_ne!(tabs[0], tabs[3]);
+        assert_ne!(tabs[3], SettingsTab::Debug);
+        assert_ne!(tabs[0], SettingsTab::Debug);
     }
 
     #[test]
@@ -1967,12 +2537,15 @@ mod tests {
         let folders = vec!["/music/ambient".to_string(), "/music/jazz".to_string()];
         let available_fonts = vec!["Default".to_string(), "Noto Sans CJK JP".to_string()];
 
-        for tab in [
+        let tabs = vec![
             SettingsTab::Appearance,
             SettingsTab::Playback,
             SettingsTab::Library,
             SettingsTab::Scrobbling,
-        ] {
+            SettingsTab::Debug,
+        ];
+
+        for tab in tabs {
             let settings_view = SettingsView {
                 active_tab: tab,
                 available_fonts: available_fonts.clone(),
@@ -1980,6 +2553,7 @@ mod tests {
                 scrobble_test_status: None,
                 fonts_loaded: true,
                 update_status: updater::UpdateStatus::Idle,
+                debug_state: DebugSampleState::default(),
             };
 
             let theme_names_vec = vec![DEFAULT_THEME_NAME.to_string(), "Nord".to_string()];
@@ -2058,6 +2632,7 @@ mod tests {
             scrobble_test_status: None,
             fonts_loaded: true,
             update_status: updater::UpdateStatus::Idle,
+            debug_state: DebugSampleState::default(),
         };
         let theme_names_vec = vec![DEFAULT_THEME_NAME.to_string()];
         let layout_names_vec = vec!["Default".to_string()];
