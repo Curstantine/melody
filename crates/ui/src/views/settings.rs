@@ -274,11 +274,11 @@ impl SettingsView {
             updater::UpdateStatus::Available(info) => {
                 let update_btn = button(
                     row![
-                        icons::icon(icons::DOWNLOAD_SVG, 13.0, Color::WHITE),
+                        icons::icon(icons::DOWNLOAD_SVG, 13.0, theme_cfg.background),
                         Space::new().width(SPACE_MD),
                         text(theme_cfg, "Update & restart")
                             .size(12)
-                            .color(Color::WHITE),
+                            .color(theme_cfg.background),
                     ]
                     .align_y(Alignment::Center),
                 )
@@ -354,9 +354,11 @@ impl SettingsView {
             updater::UpdateStatus::ReadyToRestart { info } => {
                 let restart_btn = button(
                     row![
-                        icons::icon(icons::REFRESH_SVG, 13.0, Color::WHITE),
+                        icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.background),
                         Space::new().width(SPACE_MD),
-                        text(theme_cfg, "Restart now").size(12).color(Color::WHITE),
+                        text(theme_cfg, "Restart now")
+                            .size(12)
+                            .color(theme_cfg.background),
                     ]
                     .align_y(Alignment::Center),
                 )

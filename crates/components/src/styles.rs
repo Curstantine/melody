@@ -818,7 +818,7 @@ pub fn primary_button(cfg: &ThemeConfig) -> impl Fn(&Theme, button::Status) -> b
 
         button::Style {
             background: Some(Background::Color(bg)),
-            text_color: Color::WHITE,
+            text_color: cfg.background,
             border: Border {
                 radius: cfg.border_radius.md,
                 ..Border::default()
