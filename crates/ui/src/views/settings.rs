@@ -126,6 +126,7 @@ pub struct SettingsView {
     pub scrobble_test_status: Option<(plugins::scrobbler::ScrobbleService, Result<String, String>)>,
     pub fonts_loaded: bool,
     pub update_status: updater::UpdateStatus,
+    pub show_debug_subpage: bool,
     pub debug_state: DebugSampleState,
 }
 
@@ -142,6 +143,7 @@ impl SettingsView {
             scrobble_test_status: None,
             fonts_loaded,
             update_status: updater::UpdateStatus::Idle,
+            show_debug_subpage: false,
             debug_state: DebugSampleState::default(),
         }
     }
@@ -162,14 +164,15 @@ impl SettingsView {
         let sidebar = self.view_sidebar(theme_cfg);
 
         let content = match self.active_tab {
+            SettingsTab::Appearance if self.show_debug_subpage => self.view_debug(theme_cfg),
             SettingsTab::Appearance => self.view_appearance(theme_cfg, &ctx),
             SettingsTab::Playback => self.view_playback(theme_cfg, &ctx),
             SettingsTab::Library => self.view_library(theme_cfg, &ctx),
             SettingsTab::Scrobbling => self.view_scrobbling(theme_cfg, &ctx),
-            SettingsTab::Debug => self.view_debug(theme_cfg),
         };
 
         let main_panel = scrollable(content)
+            .id(iced::widget::Id::new("settings_scroll"))
             .width(Length::Fill)
             .height(Length::Fill)
             .style(styles::scrollable_style(theme_cfg));
@@ -250,12 +253,6 @@ impl SettingsView {
                 icons::RADIO_SVG,
                 "Scrobbling",
                 "ListenBrainz & Last.fm",
-            ),
-            nav_item(
-                SettingsTab::Debug,
-                icons::BUG_SVG,
-                "Debug",
-                "Colors & UI components",
             ),
             Space::new().height(Length::Fill),
             update_section,
@@ -482,7 +479,7 @@ impl SettingsView {
     ) -> Element<'a, Message> {
         let header = components::settings_header(theme_cfg, "Appearance & interface", Some("Customize color palette, typography font family, default display modes, and layout density"));
 
-        // Theme chips
+        // Theme & Layout Card
         let theme_buttons = {
             let mut row_wrap = row![].spacing(CHIP_ROW_SPACING);
             for name in ctx.theme_names {
@@ -504,102 +501,6 @@ impl SettingsView {
             row_wrap.wrap()
         };
 
-        let palette_preview = row![
-            swatch_card(theme_cfg, "Background", theme_cfg.background),
-            swatch_card(theme_cfg, "Surface", theme_cfg.surface),
-            swatch_card(theme_cfg, "Surface hover", theme_cfg.surface_hover),
-            swatch_card(theme_cfg, "Border", theme_cfg.border),
-            swatch_card(theme_cfg, "Primary", theme_cfg.primary),
-            swatch_card(theme_cfg, "Accent", theme_cfg.accent),
-            swatch_card(theme_cfg, "Text", theme_cfg.text),
-            swatch_card(theme_cfg, "Text muted", theme_cfg.text_muted),
-            swatch_card(theme_cfg, "Success", theme_cfg.success),
-            swatch_card(theme_cfg, "Danger", theme_cfg.danger),
-            swatch_card(theme_cfg, "Player bar", theme_cfg.player_bar_bg_color()),
-            swatch_card(
-                theme_cfg,
-                "Player bar text",
-                theme_cfg.player_bar_text_color()
-            ),
-            swatch_card(theme_cfg, "Slider active", theme_cfg.slider_active_color()),
-            swatch_card(theme_cfg, "Slider rail", theme_cfg.slider_rail_color()),
-        ]
-        .spacing(CARD_SPACING)
-        .wrap();
-
-        let reload_themes_btn = button(
-            row![
-                icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text),
-                Space::new().width(SPACE_MD),
-                text(theme_cfg, "Reload themes from disk")
-                    .size(12)
-                    .color(theme_cfg.text),
-            ]
-            .align_y(Alignment::Center),
-        )
-        .padding(BUTTON_PADDING_MD)
-        .style(styles::ghost_button(theme_cfg, false))
-        .on_press(Message::ReloadThemes);
-
-        let radius_item = |label: &'static str, r: Radius| {
-            let border = theme_cfg.border;
-            column![
-                container(Space::new().width(48).height(24)).style(move |_theme| {
-                    container::Style {
-                        background: Some(iced::Background::Color(theme_cfg.surface_hover)),
-                        border: Border {
-                            radius: r,
-                            color: border,
-                            width: 1.0,
-                        },
-                        ..Default::default()
-                    }
-                }),
-                text(theme_cfg, format!("{label} ({}px)", r.top_left as u32))
-                    .size(10)
-                    .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .align_x(Alignment::Center)
-            .boxed()
-        };
-
-        let radius_preview = row![
-            radius_item("xs", theme_cfg.border_radius.xs),
-            radius_item("sm", theme_cfg.border_radius.sm),
-            radius_item("md", theme_cfg.border_radius.md),
-            radius_item("lg", theme_cfg.border_radius.lg),
-            radius_item("xl", theme_cfg.border_radius.xl),
-        ]
-        .spacing(CARD_SPACING)
-        .wrap();
-
-        let themes_card = components::settings_card(
-            theme_cfg,
-            "Theme & color palette",
-            column![
-                text(theme_cfg, "Installed theme")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                theme_buttons,
-                Space::new().height(SPACE_MD),
-                text(theme_cfg, "Current palette swatches")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                palette_preview,
-                Space::new().height(SPACE_MD),
-                text(theme_cfg, "Border radius variants")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                radius_preview,
-                Space::new().height(SPACE_SM),
-                reload_themes_btn,
-            ]
-            .spacing(CARD_SPACING)
-            .boxed(),
-        );
-
-        // Window Layout Card
         let layout_buttons = {
             let mut row_wrap = row![].spacing(CHIP_ROW_SPACING);
             for name in ctx.layout_names {
@@ -620,31 +521,6 @@ impl SettingsView {
             }
             row_wrap.wrap()
         };
-
-        let reload_layouts_btn = button(
-            row![
-                icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text),
-                Space::new().width(SPACE_MD),
-                text(theme_cfg, "Reload layouts from disk")
-                    .size(12)
-                    .color(theme_cfg.text),
-            ]
-            .align_y(Alignment::Center),
-        )
-        .padding(BUTTON_PADDING_MD)
-        .style(styles::ghost_button(theme_cfg, false))
-        .on_press(Message::ReloadLayouts);
-
-        let mut layout_col = column![
-            text(theme_cfg, "Select a layout preset")
-                .size(12)
-                .color(theme_cfg.text_muted)
-                .boxed(),
-            layout_buttons.boxed(),
-            Space::new().height(SPACE_SM).boxed(),
-            reload_layouts_btn.boxed(),
-        ]
-        .spacing(CARD_SPACING);
 
         let titlebar_toggle = row![
             column![
@@ -668,13 +544,44 @@ impl SettingsView {
         .align_y(Alignment::Center)
         .spacing(SPACE_LG);
 
-        layout_col = layout_col
-            .push(Space::new().height(SPACE_SM).boxed())
-            .push(border_hori(1.0, theme_cfg.border))
-            .push(Space::new().height(SPACE_SM).boxed())
-            .push(titlebar_toggle.boxed());
+        let reload_appearance_btn = button(
+            row![
+                icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text),
+                Space::new().width(SPACE_MD),
+                text(theme_cfg, "Reload themes & layouts from disk")
+                    .size(12)
+                    .color(theme_cfg.text),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .padding(BUTTON_PADDING_MD)
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press(Message::ReloadThemesAndLayouts);
 
-        let layout_card = components::settings_card(theme_cfg, "Layout", layout_col.boxed());
+        let theme_layout_card = components::settings_card(
+            theme_cfg,
+            "Theme & layout",
+            column![
+                column![
+                    text(theme_cfg, "Color palette")
+                        .size(12)
+                        .color(theme_cfg.text_muted),
+                    theme_buttons,
+                ]
+                .spacing(CARD_SPACING),
+                column![
+                    text(theme_cfg, "Layout preset")
+                        .size(12)
+                        .color(theme_cfg.text_muted),
+                    layout_buttons,
+                ]
+                .spacing(CARD_SPACING),
+                titlebar_toggle,
+                reload_appearance_btn,
+            ]
+            .spacing(SECTION_SPACING)
+            .boxed(),
+        );
 
         // Typography & Font Configuration Card
         let active_font_family = ctx.primary_font.unwrap_or("Default").to_string();
@@ -1031,15 +938,50 @@ impl SettingsView {
             .boxed(),
         );
 
+        let debug_gallery_card = components::settings_card(
+            theme_cfg,
+            "Miscellaneous",
+            row![
+                column![
+                    text(theme_cfg, "Component gallery & theme tokens")
+                        .size(12)
+                        .color(theme_cfg.text_muted),
+                    text(
+                        theme_cfg,
+                        "Inspect all active palette colors, typography, and interactive controls",
+                    )
+                    .size(11)
+                    .color(theme_cfg.text_muted),
+                ]
+                .spacing(FORM_FIELD_SPACING)
+                .width(Length::Fill),
+                button(
+                    row![
+                        icons::icon(icons::OPEN_SVG, 14.0, theme_cfg.text),
+                        Space::new().width(SPACE_MD),
+                        text(theme_cfg, "Open gallery")
+                            .size(12)
+                            .color(theme_cfg.text),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .padding(BUTTON_PADDING_MD)
+                .style(styles::ghost_button(theme_cfg, false))
+                .on_press(Message::SetDebugSubpage(true)),
+            ]
+            .align_y(Alignment::Center)
+            .boxed(),
+        );
+
         column![
             header,
-            themes_card,
-            layout_card,
+            theme_layout_card,
             font_card,
             library_tab_card,
             albums_tab_card,
             artists_tab_card,
             now_playing_card,
+            debug_gallery_card,
             Space::new().height(PAGE_BOTTOM_SPACER),
         ]
         .spacing(PAGE_SPACING)
@@ -1943,9 +1885,17 @@ impl SettingsView {
 
 impl SettingsView {
     fn view_debug<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+        let back_btn = components::chip_with_icon(
+            theme_cfg,
+            icons::ARROW_LEFT_SVG,
+            "Back to Appearance",
+            false,
+            Message::SetDebugSubpage(false),
+        );
+
         let header = components::settings_header(
             theme_cfg,
-            "Debug & component gallery",
+            "Component gallery & theme tokens",
             Some("Live preview of all active theme color tokens and basic UI components"),
         );
 
@@ -1957,7 +1907,7 @@ impl SettingsView {
         let icons_card = self.view_debug_icons(theme_cfg);
 
         column![
-            header,
+            column![back_btn, header].spacing(SECTION_SPACING),
             colors_card,
             typography_card,
             buttons_card,
@@ -2365,27 +2315,54 @@ impl SettingsView {
     }
 
     fn view_debug_icons<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
-        let sample_icons: [(&'static str, &'static str); 16] = [
+        const COLS: usize = 8;
+        let all_icons: [(&'static str, &'static str); 42] = [
             ("Play", icons::PLAY_SVG),
+            ("Play circle", icons::PLAY_CIRCLE_SVG),
             ("Pause", icons::PAUSE_SVG),
             ("Prev", icons::PREV_SVG),
             ("Next", icons::NEXT_SVG),
-            ("Shuffle", icons::SHUFFLE_SVG),
-            ("Repeat", icons::REPEAT_SVG),
-            ("Search", icons::SEARCH_SVG),
+            ("Stop", icons::STOP_SVG),
+            ("Vol mute", icons::VOL_MUTE_SVG),
+            ("Vol low", icons::VOL_LOW_SVG),
+            ("Vol high", icons::VOL_HIGH_SVG),
             ("Album", icons::ALBUM_SVG),
             ("Music", icons::MUSIC_NOTE_SVG),
             ("Playlist", icons::PLAYLIST_SVG),
             ("Queue", icons::QUEUE_SVG),
+            ("Shuffle", icons::SHUFFLE_SVG),
+            ("Repeat", icons::REPEAT_SVG),
+            ("Search", icons::SEARCH_SVG),
+            ("Speaker", icons::SPEAKER_PLAYING_SVG),
+            ("Chevron up", icons::CHEVRON_UP_SVG),
+            ("Chevron down", icons::CHEVRON_DOWN_SVG),
+            ("Chevron right", icons::CHEVRON_RIGHT_SVG),
+            ("Disc", icons::DISC_SVG),
+            ("User", icons::USER_AVATAR_SVG),
+            ("Settings", icons::SETTINGS_SVG),
+            ("List view", icons::LIST_VIEW_SVG),
+            ("Grid view", icons::GRID_VIEW_SVG),
+            ("Folder", icons::FOLDER_SVG),
+            ("Refresh", icons::REFRESH_SVG),
+            ("Check", icons::CHECK_SVG),
             ("Palette", icons::PALETTE_SVG),
             ("Database", icons::DATABASE_SVG),
+            ("Trash", icons::TRASH_SVG),
+            ("Plus", icons::PLUS_SVG),
             ("Radio", icons::RADIO_SVG),
-            ("Folder", icons::FOLDER_SVG),
+            ("Arrow left", icons::ARROW_LEFT_SVG),
+            ("Download", icons::DOWNLOAD_SVG),
+            ("External", icons::EXTERNAL_LINK_SVG),
+            ("Open", icons::OPEN_SVG),
             ("Bug", icons::BUG_SVG),
+            ("Win min", icons::WINDOW_MINIMIZE_SVG),
+            ("Win max", icons::WINDOW_MAXIMIZE_SVG),
+            ("Win restore", icons::WINDOW_RESTORE_SVG),
+            ("Win close", icons::WINDOW_CLOSE_SVG),
         ];
 
         let mut grid = column![].spacing(SPACE_LG);
-        for chunk in sample_icons.chunks(8) {
+        for chunk in all_icons.chunks(COLS) {
             let mut r = row![].spacing(SPACE_LG);
             for &(label, svg) in chunk {
                 r = r.push(
@@ -2397,6 +2374,9 @@ impl SettingsView {
                     .align_x(Alignment::Center)
                     .width(Length::FillPortion(1)),
                 );
+            }
+            for _ in chunk.len()..COLS {
+                r = r.push(column![].width(Length::FillPortion(1)));
             }
             grid = grid.push(r);
         }
@@ -2472,29 +2452,6 @@ fn debug_color_tile<'a>(
     .boxed()
 }
 
-fn swatch_card<'a>(
-    theme_cfg: &'a ThemeConfig,
-    label: &'static str,
-    color: iced::Color,
-) -> Element<'a, Message> {
-    let border = theme_cfg.border;
-    column![
-        container(Space::new().width(52).height(22)).style(move |_theme| container::Style {
-            background: Some(iced::Background::Color(color)),
-            border: Border {
-                radius: theme_cfg.border_radius.sm,
-                color: border,
-                width: 1.0,
-            },
-            ..Default::default()
-        }),
-        text(theme_cfg, label).size(10).color(theme_cfg.text_muted),
-    ]
-    .spacing(FORM_FIELD_SPACING)
-    .align_x(Alignment::Center)
-    .boxed()
-}
-
 fn format_file_size(bytes: u64) -> String {
     if bytes < 1024 {
         format!("{} B", bytes)
@@ -2527,8 +2484,6 @@ mod tests {
         assert_ne!(tabs[0], tabs[1]);
         assert_ne!(tabs[1], tabs[2]);
         assert_ne!(tabs[2], tabs[3]);
-        assert_ne!(tabs[3], SettingsTab::Debug);
-        assert_ne!(tabs[0], SettingsTab::Debug);
     }
 
     #[test]
@@ -2538,14 +2493,14 @@ mod tests {
         let available_fonts = vec!["Default".to_string(), "Noto Sans CJK JP".to_string()];
 
         let tabs = vec![
-            SettingsTab::Appearance,
-            SettingsTab::Playback,
-            SettingsTab::Library,
-            SettingsTab::Scrobbling,
-            SettingsTab::Debug,
+            (SettingsTab::Appearance, false),
+            (SettingsTab::Appearance, true),
+            (SettingsTab::Playback, false),
+            (SettingsTab::Library, false),
+            (SettingsTab::Scrobbling, false),
         ];
 
-        for tab in tabs {
+        for (tab, show_debug_subpage) in tabs {
             let settings_view = SettingsView {
                 active_tab: tab,
                 available_fonts: available_fonts.clone(),
@@ -2553,6 +2508,7 @@ mod tests {
                 scrobble_test_status: None,
                 fonts_loaded: true,
                 update_status: updater::UpdateStatus::Idle,
+                show_debug_subpage,
                 debug_state: DebugSampleState::default(),
             };
 
@@ -2632,6 +2588,7 @@ mod tests {
             scrobble_test_status: None,
             fonts_loaded: true,
             update_status: updater::UpdateStatus::Idle,
+            show_debug_subpage: false,
             debug_state: DebugSampleState::default(),
         };
         let theme_names_vec = vec![DEFAULT_THEME_NAME.to_string()];

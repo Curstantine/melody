@@ -1825,6 +1825,7 @@ impl App {
 
             Message::SelectSettingsTab(tab) => {
                 self.settings.active_tab = tab;
+                self.settings.show_debug_subpage = false;
                 let mut tasks = vec![self.save_state_task(), self.load_storage_stats_task()];
                 if tab == SettingsTab::Appearance {
                     if let Some(font_task) = self.ensure_fonts_task() {
@@ -1832,6 +1833,19 @@ impl App {
                     }
                 }
                 Task::batch(tasks)
+            }
+
+            Message::SetDebugSubpage(open) => {
+                self.settings.show_debug_subpage = open;
+                if open {
+                    snap_to(
+                        iced::widget::Id::new("settings_scroll"),
+                        RelativeOffset::START,
+                        Animation::Instant,
+                    )
+                } else {
+                    Task::none()
+                }
             }
 
             Message::DebugNoop => Task::none(),
@@ -2763,14 +2777,6 @@ impl App {
                 ])
             }
 
-            Message::ReloadThemes => {
-                self.theme_manager.load_all_themes();
-                crate::window_decorations::sync_titlebar_theme(
-                    None,
-                    &self.theme_manager.current_config,
-                )
-            }
-
             Message::SelectLayout(name) => {
                 if self.layout_manager.select_layout(&name) {
                     let formats = &self.layout_manager.current_template.view_formats;
@@ -2789,7 +2795,8 @@ impl App {
                 }
             }
 
-            Message::ReloadLayouts => {
+            Message::ReloadThemesAndLayouts => {
+                self.theme_manager.load_all_themes();
                 self.layout_manager.load_all_layouts();
                 let formats = &self.layout_manager.current_template.view_formats;
                 self.library.recompute_rendered_rows(&formats.library);
@@ -2801,7 +2808,10 @@ impl App {
                     .recompute_rendered_details(&formats.playlists);
                 self.playlists
                     .recompute_rendered_queue(&formats.queue, &self.queues);
-                Task::none()
+                crate::window_decorations::sync_titlebar_theme(
+                    None,
+                    &self.theme_manager.current_config,
+                )
             }
 
             Message::SelectFont(font_name) => {
@@ -4523,7 +4533,7 @@ impl App {
                 .layout_manager
                 .current_template
                 .root
-                .has_horizontal_navbar()
+                .has_top_horizontal_navbar()
         {
             let titlebar =
                 crate::views::TitlebarView::view(theme_cfg, self.title(), self.is_maximized);

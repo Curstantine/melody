@@ -117,6 +117,9 @@ pub const DOWNLOAD_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBo
 /// Boxicons `export` / external link.
 pub const EXTERNAL_LINK_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m13 3l3.293 3.293l-7 7l1.414 1.414l7-7L21 11V3z"/><path fill="currentColor" d="M19 19H5V5h7l-2-2H5c-1.103 0-2 .897-2 2v14c0 1.103.897 2 2 2h14c1.103 0 2-.897 2-2v-5l-2-2z"/></svg>"#;
 
+/// Boxicons `arrow-out-up-right-square`.
+pub const OPEN_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m12.71 12.71l5.5-5.5L21 10V3h-7l2.79 2.79l-5.5 5.5z"/><path fill="currentColor" d="M19 19H5V5h7l-2-2H5c-1.103 0-2 .897-2 2v14c0 1.103.897 2 2 2h14c1.103 0 2-.897 2-2v-7l-2-2v7z"/></svg>"#;
+
 /// Boxicons `bug`.
 pub const BUG_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M21 12h-3.1c-.13-1.08-.46-2.09-.95-2.99l2.46-2.46-1.41-1.41-2.02 2.02C14.82 6.43 13.46 6 12 6s-2.82.43-3.98 1.16L6 5.14 4.59 6.55l2.46 2.46c-.49.9-.82 1.91-.95 2.99H3v2h3v1c0 .7.1 1.38.28 2.02l-2.69 2.69 1.41 1.41 2.24-2.24C8.4 20.19 10.1 21 12 21s3.6-.81 4.76-2.12l2.24 2.24 1.41-1.41-2.69-2.69c.18-.64.28-1.32.28-2.02v-1h3v-2zm-5 3c0 2.21-1.79 4-4 4s-4-1.79-4-4v-3c0-2.21 1.79-4 4-4s4 1.79 4 4v3z"/><path fill="currentColor" d="M12 2c-1.1 0-2 .9-2 2v1h4V4c0-1.1-.9-2-2-2z"/></svg>"#;
 

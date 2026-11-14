@@ -220,10 +220,10 @@ pub enum Message {
 
     // Themes & Settings
     SelectSettingsTab(SettingsTab),
+    SetDebugSubpage(bool),
     SelectTheme(String),
-    ReloadThemes,
     SelectLayout(String),
-    ReloadLayouts,
+    ReloadThemesAndLayouts,
     SelectFont(String),
     FontsLoaded(Vec<String>),
     SaveConfig,
@@ -595,10 +595,10 @@ impl std::fmt::Debug for Message {
                 .field("len", &tracks.len())
                 .finish(),
             Self::SelectSettingsTab(t) => f.debug_tuple("SelectSettingsTab").field(t).finish(),
+            Self::SetDebugSubpage(open) => f.debug_tuple("SetDebugSubpage").field(open).finish(),
             Self::SelectTheme(s) => f.debug_tuple("SelectTheme").field(s).finish(),
-            Self::ReloadThemes => write!(f, "ReloadThemes"),
             Self::SelectLayout(s) => f.debug_tuple("SelectLayout").field(s).finish(),
-            Self::ReloadLayouts => write!(f, "ReloadLayouts"),
+            Self::ReloadThemesAndLayouts => write!(f, "ReloadThemesAndLayouts"),
             Self::SelectFont(s) => f.debug_tuple("SelectFont").field(s).finish(),
             Self::FontsLoaded(fonts) => f
                 .debug_struct("FontsLoaded")

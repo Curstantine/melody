@@ -26,22 +26,17 @@ impl TitlebarView {
         title: String,
         is_maximized: bool,
     ) -> Element<'a, Message> {
-        let title_badge = row![
-            icons::icon(icons::MUSIC_NOTE_SVG, 13.0, theme_cfg.primary),
-            text(theme_cfg, title)
-                .size(11)
-                .line_height(1.0)
-                .color(theme_cfg.text_muted),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center);
-
         let drag_region = mouse_area(
-            container(title_badge)
-                .padding([0, 12])
-                .width(Length::Fill)
-                .height(Length::Fixed(TITLEBAR_HEIGHT))
-                .align_y(Alignment::Center),
+            container(
+                text(theme_cfg, title)
+                    .size(11)
+                    .line_height(1.0)
+                    .color(theme_cfg.text_muted),
+            )
+            .padding([0, 12])
+            .width(Length::Fill)
+            .height(Length::Fixed(TITLEBAR_HEIGHT))
+            .align_y(Alignment::Center),
         )
         .on_press(Message::TitlebarPressed)
         .on_right_press(Message::WindowShowSystemMenu);

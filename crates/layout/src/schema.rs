@@ -313,6 +313,26 @@ impl LayoutNode {
             Self::Divider { .. } | Self::Spacer { .. } | Self::Component(_) => false,
         }
     }
+
+    /// Returns `true` if this layout tree starts with a horizontal
+    /// [`LayoutComponent::Navbar`] at the very top of the window, so custom
+    /// titlebar window controls can be merged into it.
+    pub fn has_top_horizontal_navbar(&self) -> bool {
+        match self {
+            Self::Component(LayoutComponent::Navbar { orientation, .. }) => {
+                *orientation == Orientation::Horizontal
+            }
+            Self::Column { children, .. } => children
+                .first()
+                .is_some_and(Self::has_top_horizontal_navbar),
+            Self::Container { child, .. } => child.has_top_horizontal_navbar(),
+            Self::Row { .. }
+            | Self::Stack { .. }
+            | Self::Divider { .. }
+            | Self::Spacer { .. }
+            | Self::Component(_) => false,
+        }
+    }
 }
 
 /// A complete layout template definition parsed from KDL.
@@ -1173,5 +1193,53 @@ mod tests {
             template.view_formats.queue.chip_format,
             "{name} ({track_count} songs)"
         );
+    }
+
+    #[test]
+    fn test_has_top_horizontal_navbar() {
+        let top_nav = parse_kdl_layout(
+            r#"
+            layout name="TopNav" {
+                column {
+                    navbar height=32
+                    main-view fill=true
+                    player-bar height=72
+                }
+            }
+            "#,
+        )
+        .unwrap();
+        assert!(top_nav.root.has_top_horizontal_navbar());
+
+        let reversed = parse_kdl_layout(
+            r#"
+            layout name="Reversed" {
+                column {
+                    player-bar height=72
+                    navbar height=32
+                    main-view fill=true
+                }
+            }
+            "#,
+        )
+        .unwrap();
+        assert!(reversed.root.has_horizontal_navbar());
+        assert!(!reversed.root.has_top_horizontal_navbar());
+
+        let sidebar = parse_kdl_layout(
+            r#"
+            layout name="Sidebar" {
+                column {
+                    row fill=true {
+                        navbar orientation="vertical"
+                        main-view fill=true
+                    }
+                    player-bar height=72
+                }
+            }
+            "#,
+        )
+        .unwrap();
+        assert!(!sidebar.root.has_top_horizontal_navbar());
     }
 }

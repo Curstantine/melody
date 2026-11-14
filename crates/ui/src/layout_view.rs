@@ -365,7 +365,12 @@ impl App {
 
         match orientation {
             Orientation::Horizontal => {
-                let merged_titlebar = self.use_custom_titlebar();
+                let merged_titlebar = self.use_custom_titlebar()
+                    && self
+                        .layout_manager
+                        .current_template
+                        .root
+                        .has_top_horizontal_navbar();
                 let mut nav_row = row![].spacing(4).align_y(iced::Alignment::Center);
                 for btn in tab_buttons {
                     nav_row = nav_row.push(btn);
