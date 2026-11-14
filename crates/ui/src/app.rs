@@ -4545,6 +4545,25 @@ impl App {
             layout_view
         };
 
+        // On Windows, winit's `undecorated_shadow` shifts the unmaximized client rect
+        // down by 1px in WM_NCCALCSIZE (`top += 1; bottom += 1`), clipping the bottom 1px
+        // of the window. Reserve 1px at the bottom so the status bar stays centered.
+        let base_view: Element<'_, Message> =
+            if cfg!(target_os = "windows") && self.use_custom_titlebar() && !self.is_maximized {
+                iced::widget::container(base_view)
+                    .padding(iced::Padding {
+                        top: 0.0,
+                        right: 0.0,
+                        bottom: 1.0,
+                        left: 0.0,
+                    })
+                    .width(iced::Length::Fill)
+                    .height(iced::Length::Fill)
+                    .boxed()
+            } else {
+                base_view
+            };
+
         let mut layers = vec![base_view];
         if let Some(ref menu) = self.context_menu {
             layers.push(components::render_context_menu(
