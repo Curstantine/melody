@@ -1,9 +1,5 @@
 use iced::Color;
 
-pub fn parse_hex(hex: &str) -> Color {
-    hex.trim().parse().unwrap_or(Color::BLACK)
-}
-
 pub mod hex_color {
     use super::*;
     use serde::{de::Error as _, Deserialize, Deserializer, Serializer};

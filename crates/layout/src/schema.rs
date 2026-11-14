@@ -347,28 +347,8 @@ pub struct LayoutTemplate {
 
 impl Default for LayoutTemplate {
     fn default() -> Self {
-        Self {
-            name: "Default".to_string(),
-            description: "Standard layout with top navigation bar and bottom player".to_string(),
-            author: "Melody Team".to_string(),
-            root: LayoutNode::Column {
-                children: vec![
-                    LayoutNode::Component(LayoutComponent::Navbar {
-                        orientation: Orientation::Horizontal,
-                        show_settings: true,
-                    }),
-                    LayoutNode::Component(LayoutComponent::MainView),
-                    LayoutNode::Component(LayoutComponent::PlayerBar),
-                    LayoutNode::Component(LayoutComponent::StatusBar),
-                ],
-                width: SizeConstraint::Fill,
-                height: SizeConstraint::Fill,
-                spacing: 0.0,
-                padding: [0.0; 4],
-                align: Alignment::Start,
-            },
-            view_formats: ViewFormatsConfig::default(),
-        }
+        let layout_str = include_str!("../../../layouts/default.kdl");
+        parse_kdl_layout(layout_str).unwrap()
     }
 }
 

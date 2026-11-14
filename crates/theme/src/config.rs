@@ -2,7 +2,7 @@ use iced::{theme::palette::Seed, Color, Theme};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    colors::{hex_color, opt_hex_color, parse_hex},
+    colors::{hex_color, opt_hex_color},
     fonts::font_from_family_name,
     radius::BorderRadiusConfig,
 };
@@ -53,26 +53,8 @@ pub struct ThemeConfig {
 
 impl Default for ThemeConfig {
     fn default() -> Self {
-        Self {
-            name: DEFAULT_THEME_NAME.to_string(),
-            background: parse_hex("#161616"),
-            surface: parse_hex("#191919"),
-            surface_hover: parse_hex("#282828"),
-            border: parse_hex("#282828"),
-            primary: parse_hex("#ffffff"),
-            accent: parse_hex("#888888"),
-            text: parse_hex("#f0f0f0"),
-            text_muted: parse_hex("#787878"),
-            success: parse_hex("#ffffff"),
-            danger: parse_hex("#888888"),
-            player_bar_bg: Some(parse_hex("#191919")),
-            player_bar_text: Some(parse_hex("#f0f0f0")),
-            slider_active: Some(parse_hex("#ffffff")),
-            slider_rail: Some(parse_hex("#363636")),
-            border_radius: BorderRadiusConfig::default(),
-            font_family: None,
-            font: iced::Font::DEFAULT,
-        }
+        let theme_str = include_str!("../../../themes/dark.toml");
+        toml::from_str(theme_str).unwrap()
     }
 }
 
@@ -132,26 +114,6 @@ mod tests {
 
         let theme = ThemeConfig::default();
         assert_eq!(theme.border_radius, config);
-    }
-
-    #[test]
-    fn test_hex_color_parsing() {
-        let black = parse_hex("#000000");
-        assert_eq!(black.r, 0.0);
-        assert_eq!(black.g, 0.0);
-        assert_eq!(black.b, 0.0);
-        assert_eq!(black.a, 1.0);
-
-        let white = parse_hex("#ffffff");
-        assert_eq!(white.r, 1.0);
-        assert_eq!(white.g, 1.0);
-        assert_eq!(white.b, 1.0);
-
-        let red_with_alpha = parse_hex("#ff000080");
-        assert_eq!(red_with_alpha.r, 1.0);
-        assert_eq!(red_with_alpha.g, 0.0);
-        assert_eq!(red_with_alpha.b, 0.0);
-        assert!((red_with_alpha.a - 0.501).abs() < 0.01);
     }
 
     #[test]
