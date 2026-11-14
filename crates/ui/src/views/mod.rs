@@ -6,6 +6,7 @@ pub mod player_bar;
 pub mod playlists;
 pub mod settings;
 pub mod status_bar;
+pub mod titlebar;
 
 pub use albums::AlbumsView;
 pub use artists::ArtistsView;
@@ -15,6 +16,7 @@ pub use player_bar::PlayerBar;
 pub use playlists::PlaylistsView;
 pub use settings::SettingsView;
 pub use status_bar::{StatusBar, StatusBarContext};
+pub use titlebar::{resize_handles_overlay, window_controls_row, TitlebarView};
 
 use std::sync::atomic::{AtomicU32, Ordering};
 

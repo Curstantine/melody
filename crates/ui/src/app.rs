@@ -145,6 +145,9 @@ pub struct App {
     pub(crate) context_menu: Option<ContextMenuState>,
     pub(crate) duplicate_prompt: Option<DuplicatePromptState>,
     pub(crate) window_size: iced::Size,
+    pub(crate) is_maximized: bool,
+    pub(crate) custom_titlebar: bool,
+    pub(crate) last_titlebar_press: Option<std::time::Instant>,
     pub(crate) pending_playlist_tracks: Vec<TrackRow>,
 }
 
@@ -328,6 +331,9 @@ impl App {
                 let (w, h) = state.window_size().unwrap_or((1130.0, 740.0));
                 iced::Size::new(w.max(1000.0), h.max(520.0))
             },
+            is_maximized: false,
+            custom_titlebar: config.custom_titlebar,
+            last_titlebar_press: None,
             pending_playlist_tracks: Vec::new(),
         };
 
@@ -396,6 +402,11 @@ impl App {
             None,
             &app.theme_manager.current_config,
         ));
+        initial_tasks.push(
+            iced::window::oldest()
+                .and_then(iced::window::is_maximized)
+                .map(Message::WindowMaximizedChanged),
+        );
 
         #[cfg(target_os = "windows")]
         {
@@ -1254,6 +1265,9 @@ impl App {
                 let width_diff = size.width - self.window_size.width;
                 self.window_size = size;
                 let save_task = self.save_state_debounced();
+                let max_task = iced::window::oldest()
+                    .and_then(iced::window::is_maximized)
+                    .map(Message::WindowMaximizedChanged);
                 let refresh_task = if width_diff.abs() > 0.5 {
                     match self.active_tab {
                         ViewTab::Albums => {
@@ -1283,7 +1297,70 @@ impl App {
                 } else {
                     Task::none()
                 };
-                Task::batch([save_task, refresh_task])
+                Task::batch([save_task, max_task, refresh_task])
+            }
+
+            Message::TitlebarPressed => {
+                let now = std::time::Instant::now();
+                let is_double_click = self
+                    .last_titlebar_press
+                    .is_some_and(|prev| now.duration_since(prev).as_millis() < 350);
+                if is_double_click {
+                    self.last_titlebar_press = None;
+                    iced::window::oldest().and_then(|id| {
+                        Task::batch([
+                            iced::window::toggle_maximize(id),
+                            iced::window::is_maximized(id).map(Message::WindowMaximizedChanged),
+                        ])
+                    })
+                } else {
+                    self.last_titlebar_press = Some(now);
+                    iced::window::oldest().and_then(iced::window::drag)
+                }
+            }
+
+            Message::WindowDragResize(direction) => {
+                if self.is_maximized {
+                    Task::none()
+                } else {
+                    iced::window::oldest()
+                        .and_then(move |id| iced::window::drag_resize(id, direction))
+                }
+            }
+
+            Message::WindowMinimize => {
+                iced::window::oldest().and_then(|id| iced::window::minimize(id, true))
+            }
+
+            Message::WindowToggleMaximize => iced::window::oldest().and_then(|id| {
+                Task::batch([
+                    iced::window::toggle_maximize(id),
+                    iced::window::is_maximized(id).map(Message::WindowMaximizedChanged),
+                ])
+            }),
+
+            Message::WindowMaximizedChanged(maximized) => {
+                self.is_maximized = maximized;
+                Task::none()
+            }
+
+            Message::WindowClose => iced::window::oldest().and_then(iced::window::close),
+
+            Message::WindowShowSystemMenu => {
+                iced::window::oldest().and_then(iced::window::show_system_menu)
+            }
+
+            Message::ToggleCustomTitlebar(enabled) => {
+                if self.custom_titlebar == enabled {
+                    return Task::none();
+                }
+                self.custom_titlebar = enabled;
+                let theme_cfg = self.theme_manager.current_config.clone();
+                Task::batch([
+                    self.save_config_task(),
+                    iced::window::oldest().and_then(iced::window::toggle_decorations),
+                    crate::window_decorations::sync_titlebar_theme(None, &theme_cfg),
+                ])
             }
 
             Message::OpenTrackContextMenu { track_id, context } => {
@@ -3456,6 +3533,7 @@ impl App {
             tab_order: self.tab_order.clone(),
             theme_name: self.theme_manager.active_theme_name.clone(),
             layout_name: self.layout_manager.active_layout_name.clone(),
+            custom_titlebar: self.custom_titlebar,
             primary_font: self.theme_manager.current_config.font_family.clone(),
             page_size: self.library.page_size,
             tile_width: self.albums.tile_width,
@@ -4393,9 +4471,31 @@ impl App {
         iced::widget::stack([backdrop.boxed(), centered_dialog.boxed()]).boxed()
     }
 
+    pub(crate) fn use_custom_titlebar(&self) -> bool {
+        self.custom_titlebar
+    }
+
     pub fn view(&self) -> Element<'_, Message> {
         let theme_cfg = &self.theme_manager.current_config;
-        let base_view = self.render_layout(theme_cfg);
+        let layout_view = self.render_layout(theme_cfg);
+
+        let base_view: Element<'_, Message> = if self.use_custom_titlebar()
+            && !self
+                .layout_manager
+                .current_template
+                .root
+                .has_horizontal_navbar()
+        {
+            let titlebar =
+                crate::views::TitlebarView::view(theme_cfg, self.title(), self.is_maximized);
+            iced::widget::column![titlebar, layout_view]
+                .width(iced::Length::Fill)
+                .height(iced::Length::Fill)
+                .boxed()
+        } else {
+            layout_view
+        };
+
         let mut layers = vec![base_view];
         if let Some(ref menu) = self.context_menu {
             layers.push(components::render_context_menu(
@@ -4408,6 +4508,9 @@ impl App {
         }
         if let Some(ref prompt) = self.duplicate_prompt {
             layers.push(self.render_duplicate_prompt(prompt, theme_cfg));
+        }
+        if self.use_custom_titlebar() && !self.is_maximized {
+            layers.push(crate::views::resize_handles_overlay());
         }
         iced::widget::stack(layers).boxed()
     }

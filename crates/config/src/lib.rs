@@ -56,6 +56,7 @@ mod tests {
             ],
             theme_name: "Nord".to_string(),
             layout_name: "Sidebar".to_string(),
+            custom_titlebar: true,
             primary_font: Some("Inter".to_string()),
             page_size: 100,
             tile_width: 190,

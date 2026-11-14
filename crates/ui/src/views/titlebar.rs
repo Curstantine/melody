@@ -1,0 +1,219 @@
+use iced::mouse::Interaction;
+use iced::widget::{button, column, container, mouse_area, row, Space, Widget};
+use iced::window::Direction;
+use iced::{Alignment, Element, Length};
+
+use crate::message::Message;
+use components::{icons, styles, text};
+use theme::ThemeConfig;
+
+/// Height of the custom window titlebar in logical pixels.
+pub const TITLEBAR_HEIGHT: f32 = 30.0;
+
+/// Thickness of the invisible edge resize grab strips in logical pixels.
+const RESIZE_EDGE_PX: f32 = 5.0;
+
+/// Size of the invisible corner resize grab targets in logical pixels.
+const RESIZE_CORNER_PX: f32 = 8.0;
+
+pub struct TitlebarView;
+
+impl TitlebarView {
+    /// Renders the custom themed window titlebar with drag, double-click maximize,
+    /// system menu, and window control buttons.
+    pub fn view<'a>(
+        theme_cfg: &'a ThemeConfig,
+        title: String,
+        is_maximized: bool,
+    ) -> Element<'a, Message> {
+        let title_badge = row![
+            icons::icon(icons::MUSIC_NOTE_SVG, 13.0, theme_cfg.primary),
+            text(theme_cfg, title)
+                .size(11)
+                .line_height(1.0)
+                .color(theme_cfg.text_muted),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center);
+
+        let drag_region = mouse_area(
+            container(title_badge)
+                .padding([0, 12])
+                .width(Length::Fill)
+                .height(Length::Fixed(TITLEBAR_HEIGHT))
+                .align_y(Alignment::Center),
+        )
+        .on_press(Message::TitlebarPressed)
+        .on_right_press(Message::WindowShowSystemMenu);
+
+        let controls = window_controls_row(theme_cfg, is_maximized, TITLEBAR_HEIGHT);
+
+        let bar = row![drag_region, controls]
+            .align_y(Alignment::Center)
+            .width(Length::Fill)
+            .height(Length::Fixed(TITLEBAR_HEIGHT));
+
+        container(bar)
+            .style(styles::titlebar_container(theme_cfg))
+            .width(Length::Fill)
+            .height(Length::Fixed(TITLEBAR_HEIGHT))
+            .boxed()
+    }
+}
+
+/// Renders the Minimize, Maximize/Restore, and Close window control buttons.
+pub fn window_controls_row<'a>(
+    theme_cfg: &'a ThemeConfig,
+    is_maximized: bool,
+    height: f32,
+) -> Element<'a, Message> {
+    let min_btn = window_control_btn(
+        icons::WINDOW_MINIMIZE_SVG,
+        10.0,
+        42.0,
+        theme_cfg.text,
+        theme_cfg,
+        false,
+        height,
+        Message::WindowMinimize,
+    );
+
+    let max_btn = window_control_btn(
+        if is_maximized {
+            icons::WINDOW_RESTORE_SVG
+        } else {
+            icons::WINDOW_MAXIMIZE_SVG
+        },
+        10.0,
+        42.0,
+        theme_cfg.text,
+        theme_cfg,
+        false,
+        height,
+        Message::WindowToggleMaximize,
+    );
+
+    let close_btn = window_control_btn(
+        icons::WINDOW_CLOSE_SVG,
+        10.0,
+        42.0,
+        theme_cfg.text,
+        theme_cfg,
+        true,
+        height,
+        Message::WindowClose,
+    );
+
+    row![min_btn, max_btn, close_btn]
+        .align_y(Alignment::Center)
+        .height(Length::Fixed(height))
+        .boxed()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn window_control_btn<'a>(
+    svg_str: &'static str,
+    icon_size: f32,
+    btn_width: f32,
+    icon_color: iced::Color,
+    theme_cfg: &'a ThemeConfig,
+    is_close: bool,
+    height: f32,
+    on_press: Message,
+) -> Element<'a, Message> {
+    button(
+        container(icons::icon(svg_str, icon_size, icon_color))
+            .width(Length::Fixed(btn_width))
+            .height(Length::Fixed(height))
+            .align_x(Alignment::Center)
+            .align_y(Alignment::Center),
+    )
+    .padding(0)
+    .style(styles::window_control_button(theme_cfg, is_close))
+    .on_press(on_press)
+    .boxed()
+}
+
+/// Renders invisible 8-direction resize handles along the window edges and corners.
+/// The interior uses `Space` so all normal UI pointer events pass through.
+pub fn resize_handles_overlay<'a>() -> Element<'a, Message> {
+    let top_row = row![
+        resize_handle(
+            Length::Fixed(RESIZE_CORNER_PX),
+            Length::Fixed(RESIZE_CORNER_PX),
+            Direction::NorthWest,
+            Interaction::ResizingDiagonallyDown,
+        ),
+        resize_handle(
+            Length::Fill,
+            Length::Fixed(RESIZE_EDGE_PX),
+            Direction::North,
+            Interaction::ResizingVertically,
+        ),
+        resize_handle(
+            Length::Fixed(RESIZE_CORNER_PX),
+            Length::Fixed(RESIZE_CORNER_PX),
+            Direction::NorthEast,
+            Interaction::ResizingDiagonallyUp,
+        ),
+    ]
+    .width(Length::Fill);
+
+    let middle_row = row![
+        resize_handle(
+            Length::Fixed(RESIZE_EDGE_PX),
+            Length::Fill,
+            Direction::West,
+            Interaction::ResizingHorizontally,
+        ),
+        Space::new().width(Length::Fill).height(Length::Fill),
+        resize_handle(
+            Length::Fixed(RESIZE_EDGE_PX),
+            Length::Fill,
+            Direction::East,
+            Interaction::ResizingHorizontally,
+        ),
+    ]
+    .width(Length::Fill)
+    .height(Length::Fill);
+
+    let bottom_row = row![
+        resize_handle(
+            Length::Fixed(RESIZE_CORNER_PX),
+            Length::Fixed(RESIZE_CORNER_PX),
+            Direction::SouthWest,
+            Interaction::ResizingDiagonallyUp,
+        ),
+        resize_handle(
+            Length::Fill,
+            Length::Fixed(RESIZE_EDGE_PX),
+            Direction::South,
+            Interaction::ResizingVertically,
+        ),
+        resize_handle(
+            Length::Fixed(RESIZE_CORNER_PX),
+            Length::Fixed(RESIZE_CORNER_PX),
+            Direction::SouthEast,
+            Interaction::ResizingDiagonallyDown,
+        ),
+    ]
+    .width(Length::Fill)
+    .align_y(Alignment::End);
+
+    column![top_row, middle_row, bottom_row]
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .boxed()
+}
+
+fn resize_handle<'a>(
+    width: Length,
+    height: Length,
+    direction: Direction,
+    interaction: Interaction,
+) -> Element<'a, Message> {
+    mouse_area(Space::new().width(width).height(height))
+        .on_press(Message::WindowDragResize(direction))
+        .interaction(interaction)
+        .boxed()
+}

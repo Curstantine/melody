@@ -75,6 +75,14 @@ pub enum Message {
     OpenPlayerBarContextMenu,
     ContextMenu(ContextMenuAction),
     WindowResized(iced::Size),
+    TitlebarPressed,
+    WindowDragResize(iced::window::Direction),
+    WindowMinimize,
+    WindowToggleMaximize,
+    WindowMaximizedChanged(bool),
+    WindowClose,
+    WindowShowSystemMenu,
+    ToggleCustomTitlebar(bool),
     CancelDuplicatePrompt,
     ConfirmDuplicatePrompt,
     EscapePressed,
@@ -362,6 +370,19 @@ impl std::fmt::Debug for Message {
             Self::OpenPlayerBarContextMenu => write!(f, "OpenPlayerBarContextMenu"),
             Self::ContextMenu(action) => f.debug_tuple("ContextMenu").field(action).finish(),
             Self::WindowResized(size) => f.debug_tuple("WindowResized").field(size).finish(),
+            Self::TitlebarPressed => write!(f, "TitlebarPressed"),
+            Self::WindowDragResize(dir) => f.debug_tuple("WindowDragResize").field(dir).finish(),
+            Self::WindowMinimize => write!(f, "WindowMinimize"),
+            Self::WindowToggleMaximize => write!(f, "WindowToggleMaximize"),
+            Self::WindowMaximizedChanged(m) => {
+                f.debug_tuple("WindowMaximizedChanged").field(m).finish()
+            }
+            Self::WindowClose => write!(f, "WindowClose"),
+            Self::WindowShowSystemMenu => write!(f, "WindowShowSystemMenu"),
+            Self::ToggleCustomTitlebar(enabled) => f
+                .debug_tuple("ToggleCustomTitlebar")
+                .field(enabled)
+                .finish(),
             Self::CancelDuplicatePrompt => write!(f, "CancelDuplicatePrompt"),
             Self::ConfirmDuplicatePrompt => write!(f, "ConfirmDuplicatePrompt"),
             Self::EscapePressed => write!(f, "EscapePressed"),

@@ -53,6 +53,8 @@ pub struct AppConfig {
     #[serde(default = "default_layout_name")]
     pub layout_name: String,
     #[serde(default)]
+    pub custom_titlebar: bool,
+    #[serde(default)]
     pub primary_font: Option<String>,
 
     #[serde(default = "default_page_size")]
@@ -196,6 +198,7 @@ impl Default for AppConfig {
             tab_order: default_tab_order(),
             theme_name: default_theme_name(),
             layout_name: default_layout_name(),
+            custom_titlebar: false,
             primary_font: None,
             page_size: default_page_size(),
             tile_width: default_tile_width(),

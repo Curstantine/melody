@@ -117,6 +117,38 @@ pub const DOWNLOAD_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBo
 /// Boxicons `export` / external link.
 pub const EXTERNAL_LINK_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m13 3l3.293 3.293l-7 7l1.414 1.414l7-7L21 11V3z"/><path fill="currentColor" d="M19 19H5V5h7l-2-2H5c-1.103 0-2 .897-2 2v14c0 1.103.897 2 2 2h14c1.103 0 2-.897 2-2v-5l-2-2z"/></svg>"#;
 
+/// Window control: minimize.
+#[cfg(not(windows))]
+pub const WINDOW_MINIMIZE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M3 8h10v1H3z"/></svg>"#;
+
+/// Window control: maximize.
+#[cfg(not(windows))]
+pub const WINDOW_MAXIMIZE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M3 3v10h10V3H3zm9 9H4V4h8v8z"/></svg>"#;
+
+/// Window control: restore down.
+#[cfg(not(windows))]
+pub const WINDOW_RESTORE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M5 3v2H3v8h8v-2h2V3H5zm5 9H4V6h6v6zm2-2h-1V5H6V4h6v6z"/></svg>"#;
+
+/// Window control: close.
+#[cfg(not(windows))]
+pub const WINDOW_CLOSE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/></svg>"#;
+
+/// Windows 10/11 native-style caption icon: minimize (1px hairline on 10x10 grid).
+#[cfg(windows)]
+pub const WINDOW_MINIMIZE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path fill="currentColor" d="M0 4.5h10v1H0z"/></svg>"#;
+
+/// Windows 10/11 native-style caption icon: maximize (1px hairline on 10x10 grid).
+#[cfg(windows)]
+pub const WINDOW_MAXIMIZE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path fill="currentColor" d="M0 0v10h10V0H0zm9 9H1V1h8v8z"/></svg>"#;
+
+/// Windows 10/11 native-style caption icon: restore down (1px hairline on 10x10 grid).
+#[cfg(windows)]
+pub const WINDOW_RESTORE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path fill="currentColor" d="M2 0v2H0v8h8V8h2V0H2zm7 7H8V2H3V1h6v6zM7 9H1V3h6v6z"/></svg>"#;
+
+/// Windows 10/11 native-style caption icon: close (1px hairline on 10x10 grid).
+#[cfg(windows)]
+pub const WINDOW_CLOSE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path fill="currentColor" d="M10 .7L9.3 0 5 4.3.7 0 0 .7 4.3 5 0 9.3l.7.7L5 5.7 9.3 10l.7-.7L5.7 5z"/></svg>"#;
+
 static SVG_CACHE: OnceLock<Mutex<HashMap<&'static str, Handle>>> = OnceLock::new();
 
 pub fn handle_for_svg(svg_str: &'static str) -> Handle {

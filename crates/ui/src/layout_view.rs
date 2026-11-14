@@ -365,20 +365,51 @@ impl App {
 
         match orientation {
             Orientation::Horizontal => {
+                let merged_titlebar = self.use_custom_titlebar();
                 let mut nav_row = row![].spacing(4).align_y(iced::Alignment::Center);
                 for btn in tab_buttons {
                     nav_row = nav_row.push(btn);
                 }
-                if show_settings {
-                    nav_row = nav_row.push(Space::new().width(Length::Fill).boxed());
-                    nav_row = nav_row.push(settings_btn.boxed());
-                }
 
-                container(nav_row.padding([4, 12]).height(32))
-                    .style(styles::top_bar_container(theme_cfg))
-                    .width(Length::Fill)
-                    .height(32)
-                    .boxed()
+                if merged_titlebar {
+                    let drag_space =
+                        mouse_area(Space::new().width(Length::Fill).height(Length::Fixed(32.0)))
+                            .on_press(Message::TitlebarPressed)
+                            .on_right_press(Message::WindowShowSystemMenu);
+                    nav_row = nav_row.push(drag_space.boxed());
+
+                    if show_settings {
+                        nav_row = nav_row.push(settings_btn.boxed());
+                    }
+                    nav_row = nav_row.push(views::window_controls_row(
+                        theme_cfg,
+                        self.is_maximized,
+                        32.0,
+                    ));
+
+                    let pad = iced::Padding {
+                        top: 0.0,
+                        right: 0.0,
+                        bottom: 0.0,
+                        left: 12.0,
+                    };
+                    container(nav_row.padding(pad).height(32))
+                        .style(styles::top_bar_container(theme_cfg))
+                        .width(Length::Fill)
+                        .height(32)
+                        .boxed()
+                } else {
+                    if show_settings {
+                        nav_row = nav_row.push(Space::new().width(Length::Fill).boxed());
+                        nav_row = nav_row.push(settings_btn.boxed());
+                    }
+
+                    container(nav_row.padding([4, 12]).height(32))
+                        .style(styles::top_bar_container(theme_cfg))
+                        .width(Length::Fill)
+                        .height(32)
+                        .boxed()
+                }
             }
 
             Orientation::Vertical => {
@@ -490,6 +521,7 @@ impl App {
                 active_theme_name: &self.theme_manager.active_theme_name,
                 layout_names: self.layout_manager.layout_names(),
                 active_layout_name: &self.layout_manager.active_layout_name,
+                custom_titlebar: self.custom_titlebar,
                 albums_view_mode: self.albums.view_mode,
                 artists_view_mode: self.artists.view_mode,
                 page_size: self.library.page_size,

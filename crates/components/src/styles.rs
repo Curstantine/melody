@@ -845,3 +845,49 @@ pub fn dialog_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Styl
         ..Default::default()
     }
 }
+
+pub fn titlebar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::Style + '_ {
+    move |_theme| container::Style {
+        background: Some(Background::Color(cfg.surface)),
+        text_color: Some(cfg.text),
+        ..Default::default()
+    }
+}
+
+pub fn window_control_button(
+    cfg: &ThemeConfig,
+    is_close: bool,
+) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
+    move |_theme, status| {
+        let close_red = Color::from_rgb8(0xE8, 0x11, 0x23);
+        let close_pressed = Color::from_rgb8(0xC5, 0x0F, 0x1F);
+
+        let (bg, text_color) = match status {
+            button::Status::Hovered => {
+                if is_close {
+                    (close_red, Color::WHITE)
+                } else {
+                    (cfg.surface_hover, cfg.text)
+                }
+            }
+            button::Status::Pressed => {
+                if is_close {
+                    (close_pressed, Color::WHITE)
+                } else {
+                    (blend_color(cfg.surface_hover, cfg.border, 0.35), cfg.text)
+                }
+            }
+            button::Status::Active | button::Status::Disabled => {
+                (Color::TRANSPARENT, cfg.text_muted)
+            }
+        };
+
+        button::Style {
+            background: Some(Background::Color(bg)),
+            text_color,
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: true,
+        }
+    }
+}

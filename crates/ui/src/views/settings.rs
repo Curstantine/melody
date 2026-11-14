@@ -52,6 +52,7 @@ pub struct SettingsContext<'a> {
     pub active_theme_name: &'a str,
     pub layout_names: &'a [String],
     pub active_layout_name: &'a str,
+    pub custom_titlebar: bool,
     pub albums_view_mode: ViewMode,
     pub artists_view_mode: ViewMode,
     pub page_size: usize,
@@ -596,20 +597,46 @@ impl SettingsView {
         .style(styles::ghost_button(theme_cfg, false))
         .on_press(Message::ReloadLayouts);
 
-        let layout_card = components::settings_card(
-            theme_cfg,
-            "Layout",
+        let mut layout_col = column![
+            text(theme_cfg, "Select a layout preset")
+                .size(12)
+                .color(theme_cfg.text_muted)
+                .boxed(),
+            layout_buttons.boxed(),
+            Space::new().height(SPACE_SM).boxed(),
+            reload_layouts_btn.boxed(),
+        ]
+        .spacing(CARD_SPACING);
+
+        let titlebar_toggle = row![
             column![
-                text(theme_cfg, "Select a layout preset")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                layout_buttons,
-                Space::new().height(SPACE_SM),
-                reload_layouts_btn,
+                text(theme_cfg, "Custom titlebar")
+                    .size(13)
+                    .color(theme_cfg.text),
+                text(
+                    theme_cfg,
+                    "Merge navigation bar and window controls into a single custom titlebar"
+                )
+                .size(11)
+                .color(theme_cfg.text_muted),
             ]
-            .spacing(CARD_SPACING)
-            .boxed(),
-        );
+            .spacing(2)
+            .width(Length::Fill),
+            toggler(ctx.custom_titlebar)
+                .on_toggle(Message::ToggleCustomTitlebar)
+                .size(TOGGLER_SIZE)
+                .style(styles::toggler_style(theme_cfg)),
+        ]
+        .align_y(Alignment::Center)
+        .spacing(SPACE_LG);
+
+        layout_col = layout_col
+            .push(Space::new().height(SPACE_SM).boxed())
+            .push(border_hori(1.0, theme_cfg.border))
+            .push(Space::new().height(SPACE_SM).boxed())
+            .push(titlebar_toggle.boxed());
+
+        let layout_card = components::settings_card(theme_cfg, "Layout", layout_col.boxed());
 
         // Typography & Font Configuration Card
         let active_font_family = ctx.primary_font.unwrap_or("Default").to_string();
@@ -1962,6 +1989,7 @@ mod tests {
                 active_theme_name: DEFAULT_THEME_NAME,
                 layout_names: &layout_names_vec,
                 active_layout_name: "Default",
+                custom_titlebar: false,
                 albums_view_mode: ViewMode::Tile,
                 artists_view_mode: ViewMode::Tile,
                 page_size: 50,
@@ -2045,6 +2073,7 @@ mod tests {
             active_theme_name: DEFAULT_THEME_NAME,
             layout_names: &layout_names_vec,
             active_layout_name: "Default",
+            custom_titlebar: false,
             albums_view_mode: ViewMode::Tile,
             artists_view_mode: ViewMode::Tile,
             page_size: 50,

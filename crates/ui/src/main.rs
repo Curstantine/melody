@@ -51,6 +51,7 @@ fn main() -> iced::Result {
     }
 
     let state = config::AppState::load();
+    let config = config::AppConfig::load();
     let (width, height) = state.window_size().unwrap_or((1130.0, 740.0));
     let width = width.max(1000.0);
     let height = height.max(520.0);
@@ -64,8 +65,16 @@ fn main() -> iced::Result {
         size: iced::Size::new(width, height),
         min_size: Some(iced::Size::new(1000.0, 520.0)),
         position: window::Position::Centered,
+        decorations: !config.custom_titlebar,
         ..Default::default()
     };
+
+    #[cfg(target_os = "windows")]
+    {
+        window_settings.platform_specific.undecorated_shadow = true;
+        window_settings.platform_specific.corner_preference =
+            window::settings::platform::CornerPreference::Round;
+    }
 
     #[cfg(target_os = "linux")]
     {
@@ -73,12 +82,10 @@ fn main() -> iced::Result {
     }
 
     #[cfg(target_os = "macos")]
-    {
+    if !config.custom_titlebar {
         window_settings.platform_specific.titlebar_transparent = true;
         window_settings.platform_specific.fullsize_content_view = true;
     }
-
-    let config = config::AppConfig::load();
 
     let app_config = config.clone();
     let app_state = state.clone();

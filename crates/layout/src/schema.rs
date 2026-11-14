@@ -299,6 +299,22 @@ pub enum LayoutNode {
     Component(LayoutComponent),
 }
 
+impl LayoutNode {
+    /// Returns `true` if this layout tree contains a horizontal [`LayoutComponent::Navbar`].
+    pub fn has_horizontal_navbar(&self) -> bool {
+        match self {
+            Self::Component(LayoutComponent::Navbar { orientation, .. }) => {
+                *orientation == Orientation::Horizontal
+            }
+            Self::Column { children, .. }
+            | Self::Row { children, .. }
+            | Self::Stack { children, .. } => children.iter().any(Self::has_horizontal_navbar),
+            Self::Container { child, .. } => child.has_horizontal_navbar(),
+            Self::Divider { .. } | Self::Spacer { .. } | Self::Component(_) => false,
+        }
+    }
+}
+
 /// A complete layout template definition parsed from KDL.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LayoutTemplate {
