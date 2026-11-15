@@ -468,6 +468,25 @@ impl QueueStore {
     }
 }
 
+/// Fisher–Yates shuffle seeded from the system clock (no `rand` dependency).
+pub fn shuffle_tracks(tracks: &mut [TrackRow]) {
+    if tracks.len() < 2 {
+        return;
+    }
+    let mut seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0x9e37_79b9_7f4a_7c15)
+        | 1;
+    for i in (1..tracks.len()).rev() {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        let j = (seed % (i as u64 + 1)) as usize;
+        tracks.swap(i, j);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

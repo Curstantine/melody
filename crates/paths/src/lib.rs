@@ -310,6 +310,84 @@ pub fn elapsed_since_app_start() -> std::time::Duration {
         .unwrap_or_default()
 }
 
+#[cfg(any(target_os = "windows", test))]
+fn windows_explorer_select_arg(path: &Path) -> String {
+    let raw = path.to_string_lossy().replace('/', "\\");
+    let stripped = raw.strip_prefix(r"\\?\").unwrap_or(&raw);
+    format!("/select,\"{stripped}\"")
+}
+
+#[cfg(any(all(unix, not(target_os = "macos")), test))]
+fn path_to_file_url(path: &Path) -> String {
+    use std::fmt::Write;
+    let mut out = String::from("file://");
+    for byte in path.as_os_str().as_encoded_bytes() {
+        match *byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' => {
+                out.push(*byte as char);
+            }
+            b => {
+                let _ = write!(out, "%{b:02X}");
+            }
+        }
+    }
+    out
+}
+
+/// Reveals a file in the platform's native file manager (Explorer on Windows,
+/// Finder on macOS, or via `org.freedesktop.FileManager1` / `xdg-open` on Linux).
+pub fn reveal_in_file_manager(path: &Path) -> std::io::Result<()> {
+    if path.as_os_str().is_empty() {
+        return Ok(());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let arg = windows_explorer_select_arg(path);
+        std::process::Command::new("explorer")
+            .raw_arg(arg)
+            .spawn()?;
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("-R")
+            .arg(path)
+            .spawn()?;
+        Ok(())
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let owned = path.to_path_buf();
+        std::thread::spawn(move || {
+            let abs_path = std::fs::canonicalize(&owned).unwrap_or(owned);
+            let file_url = path_to_file_url(&abs_path);
+            let status = std::process::Command::new("dbus-send")
+                .args([
+                    "--session",
+                    "--dest=org.freedesktop.FileManager1",
+                    "--type=method_call",
+                    "/org/freedesktop/FileManager1",
+                    "org.freedesktop.FileManager1.ShowItems",
+                    &format!("array:string:{file_url}"),
+                    "string:",
+                ])
+                .status();
+            if matches!(status, Ok(s) if s.success()) {
+                return;
+            }
+
+            let target = abs_path.parent().unwrap_or(&abs_path);
+            let _ = std::process::Command::new("xdg-open").arg(target).spawn();
+        });
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -338,5 +416,21 @@ mod tests {
     fn test_bundled_paths_discovery() {
         assert!(bundled_themes_dir().is_some());
         assert!(bundled_layouts_dir().is_some());
+    }
+
+    #[test]
+    fn test_windows_explorer_select_arg_normalizes_slashes_and_verbatim_prefix() {
+        assert_eq!(
+            windows_explorer_select_arg(Path::new(r"\\?\C:/Music/Artist/Track 01.flac")),
+            r#"/select,"C:\Music\Artist\Track 01.flac""#
+        );
+    }
+
+    #[test]
+    fn test_path_to_file_url_encodes_spaces() {
+        assert_eq!(
+            path_to_file_url(Path::new("/home/user/My Music/track 01.flac")),
+            "file:///home/user/My%20Music/track%2001.flac"
+        );
     }
 }

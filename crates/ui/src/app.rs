@@ -1,7 +1,7 @@
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::Duration,
 };
 
 use audio::{AudioController, AudioEngine};
@@ -190,7 +190,7 @@ impl App {
             (std::sync::Arc::new(MprisPlugin::new(tx)), Some(rx))
         };
         #[cfg(target_os = "linux")]
-        plugin_manager.register_plugin(media_plugin);
+        plugin_manager.register_plugin(media_plugin.clone());
 
         #[cfg(target_os = "windows")]
         let (windows_media_plugin, media_controls_rx) = {
@@ -2334,7 +2334,7 @@ impl App {
                 let db = self.db.clone();
                 Task::perform(
                     async move {
-                        let path = unique_playlist_path(&name);
+                        let path = db::unique_playlist_path(&name);
                         let count = if !pending_tracks.is_empty() {
                             match db::append_tracks_to_m3u(&path, &pending_tracks) {
                                 Ok(c) => c,
@@ -2399,7 +2399,7 @@ impl App {
                             let new_path = if sanitized == old_stem {
                                 old_path.clone()
                             } else {
-                                unique_playlist_path(&name)
+                                db::unique_playlist_path(&name)
                             };
 
                             if new_path != old_path {
@@ -2679,7 +2679,7 @@ impl App {
                             .await
                             .unwrap_or_default();
                         if shuffle {
-                            shuffle_tracks(&mut tracks);
+                            queue::shuffle_tracks(&mut tracks);
                         }
                         let track_id = tracks.first().map(|t| t.id).unwrap_or(0);
                         Message::LibraryQueueBuilt {
@@ -2822,7 +2822,7 @@ impl App {
                 let db = self.db.clone();
                 Task::perform(
                     async move {
-                        let path = unique_playlist_path(&name);
+                        let path = db::unique_playlist_path(&name);
                         let entries: Vec<PlaylistEntry> = tracks
                             .iter()
                             .map(|t| PlaylistEntry {
@@ -4300,6 +4300,12 @@ impl App {
             ContextMenuAction::RemoveFromQueue { queue_id, index } => {
                 self.update(Message::QueueRemoveTrack { queue_id, index })
             }
+            ContextMenuAction::RevealInFileManager(path) => {
+                if let Err(err) = paths::reveal_in_file_manager(std::path::Path::new(&path)) {
+                    tracing::warn!(%path, %err, "Failed to reveal file in file manager");
+                }
+                Task::none()
+            }
 
             // Album actions
             ContextMenuAction::PlayAlbum { album, shuffle } => self.update(Message::PlayScope {
@@ -4719,38 +4725,6 @@ fn snap_queue_scroll_top() -> Task<Message> {
         RelativeOffset::START,
         Animation::Instant,
     )
-}
-
-/// Fisher–Yates shuffle seeded from the system clock (no `rand` dependency).
-fn shuffle_tracks(tracks: &mut [TrackRow]) {
-    if tracks.len() < 2 {
-        return;
-    }
-    let mut seed = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(0x9e37_79b9_7f4a_7c15)
-        | 1;
-    for i in (1..tracks.len()).rev() {
-        seed ^= seed << 13;
-        seed ^= seed >> 7;
-        seed ^= seed << 17;
-        let j = (seed % (i as u64 + 1)) as usize;
-        tracks.swap(i, j);
-    }
-}
-
-/// Returns a non-colliding `.m3u8` path inside the managed playlists directory.
-fn unique_playlist_path(name: &str) -> PathBuf {
-    let dir = paths::playlists_dir();
-    let base = db::sanitize_playlist_filename(name);
-    let mut candidate = dir.join(format!("{}.m3u8", base));
-    let mut counter = 2;
-    while candidate.exists() {
-        candidate = dir.join(format!("{} ({}).m3u8", base, counter));
-        counter += 1;
-    }
-    candidate
 }
 
 fn handle_drag_event(

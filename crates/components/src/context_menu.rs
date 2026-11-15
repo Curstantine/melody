@@ -68,6 +68,7 @@ pub enum ContextMenuAction {
         queue_id: u64,
         index: usize,
     },
+    RevealInFileManager(String),
     // Album actions
     PlayAlbum {
         album: Arc<str>,
@@ -285,6 +286,21 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
                     icons::USER_AVATAR_SVG,
                     format!("Go to artist \"{}\"", truncate_str(&track.artist, 14)),
                     on_action(ContextMenuAction::GoToArtist(track.artist.clone())),
+                    false,
+                    false,
+                ));
+            }
+
+            if !track.file_path.is_empty() {
+                main_items = main_items.push(menu_separator(theme_cfg));
+                main_items = main_items.push(menu_item(
+                    theme_cfg,
+                    font,
+                    icons::FOLDER_SVG,
+                    "Reveal in file manager",
+                    on_action(ContextMenuAction::RevealInFileManager(
+                        track.file_path.clone(),
+                    )),
                     false,
                     false,
                 ));
@@ -671,7 +687,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
         )
     };
 
-    let estimated_height = 280.0;
+    let estimated_height = 300.0;
     let clamped_y = py.min(window_size.height - estimated_height).max(8.0);
 
     // 5. Build combined menu row (or with submenu)

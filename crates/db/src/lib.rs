@@ -40,8 +40,8 @@ pub mod playlist;
 pub use playlist::{
     append_tracks_to_m3u, is_supported_playlist_file, normalize_path, parse_m3u,
     parse_m3u_preview_paths, parse_m3u_str, playlist_name_from_path, resolve_entry_path,
-    sanitize_playlist_filename, write_m3u, ParsedPlaylist, PlaylistEntry, PlaylistError,
-    PlaylistItem, PlaylistResolution,
+    sanitize_playlist_filename, unique_playlist_path, write_m3u, ParsedPlaylist, PlaylistEntry,
+    PlaylistError, PlaylistItem, PlaylistResolution,
 };
 
 /// Maximum bound variables per `WHERE ... IN (...)` lookup. Chunked lookups
