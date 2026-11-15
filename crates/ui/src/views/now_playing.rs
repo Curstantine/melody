@@ -10,7 +10,6 @@ use theme::ThemeConfig;
 use super::ScrollOffset;
 
 pub const INFO_PANEL_WIDTH: f32 = 340.0;
-pub const DEFAULT_LYRICS_FONT_SIZE: u16 = 15;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LrcLine {
@@ -164,61 +163,23 @@ pub struct CachedNowPlaying {
 }
 
 /// Self-contained state and view component for the Now Playing / Lyrics screen.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct NowPlayingView {
     pub current_lyrics: Option<String>,
     pub parsed_lyrics: Option<ParsedLyrics>,
     pub last_active_line: Option<usize>,
-    pub lyrics_font: Option<String>,
-    pub lyrics_iced_font: Option<iced::Font>,
-    pub lyrics_font_size: u16,
     pub cached: CachedNowPlaying,
     pub scroll_offset: ScrollOffset,
 }
 
-impl Default for NowPlayingView {
-    fn default() -> Self {
-        Self {
-            current_lyrics: None,
-            parsed_lyrics: None,
-            last_active_line: None,
-            lyrics_font: None,
-            lyrics_iced_font: None,
-            lyrics_font_size: DEFAULT_LYRICS_FONT_SIZE,
-            cached: CachedNowPlaying::default(),
-            scroll_offset: ScrollOffset::default(),
-        }
-    }
-}
-
 impl NowPlayingView {
-    pub fn new(lyrics_font: Option<String>, lyrics_font_size: u16) -> Self {
-        let lyrics_iced_font = lyrics_font
-            .as_deref()
-            .map(|name| theme::font_from_family_name(Some(name)));
-
-        Self {
-            current_lyrics: None,
-            parsed_lyrics: None,
-            last_active_line: None,
-            lyrics_font,
-            lyrics_iced_font,
-            lyrics_font_size,
-            cached: CachedNowPlaying::default(),
-            scroll_offset: ScrollOffset::default(),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Estimated vertical stride (in logical pixels) per synced lyric line for auto-scrolling.
-    pub fn line_stride(&self) -> f32 {
-        (self.lyrics_font_size as f32 * 2.0).max(24.0)
-    }
-
-    pub fn set_lyrics_font(&mut self, font: Option<String>) {
-        self.lyrics_iced_font = font
-            .as_deref()
-            .map(|name| theme::font_from_family_name(Some(name)));
-        self.lyrics_font = font;
+    pub fn line_stride(lyrics_size: u16) -> f32 {
+        (lyrics_size as f32 * 2.0).max(24.0)
     }
 
     pub fn set_lyrics(&mut self, lyrics: Option<String>) {
@@ -345,6 +306,7 @@ impl NowPlayingView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        fonts: &fonts::FontConfig,
         current_track: Option<&'a Track>,
         current_cover: Option<&'a image::Handle>,
         blurred_cover: Option<&'a image::Handle>,
@@ -368,8 +330,9 @@ impl NowPlayingView {
                     theme_cfg.primary,
                 );
 
-                let lyrics_font = self.lyrics_iced_font.unwrap_or(theme_cfg.font);
-                let base_size = u32::from(self.lyrics_font_size);
+                let font = fonts.primary_font();
+                let lyrics_font = fonts.lyrics_font();
+                let base_size = u32::from(fonts.lyrics_size);
                 let inactive_size = base_size.saturating_sub(1).max(10);
                 let active_size = base_size.saturating_add(1);
 
@@ -399,7 +362,7 @@ impl NowPlayingView {
                                 inactive_size
                             };
                             let lyric_btn = button(
-                                text(theme_cfg, display_text)
+                                text(fonts.primary_font(), display_text)
                                     .size(line_size)
                                     .color(line_color)
                                     .font(lyrics_font),
@@ -412,26 +375,26 @@ impl NowPlayingView {
                         }
                         col.boxed()
                     }
-                    Some(ParsedLyrics::Plain(lyr)) => text(theme_cfg, lyr)
+                    Some(ParsedLyrics::Plain(lyr)) => text(fonts.primary_font(), lyr)
                         .size(base_size)
                         .color(theme_cfg.text)
                         .font(lyrics_font)
                         .boxed(),
                     None => {
                         if let Some(ref lyr) = self.current_lyrics {
-                            text(theme_cfg, lyr)
+                            text(fonts.primary_font(), lyr)
                                 .size(base_size)
                                 .color(theme_cfg.text)
                                 .font(lyrics_font)
                                 .boxed()
                         } else {
                             column![
-                                text(theme_cfg, "No lyrics found for this track.")
+                                text(fonts.primary_font(), "No lyrics found for this track.")
                                     .size(14)
                                     .color(theme_cfg.text),
                                 Space::new().height(4),
                                 text(
-                                    theme_cfg,
+                                    font,
                                     "Place a .lrc file in the same directory or embed lyrics in the audio file."
                                 )
                                 .size(12)
@@ -453,7 +416,7 @@ impl NowPlayingView {
                     .height(Length::Fill)
                     .style(styles::scrollable_style(theme_cfg));
 
-                let title = text(theme_cfg, &track.title)
+                let title = text(fonts.primary_font(), &track.title)
                     .size(17)
                     .color(theme_cfg.text)
                     .align_y(Alignment::Center);
@@ -463,11 +426,11 @@ impl NowPlayingView {
                 } else {
                     track.album.as_str()
                 };
-                let artist_album_text = text(theme_cfg, artist_album_str)
+                let artist_album_text = text(fonts.primary_font(), artist_album_str)
                     .size(13)
                     .color(theme_cfg.text_muted);
 
-                let details_row = text(theme_cfg, self.cached.details_row.as_str())
+                let details_row = text(fonts.primary_font(), self.cached.details_row.as_str())
                     .size(11)
                     .color(theme_cfg.text_muted);
 
@@ -475,14 +438,14 @@ impl NowPlayingView {
                 let mut extra_tags = column![].spacing(2);
                 if let Some(ref alb_artist) = self.cached.album_artist_tag {
                     extra_tags = extra_tags.push(
-                        text(theme_cfg, alb_artist.as_str())
+                        text(fonts.primary_font(), alb_artist.as_str())
                             .size(11)
                             .color(theme_cfg.text_muted),
                     );
                 }
                 if let Some(ref comp) = self.cached.composer_tag {
                     extra_tags = extra_tags.push(
-                        text(theme_cfg, comp.as_str())
+                        text(fonts.primary_font(), comp.as_str())
                             .size(11)
                             .color(theme_cfg.text_muted),
                     );
@@ -494,7 +457,9 @@ impl NowPlayingView {
                     up_next_tags = up_next_tags.push(
                         row![
                             icons::icon(icons::REPEAT_SVG, 10.0, theme_cfg.primary),
-                            text(theme_cfg, "Repeat").size(10).color(theme_cfg.primary),
+                            text(fonts.primary_font(), "Repeat")
+                                .size(10)
+                                .color(theme_cfg.primary),
                         ]
                         .spacing(3)
                         .align_y(Alignment::Center),
@@ -504,7 +469,9 @@ impl NowPlayingView {
                     up_next_tags = up_next_tags.push(
                         row![
                             icons::icon(icons::SHUFFLE_SVG, 10.0, theme_cfg.primary),
-                            text(theme_cfg, "Shuffle").size(10).color(theme_cfg.primary),
+                            text(fonts.primary_font(), "Shuffle")
+                                .size(10)
+                                .color(theme_cfg.primary),
                         ]
                         .spacing(3)
                         .align_y(Alignment::Center),
@@ -512,7 +479,9 @@ impl NowPlayingView {
                 }
 
                 let up_next_header = row![
-                    text(theme_cfg, "Up next").size(11).color(theme_cfg.primary),
+                    text(fonts.primary_font(), "Up next")
+                        .size(11)
+                        .color(theme_cfg.primary),
                     Space::new().width(Length::Fill),
                     up_next_tags,
                 ]
@@ -531,15 +500,17 @@ impl NowPlayingView {
                         };
 
                         let next_info = column![
-                            text(theme_cfg, next_title).size(12).color(theme_cfg.text),
-                            text(theme_cfg, next_subtitle)
+                            text(fonts.primary_font(), next_title)
+                                .size(12)
+                                .color(theme_cfg.text),
+                            text(fonts.primary_font(), next_subtitle)
                                 .size(11)
                                 .color(theme_cfg.text_muted),
                         ]
                         .spacing(2)
                         .width(Length::Fill);
 
-                        let duration_tag = text(theme_cfg, next_duration)
+                        let duration_tag = text(fonts.primary_font(), next_duration)
                             .size(11)
                             .color(theme_cfg.text_muted);
 
@@ -553,7 +524,7 @@ impl NowPlayingView {
                         .width(Length::Fill)
                         .boxed()
                     }
-                    None => text(theme_cfg, "No upcoming tracks")
+                    None => text(fonts.primary_font(), "No upcoming tracks")
                         .size(11)
                         .color(theme_cfg.text_muted)
                         .boxed(),
@@ -562,7 +533,7 @@ impl NowPlayingView {
                 // Technical Details Section ("Properties", size 11, without icon)
                 let tech_info_section: Element<'a, Message> =
                     if !self.cached.tech_properties.is_empty() {
-                        let mut prop_col = column![text(theme_cfg, "Properties")
+                        let mut prop_col = column![text(fonts.primary_font(), "Properties")
                             .size(11)
                             .color(theme_cfg.primary),]
                         .spacing(4);
@@ -570,11 +541,13 @@ impl NowPlayingView {
                         for (label, val) in &self.cached.tech_properties {
                             prop_col = prop_col.push(
                                 row![
-                                    text(theme_cfg, *label)
+                                    text(fonts.primary_font(), *label)
                                         .size(11)
                                         .color(theme_cfg.text_muted)
                                         .width(80),
-                                    text(theme_cfg, val.as_str()).size(11).color(theme_cfg.text),
+                                    text(fonts.primary_font(), val.as_str())
+                                        .size(11)
+                                        .color(theme_cfg.text),
                                 ]
                                 .align_y(Alignment::Center)
                                 .boxed(),
@@ -637,6 +610,7 @@ impl NowPlayingView {
             }
             None => components::empty_state(
                 theme_cfg,
+                fonts.primary_font(),
                 "No track playing",
                 "Select a song from the library to view track details and lyrics",
             ),
@@ -731,7 +705,17 @@ mod tests {
         let now_playing_view = NowPlayingView::default();
 
         let _element = now_playing_view.view(
-            &theme_cfg, None, None, None, None, None, false, false, 0, None,
+            &theme_cfg,
+            &fonts::FontConfig::default(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            0,
+            None,
         );
     }
 
@@ -794,6 +778,7 @@ mod tests {
 
         let _element = now_playing_view.view(
             &theme_cfg,
+            &fonts::FontConfig::default(),
             Some(&track),
             None,
             None,

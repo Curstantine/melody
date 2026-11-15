@@ -23,12 +23,13 @@ impl TitlebarView {
     /// system menu, and window control buttons.
     pub fn view<'a>(
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         title: String,
         is_maximized: bool,
     ) -> Element<'a, Message> {
         let drag_region = mouse_area(
             container(
-                text(theme_cfg, title)
+                text(font, title)
                     .size(11)
                     .line_height(1.0)
                     .color(theme_cfg.text_muted),

@@ -4,7 +4,7 @@ pub mod state;
 
 pub use config::{
     default_tab_order, sanitize_tab_order, AppConfig, ScrobbleConfig, DEFAULT_ALBUM_TILE_WIDTH,
-    DEFAULT_ARTIST_TILE_WIDTH, DEFAULT_LAYOUT_NAME, DEFAULT_PAGE_SIZE, DEFAULT_TILE_WIDTH,
+    DEFAULT_ARTIST_TILE_WIDTH, DEFAULT_PAGE_SIZE, DEFAULT_TILE_WIDTH,
 };
 pub use navigation::{PlaylistSection, SettingsTab, ViewTab};
 pub use state::AppState;
@@ -29,14 +29,14 @@ mod tests {
             ]
         );
         assert_eq!(cfg.theme_name, theme::DEFAULT_THEME_NAME);
-        assert_eq!(cfg.layout_name, DEFAULT_LAYOUT_NAME);
-        assert_eq!(cfg.primary_font, None);
+        assert_eq!(cfg.layout_name, layout::DEFAULT_LAYOUT_NAME);
+        assert_eq!(cfg.fonts.primary, None);
         assert_eq!(cfg.page_size, 50);
         assert_eq!(cfg.tile_width, 140);
         assert_eq!(cfg.album_tile_width, 140);
         assert_eq!(cfg.artist_tile_width, 140);
-        assert_eq!(cfg.lyrics_font, None);
-        assert_eq!(cfg.lyrics_font_size, 15);
+        assert_eq!(cfg.fonts.lyrics, None);
+        assert_eq!(cfg.fonts.lyrics_size, 15);
         assert!(cfg.gapless);
         assert!(cfg.watch_library);
         assert!(!cfg.scrobble.listenbrainz_enabled);
@@ -57,13 +57,15 @@ mod tests {
             theme_name: "Nord".to_string(),
             layout_name: "Sidebar".to_string(),
             custom_titlebar: true,
-            primary_font: Some("Inter".to_string()),
             page_size: 100,
             tile_width: 190,
             album_tile_width: 190,
             artist_tile_width: 180,
-            lyrics_font: Some("Noto Serif".to_string()),
-            lyrics_font_size: 18,
+            fonts: fonts::FontConfig::new(
+                Some("Inter".to_string()),
+                Some("Noto Serif".to_string()),
+                18,
+            ),
             gapless: false,
             resampling: audio::ResamplingConfig::default(),
             watch_library: false,

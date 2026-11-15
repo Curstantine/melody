@@ -29,12 +29,9 @@ pub use crate::{
     spinner::Spinner,
 };
 
-/// A text widget configured with the active theme font.
-pub fn text<'a>(
-    theme_cfg: &ThemeConfig,
-    content: impl Into<Cow<'a, str>>,
-) -> iced::widget::Text<'a> {
-    iced::widget::text(content.into()).font(theme_cfg.font)
+/// A text widget configured with the given font.
+pub fn text<'a>(font: iced::Font, content: impl Into<Cow<'a, str>>) -> iced::widget::Text<'a> {
+    iced::widget::text(content.into()).font(font)
 }
 
 pub fn border_vert<'a, M: 'a>(width: f32, color: Color) -> iced::Element<'a, M> {
@@ -62,11 +59,12 @@ pub fn border_hori<'a, M: 'a>(width: f32, color: Color) -> iced::Element<'a, M> 
 /// A reusable chip button with active state styling.
 pub fn chip<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     label: impl Into<String>,
     is_active: bool,
     on_press: M,
 ) -> Element<'a, M> {
-    button(text(theme_cfg, label.into()).size(11).color(if is_active {
+    button(text(font, label.into()).size(11).color(if is_active {
         theme_cfg.primary
     } else {
         theme_cfg.text_muted
@@ -80,6 +78,7 @@ pub fn chip<'a, M: Clone + 'static>(
 /// A reusable chip button with an icon and label.
 pub fn chip_with_icon<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     icon_svg: &'static str,
     label: impl Into<String>,
     is_active: bool,
@@ -95,7 +94,7 @@ pub fn chip_with_icon<'a, M: Clone + 'static>(
         row![
             icons::icon(icon_svg, 13.0, color),
             Space::new().width(4),
-            text(theme_cfg, label.into()).size(11).color(color),
+            text(font, label.into()).size(11).color(color),
         ]
         .align_y(Alignment::Center),
     )
@@ -108,6 +107,7 @@ pub fn chip_with_icon<'a, M: Clone + 'static>(
 /// A chip button representing a view mode (List or Tiles).
 pub fn view_mode_chip<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     mode: ViewMode,
     is_active: bool,
     on_press: M,
@@ -116,24 +116,27 @@ pub fn view_mode_chip<'a, M: Clone + 'static>(
         ViewMode::Tile => (icons::GRID_VIEW_SVG, "Tiles"),
         ViewMode::List => (icons::LIST_VIEW_SVG, "List"),
     };
-    chip_with_icon(theme_cfg, icon_svg, label, is_active, on_press)
+    chip_with_icon(theme_cfg, font, icon_svg, label, is_active, on_press)
 }
 
 /// A unified view mode toggle row containing List and Tiles mode chips.
 pub fn view_mode_toggle<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     active_mode: ViewMode,
     on_change: impl Fn(ViewMode) -> M,
 ) -> Element<'a, M> {
     row![
         view_mode_chip(
             theme_cfg,
+            font,
             ViewMode::List,
             active_mode == ViewMode::List,
             on_change(ViewMode::List),
         ),
         view_mode_chip(
             theme_cfg,
+            font,
             ViewMode::Tile,
             active_mode == ViewMode::Tile,
             on_change(ViewMode::Tile),
@@ -147,6 +150,7 @@ pub fn view_mode_toggle<'a, M: Clone + 'static>(
 /// A sort chip displaying the field label and an active sort direction indicator arrow.
 pub fn sort_chip<'a, T: Copy + PartialEq, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     label: &'a str,
     field: T,
     active_field: T,
@@ -166,14 +170,14 @@ pub fn sort_chip<'a, T: Copy + PartialEq, M: Clone + 'static>(
             SortDirection::Descending => icons::CHEVRON_DOWN_SVG,
         };
         row![
-            text(theme_cfg, label).size(11).color(text_color),
+            text(font, label).size(11).color(text_color),
             Space::new().width(3),
             icons::icon(sort_icon_svg, 11.0, text_color),
         ]
         .align_y(Alignment::Center)
         .boxed()
     } else {
-        text(theme_cfg, label).size(11).color(text_color).boxed()
+        text(font, label).size(11).color(text_color).boxed()
     };
 
     button(content)
@@ -186,15 +190,14 @@ pub fn sort_chip<'a, T: Copy + PartialEq, M: Clone + 'static>(
 /// A unified sort chip list with a "Sort:" label and multiple sort chips.
 pub fn sort_chip_list<'a, T: Copy + PartialEq, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     options: &[(&'a str, T)],
     active_field: T,
     sort_dir: SortDirection,
     on_press: impl Fn(T) -> M,
 ) -> Element<'a, M> {
     let mut sort_row = row![
-        text(theme_cfg, "Sort:")
-            .size(11)
-            .color(theme_cfg.text_muted),
+        text(font, "Sort:").size(11).color(theme_cfg.text_muted),
         Space::new().width(4),
     ]
     .spacing(4)
@@ -203,6 +206,7 @@ pub fn sort_chip_list<'a, T: Copy + PartialEq, M: Clone + 'static>(
     for &(label, field) in options {
         sort_row = sort_row.push(sort_chip(
             theme_cfg,
+            font,
             label,
             field,
             active_field,
@@ -217,15 +221,14 @@ pub fn sort_chip_list<'a, T: Copy + PartialEq, M: Clone + 'static>(
 /// A centered empty state view with a title and muted description.
 pub fn empty_state<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     title: &'a str,
     subtitle: &'a str,
 ) -> Element<'a, M> {
     container(
         column![
-            text(theme_cfg, title).size(16).color(theme_cfg.text),
-            text(theme_cfg, subtitle)
-                .size(13)
-                .color(theme_cfg.text_muted),
+            text(font, title).size(16).color(theme_cfg.text),
+            text(font, subtitle).size(13).color(theme_cfg.text_muted),
         ]
         .spacing(8)
         .align_x(Alignment::Center),
@@ -406,18 +409,14 @@ pub fn catalog_cover_art<'a, M: Clone + 'static>(
 
 pub fn settings_header<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     title: &'static str,
     description: Option<&'static str>,
 ) -> Element<'a, M> {
-    let mut header = column![text(theme_cfg, title).size(20).color(theme_cfg.text),];
+    let mut header = column![text(font, title).size(20).color(theme_cfg.text),];
 
     if let Some(x) = description {
-        header = header.push(
-            text(theme_cfg, x)
-                .size(12)
-                .color(theme_cfg.text_muted)
-                .boxed(),
-        );
+        header = header.push(text(font, x).size(12).color(theme_cfg.text_muted).boxed());
     }
 
     header.spacing(4).boxed()
@@ -426,11 +425,12 @@ pub fn settings_header<'a, M: 'a>(
 /// A card container with a primary colored title header.
 pub fn settings_card<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     title: &'static str,
     content: Element<'a, M>,
 ) -> Element<'a, M> {
     column![
-        text(theme_cfg, title).size(11).color(theme_cfg.primary),
+        text(font, title).size(11).color(theme_cfg.primary),
         Space::new().height(4),
         border_vert(1.0, theme_cfg.border),
         Space::new().height(12),
@@ -442,13 +442,14 @@ pub fn settings_card<'a, M: 'a>(
 /// A metric card displaying a prominent value and muted label.
 pub fn metric_box<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     label: &'static str,
     value: String,
 ) -> Element<'a, M> {
     container(
         column![
-            text(theme_cfg, value).size(16).color(theme_cfg.text),
-            text(theme_cfg, label).size(11).color(theme_cfg.text_muted),
+            text(font, value).size(16).color(theme_cfg.text),
+            text(font, label).size(11).color(theme_cfg.text_muted),
         ]
         .spacing(2)
         .padding([8, 12]),
@@ -469,6 +470,7 @@ pub fn metric_box<'a, M: 'a>(
 /// A self-contained scanning indicator component powered by the `Spinner` widget.
 pub fn scanning_indicator<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     progress: Option<(usize, usize)>,
 ) -> Element<'a, M> {
     let handle = iced::widget::svg::Handle::from_memory(icons::REFRESH_SVG.as_bytes());
@@ -481,7 +483,7 @@ pub fn scanning_indicator<'a, M: 'a>(
 
     row![
         spinner,
-        text(theme_cfg, label)
+        text(font, label)
             .size(11)
             .line_height(1.0)
             .color(theme_cfg.text_muted),
@@ -492,13 +494,16 @@ pub fn scanning_indicator<'a, M: 'a>(
 }
 
 /// A rotating indicator shown while background album thumbnails are being cached to disk.
-pub fn thumbnail_caching_indicator<'a, M: 'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, M> {
+pub fn thumbnail_caching_indicator<'a, M: 'a>(
+    theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
+) -> Element<'a, M> {
     let handle = iced::widget::svg::Handle::from_memory(icons::REFRESH_SVG.as_bytes());
     let spinner = Spinner::new(handle).size(11.0).color(theme_cfg.text_muted);
 
     row![
         spinner,
-        text(theme_cfg, "Caching album artwork...")
+        text(font, "Caching album artwork...")
             .size(11)
             .line_height(1.0)
             .color(theme_cfg.text_muted),
@@ -520,11 +525,11 @@ mod tests {
 
     #[test]
     fn test_adaptive_cjk_text_creation() {
-        let theme_cfg = ThemeConfig::default();
-        let _ascii = text(&theme_cfg, "The Beatles - Abbey Road");
-        let _japanese = text(&theme_cfg, "宇多田ヒカル - First Love");
-        let _chinese = text(&theme_cfg, "周杰伦 - 范特西");
-        let _korean = text(&theme_cfg, "아이유 - Palette");
+        let font = iced::Font::DEFAULT;
+        let _ascii = text(font, "The Beatles - Abbey Road");
+        let _japanese = text(font, "宇多田ヒカル - First Love");
+        let _chinese = text(font, "周杰伦 - 范特西");
+        let _korean = text(font, "아이유 - Palette");
     }
 
     #[test]
@@ -532,6 +537,7 @@ mod tests {
         let theme_cfg = ThemeConfig::default();
         let tile = CatalogTile {
             theme: &theme_cfg,
+            font: iced::Font::DEFAULT,
             tile_width: 180.0,
             leading: iced::widget::Space::new().boxed(),
             title:
@@ -552,6 +558,7 @@ mod tests {
 
         let row = CatalogRow {
             theme: &theme_cfg,
+            font: iced::Font::DEFAULT,
             leading: iced::widget::Space::new().boxed(),
             title: "Very Long Album Title That Exceeds The Normal Row Width".into(),
             subtitle_left: "Very Long Artist Name".into(),
@@ -597,6 +604,7 @@ mod tests {
         );
         let tile = CatalogTile {
             theme: &theme_cfg,
+            font: iced::Font::DEFAULT,
             tile_width: 140.0,
             leading,
             title: "Artist Name".into(),

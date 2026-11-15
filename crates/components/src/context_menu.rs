@@ -118,9 +118,13 @@ fn truncate_str(s: &str, max_len: usize) -> String {
     }
 }
 
-fn menu_header<'a, M: 'a>(theme_cfg: &'a ThemeConfig, label: &str) -> Element<'a, M> {
+fn menu_header<'a, M: 'a>(
+    theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
+    label: &str,
+) -> Element<'a, M> {
     container(
-        text(theme_cfg, truncate_str(label, 26))
+        text(font, truncate_str(label, 26))
             .size(11)
             .wrapping(iced::widget::text::Wrapping::None)
             .color(theme_cfg.text_muted),
@@ -143,6 +147,7 @@ fn menu_separator<'a, M: 'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, M> {
 
 fn menu_item<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     icon_svg: &'static str,
     label: impl Into<String>,
     on_press: M,
@@ -158,7 +163,7 @@ fn menu_item<'a, M: Clone + 'static>(
     let mut content = row![
         icons::icon(icon_svg, 12.0, icon_color),
         Space::new().width(6),
-        text(theme_cfg, label.into())
+        text(font, label.into())
             .size(12)
             .wrapping(iced::widget::text::Wrapping::None),
     ]
@@ -184,6 +189,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
     menu: &'a ContextMenuState,
     playlists: &'a [PlaylistSummary],
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     window_size: Size,
     on_action: impl Fn(ContextMenuAction) -> M + Copy + 'a,
 ) -> Element<'a, M> {
@@ -203,11 +209,12 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
     match &menu.target {
         ContextMenuTarget::Track { track, context } => {
-            main_items = main_items.push(menu_header(theme_cfg, &track.title));
+            main_items = main_items.push(menu_header(theme_cfg, font, &track.title));
             main_items = main_items.push(menu_separator(theme_cfg));
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::PLAY_SVG,
                 "Play",
                 on_action(match context {
@@ -225,6 +232,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::NEXT_SVG,
                 "Play next",
                 on_action(ContextMenuAction::PlayNextTrack(track.clone())),
@@ -234,6 +242,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::QUEUE_SVG,
                 "Add to queue",
                 on_action(ContextMenuAction::AddTrackToQueue(track.clone())),
@@ -248,6 +257,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
             };
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::PLAYLIST_SVG,
                 "Add to playlist",
                 on_action(submenu_toggle),
@@ -259,6 +269,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
                 main_items = main_items.push(menu_separator(theme_cfg));
                 main_items = main_items.push(menu_item(
                     theme_cfg,
+                    font,
                     icons::ALBUM_SVG,
                     format!("Go to album \"{}\"", truncate_str(&track.album, 14)),
                     on_action(ContextMenuAction::GoToAlbum(track.album.clone())),
@@ -270,6 +281,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
             if !track.artist.is_empty() {
                 main_items = main_items.push(menu_item(
                     theme_cfg,
+                    font,
                     icons::USER_AVATAR_SVG,
                     format!("Go to artist \"{}\"", truncate_str(&track.artist, 14)),
                     on_action(ContextMenuAction::GoToArtist(track.artist.clone())),
@@ -283,6 +295,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
                     main_items = main_items.push(menu_separator(theme_cfg));
                     main_items = main_items.push(menu_item(
                         theme_cfg,
+                        font,
                         icons::TRASH_SVG,
                         "Remove from playlist",
                         on_action(ContextMenuAction::RemoveFromPlaylist {
@@ -297,6 +310,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
                     main_items = main_items.push(menu_separator(theme_cfg));
                     main_items = main_items.push(menu_item(
                         theme_cfg,
+                        font,
                         icons::TRASH_SVG,
                         "Remove from queue",
                         on_action(ContextMenuAction::RemoveFromQueue {
@@ -311,11 +325,12 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
             }
         }
         ContextMenuTarget::Album(album) => {
-            main_items = main_items.push(menu_header(theme_cfg, &album.album));
+            main_items = main_items.push(menu_header(theme_cfg, font, &album.album));
             main_items = main_items.push(menu_separator(theme_cfg));
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::PLAY_SVG,
                 "Play album",
                 on_action(ContextMenuAction::PlayAlbum {
@@ -328,6 +343,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::SHUFFLE_SVG,
                 "Shuffle album",
                 on_action(ContextMenuAction::PlayAlbum {
@@ -340,6 +356,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::NEXT_SVG,
                 "Play next",
                 on_action(ContextMenuAction::PlayNextAlbum(album.clone())),
@@ -349,6 +366,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::QUEUE_SVG,
                 "Add album to queue",
                 on_action(ContextMenuAction::AddAlbumToQueue(album.clone())),
@@ -363,6 +381,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
             };
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::PLAYLIST_SVG,
                 "Add to playlist",
                 on_action(submenu_toggle),
@@ -374,6 +393,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
                 main_items = main_items.push(menu_separator(theme_cfg));
                 main_items = main_items.push(menu_item(
                     theme_cfg,
+                    font,
                     icons::USER_AVATAR_SVG,
                     format!("Go to artist \"{}\"", truncate_str(&album.artist, 14)),
                     on_action(ContextMenuAction::GoToArtist(album.artist.clone())),
@@ -383,11 +403,12 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
             }
         }
         ContextMenuTarget::Artist(artist) => {
-            main_items = main_items.push(menu_header(theme_cfg, &artist.artist));
+            main_items = main_items.push(menu_header(theme_cfg, font, &artist.artist));
             main_items = main_items.push(menu_separator(theme_cfg));
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::PLAY_SVG,
                 "Play artist",
                 on_action(ContextMenuAction::PlayArtist {
@@ -400,6 +421,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::SHUFFLE_SVG,
                 "Shuffle artist",
                 on_action(ContextMenuAction::PlayArtist {
@@ -412,6 +434,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::NEXT_SVG,
                 "Play next",
                 on_action(ContextMenuAction::PlayNextArtist(artist.clone())),
@@ -421,6 +444,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::QUEUE_SVG,
                 "Add artist to queue",
                 on_action(ContextMenuAction::AddArtistToQueue(artist.clone())),
@@ -435,6 +459,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
             };
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::PLAYLIST_SVG,
                 "Add to playlist",
                 on_action(submenu_toggle),
@@ -443,11 +468,12 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
             ));
         }
         ContextMenuTarget::Playlist(playlist) => {
-            main_items = main_items.push(menu_header(theme_cfg, &playlist.name));
+            main_items = main_items.push(menu_header(theme_cfg, font, &playlist.name));
             main_items = main_items.push(menu_separator(theme_cfg));
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::PLAY_SVG,
                 "Play playlist",
                 on_action(ContextMenuAction::PlayPlaylist(playlist.id)),
@@ -457,6 +483,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::NEXT_SVG,
                 "Play next",
                 on_action(ContextMenuAction::PlayNextPlaylist(playlist.id)),
@@ -466,6 +493,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::QUEUE_SVG,
                 "Add to queue",
                 on_action(ContextMenuAction::AddPlaylistToQueue(playlist.id)),
@@ -477,6 +505,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::SETTINGS_SVG,
                 "Rename playlist",
                 on_action(ContextMenuAction::RenamePlaylist(playlist.id)),
@@ -486,6 +515,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::TRASH_SVG,
                 "Delete playlist",
                 on_action(ContextMenuAction::DeletePlaylist(playlist.id)),
@@ -494,11 +524,12 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
             ));
         }
         ContextMenuTarget::Queue { id, name } => {
-            main_items = main_items.push(menu_header(theme_cfg, name));
+            main_items = main_items.push(menu_header(theme_cfg, font, name));
             main_items = main_items.push(menu_separator(theme_cfg));
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::PLAY_SVG,
                 "Play queue",
                 on_action(ContextMenuAction::PlayQueue(*id)),
@@ -510,6 +541,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             main_items = main_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::TRASH_SVG,
                 "Delete queue",
                 on_action(ContextMenuAction::DeleteQueue(*id)),
@@ -527,7 +559,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
     let submenu_box: Option<Element<'a, M>> = match menu.submenu {
         Some(ContextMenuSubmenu::Playlists) => {
             let mut sub_items = column![].spacing(1).width(Length::Fixed(SUBMENU_WIDTH));
-            sub_items = sub_items.push(menu_header(theme_cfg, "Playlists"));
+            sub_items = sub_items.push(menu_header(theme_cfg, font, "Playlists"));
             sub_items = sub_items.push(menu_separator(theme_cfg));
 
             let new_playlist_action = match &menu.target {
@@ -545,6 +577,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
             sub_items = sub_items.push(menu_item(
                 theme_cfg,
+                font,
                 icons::PLUS_SVG,
                 "New playlist...",
                 on_action(new_playlist_action),
@@ -577,6 +610,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
 
                     sub_items = sub_items.push(menu_item(
                         theme_cfg,
+                        font,
                         icons::PLAYLIST_SVG,
                         format!("{} ({})", truncate_str(&p.name, 14), p.track_count),
                         on_action(action),
@@ -588,7 +622,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
                 sub_items = sub_items.push(menu_separator(theme_cfg));
                 sub_items = sub_items.push(
                     container(
-                        text(theme_cfg, "No playlists yet")
+                        text(font, "No playlists yet")
                             .size(11)
                             .wrapping(iced::widget::text::Wrapping::None)
                             .color(theme_cfg.text_muted),

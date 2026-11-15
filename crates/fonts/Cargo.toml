@@ -1,0 +1,11 @@
+[package]
+name = "fonts"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+iced = { workspace = true, features = ["advanced"] }
+serde.workspace = true

@@ -6,12 +6,10 @@ use tracing::{info, warn};
 pub use crate::{
     colors::hex_color,
     config::{ThemeConfig, DEFAULT_THEME_NAME},
-    fonts::{font_from_family_name, list_font_families},
 };
 
 mod colors;
 mod config;
-mod fonts;
 mod radius;
 
 #[derive(Debug, Clone)]
@@ -20,7 +18,7 @@ pub struct ThemeManager {
     pub active_theme_name: String,
     pub current_config: ThemeConfig,
     cached_theme_names: Vec<String>,
-    /// Pre-built iced theme for the active config. Rebuilt only on theme/font
+    /// Pre-built iced theme for the active config. Rebuilt only on theme
     /// changes so `App::theme()` does not allocate on every frame.
     cached_theme: Theme,
 }
@@ -55,14 +53,9 @@ impl ThemeManager {
         }
         self.load_from_folder(paths::user_themes_dir());
 
-        let saved_font = self.current_config.font_family.clone();
         if let Some(active) = self.themes.get(&self.active_theme_name) {
             self.current_config = active.clone();
-            if saved_font.is_some() {
-                self.current_config.font_family = saved_font;
-            }
         }
-        self.current_config.refresh_font();
         self.cached_theme = self.current_config.to_iced_theme();
 
         let mut names: Vec<String> = self.themes.keys().cloned().collect();
@@ -84,8 +77,7 @@ impl ThemeManager {
             if path.extension().and_then(|e| e.to_str()) == Some("toml") {
                 if let Ok(content) = fs::read_to_string(path) {
                     match toml::from_str::<ThemeConfig>(&content) {
-                        Ok(mut theme) => {
-                            theme.refresh_font();
+                        Ok(theme) => {
                             info!("Loaded theme '{}' from {:?}", theme.name, path);
                             self.themes.insert(theme.name.clone(), theme);
                         }
@@ -100,26 +92,14 @@ impl ThemeManager {
 
     pub fn set_theme(&mut self, name: &str) -> bool {
         if let Some(theme) = self.themes.get(name) {
-            let saved_font = self.current_config.font_family.clone();
             self.active_theme_name = name.to_string();
             self.current_config = theme.clone();
-            if saved_font.is_some() {
-                self.current_config.font_family = saved_font;
-            }
-            self.current_config.refresh_font();
             self.cached_theme = self.current_config.to_iced_theme();
             info!("Switched theme to '{}'", name);
             true
         } else {
             false
         }
-    }
-
-    pub fn set_font(&mut self, font_name: Option<String>) {
-        info!("Setting active theme font family to: {:?}", font_name);
-        self.current_config.font_family = font_name;
-        self.current_config.refresh_font();
-        self.cached_theme = self.current_config.to_iced_theme();
     }
 
     /// Returns the cached iced theme. Cheap (`Arc` clone) and allocation-free

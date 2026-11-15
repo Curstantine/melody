@@ -100,9 +100,9 @@ fn main() -> iced::Result {
     .subscription(App::subscription)
     .window(window_settings);
 
-    if let Some(ref font_name) = config.primary_font {
+    if let Some(ref font_name) = config.fonts.primary {
         info!("Setting default font from saved config to: {font_name}");
-        builder = builder.font(theme::font_from_family_name(Some(font_name)));
+        builder = builder.font(fonts::font_from_family_name(Some(font_name)));
     }
 
     builder.run()

@@ -476,26 +476,28 @@ impl PlaylistsView {
         indices
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         store: &'a QueueStore,
         dragging_track: Option<(u64, usize)>,
         dragging_detail: Option<(i64, usize)>,
         playlists_fmt: &'a layout::PlaylistsFormatConfig,
         queue_fmt: &'a layout::QueueFormatConfig,
     ) -> Element<'a, Message> {
-        let toolbar = self.view_toolbar(theme_cfg);
+        let toolbar = self.view_toolbar(theme_cfg, font);
         let content: Element<'a, Message> = match self.section {
             PlaylistSection::Playlists => {
                 if self.selected_id.is_some() {
-                    self.view_detail(theme_cfg, dragging_detail, playlists_fmt)
+                    self.view_detail(theme_cfg, font, dragging_detail, playlists_fmt)
                 } else {
-                    self.view_catalog(theme_cfg, playlists_fmt)
+                    self.view_catalog(theme_cfg, font, playlists_fmt)
                 }
             }
             PlaylistSection::Queues => {
-                self.view_queues(theme_cfg, store, dragging_track, queue_fmt)
+                self.view_queues(theme_cfg, font, store, dragging_track, queue_fmt)
             }
         };
 
@@ -512,10 +514,15 @@ impl PlaylistsView {
             .boxed()
     }
 
-    fn view_toolbar<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_toolbar<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
+    ) -> Element<'a, Message> {
         let section_chip = |label: &'static str, section: PlaylistSection, icon: &'static str| {
             components::chip_with_icon(
                 theme_cfg,
+                font,
                 icon,
                 label,
                 self.section == section,
@@ -536,6 +543,7 @@ impl PlaylistsView {
                 if self.selected_id.is_some() {
                     bar = bar.push(components::chip_with_icon(
                         theme_cfg,
+                        font,
                         icons::ARROW_LEFT_SVG,
                         "Back",
                         false,
@@ -545,6 +553,7 @@ impl PlaylistsView {
                     bar = bar
                         .push(components::chip_with_icon(
                             theme_cfg,
+                            font,
                             icons::FOLDER_SVG,
                             "Import",
                             false,
@@ -552,6 +561,7 @@ impl PlaylistsView {
                         ))
                         .push(components::chip_with_icon(
                             theme_cfg,
+                            font,
                             icons::PLUS_SVG,
                             "New",
                             false,
@@ -562,6 +572,7 @@ impl PlaylistsView {
             PlaylistSection::Queues => {
                 bar = bar.push(components::chip_with_icon(
                     theme_cfg,
+                    font,
                     icons::PLUS_SVG,
                     "New queue",
                     false,
@@ -586,15 +597,17 @@ impl PlaylistsView {
     fn view_catalog<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         playlists_fmt: &'a layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
         if self.creating {
-            return self.view_new_playlist_form(theme_cfg);
+            return self.view_new_playlist_form(theme_cfg, font);
         }
 
         if self.playlists.is_empty() {
             return components::empty_state(
                 theme_cfg,
+                font,
                 "No playlists yet",
                 "Import an existing .m3u / .m3u8 file or create a new playlist",
             );
@@ -603,6 +616,7 @@ impl PlaylistsView {
         let header = row![
             components::sort_chip_list(
                 theme_cfg,
+                font,
                 &[
                     ("Name", PlaylistSortField::Name),
                     ("Tracks", PlaylistSortField::TrackCount),
@@ -613,7 +627,12 @@ impl PlaylistsView {
                 Message::PlaylistSortChanged,
             ),
             Space::new().width(Length::Fill),
-            components::view_mode_toggle(theme_cfg, self.view_mode, Message::SetPlaylistsViewMode),
+            components::view_mode_toggle(
+                theme_cfg,
+                font,
+                self.view_mode,
+                Message::SetPlaylistsViewMode,
+            ),
         ]
         .spacing(4)
         .align_y(Alignment::Center)
@@ -625,8 +644,8 @@ impl PlaylistsView {
         });
 
         let content = match self.view_mode {
-            ViewMode::List => self.view_catalog_list(theme_cfg, playlists_fmt),
-            ViewMode::Tile => self.view_catalog_tiles(theme_cfg, playlists_fmt),
+            ViewMode::List => self.view_catalog_list(theme_cfg, font, playlists_fmt),
+            ViewMode::Tile => self.view_catalog_tiles(theme_cfg, font, playlists_fmt),
         };
 
         column![header, content]
@@ -639,6 +658,7 @@ impl PlaylistsView {
     fn view_catalog_list<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         playlists_fmt: &'a layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
         let mut list = column![].spacing(2).width(Length::Fill);
@@ -663,21 +683,18 @@ impl PlaylistsView {
                 )
             };
 
-            let subtitle = text(theme_cfg, line2).size(11).color(theme_cfg.text_muted);
+            let subtitle = text(font, line2).size(11).color(theme_cfg.text_muted);
 
-            let title_block = column![
-                text(theme_cfg, line1).size(13).color(theme_cfg.text),
-                subtitle,
-            ]
-            .spacing(2)
-            .width(Length::Fill);
+            let title_block = column![text(font, line1).size(13).color(theme_cfg.text), subtitle,]
+                .spacing(2)
+                .width(Length::Fill);
 
             let details = column![
-                text(theme_cfg, details_label)
+                text(font, details_label)
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text(
-                    theme_cfg,
+                    font,
                     if playlist.managed {
                         "Managed"
                     } else {
@@ -756,6 +773,7 @@ impl PlaylistsView {
     fn view_catalog_tiles<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         playlists_fmt: &'a layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
         let mut grid = column![].spacing(12).width(Length::Fill);
@@ -787,8 +805,8 @@ impl PlaylistsView {
 
             let meta = container(
                 column![
-                    text(theme_cfg, line1).size(12),
-                    text(theme_cfg, line2).size(10).color(theme_cfg.text_muted),
+                    text(font, line1).size(12),
+                    text(font, line2).size(10).color(theme_cfg.text_muted),
                 ]
                 .spacing(3)
                 .padding(6),
@@ -856,7 +874,11 @@ impl PlaylistsView {
         .boxed()
     }
 
-    fn view_new_playlist_form<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_new_playlist_form<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
+    ) -> Element<'a, Message> {
         let input = text_input("New playlist name...", &self.new_name_input)
             .size(13)
             .padding([7, 10])
@@ -867,29 +889,25 @@ impl PlaylistsView {
             ))
             .width(Length::Fill);
 
-        let create = button(text(theme_cfg, "Create").size(12).color(theme_cfg.text))
+        let create = button(text(font, "Create").size(12).color(theme_cfg.text))
             .padding([7, 16])
             .style(styles::ghost_button(theme_cfg, false))
             .on_press(Message::NewPlaylistNameSubmitted(
                 self.new_name_input.clone(),
             ));
 
-        let cancel = button(
-            text(theme_cfg, "Cancel")
-                .size(12)
-                .color(theme_cfg.text_muted),
-        )
-        .padding([7, 16])
-        .style(styles::ghost_button(theme_cfg, false))
-        .on_press(Message::NewPlaylistCancelled);
+        let cancel = button(text(font, "Cancel").size(12).color(theme_cfg.text_muted))
+            .padding([7, 16])
+            .style(styles::ghost_button(theme_cfg, false))
+            .on_press(Message::NewPlaylistCancelled);
 
         container(
             column![
-                text(theme_cfg, "Create a new playlist")
+                text(font, "Create a new playlist")
                     .size(16)
                     .color(theme_cfg.text),
                 text(
-                    theme_cfg,
+                    font,
                     "A new .m3u8 file will be created in the Melody playlists directory."
                 )
                 .size(11)
@@ -916,6 +934,7 @@ impl PlaylistsView {
     fn view_detail<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         dragging_detail: Option<(i64, usize)>,
         playlists_fmt: &'a layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
@@ -934,7 +953,7 @@ impl PlaylistsView {
                     ))
                     .width(Length::Fixed(280.0)),
                 Space::new().width(8),
-                button(text(theme_cfg, "Save").size(12).color(theme_cfg.text))
+                button(text(font, "Save").size(12).color(theme_cfg.text))
                     .padding([6, 12])
                     .style(styles::ghost_button(theme_cfg, false))
                     .on_press(Message::RenamePlaylistSubmitted(
@@ -942,23 +961,19 @@ impl PlaylistsView {
                         self.rename_input.clone()
                     )),
                 Space::new().width(4),
-                button(
-                    text(theme_cfg, "Cancel")
-                        .size(12)
-                        .color(theme_cfg.text_muted)
-                )
-                .padding([6, 12])
-                .style(styles::ghost_button(theme_cfg, false))
-                .on_press(Message::RenamePlaylistCancelled),
+                button(text(font, "Cancel").size(12).color(theme_cfg.text_muted))
+                    .padding([6, 12])
+                    .style(styles::ghost_button(theme_cfg, false))
+                    .on_press(Message::RenamePlaylistCancelled),
             ]
             .align_y(Alignment::Center)
             .boxed()
         } else {
             column![
-                text(theme_cfg, self.detail_name.as_str())
+                text(font, self.detail_name.as_str())
                     .size(15)
                     .color(theme_cfg.text),
-                text(theme_cfg, self.detail_tracks_str.as_str())
+                text(font, self.detail_tracks_str.as_str())
                     .size(11)
                     .color(theme_cfg.text_muted),
             ]
@@ -969,6 +984,7 @@ impl PlaylistsView {
         let actions = row![
             components::chip_with_icon(
                 theme_cfg,
+                font,
                 icons::PLAY_SVG,
                 "Play",
                 false,
@@ -976,6 +992,7 @@ impl PlaylistsView {
             ),
             components::chip_with_icon(
                 theme_cfg,
+                font,
                 icons::NEXT_SVG,
                 "Play next",
                 false,
@@ -983,6 +1000,7 @@ impl PlaylistsView {
             ),
             components::chip_with_icon(
                 theme_cfg,
+                font,
                 icons::QUEUE_SVG,
                 "Add to queue",
                 false,
@@ -990,6 +1008,7 @@ impl PlaylistsView {
             ),
             components::chip_with_icon(
                 theme_cfg,
+                font,
                 icons::REFRESH_SVG,
                 "Rename",
                 false,
@@ -997,6 +1016,7 @@ impl PlaylistsView {
             ),
             components::chip_with_icon(
                 theme_cfg,
+                font,
                 icons::TRASH_SVG,
                 "Delete",
                 false,
@@ -1024,6 +1044,7 @@ impl PlaylistsView {
         if self.detail_items.is_empty() {
             list = list.push(components::empty_state(
                 theme_cfg,
+                font,
                 "This playlist is empty",
                 "Add tracks from the Library or save a queue as a playlist",
             ));
@@ -1089,6 +1110,7 @@ impl PlaylistsView {
                 list = list.push(
                     components::TrackRow {
                         theme: theme_cfg,
+                        font,
                         index,
                         title: primary,
                         artist: secondary,
@@ -1133,6 +1155,7 @@ impl PlaylistsView {
     pub(crate) fn view_queues<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         store: &'a QueueStore,
         dragging_track: Option<(u64, usize)>,
         queue_fmt: &'a layout::QueueFormatConfig,
@@ -1140,6 +1163,7 @@ impl PlaylistsView {
         if store.is_empty() {
             return components::empty_state(
                 theme_cfg,
+                font,
                 "No queues open",
                 "Play a playlist or add tracks from the library to start a queue",
             );
@@ -1157,6 +1181,7 @@ impl PlaylistsView {
                 .unwrap_or(queue.name.as_str());
             let chip_btn = components::chip(
                 theme_cfg,
+                font,
                 chip_label,
                 is_active,
                 Message::QueueSelect(queue.id),
@@ -1182,6 +1207,7 @@ impl PlaylistsView {
                     chips,
                     components::empty_state(
                         theme_cfg,
+                        font,
                         "No active queue",
                         "Select a queue to view it",
                     )
@@ -1199,9 +1225,9 @@ impl PlaylistsView {
                 .unwrap_or("Queue");
             return column![
                 chips,
-                Self::queue_header(theme_cfg, name, &self.queue_header_tracks_str, id),
-                self.queue_save_form(theme_cfg),
-                components::empty_state(theme_cfg, "Loading queue…", "Fetching tracks"),
+                Self::queue_header(theme_cfg, font, name, &self.queue_header_tracks_str, id),
+                self.queue_save_form(theme_cfg, font),
+                components::empty_state(theme_cfg, font, "Loading queue…", "Fetching tracks"),
             ]
             .height(Length::Fill)
             .width(Length::Fill)
@@ -1212,12 +1238,13 @@ impl PlaylistsView {
 
         let header = Self::queue_header(
             theme_cfg,
+            font,
             &active.name,
             &self.queue_header_tracks_str,
             active_id,
         );
 
-        let save_form: Element<'a, Message> = self.queue_save_form(theme_cfg);
+        let save_form: Element<'a, Message> = self.queue_save_form(theme_cfg, font);
 
         // Virtualized track list: only the window around the visible scroll
         // range is built each frame; spacers keep the scrollbar proportional
@@ -1226,6 +1253,7 @@ impl PlaylistsView {
         if active.is_empty() {
             list = list.push(components::empty_state(
                 theme_cfg,
+                font,
                 "Queue is empty",
                 "Add tracks from the library or a playlist",
             ));
@@ -1271,6 +1299,7 @@ impl PlaylistsView {
                 list = list.push(
                     components::TrackRow {
                         theme: theme_cfg,
+                        font,
                         index,
                         title: primary,
                         artist: secondary,
@@ -1352,14 +1381,15 @@ impl PlaylistsView {
     /// the header stays stable across the load.
     fn queue_header<'a>(
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         name: &'a str,
         track_count_str: &'a str,
         active_id: u64,
     ) -> Element<'a, Message> {
         row![
             column![
-                text(theme_cfg, name).size(15).color(theme_cfg.text),
-                text(theme_cfg, track_count_str)
+                text(font, name).size(15).color(theme_cfg.text),
+                text(font, track_count_str)
                     .size(11)
                     .color(theme_cfg.text_muted),
             ]
@@ -1367,6 +1397,7 @@ impl PlaylistsView {
             .width(Length::Fill),
             components::chip_with_icon(
                 theme_cfg,
+                font,
                 icons::PLAYLIST_SVG,
                 "Save as playlist",
                 false,
@@ -1374,6 +1405,7 @@ impl PlaylistsView {
             ),
             components::chip_with_icon(
                 theme_cfg,
+                font,
                 icons::TRASH_SVG,
                 "Delete queue",
                 false,
@@ -1392,7 +1424,11 @@ impl PlaylistsView {
     }
 
     /// "Save queue as playlist" inline form, shown when `saving_queue` is set.
-    fn queue_save_form<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn queue_save_form<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
+    ) -> Element<'a, Message> {
         if self.saving_queue {
             row![
                 text_input("Save queue as playlist...", &self.queue_save_input)
@@ -1403,19 +1439,15 @@ impl PlaylistsView {
                     .on_submit(Message::QueueSaveSubmitted(self.queue_save_input.clone()))
                     .width(Length::Fixed(280.0)),
                 Space::new().width(8),
-                button(text(theme_cfg, "Save").size(12).color(theme_cfg.text))
+                button(text(font, "Save").size(12).color(theme_cfg.text))
                     .padding([6, 12])
                     .style(styles::ghost_button(theme_cfg, false))
                     .on_press(Message::QueueSaveSubmitted(self.queue_save_input.clone())),
                 Space::new().width(4),
-                button(
-                    text(theme_cfg, "Cancel")
-                        .size(12)
-                        .color(theme_cfg.text_muted)
-                )
-                .padding([6, 12])
-                .style(styles::ghost_button(theme_cfg, false))
-                .on_press(Message::QueueSaveCancelled),
+                button(text(font, "Cancel").size(12).color(theme_cfg.text_muted))
+                    .padding([6, 12])
+                    .style(styles::ghost_button(theme_cfg, false))
+                    .on_press(Message::QueueSaveCancelled),
             ]
             .align_y(Alignment::Center)
             .padding(iced::Padding {
@@ -1699,6 +1731,7 @@ mod tests {
         // Open-playlist context: clickable row.
         let _ = TrackRow {
             theme: &theme_cfg,
+            font: iced::Font::DEFAULT,
             index: 0,
             title: "One".into(),
             artist: "Artist".into(),
@@ -1728,6 +1761,7 @@ mod tests {
         // Open-playlist context: unmatched (unclickable) entry.
         let _ = TrackRow {
             theme: &theme_cfg,
+            font: iced::Font::DEFAULT,
             index: 1,
             title: "Missing".into(),
             artist: "Artist".into(),
@@ -1754,6 +1788,7 @@ mod tests {
         // Queue context.
         let _ = TrackRow {
             theme: &theme_cfg,
+            font: iced::Font::DEFAULT,
             index: 2,
             title: "Three".into(),
             artist: "Artist".into(),

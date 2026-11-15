@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     colors::{hex_color, opt_hex_color},
-    fonts::font_from_family_name,
     radius::BorderRadiusConfig,
 };
 
@@ -42,13 +41,6 @@ pub struct ThemeConfig {
     pub slider_rail: Option<Color>,
     #[serde(default, alias = "radius")]
     pub border_radius: BorderRadiusConfig,
-    #[serde(default)]
-    pub font_family: Option<String>,
-    /// Cached resolved font. Kept in sync with `font_family` via
-    /// [`ThemeConfig::refresh_font`]; never serialized. Caching it here removes
-    /// a global mutex + hash lookup from every text widget on every frame.
-    #[serde(skip)]
-    pub font: iced::Font,
 }
 
 impl Default for ThemeConfig {
@@ -88,12 +80,6 @@ impl ThemeConfig {
 
     pub fn to_iced_theme(&self) -> Theme {
         Theme::custom(self.name.clone(), self.to_seed())
-    }
-
-    /// Recomputes the cached [`iced::Font`] from the current `font_family`.
-    /// Must be called after any mutation of `font_family`.
-    pub fn refresh_font(&mut self) {
-        self.font = font_from_family_name(self.font_family.as_deref());
     }
 }
 

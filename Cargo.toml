@@ -10,6 +10,7 @@ members = [
     "crates/plugins",
     "crates/updater",
     "crates/theme",
+    "crates/fonts",
     "crates/layout",
     "crates/queue",
     "crates/config",
@@ -34,6 +35,7 @@ audio = { path = "crates/audio" }
 plugins = { path = "crates/plugins" }
 updater = { path = "crates/updater" }
 theme = { path = "crates/theme" }
+fonts = { path = "crates/fonts" }
 layout = { path = "crates/layout" }
 queue = { path = "crates/queue" }
 config = { path = "crates/config" }

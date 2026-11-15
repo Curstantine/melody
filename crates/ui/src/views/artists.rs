@@ -412,11 +412,13 @@ impl ArtistsView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         format_cfg: &'a layout::ArtistsFormatConfig,
     ) -> Element<'a, Message> {
         if self.artists.is_empty() {
             return components::empty_state(
                 theme_cfg,
+                font,
                 "No artists indexed",
                 "Scan a folder in Preferences to populate the artist catalog",
             );
@@ -425,6 +427,7 @@ impl ArtistsView {
         let header_bar = row![
             components::sort_chip_list(
                 theme_cfg,
+                font,
                 &[
                     ("Artist", ArtistSortField::Artist),
                     ("Tracks", ArtistSortField::TrackCount),
@@ -435,7 +438,12 @@ impl ArtistsView {
                 Message::ArtistSortChanged,
             ),
             Space::new().width(Length::Fill),
-            components::view_mode_toggle(theme_cfg, self.view_mode, Message::SetArtistsViewMode),
+            components::view_mode_toggle(
+                theme_cfg,
+                font,
+                self.view_mode,
+                Message::SetArtistsViewMode
+            ),
         ]
         .spacing(4)
         .align_y(Alignment::Center)
@@ -447,8 +455,8 @@ impl ArtistsView {
         });
 
         let content_area: Element<'a, Message> = match self.view_mode {
-            ViewMode::Tile => self.view_tiles(theme_cfg, format_cfg),
-            ViewMode::List => self.view_list(theme_cfg, format_cfg),
+            ViewMode::Tile => self.view_tiles(theme_cfg, font, format_cfg),
+            ViewMode::List => self.view_list(theme_cfg, font, format_cfg),
         };
 
         column![header_bar, content_area]
@@ -467,6 +475,7 @@ impl ArtistsView {
     fn view_tiles<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         format_cfg: &'a layout::ArtistsFormatConfig,
     ) -> Element<'a, Message> {
         let per_row = self.items_per_row();
@@ -519,6 +528,7 @@ impl ArtistsView {
                 tile_row = tile_row.push(
                     components::CatalogTile {
                         theme: theme_cfg,
+                        font,
                         tile_width: tile_w,
                         leading,
                         title: line1,
@@ -581,6 +591,7 @@ impl ArtistsView {
     fn view_list<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         format_cfg: &'a layout::ArtistsFormatConfig,
     ) -> Element<'a, Message> {
         let total_rows = self.artists.len();
@@ -611,6 +622,7 @@ impl ArtistsView {
             content = content.push(
                 components::CatalogRow {
                     theme: theme_cfg,
+                    font,
                     leading: components::cover_art(
                         theme_cfg,
                         None,
@@ -765,7 +777,7 @@ mod tests {
 
         let theme_cfg = ThemeConfig::default();
         let artists_fmt = ArtistsFormatConfig::default();
-        let _rendered = artists_view.view(&theme_cfg, &artists_fmt);
+        let _rendered = artists_view.view(&theme_cfg, iced::Font::DEFAULT, &artists_fmt);
     }
 
     #[test]
@@ -792,6 +804,6 @@ mod tests {
 
         let theme_cfg = ThemeConfig::default();
         let artists_fmt = ArtistsFormatConfig::default();
-        let _rendered = view.view(&theme_cfg, &artists_fmt);
+        let _rendered = view.view(&theme_cfg, iced::Font::DEFAULT, &artists_fmt);
     }
 }

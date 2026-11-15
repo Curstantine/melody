@@ -621,11 +621,13 @@ impl AlbumsView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         format_cfg: &'a layout::AlbumsFormatConfig,
     ) -> Element<'a, Message> {
         if self.albums.is_empty() {
             return components::empty_state(
                 theme_cfg,
+                font,
                 "No albums indexed",
                 "Scan a folder to populate the album catalog",
             );
@@ -634,6 +636,7 @@ impl AlbumsView {
         let header_bar = row![
             components::sort_chip_list(
                 theme_cfg,
+                font,
                 &[
                     ("Title", AlbumSortField::Title),
                     ("Artist", AlbumSortField::Artist),
@@ -647,7 +650,12 @@ impl AlbumsView {
                 Message::AlbumSortChanged,
             ),
             Space::new().width(Length::Fill),
-            components::view_mode_toggle(theme_cfg, self.view_mode, Message::SetAlbumsViewMode),
+            components::view_mode_toggle(
+                theme_cfg,
+                font,
+                self.view_mode,
+                Message::SetAlbumsViewMode
+            ),
         ]
         .spacing(4)
         .align_y(Alignment::Center)
@@ -659,8 +667,8 @@ impl AlbumsView {
         });
 
         let content_area: Element<'a, Message> = match self.view_mode {
-            ViewMode::Tile => self.view_tiles(theme_cfg, format_cfg),
-            ViewMode::List => self.view_list(theme_cfg, format_cfg),
+            ViewMode::Tile => self.view_tiles(theme_cfg, font, format_cfg),
+            ViewMode::List => self.view_list(theme_cfg, font, format_cfg),
         };
 
         column![header_bar, content_area]
@@ -679,6 +687,7 @@ impl AlbumsView {
     fn view_tiles<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         format_cfg: &'a layout::AlbumsFormatConfig,
     ) -> Element<'a, Message> {
         let per_row = self.items_per_row();
@@ -734,6 +743,7 @@ impl AlbumsView {
                 tile_row = tile_row.push(
                     components::CatalogTile {
                         theme: theme_cfg,
+                        font,
                         tile_width: tile_w,
                         leading,
                         title: line1,
@@ -792,6 +802,7 @@ impl AlbumsView {
     fn view_list<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         format_cfg: &'a layout::AlbumsFormatConfig,
     ) -> Element<'a, Message> {
         let total_rows = self.albums.len();
@@ -824,6 +835,7 @@ impl AlbumsView {
             content = content.push(
                 components::CatalogRow {
                     theme: theme_cfg,
+                    font,
                     leading: components::cover_art(
                         theme_cfg,
                         self.get_album_cover(album),
@@ -1142,20 +1154,20 @@ mod tests {
 
         let mut albums_view_tile = AlbumsView::new(ViewMode::Tile, AlbumSortField::Title);
         albums_view_tile.set_albums(albums_list.clone());
-        let _album_tile = albums_view_tile.view(&theme_cfg, &albums_fmt);
+        let _album_tile = albums_view_tile.view(&theme_cfg, iced::Font::DEFAULT, &albums_fmt);
 
         let mut albums_view_list = AlbumsView::new(ViewMode::List, AlbumSortField::Title);
         albums_view_list.set_albums(albums_list);
-        let _album_list = albums_view_list.view(&theme_cfg, &albums_fmt);
+        let _album_list = albums_view_list.view(&theme_cfg, iced::Font::DEFAULT, &albums_fmt);
 
         // Sliced view for artists (first 60 items)
         let mut artists_view_tile = ArtistsView::new(ViewMode::Tile, ArtistSortField::Artist);
         artists_view_tile.set_artists(artists_list.clone());
-        let _artist_tile = artists_view_tile.view(&theme_cfg, &artists_fmt);
+        let _artist_tile = artists_view_tile.view(&theme_cfg, iced::Font::DEFAULT, &artists_fmt);
 
         let mut artists_view_list = ArtistsView::new(ViewMode::List, ArtistSortField::Artist);
         artists_view_list.set_artists(artists_list);
-        let _artist_list = artists_view_list.view(&theme_cfg, &artists_fmt);
+        let _artist_list = artists_view_list.view(&theme_cfg, iced::Font::DEFAULT, &artists_fmt);
     }
 
     #[test]
@@ -1253,7 +1265,7 @@ mod tests {
 
         let theme_cfg = ThemeConfig::default();
         let albums_fmt = AlbumsFormatConfig::default();
-        let _rendered = albums_view.view(&theme_cfg, &albums_fmt);
+        let _rendered = albums_view.view(&theme_cfg, iced::Font::DEFAULT, &albums_fmt);
     }
 
     #[test]

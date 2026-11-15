@@ -27,6 +27,7 @@ const DETAILS_WIDTH: f32 = 100.0;
 /// their context-specific messages (album vs. artist scope).
 pub struct CatalogRow<'a, M> {
     pub theme: &'a ThemeConfig,
+    pub font: iced::Font,
     pub leading: Element<'a, M>,
     pub title: Cow<'a, str>,
     pub subtitle_left: Cow<'a, str>,
@@ -44,6 +45,7 @@ impl<'a, M: Clone + 'static> CatalogRow<'a, M> {
     pub fn view(self) -> Element<'a, M> {
         let Self {
             theme: theme_cfg,
+            font,
             leading,
             title,
             subtitle_left,
@@ -57,19 +59,19 @@ impl<'a, M: Clone + 'static> CatalogRow<'a, M> {
             height,
         } = self;
 
-        let mut subtitle = row![text(theme_cfg, subtitle_left)
+        let mut subtitle = row![text(font, subtitle_left)
             .size(11)
             .color(theme_cfg.text_muted)];
         if !subtitle_right.is_empty() {
             subtitle = subtitle
                 .push(
-                    text(theme_cfg, " • ")
+                    text(font, " • ")
                         .size(11)
                         .color(theme_cfg.text_muted)
                         .boxed(),
                 )
                 .push(
-                    text(theme_cfg, subtitle_right)
+                    text(font, subtitle_right)
                         .size(11)
                         .color(theme_cfg.text_muted)
                         .boxed(),
@@ -77,7 +79,7 @@ impl<'a, M: Clone + 'static> CatalogRow<'a, M> {
         }
 
         let title_block = column![
-            text(theme_cfg, title)
+            text(font, title)
                 .size(13)
                 .color(theme_cfg.text)
                 .wrapping(Wrapping::None)
@@ -91,8 +93,8 @@ impl<'a, M: Clone + 'static> CatalogRow<'a, M> {
 
         if let Some((top, bottom)) = details {
             let details_col = column![
-                text(theme_cfg, top).size(12).color(theme_cfg.text_muted),
-                text(theme_cfg, bottom).size(11).color(theme_cfg.text_muted),
+                text(font, top).size(12).color(theme_cfg.text_muted),
+                text(font, bottom).size(11).color(theme_cfg.text_muted),
             ]
             .spacing(2)
             .align_x(Alignment::End)
@@ -153,6 +155,7 @@ impl<'a, M: Clone + 'static> CatalogRow<'a, M> {
 /// image cache) plus pre-rendered labels and context messages.
 pub struct CatalogTile<'a, M> {
     pub theme: &'a ThemeConfig,
+    pub font: iced::Font,
     pub tile_width: f32,
     pub leading: Element<'a, M>,
     pub title: Cow<'a, str>,
@@ -170,6 +173,7 @@ impl<'a, M: Clone + 'static> CatalogTile<'a, M> {
     pub fn view(self) -> Element<'a, M> {
         let Self {
             theme: theme_cfg,
+            font,
             tile_width: tile_w,
             leading,
             title,
@@ -185,25 +189,23 @@ impl<'a, M: Clone + 'static> CatalogTile<'a, M> {
 
         let meta = container(
             column![
-                text(theme_cfg, title)
+                text(font, title)
                     .size(13)
                     .width(Length::Fill)
                     .wrapping(Wrapping::None)
                     .ellipsis(Ellipsis::End),
                 row![
-                    text(theme_cfg, mid_left)
+                    text(font, mid_left)
                         .size(11)
                         .color(theme_cfg.text_muted)
                         .width(Length::Fill)
                         .wrapping(Wrapping::None)
                         .ellipsis(Ellipsis::End),
-                    text(theme_cfg, mid_right)
-                        .size(11)
-                        .color(theme_cfg.text_muted),
+                    text(font, mid_right).size(11).color(theme_cfg.text_muted),
                 ]
                 .align_y(Alignment::Center),
                 if bottom_right.is_empty() {
-                    row![text(theme_cfg, bottom_left)
+                    row![text(font, bottom_left)
                         .size(10)
                         .color(theme_cfg.text_muted)
                         .width(Length::Fill)
@@ -212,11 +214,9 @@ impl<'a, M: Clone + 'static> CatalogTile<'a, M> {
                     .align_y(Alignment::Center)
                 } else {
                     row![
-                        text(theme_cfg, bottom_left)
-                            .size(10)
-                            .color(theme_cfg.text_muted),
+                        text(font, bottom_left).size(10).color(theme_cfg.text_muted),
                         Space::new().width(Length::Fill),
-                        text(theme_cfg, bottom_right)
+                        text(font, bottom_right)
                             .size(10)
                             .color(theme_cfg.text_muted),
                     ]
@@ -293,6 +293,7 @@ fn format_index(index: usize) -> Cow<'static, str> {
 
 pub struct TrackRow<'a, M> {
     pub theme: &'a ThemeConfig,
+    pub font: iced::Font,
     /// Zero-based position; rendered as `index + 1` in the leading slot.
     pub index: usize,
     pub title: Cow<'a, str>,
@@ -320,6 +321,7 @@ impl<'a, M: Clone + 'static> TrackRow<'a, M> {
     pub fn view(self) -> Element<'a, M> {
         let Self {
             theme: theme_cfg,
+            font,
             index,
             title,
             artist,
@@ -355,16 +357,12 @@ impl<'a, M: Clone + 'static> TrackRow<'a, M> {
                 .center_y(TRACK_ROW_HEIGHT)
                 .boxed()
         } else {
-            container(
-                text(theme_cfg, format_index(index))
-                    .size(12)
-                    .color(number_color),
-            )
-            .width(TRACK_ROW_SLOT_WIDTH)
-            .height(TRACK_ROW_HEIGHT)
-            .center_x(TRACK_ROW_SLOT_WIDTH)
-            .center_y(TRACK_ROW_HEIGHT)
-            .boxed()
+            container(text(font, format_index(index)).size(12).color(number_color))
+                .width(TRACK_ROW_SLOT_WIDTH)
+                .height(TRACK_ROW_HEIGHT)
+                .center_x(TRACK_ROW_SLOT_WIDTH)
+                .center_y(TRACK_ROW_HEIGHT)
+                .boxed()
         };
         let mut slot = iced::widget::mouse_area(slot_content)
             .on_enter(hover_enter.clone())
@@ -379,19 +377,19 @@ impl<'a, M: Clone + 'static> TrackRow<'a, M> {
         }
 
         let row_content = row![
-            text(theme_cfg, title)
+            text(font, title)
                 .size(13)
                 .color(title_color)
                 .width(Length::FillPortion(5))
                 .wrapping(Wrapping::None)
                 .ellipsis(Ellipsis::End),
-            text(theme_cfg, artist)
+            text(font, artist)
                 .size(11)
                 .color(theme_cfg.text_muted)
                 .width(Length::FillPortion(4))
                 .wrapping(Wrapping::None)
                 .ellipsis(Ellipsis::End),
-            text(theme_cfg, duration)
+            text(font, duration)
                 .size(12)
                 .color(theme_cfg.text_muted)
                 .width(TRACK_ROW_DURATION_WIDTH),

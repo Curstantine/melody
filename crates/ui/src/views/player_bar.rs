@@ -87,6 +87,7 @@ impl PlayerBar {
     pub fn view_track_info<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         current_track: Option<&'a Track>,
         current_cover: Option<&'a image::Handle>,
         is_playing: bool,
@@ -109,17 +110,17 @@ impl PlayerBar {
                 components::Marquee::new(&track.title)
                     .size(13.0)
                     .color(bar_fg)
-                    .font(theme_cfg.font)
+                    .font(font)
                     .animating(is_playing),
                 components::Marquee::new(&self.artist_album)
                     .size(11.0)
                     .color(bar_muted)
-                    .font(theme_cfg.font)
+                    .font(font)
                     .animating(is_playing),
             ],
             None => column![
-                text(theme_cfg, "No track playing").size(13).color(bar_fg),
-                text(theme_cfg, "Melody").size(11).color(bar_muted),
+                text(font, "No track playing").size(13).color(bar_fg),
+                text(font, "Melody").size(11).color(bar_muted),
             ],
         }
         .spacing(2)
@@ -183,6 +184,7 @@ impl PlayerBar {
     pub fn view_seek_bar<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         position_ms: u64,
         duration_ms: u64,
     ) -> Element<'a, Message> {
@@ -200,7 +202,7 @@ impl PlayerBar {
             active_pos
         };
         let time_info = text(
-            theme_cfg,
+            font,
             if !self.cached_time_str.is_empty() {
                 &self.cached_time_str
             } else {
@@ -236,6 +238,7 @@ impl PlayerBar {
     pub fn view_volume<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         volume: f32,
     ) -> Element<'a, Message> {
         let bar_fg = theme_cfg.player_bar_text_color();
@@ -260,7 +263,7 @@ impl PlayerBar {
             ),
             vol_slider,
             text(
-                theme_cfg,
+                font,
                 if !self.cached_volume_str.is_empty() {
                     &self.cached_volume_str
                 } else {
@@ -316,6 +319,7 @@ impl PlayerBar {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         current_track: Option<&'a Track>,
         current_cover: Option<&'a image::Handle>,
         is_playing: bool,
@@ -330,7 +334,7 @@ impl PlayerBar {
 
         // 1. Left: Track Info & Cover Thumbnail
         let track_section =
-            self.view_track_info(theme_cfg, current_track, current_cover, is_playing);
+            self.view_track_info(theme_cfg, font, current_track, current_cover, is_playing);
 
         // 2. Center: Controls
         let buttons = self.view_controls(theme_cfg, is_playing);
@@ -346,7 +350,7 @@ impl PlayerBar {
             active_pos
         };
         let time_info = text(
-            theme_cfg,
+            font,
             if !self.cached_time_str.is_empty() {
                 &self.cached_time_str
             } else {
@@ -367,7 +371,7 @@ impl PlayerBar {
             .align_y(Alignment::Center);
 
         let options = self.view_options(theme_cfg, is_shuffle, is_repeat);
-        let vol = self.view_volume(theme_cfg, volume);
+        let vol = self.view_volume(theme_cfg, font, volume);
         let right_controls = row![options, Space::new().width(6), vol]
             .spacing(4)
             .align_y(Alignment::Center);

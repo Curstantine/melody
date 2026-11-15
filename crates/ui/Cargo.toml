@@ -27,6 +27,7 @@ audio.workspace = true
 plugins.workspace = true
 updater.workspace = true
 theme.workspace = true
+fonts.workspace = true
 layout.workspace = true
 queue.workspace = true
 config.workspace = true

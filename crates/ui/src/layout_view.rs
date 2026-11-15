@@ -155,6 +155,7 @@ impl App {
 
             LayoutComponent::Tracks => container(self.library.view(
                 theme_cfg,
+                self.fonts.primary_font(),
                 self.current_track_id,
                 self.is_playing,
                 &self.layout_manager.current_template.view_formats.library,
@@ -166,6 +167,7 @@ impl App {
 
             LayoutComponent::Albums => container(self.albums.view(
                 theme_cfg,
+                self.fonts.primary_font(),
                 &self.layout_manager.current_template.view_formats.albums,
             ))
             .width(Length::Fill)
@@ -175,6 +177,7 @@ impl App {
 
             LayoutComponent::Artists => container(self.artists.view(
                 theme_cfg,
+                self.fonts.primary_font(),
                 &self.layout_manager.current_template.view_formats.artists,
             ))
             .width(Length::Fill)
@@ -184,6 +187,7 @@ impl App {
 
             LayoutComponent::Playlists => container(self.playlists.view(
                 theme_cfg,
+                self.fonts.primary_font(),
                 &self.queues,
                 self.dragging_queue_track,
                 self.dragging_detail,
@@ -197,6 +201,7 @@ impl App {
 
             LayoutComponent::Queue => container(self.playlists.view_queues(
                 theme_cfg,
+                self.fonts.primary_font(),
                 &self.queues,
                 self.dragging_queue_track,
                 &self.layout_manager.current_template.view_formats.queue,
@@ -211,6 +216,7 @@ impl App {
                 container(
                     self.now_playing.view(
                         theme_cfg,
+                        &self.fonts,
                         self.current_track.as_ref(),
                         self.current_now_playing_cover
                             .as_ref()
@@ -238,6 +244,7 @@ impl App {
 
             LayoutComponent::PlayerBar => self.player_bar.view(
                 theme_cfg,
+                self.fonts.primary_font(),
                 self.current_track.as_ref(),
                 self.current_cover.as_ref(),
                 self.is_playing,
@@ -250,6 +257,7 @@ impl App {
 
             LayoutComponent::TrackInfo => container(self.player_bar.view_track_info(
                 theme_cfg,
+                self.fonts.primary_font(),
                 self.current_track.as_ref(),
                 self.current_cover.as_ref(),
                 self.is_playing,
@@ -265,17 +273,20 @@ impl App {
 
             LayoutComponent::SeekBar => container(self.player_bar.view_seek_bar(
                 theme_cfg,
+                self.fonts.primary_font(),
                 self.position_ms,
                 self.duration_ms,
             ))
             .padding([4, 8])
             .boxed(),
 
-            LayoutComponent::VolumeControl => {
-                container(self.player_bar.view_volume(theme_cfg, self.volume))
-                    .padding([4, 8])
-                    .boxed()
-            }
+            LayoutComponent::VolumeControl => container(self.player_bar.view_volume(
+                theme_cfg,
+                self.fonts.primary_font(),
+                self.volume,
+            ))
+            .padding([4, 8])
+            .boxed(),
 
             LayoutComponent::PlaybackOptions => container(self.player_bar.view_options(
                 theme_cfg,
@@ -285,9 +296,11 @@ impl App {
             .padding([4, 8])
             .boxed(),
 
-            LayoutComponent::StatusBar => {
-                StatusBar::view(theme_cfg, self.create_status_bar_context())
-            }
+            LayoutComponent::StatusBar => StatusBar::view(
+                theme_cfg,
+                self.fonts.primary_font(),
+                self.create_status_bar_context(),
+            ),
         }
     }
 
@@ -314,7 +327,7 @@ impl App {
 
             let tab_inner = row![
                 icons::icon(view_tab_icon_svg(tab), 12.0, tab_icon_color),
-                text(theme_cfg, tab.label())
+                text(self.fonts.primary_font(), tab.label())
                     .size(11)
                     .line_height(1.0)
                     .color(if is_selected || is_dragging {
@@ -445,13 +458,14 @@ impl App {
                                 theme_cfg.text_muted
                             },
                         ),
-                        text(theme_cfg, "Settings").size(11).line_height(1.0).color(
-                            if settings_is_selected {
+                        text(self.fonts.primary_font(), "Settings")
+                            .size(11)
+                            .line_height(1.0)
+                            .color(if settings_is_selected {
                                 theme_cfg.primary
                             } else {
                                 theme_cfg.text_muted
-                            }
-                        )
+                            })
                     ]
                     .spacing(6)
                     .align_y(iced::Alignment::Center);
@@ -484,17 +498,20 @@ impl App {
 
     pub fn render_main_view<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
         let view_formats = &self.layout_manager.current_template.view_formats;
+        let font = self.fonts.primary_font();
         match self.active_tab {
             ViewTab::Tracks => self.library.view(
                 theme_cfg,
+                font,
                 self.current_track_id,
                 self.is_playing,
                 &view_formats.library,
             ),
-            ViewTab::Albums => self.albums.view(theme_cfg, &view_formats.albums),
-            ViewTab::Artists => self.artists.view(theme_cfg, &view_formats.artists),
+            ViewTab::Albums => self.albums.view(theme_cfg, font, &view_formats.albums),
+            ViewTab::Artists => self.artists.view(theme_cfg, font, &view_formats.artists),
             ViewTab::Playlists => self.playlists.view(
                 theme_cfg,
+                font,
                 &self.queues,
                 self.dragging_queue_track,
                 self.dragging_detail,
@@ -506,6 +523,7 @@ impl App {
 
                 self.now_playing.view(
                     theme_cfg,
+                    &self.fonts,
                     self.current_track.as_ref(),
                     self.current_now_playing_cover
                         .as_ref()
@@ -529,6 +547,7 @@ impl App {
 
         self.settings.view(
             theme_cfg,
+            self.fonts.primary_font(),
             views::settings::SettingsContext {
                 theme_names: self.theme_manager.theme_names(),
                 active_theme_name: &self.theme_manager.active_theme_name,
@@ -540,9 +559,9 @@ impl App {
                 page_size: self.library.page_size,
                 album_tile_width: self.albums.tile_width,
                 artist_tile_width: self.artists.tile_width,
-                lyrics_font: self.now_playing.lyrics_font.as_deref(),
-                lyrics_font_size: self.now_playing.lyrics_font_size,
-                primary_font: self.theme_manager.current_config.font_family.as_deref(),
+                lyrics_font: self.fonts.lyrics.as_deref(),
+                lyrics_font_size: self.fonts.lyrics_size,
+                primary_font: self.fonts.primary.as_deref(),
                 total_tracks: self.library.total_tracks,
                 total_albums: self.albums.len(),
                 total_artists: self.artists.len(),

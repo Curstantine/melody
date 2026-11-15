@@ -160,16 +160,17 @@ impl SettingsView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         ctx: SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let sidebar = self.view_sidebar(theme_cfg);
+        let sidebar = self.view_sidebar(theme_cfg, font);
 
         let content = match self.active_tab {
-            SettingsTab::Appearance if self.show_debug_subpage => self.view_debug(theme_cfg),
-            SettingsTab::Appearance => self.view_appearance(theme_cfg, &ctx),
-            SettingsTab::Playback => self.view_playback(theme_cfg, &ctx),
-            SettingsTab::Library => self.view_library(theme_cfg, &ctx),
-            SettingsTab::Scrobbling => self.view_scrobbling(theme_cfg, &ctx),
+            SettingsTab::Appearance if self.show_debug_subpage => self.view_debug(theme_cfg, font),
+            SettingsTab::Appearance => self.view_appearance(theme_cfg, font, &ctx),
+            SettingsTab::Playback => self.view_playback(theme_cfg, font, &ctx),
+            SettingsTab::Library => self.view_library(theme_cfg, font, &ctx),
+            SettingsTab::Scrobbling => self.view_scrobbling(theme_cfg, font, &ctx),
         };
 
         let main_panel = scrollable(content)
@@ -184,12 +185,14 @@ impl SettingsView {
             .boxed()
     }
 
-    fn view_sidebar<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_sidebar<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
+    ) -> Element<'a, Message> {
         let sidebar_title = column![
-            text(theme_cfg, "Preferences")
-                .size(11)
-                .color(theme_cfg.primary),
-            text(theme_cfg, "System configuration")
+            text(font, "Preferences").size(11).color(theme_cfg.primary),
+            text(font, "System configuration")
                 .size(11)
                 .color(theme_cfg.text_muted),
         ]
@@ -212,10 +215,8 @@ impl SettingsView {
                     icons::icon(icon_svg, 16.0, color),
                     Space::new().width(SPACE_LG),
                     column![
-                        text(theme_cfg, title).size(13).color(color),
-                        text(theme_cfg, subtitle)
-                            .size(10)
-                            .color(theme_cfg.text_muted),
+                        text(font, title).size(13).color(color),
+                        text(font, subtitle).size(10).color(theme_cfg.text_muted),
                     ]
                     .spacing(SIDEBAR_ITEM_SPACING),
                 ]
@@ -227,7 +228,7 @@ impl SettingsView {
             .on_press(Message::SelectSettingsTab(tab))
         };
 
-        let update_section = self.view_update_section(theme_cfg);
+        let update_section = self.view_update_section(theme_cfg, font);
 
         let nav_col = column![
             sidebar_title,
@@ -268,7 +269,11 @@ impl SettingsView {
             .boxed()
     }
 
-    fn view_update_section<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_update_section<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
+    ) -> Element<'a, Message> {
         let current_version = env!("CARGO_PKG_VERSION");
 
         let content = match &self.update_status {
@@ -277,7 +282,7 @@ impl SettingsView {
                     row![
                         icons::icon(icons::DOWNLOAD_SVG, 13.0, theme_cfg.background),
                         Space::new().width(SPACE_MD),
-                        text(theme_cfg, "Update & restart")
+                        text(font, "Update & restart")
                             .size(12)
                             .color(theme_cfg.background),
                     ]
@@ -291,7 +296,7 @@ impl SettingsView {
                 let status_label = row![
                     icons::icon(icons::DOWNLOAD_SVG, 11.0, theme_cfg.primary),
                     Space::new().width(SPACE_SM),
-                    text(theme_cfg, format!("{} ready", info.version))
+                    text(font, format!("{} ready", info.version))
                         .size(11)
                         .color(theme_cfg.primary),
                 ]
@@ -299,7 +304,7 @@ impl SettingsView {
 
                 let release_link = button(
                     row![
-                        text(theme_cfg, "View release notes")
+                        text(font, "View release notes")
                             .size(10)
                             .color(theme_cfg.text_muted),
                         Space::new().width(SPACE_SM),
@@ -311,7 +316,7 @@ impl SettingsView {
                 .style(styles::ghost_button(theme_cfg, false))
                 .on_press(Message::OpenUrl(info.release_url.clone()));
 
-                let ver_label = text(theme_cfg, format!("v{current_version}"))
+                let ver_label = text(font, format!("v{current_version}"))
                     .size(10)
                     .color(theme_cfg.text_muted);
 
@@ -327,12 +332,9 @@ impl SettingsView {
                     row![
                         icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.primary),
                         Space::new().width(SPACE_MD),
-                        text(
-                            theme_cfg,
-                            format!("Downloading {}%...", percent.clamp(&0, &100)),
-                        )
-                        .size(12)
-                        .color(theme_cfg.primary),
+                        text(font, format!("Downloading {}%...", percent.clamp(&0, &100)),)
+                            .size(12)
+                            .color(theme_cfg.primary),
                     ]
                     .align_y(Alignment::Center),
                 )
@@ -340,11 +342,11 @@ impl SettingsView {
                 .padding(BUTTON_PADDING_MD)
                 .style(styles::ghost_button(theme_cfg, false));
 
-                let info_label = text(theme_cfg, format!("Downloading {}", info.version))
+                let info_label = text(font, format!("Downloading {}", info.version))
                     .size(11)
                     .color(theme_cfg.text);
 
-                let ver_label = text(theme_cfg, format!("v{current_version}"))
+                let ver_label = text(font, format!("v{current_version}"))
                     .size(10)
                     .color(theme_cfg.text_muted);
 
@@ -357,7 +359,7 @@ impl SettingsView {
                     row![
                         icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.background),
                         Space::new().width(SPACE_MD),
-                        text(theme_cfg, "Restart now")
+                        text(font, "Restart now")
                             .size(12)
                             .color(theme_cfg.background),
                     ]
@@ -371,7 +373,7 @@ impl SettingsView {
                 let status_label = row![
                     icons::icon(icons::DOWNLOAD_SVG, 11.0, theme_cfg.accent),
                     Space::new().width(SPACE_SM),
-                    text(theme_cfg, format!("{} downloaded", info.version))
+                    text(font, format!("{} downloaded", info.version))
                         .size(11)
                         .color(theme_cfg.accent),
                 ]
@@ -379,7 +381,7 @@ impl SettingsView {
 
                 let release_link = button(
                     row![
-                        text(theme_cfg, "View release notes")
+                        text(font, "View release notes")
                             .size(10)
                             .color(theme_cfg.text_muted),
                         Space::new().width(SPACE_SM),
@@ -391,7 +393,7 @@ impl SettingsView {
                 .style(styles::ghost_button(theme_cfg, false))
                 .on_press(Message::OpenUrl(info.release_url.clone()));
 
-                let ver_label = text(theme_cfg, format!("v{current_version}"))
+                let ver_label = text(font, format!("v{current_version}"))
                     .size(10)
                     .color(theme_cfg.text_muted);
 
@@ -407,7 +409,7 @@ impl SettingsView {
                     row![
                         icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text_muted),
                         Space::new().width(SPACE_MD),
-                        text(theme_cfg, "Checking for updates...")
+                        text(font, "Checking for updates...")
                             .size(12)
                             .color(theme_cfg.text_muted),
                     ]
@@ -417,7 +419,7 @@ impl SettingsView {
                 .padding(BUTTON_PADDING_MD)
                 .style(styles::ghost_button(theme_cfg, false));
 
-                let ver_label = text(theme_cfg, format!("v{current_version}"))
+                let ver_label = text(font, format!("v{current_version}"))
                     .size(10)
                     .color(theme_cfg.text_muted);
 
@@ -426,14 +428,14 @@ impl SettingsView {
                     .width(Length::Fill)
             }
             updater::UpdateStatus::UpToDate => {
-                let ver_label = text(theme_cfg, format!("v{current_version} • Up to date"))
+                let ver_label = text(font, format!("v{current_version} • Up to date"))
                     .size(10)
                     .color(theme_cfg.text_muted);
 
                 column![ver_label].width(Length::Fill)
             }
             updater::UpdateStatus::Idle => {
-                let ver_label = text(theme_cfg, format!("v{current_version}"))
+                let ver_label = text(font, format!("v{current_version}"))
                     .size(10)
                     .color(theme_cfg.text_muted);
 
@@ -444,7 +446,7 @@ impl SettingsView {
                     row![
                         icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text),
                         Space::new().width(SPACE_MD),
-                        text(theme_cfg, "Check for updates")
+                        text(font, "Check for updates")
                             .size(12)
                             .color(theme_cfg.text),
                     ]
@@ -455,7 +457,7 @@ impl SettingsView {
                 .style(styles::ghost_button(theme_cfg, false))
                 .on_press(Message::CheckForUpdates);
 
-                let ver_label = text(theme_cfg, format!("v{current_version} • Check failed"))
+                let ver_label = text(font, format!("v{current_version} • Check failed"))
                     .size(10)
                     .color(theme_cfg.text_muted);
 
@@ -478,9 +480,10 @@ impl SettingsView {
     fn view_appearance<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let header = components::settings_header(theme_cfg, "Appearance & interface", Some("Customize color palette, typography font family, default display modes, and layout density"));
+        let header = components::settings_header(theme_cfg, font, "Appearance & interface", Some("Customize color palette, typography font family, default display modes, and layout density"));
 
         // Theme & Layout Card
         let theme_buttons = {
@@ -494,6 +497,7 @@ impl SettingsView {
                 };
                 let btn = components::chip_with_icon(
                     theme_cfg,
+                    font,
                     icon_svg,
                     name.clone(),
                     is_active,
@@ -515,6 +519,7 @@ impl SettingsView {
                 };
                 let btn = components::chip_with_icon(
                     theme_cfg,
+                    font,
                     icon_svg,
                     name.clone(),
                     is_active,
@@ -527,11 +532,9 @@ impl SettingsView {
 
         let titlebar_toggle = row![
             column![
-                text(theme_cfg, "Custom titlebar")
-                    .size(13)
-                    .color(theme_cfg.text),
+                text(font, "Custom titlebar").size(13).color(theme_cfg.text),
                 text(
-                    theme_cfg,
+                    font,
                     "Merge navigation bar and window controls into a single custom titlebar"
                 )
                 .size(11)
@@ -551,7 +554,7 @@ impl SettingsView {
             row![
                 icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text),
                 Space::new().width(SPACE_MD),
-                text(theme_cfg, "Reload themes & layouts from disk")
+                text(font, "Reload themes & layouts from disk")
                     .size(12)
                     .color(theme_cfg.text),
             ]
@@ -563,17 +566,18 @@ impl SettingsView {
 
         let theme_layout_card = components::settings_card(
             theme_cfg,
+            font,
             "Theme & layout",
             column![
                 column![
-                    text(theme_cfg, "Color palette")
+                    text(font, "Color palette")
                         .size(12)
                         .color(theme_cfg.text_muted),
                     theme_buttons,
                 ]
                 .spacing(CARD_SPACING),
                 column![
-                    text(theme_cfg, "Layout preset")
+                    text(font, "Layout preset")
                         .size(12)
                         .color(theme_cfg.text_muted),
                     layout_buttons,
@@ -607,7 +611,7 @@ impl SettingsView {
         )
         .on_select(Message::SelectFont)
         .placeholder("Select a system font...")
-        .font(theme_cfg.font)
+        .font(font)
         .padding(INPUT_PADDING)
         .text_size(12)
         .handle(pick_list::Handle::Arrow {
@@ -617,34 +621,34 @@ impl SettingsView {
         .style(styles::pick_list_style(theme_cfg))
         .menu_style(styles::menu_style(theme_cfg));
 
-        let active_iced_font = theme_cfg.font;
+        let active_iced_font = font;
 
         let sample_text_box = container(
             column![
-                text(theme_cfg, "Multilingual glyph rendering preview")
+                text(font, "Multilingual glyph rendering preview")
                     .size(11)
                     .color(theme_cfg.primary),
                 Space::new().height(SPACE_SM),
                 text(
-                    theme_cfg,
+                    font,
                     "English: The quick brown fox jumps over the lazy dog."
                 )
                 .size(12)
                 .color(theme_cfg.text)
                 .font(active_iced_font),
                 text(
-                    theme_cfg,
+                    font,
                     "日本語: あのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら"
                 )
                 .size(12)
                 .color(theme_cfg.text)
                 .font(active_iced_font),
-                text(theme_cfg, "中文: 落霞与孤齐飞，秋水共长天一色")
+                text(font, "中文: 落霞与孤齐飞，秋水共长天一色")
                     .size(12)
                     .color(theme_cfg.text)
                     .font(active_iced_font),
                 text(
-                    theme_cfg,
+                    font,
                     "한국어: 별 하나에 추억과 별 하나에 사랑과 쓸쓸함과 동경"
                 )
                 .size(12)
@@ -667,15 +671,16 @@ impl SettingsView {
 
         let font_card = components::settings_card(
             theme_cfg,
+            font,
             "Typography & font configuration",
             column![
                 row![
                     column![
-                        text(theme_cfg, "Select font family")
+                        text(font, "Select font family")
                             .size(12)
                             .color(theme_cfg.text_muted),
                         text(
-                            theme_cfg,
+                            font,
                             "System font family used for UI text rendering and catalog metadata",
                         )
                         .size(11)
@@ -700,6 +705,7 @@ impl SettingsView {
                 let is_sel = ctx.page_size == size;
                 let btn = components::chip(
                     theme_cfg,
+                    font,
                     format!("{} tracks", size),
                     is_sel,
                     Message::SetPageSize(size),
@@ -711,14 +717,15 @@ impl SettingsView {
 
         let library_tab_card = components::settings_card(
             theme_cfg,
+            font,
             "Library tab",
             row![
                 column![
-                    text(theme_cfg, "Page limit")
+                    text(font, "Page limit")
                         .size(12)
                         .color(theme_cfg.text_muted),
                     text(
-                        theme_cfg,
+                        font,
                         "Number of tracks fetched and rendered per viewport window",
                     )
                     .size(11)
@@ -735,11 +742,11 @@ impl SettingsView {
         // 2. Albums Tab Section
         let album_view_mode_row = row![
             column![
-                text(theme_cfg, "Catalog view mode")
+                text(font, "Catalog view mode")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text(
-                    theme_cfg,
+                    font,
                     "Switch between grid tile card presentation and compact list table",
                 )
                 .size(11)
@@ -749,6 +756,7 @@ impl SettingsView {
             .width(Length::Fill),
             components::view_mode_toggle(
                 theme_cfg,
+                font,
                 ctx.albums_view_mode,
                 Message::SetAlbumsViewMode,
             ),
@@ -762,6 +770,7 @@ impl SettingsView {
                 let is_sel = ctx.album_tile_width == width;
                 let btn = components::chip(
                     theme_cfg,
+                    font,
                     format!("{} px", width),
                     is_sel,
                     Message::SetAlbumTileWidth(width),
@@ -773,17 +782,17 @@ impl SettingsView {
 
         let album_tile_width_row = row![
             column![
-                text(theme_cfg, "Tile width")
+                text(font, "Tile width")
                     .size(12)
                     .color(theme_cfg.text_muted),
-                text(theme_cfg, "Artwork card width for the album catalog grid",)
+                text(font, "Artwork card width for the album catalog grid",)
                     .size(11)
                     .color(theme_cfg.text_muted),
             ]
             .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
             row![
-                text(theme_cfg, format!("{} px", ctx.album_tile_width))
+                text(font, format!("{} px", ctx.album_tile_width))
                     .size(12)
                     .color(theme_cfg.primary)
                     .width(Length::Fixed(55.0)),
@@ -803,6 +812,7 @@ impl SettingsView {
 
         let albums_tab_card = components::settings_card(
             theme_cfg,
+            font,
             "Albums tab",
             column![album_view_mode_row, album_tile_width_row]
                 .spacing(SECTION_SPACING)
@@ -812,11 +822,11 @@ impl SettingsView {
         // 3. Artists Tab Section
         let artist_view_mode_row = row![
             column![
-                text(theme_cfg, "Catalog view mode")
+                text(font, "Catalog view mode")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text(
-                    theme_cfg,
+                    font,
                     "Switch between grid tile card presentation and compact list table",
                 )
                 .size(11)
@@ -826,6 +836,7 @@ impl SettingsView {
             .width(Length::Fill),
             components::view_mode_toggle(
                 theme_cfg,
+                font,
                 ctx.artists_view_mode,
                 Message::SetArtistsViewMode,
             ),
@@ -839,6 +850,7 @@ impl SettingsView {
                 let is_sel = ctx.artist_tile_width == width;
                 let btn = components::chip(
                     theme_cfg,
+                    font,
                     format!("{} px", width),
                     is_sel,
                     Message::SetArtistTileWidth(width),
@@ -850,17 +862,17 @@ impl SettingsView {
 
         let artist_tile_width_row = row![
             column![
-                text(theme_cfg, "Tile width")
+                text(font, "Tile width")
                     .size(12)
                     .color(theme_cfg.text_muted),
-                text(theme_cfg, "Avatar card width for the artist catalog grid",)
+                text(font, "Avatar card width for the artist catalog grid",)
                     .size(11)
                     .color(theme_cfg.text_muted),
             ]
             .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
             row![
-                text(theme_cfg, format!("{} px", ctx.artist_tile_width))
+                text(font, format!("{} px", ctx.artist_tile_width))
                     .size(12)
                     .color(theme_cfg.primary)
                     .width(Length::Fixed(55.0)),
@@ -880,6 +892,7 @@ impl SettingsView {
 
         let artists_tab_card = components::settings_card(
             theme_cfg,
+            font,
             "Artists tab",
             column![artist_view_mode_row, artist_tile_width_row]
                 .spacing(SECTION_SPACING)
@@ -905,7 +918,7 @@ impl SettingsView {
         )
         .on_select(Message::SelectLyricsFont)
         .placeholder("Select a system font...")
-        .font(theme_cfg.font)
+        .font(font)
         .padding(INPUT_PADDING)
         .text_size(12)
         .handle(pick_list::Handle::Arrow {
@@ -922,6 +935,7 @@ impl SettingsView {
                 let is_sel = ctx.lyrics_font_size == size;
                 let btn = components::chip(
                     theme_cfg,
+                    font,
                     format!("{} px", size),
                     is_sel,
                     Message::SetLyricsFontSize(size),
@@ -933,15 +947,16 @@ impl SettingsView {
 
         let now_playing_card = components::settings_card(
             theme_cfg,
+            font,
             "Now playing",
             column![
                 row![
                     column![
-                        text(theme_cfg, "Lyrics font family")
+                        text(font, "Lyrics font family")
                             .size(12)
                             .color(theme_cfg.text_muted),
                         text(
-                            theme_cfg,
+                            font,
                             "Font used for lyrics in Now Playing (Default follows the primary UI font)",
                         )
                         .size(11)
@@ -954,11 +969,11 @@ impl SettingsView {
                 .align_y(Alignment::Center),
                 row![
                     column![
-                        text(theme_cfg, "Lyrics font size")
+                        text(font, "Lyrics font size")
                             .size(12)
                             .color(theme_cfg.text_muted),
                         text(
-                            theme_cfg,
+                            font,
                             "Base text size for synced and plain lyrics in Now Playing",
                         )
                         .size(11)
@@ -967,7 +982,7 @@ impl SettingsView {
                     .spacing(FORM_FIELD_SPACING)
                     .width(Length::Fill),
                     row![
-                        text(theme_cfg, format!("{} px", ctx.lyrics_font_size))
+                        text(font, format!("{} px", ctx.lyrics_font_size))
                             .size(12)
                             .color(theme_cfg.primary)
                             .width(Length::Fixed(55.0)),
@@ -991,14 +1006,15 @@ impl SettingsView {
 
         let debug_gallery_card = components::settings_card(
             theme_cfg,
+            font,
             "Miscellaneous",
             row![
                 column![
-                    text(theme_cfg, "Component gallery & theme tokens")
+                    text(font, "Component gallery & theme tokens")
                         .size(12)
                         .color(theme_cfg.text_muted),
                     text(
-                        theme_cfg,
+                        font,
                         "Inspect all active palette colors, typography, and interactive controls",
                     )
                     .size(11)
@@ -1010,9 +1026,7 @@ impl SettingsView {
                     row![
                         icons::icon(icons::OPEN_SVG, 14.0, theme_cfg.text),
                         Space::new().width(SPACE_MD),
-                        text(theme_cfg, "Open gallery")
-                            .size(12)
-                            .color(theme_cfg.text),
+                        text(font, "Open gallery").size(12).color(theme_cfg.text),
                     ]
                     .align_y(Alignment::Center),
                 )
@@ -1048,10 +1062,12 @@ impl SettingsView {
     fn view_playback<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
         let header = components::settings_header(
             theme_cfg,
+            font,
             "Playback preferences",
             Some("Configure audio transitions and playback behavior"),
         );
@@ -1059,11 +1075,11 @@ impl SettingsView {
         // 1. Audio Transitions Card
         let gapless_row = row![
             column![
-                text(theme_cfg, "Gapless audio playback")
+                text(font, "Gapless audio playback")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text(
-                    theme_cfg,
+                    font,
                     "Preload upcoming tracks in memory for seamless, uninterrupted transitions",
                 )
                 .size(11)
@@ -1078,17 +1094,21 @@ impl SettingsView {
         ]
         .align_y(Alignment::Center);
 
-        let transitions_card =
-            components::settings_card(theme_cfg, "Audio transitions", column![gapless_row].boxed());
+        let transitions_card = components::settings_card(
+            theme_cfg,
+            font,
+            "Audio transitions",
+            column![gapless_row].boxed(),
+        );
 
         // 2. Playback Behavior Card
         let volume_row = row![
             column![
-                text(theme_cfg, "Master output volume")
+                text(font, "Master output volume")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text(
-                    theme_cfg,
+                    font,
                     "Default master volume multiplier applied to audio stream playback",
                 )
                 .size(11)
@@ -1104,11 +1124,11 @@ impl SettingsView {
 
         let shuffle_row = row![
             column![
-                text(theme_cfg, "Shuffle playback")
+                text(font, "Shuffle playback")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text(
-                    theme_cfg,
+                    font,
                     "Randomize track selection and playback order within active queue",
                 )
                 .size(11)
@@ -1125,11 +1145,11 @@ impl SettingsView {
 
         let repeat_row = row![
             column![
-                text(theme_cfg, "Repeat playback")
+                text(font, "Repeat playback")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text(
-                    theme_cfg,
+                    font,
                     "Loop the active queue continuously when the final track completes",
                 )
                 .size(11)
@@ -1146,6 +1166,7 @@ impl SettingsView {
 
         let behavior_card = components::settings_card(
             theme_cfg,
+            font,
             "Playback behavior",
             column![volume_row, shuffle_row, repeat_row]
                 .spacing(SECTION_SPACING)
@@ -1159,7 +1180,7 @@ impl SettingsView {
             |filter: &audio::ResamplingFilter| filter.label().to_string(),
         )
         .on_select(Message::SetResamplingFilter)
-        .font(theme_cfg.font)
+        .font(font)
         .padding(INPUT_PADDING)
         .text_size(12)
         .handle(pick_list::Handle::Arrow {
@@ -1171,11 +1192,11 @@ impl SettingsView {
 
         let filter_row = row![
             column![
-                text(theme_cfg, "Resampling filter algorithm")
+                text(font, "Resampling filter algorithm")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text(
-                    theme_cfg,
+                    font,
                     "Polyphase sinc filter or interpolation method used for sample rate conversion",
                 )
                 .size(11)
@@ -1196,7 +1217,7 @@ impl SettingsView {
             },
         )
         .on_select(Message::SetResamplingQuality)
-        .font(theme_cfg.font)
+        .font(font)
         .padding(INPUT_PADDING)
         .text_size(12)
         .handle(pick_list::Handle::Arrow {
@@ -1214,10 +1235,10 @@ impl SettingsView {
 
         let quality_row = row![
             column![
-                text(theme_cfg, "Filter precision & taps")
+                text(font, "Filter precision & taps")
                     .size(12)
                     .color(theme_cfg.text_muted),
-                text(theme_cfg, quality_desc)
+                text(font, quality_desc)
                     .size(11)
                     .color(theme_cfg.text_muted),
             ]
@@ -1232,11 +1253,11 @@ impl SettingsView {
         if active_filter != audio::ResamplingFilter::Soxr {
             let linear_interp_row = row![
                 column![
-                    text(theme_cfg, "Filter phase linear interpolation")
+                    text(font, "Filter phase linear interpolation")
                         .size(12)
                         .color(theme_cfg.text_muted),
                     text(
-                        theme_cfg,
+                        font,
                         "Linearly interpolate between sinc filter phases for smoother frequency response and reduced noise",
                     )
                     .size(11)
@@ -1256,6 +1277,7 @@ impl SettingsView {
 
         let resampling_card = components::settings_card(
             theme_cfg,
+            font,
             "Audio resampling",
             column(resampling_rows).spacing(SECTION_SPACING).boxed(),
         );
@@ -1280,20 +1302,28 @@ impl SettingsView {
     fn view_library<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let header = components::settings_header(theme_cfg, "Library & storage", Some("Manage indexed audio directories, rescan metadata, monitor disk caches, or reset storage"));
+        let header = components::settings_header(theme_cfg, font, "Library & storage", Some("Manage indexed audio directories, rescan metadata, monitor disk caches, or reset storage"));
 
         // Storage and Index Metrics
         let storage_stats_row1 = row![
-            components::metric_box(theme_cfg, "Songs indexed", format!("{}", ctx.total_tracks)),
             components::metric_box(
                 theme_cfg,
+                font,
+                "Songs indexed",
+                format!("{}", ctx.total_tracks)
+            ),
+            components::metric_box(
+                theme_cfg,
+                font,
                 "Albums cataloged",
                 format!("{}", ctx.total_albums)
             ),
             components::metric_box(
                 theme_cfg,
+                font,
                 "Artists cataloged",
                 format!("{}", ctx.total_artists)
             ),
@@ -1303,11 +1333,13 @@ impl SettingsView {
         let storage_stats_row2 = row![
             components::metric_box(
                 theme_cfg,
+                font,
                 "Database file size",
                 format_file_size(ctx.db_size_bytes),
             ),
             components::metric_box(
                 theme_cfg,
+                font,
                 "Disk thumbnail cache",
                 format!(
                     "{} files ({})",
@@ -1320,6 +1352,7 @@ impl SettingsView {
 
         let stats_card = components::settings_card(
             theme_cfg,
+            font,
             "Storage & index metrics",
             column![storage_stats_row1, storage_stats_row2]
                 .spacing(CARD_SPACING)
@@ -1331,7 +1364,7 @@ impl SettingsView {
                 icons::icon(icons::PLUS_SVG, 13.0, theme_cfg.primary),
                 Space::new().width(SPACE_MD),
                 text(
-                    theme_cfg,
+                    font,
                     if ctx.is_scanning {
                         "Scanning library..."
                     } else {
@@ -1354,11 +1387,11 @@ impl SettingsView {
         let folders_content: Element<'a, Message> = if self.library_folders.is_empty() {
             container(
                 column![
-                    text(theme_cfg, "No music directories configured yet.")
+                    text(font, "No music directories configured yet.")
                         .size(13)
                         .color(theme_cfg.text_muted),
                     text(
-                        theme_cfg,
+                        font,
                         "Click 'Add music folder' to choose a directory containing audio files."
                     )
                     .size(11)
@@ -1406,7 +1439,7 @@ impl SettingsView {
 
                 let item_row = container(
                     row![
-                        text(theme_cfg, folder_path.as_str())
+                        text(font, folder_path.as_str())
                             .size(12)
                             .color(theme_cfg.text)
                             .width(Length::Fill),
@@ -1435,12 +1468,12 @@ impl SettingsView {
 
         let watch_dirs_row = row![
             column![
-                text(theme_cfg, "Watch library folders")
+                text(font, "Watch library folders")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 Space::new().height(SPACE_SM),
                 text(
-                    theme_cfg,
+                    font,
                     "Automatically monitor directories and scan for new audio files"
                 )
                 .size(11)
@@ -1456,6 +1489,7 @@ impl SettingsView {
 
         let folders_card = components::settings_card(
             theme_cfg,
+            font,
             "Scanned directories",
             column![watch_dirs_row, folders_content, add_folder_btn]
                 .spacing(CARD_SPACING)
@@ -1468,7 +1502,7 @@ impl SettingsView {
                 icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.primary),
                 Space::new().width(SPACE_MD),
                 text(
-                    theme_cfg,
+                    font,
                     if ctx.is_scanning {
                         "Scanning new files..."
                     } else {
@@ -1493,7 +1527,7 @@ impl SettingsView {
                 icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.primary),
                 Space::new().width(SPACE_MD),
                 text(
-                    theme_cfg,
+                    font,
                     if ctx.is_scanning {
                         "Reindexing library..."
                     } else {
@@ -1517,7 +1551,7 @@ impl SettingsView {
             row![
                 icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.text),
                 Space::new().width(SPACE_MD),
-                text(theme_cfg, "Clear thumbnail cache")
+                text(font, "Clear thumbnail cache")
                     .size(12)
                     .color(theme_cfg.text),
             ]
@@ -1531,7 +1565,7 @@ impl SettingsView {
             row![
                 icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.danger),
                 Space::new().width(SPACE_MD),
-                text(theme_cfg, "Delete library database")
+                text(font, "Delete library database")
                     .size(12)
                     .color(theme_cfg.danger),
             ]
@@ -1547,15 +1581,16 @@ impl SettingsView {
 
         let actions_card = components::settings_card(
             theme_cfg,
+            font,
             "Library actions & maintenance",
             column![
                 // Action 1: Scan for new files
                 row![
                     column![
-                        text(theme_cfg, "Scan for new files")
+                        text(font, "Scan for new files")
                             .size(12)
                             .color(theme_cfg.text_muted),
-                        text(theme_cfg, "Quickly checks library folders and indexes newly added files without rescanning unchanged tracks.")
+                        text(font, "Quickly checks library folders and indexes newly added files without rescanning unchanged tracks.")
                             .size(11)
                             .color(theme_cfg.text_muted),
                     ]
@@ -1567,10 +1602,10 @@ impl SettingsView {
                 // Action 2: Reindex
                 row![
                     column![
-                        text(theme_cfg, "Full reindex")
+                        text(font, "Full reindex")
                             .size(12)
                             .color(theme_cfg.text_muted),
-                        text(theme_cfg, "Scans all configured music folders, updates metadata tags, and repopulates the library.")
+                        text(font, "Scans all configured music folders, updates metadata tags, and repopulates the library.")
                             .size(11)
                             .color(theme_cfg.text_muted),
                     ]
@@ -1582,10 +1617,10 @@ impl SettingsView {
                 // Action 2: Clear Thumbnail Cache
                 row![
                     column![
-                        text(theme_cfg, "Purge thumbnail cache")
+                        text(font, "Purge thumbnail cache")
                             .size(12)
                             .color(theme_cfg.text_muted),
-                        text(theme_cfg, format!(
+                        text(font, format!(
                             "Deletes all {} cached thumbnail images ({}) from disk and evicts active decoded cover textures from memory. Thumbnails will regenerate when viewed.",
                             ctx.cache_file_count,
                             format_file_size(ctx.cache_size_bytes),
@@ -1601,10 +1636,10 @@ impl SettingsView {
                 // Action 3: Clear / Reset Database
                 row![
                     column![
-                        text(theme_cfg, "Reset library database")
+                        text(font, "Reset library database")
                             .size(12)
                             .color(theme_cfg.danger),
-                        text(theme_cfg, "Clears all indexed tracks, albums, and artist metadata from database. Your audio files on disk remain untouched.")
+                        text(font, "Clears all indexed tracks, albums, and artist metadata from database. Your audio files on disk remain untouched.")
                             .size(11)
                             .color(theme_cfg.text_muted),
                     ]
@@ -1632,18 +1667,19 @@ impl SettingsView {
     fn view_scrobbling<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let header = components::settings_header(theme_cfg, "Scrobbling & social audio", Some("Track your listening habits and broadcast live playback status to ListenBrainz and Last.fm"));
+        let header = components::settings_header(theme_cfg, font, "Scrobbling & social audio", Some("Track your listening habits and broadcast live playback status to ListenBrainz and Last.fm"));
 
         // 1. General Preferences Card
         let submit_now_playing_row = row![
             column![
-                text(theme_cfg, "Submit \"Now Playing\" status")
+                text(font, "Submit \"Now Playing\" status")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text(
-                    theme_cfg,
+                    font,
                     "Broadcast current track to active scrobbler profiles in real-time",
                 )
                 .size(11)
@@ -1660,11 +1696,11 @@ impl SettingsView {
 
         let threshold_row = row![
             column![
-                text(theme_cfg, "Scrobble threshold")
+                text(font, "Scrobble threshold")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text(
-                    theme_cfg,
+                    font,
                     "Percentage of track duration that must play before recording a scrobble",
                 )
                 .size(11)
@@ -1673,7 +1709,7 @@ impl SettingsView {
             .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
             row![
-                text(theme_cfg, format!("{}%", ctx.scrobble_percent))
+                text(font, format!("{}%", ctx.scrobble_percent))
                     .size(12)
                     .color(theme_cfg.primary)
                     .width(Length::Fixed(45.0)),
@@ -1691,6 +1727,7 @@ impl SettingsView {
 
         let prefs_card = components::settings_card(
             theme_cfg,
+            font,
             "Scrobble preferences",
             column![submit_now_playing_row, threshold_row]
                 .spacing(SECTION_SPACING)
@@ -1706,7 +1743,7 @@ impl SettingsView {
                 Err(ref e) => (theme_cfg.danger, e.as_str()),
             };
             Some(
-                container(text(theme_cfg, msg).size(12).color(color))
+                container(text(font, msg).size(12).color(color))
                     .padding(BANNER_PADDING)
                     .style(move |_theme| container::Style {
                         background: Some(iced::Background::Color(Color::from_rgba(
@@ -1728,7 +1765,7 @@ impl SettingsView {
             row![
                 icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary),
                 Space::new().width(SPACE_MD),
-                text(theme_cfg, "Test connection")
+                text(font, "Test connection")
                     .size(11)
                     .color(theme_cfg.primary),
             ]
@@ -1742,7 +1779,7 @@ impl SettingsView {
 
         let mut lb_column = column![
             row![
-                text(theme_cfg, "Enable")
+                text(font, "Enable")
                     .size(12)
                     .color(theme_cfg.text_muted)
                     .width(Length::Fill),
@@ -1753,7 +1790,7 @@ impl SettingsView {
             ]
             .align_y(Alignment::Center),
             column![
-                text(theme_cfg, "User token")
+                text(font, "User token")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text_input("Enter ListenBrainz user token...", ctx.listenbrainz_token)
@@ -1763,7 +1800,7 @@ impl SettingsView {
                     .on_input(Message::ListenBrainzTokenChanged)
                     .width(Length::Fill),
                 text(
-                    theme_cfg,
+                    font,
                     "Obtain your user token from your profile at https://listenbrainz.org/profile/"
                 )
                 .size(11)
@@ -1771,7 +1808,7 @@ impl SettingsView {
             ]
             .spacing(FORM_FIELD_SPACING),
             column![
-                text(theme_cfg, "API endpoint URL")
+                text(font, "API endpoint URL")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text_input(
@@ -1794,7 +1831,7 @@ impl SettingsView {
         }
 
         let listenbrainz_card =
-            components::settings_card(theme_cfg, "ListenBrainz plugin", lb_column.boxed());
+            components::settings_card(theme_cfg, font, "ListenBrainz plugin", lb_column.boxed());
 
         // 3. Last.fm Card
         let lastfm_test_banner = if let Some((plugins::scrobbler::ScrobbleService::LastFm, res)) =
@@ -1805,7 +1842,7 @@ impl SettingsView {
                 Err(ref e) => (theme_cfg.danger, e.as_str()),
             };
             Some(
-                container(text(theme_cfg, msg).size(12).color(color))
+                container(text(font, msg).size(12).color(color))
                     .padding(BANNER_PADDING)
                     .style(move |_theme| container::Style {
                         background: Some(iced::Background::Color(Color::from_rgba(
@@ -1827,7 +1864,7 @@ impl SettingsView {
             row![
                 icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary),
                 Space::new().width(SPACE_MD),
-                text(theme_cfg, "Test connection")
+                text(font, "Test connection")
                     .size(11)
                     .color(theme_cfg.primary),
             ]
@@ -1841,7 +1878,7 @@ impl SettingsView {
 
         let mut lastfm_column = column![
             row![
-                text(theme_cfg, "Enable")
+                text(font, "Enable")
                     .size(12)
                     .color(theme_cfg.text_muted)
                     .width(Length::Fill),
@@ -1852,9 +1889,7 @@ impl SettingsView {
             ]
             .align_y(Alignment::Center),
             column![
-                text(theme_cfg, "API key")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
+                text(font, "API key").size(12).color(theme_cfg.text_muted),
                 text_input("Enter Last.fm API key...", ctx.lastfm_api_key)
                     .size(12)
                     .padding(INPUT_PADDING)
@@ -1864,7 +1899,7 @@ impl SettingsView {
             ]
             .spacing(FORM_FIELD_SPACING),
             column![
-                text(theme_cfg, "Shared secret")
+                text(font, "Shared secret")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text_input("Enter Last.fm shared secret...", ctx.lastfm_api_secret)
@@ -1876,7 +1911,7 @@ impl SettingsView {
             ]
             .spacing(FORM_FIELD_SPACING),
             column![
-                text(theme_cfg, "Session key (sk)")
+                text(font, "Session key (sk)")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text_input("Enter Last.fm session key (sk)...", ctx.lastfm_session_key)
@@ -1886,7 +1921,7 @@ impl SettingsView {
                     .on_input(Message::LastFmSessionKeyChanged)
                     .width(Length::Fill),
                 text(
-                    theme_cfg,
+                    font,
                     "Obtain your API key and session key from your Last.fm API account settings"
                 )
                 .size(11)
@@ -1894,7 +1929,7 @@ impl SettingsView {
             ]
             .spacing(FORM_FIELD_SPACING),
             column![
-                text(theme_cfg, "API endpoint URL")
+                text(font, "API endpoint URL")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text_input("https://ws.audioscrobbler.com/2.0/", ctx.lastfm_api_url)
@@ -1914,7 +1949,7 @@ impl SettingsView {
         }
 
         let lastfm_card =
-            components::settings_card(theme_cfg, "Last.fm plugin", lastfm_column.boxed());
+            components::settings_card(theme_cfg, font, "Last.fm plugin", lastfm_column.boxed());
 
         column![
             header,
@@ -1935,9 +1970,14 @@ impl SettingsView {
 // ─────────────────────────────────────────────────────────────────────────────
 
 impl SettingsView {
-    fn view_debug<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_debug<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
+    ) -> Element<'a, Message> {
         let back_btn = components::chip_with_icon(
             theme_cfg,
+            font,
             icons::ARROW_LEFT_SVG,
             "Back to Appearance",
             false,
@@ -1946,16 +1986,17 @@ impl SettingsView {
 
         let header = components::settings_header(
             theme_cfg,
+            font,
             "Component gallery & theme tokens",
             Some("Live preview of all active theme color tokens and basic UI components"),
         );
 
-        let colors_card = self.view_debug_colors(theme_cfg);
-        let typography_card = self.view_debug_typography(theme_cfg);
-        let buttons_card = self.view_debug_buttons(theme_cfg);
-        let controls_card = self.view_debug_controls(theme_cfg);
-        let feedback_card = self.view_debug_feedback(theme_cfg);
-        let icons_card = self.view_debug_icons(theme_cfg);
+        let colors_card = self.view_debug_colors(theme_cfg, font);
+        let typography_card = self.view_debug_typography(theme_cfg, font);
+        let buttons_card = self.view_debug_buttons(theme_cfg, font);
+        let controls_card = self.view_debug_controls(theme_cfg, font);
+        let feedback_card = self.view_debug_feedback(theme_cfg, font);
+        let icons_card = self.view_debug_icons(theme_cfg, font);
 
         column![
             column![back_btn, header].spacing(SECTION_SPACING),
@@ -1972,7 +2013,11 @@ impl SettingsView {
         .boxed()
     }
 
-    fn view_debug_colors<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_debug_colors<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
+    ) -> Element<'a, Message> {
         let tokens: [(&'static str, Color, bool); 14] = [
             ("background", theme_cfg.background, false),
             ("surface", theme_cfg.surface, false),
@@ -2010,7 +2055,7 @@ impl SettingsView {
         for chunk in tokens.chunks(4) {
             let mut r = row![].spacing(SPACE_LG);
             for &(name, color, is_fallback) in chunk {
-                r = r.push(debug_color_tile(theme_cfg, name, color, is_fallback));
+                r = r.push(debug_color_tile(theme_cfg, font, name, color, is_fallback));
             }
             for _ in chunk.len()..4 {
                 r = r.push(
@@ -2022,39 +2067,43 @@ impl SettingsView {
             grid = grid.push(r);
         }
 
-        components::settings_card(theme_cfg, "Theme colors", grid.boxed())
+        components::settings_card(theme_cfg, font, "Theme colors", grid.boxed())
     }
 
-    fn view_debug_typography<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_debug_typography<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
+    ) -> Element<'a, Message> {
         let scale_col = column![
-            text(theme_cfg, "Heading 20px — Primary text")
+            text(font, "Heading 20px — Primary text")
                 .size(20)
                 .color(theme_cfg.text),
-            text(theme_cfg, "Subheading 16px — Primary text")
+            text(font, "Subheading 16px — Primary text")
                 .size(16)
                 .color(theme_cfg.text),
-            text(theme_cfg, "Body 13px — Default readable copy")
+            text(font, "Body 13px — Default readable copy")
                 .size(13)
                 .color(theme_cfg.text),
-            text(theme_cfg, "Label 12px — Muted secondary text")
+            text(font, "Label 12px — Muted secondary text")
                 .size(12)
                 .color(theme_cfg.text_muted),
-            text(theme_cfg, "Caption 11px — Subtle metadata")
+            text(font, "Caption 11px — Subtle metadata")
                 .size(11)
                 .color(theme_cfg.text_muted),
-            text(theme_cfg, "Micro 10px — Compact badges & hints")
+            text(font, "Micro 10px — Compact badges & hints")
                 .size(10)
                 .color(theme_cfg.text_muted),
         ]
         .spacing(SPACE_SM);
 
         let semantic_row = row![
-            text(theme_cfg, "primary").size(12).color(theme_cfg.primary),
-            text(theme_cfg, "accent").size(12).color(theme_cfg.accent),
-            text(theme_cfg, "success").size(12).color(theme_cfg.success),
-            text(theme_cfg, "danger").size(12).color(theme_cfg.danger),
-            text(theme_cfg, "text").size(12).color(theme_cfg.text),
-            text(theme_cfg, "text_muted")
+            text(font, "primary").size(12).color(theme_cfg.primary),
+            text(font, "accent").size(12).color(theme_cfg.accent),
+            text(font, "success").size(12).color(theme_cfg.success),
+            text(font, "danger").size(12).color(theme_cfg.danger),
+            text(font, "text").size(12).color(theme_cfg.text),
+            text(font, "text_muted")
                 .size(12)
                 .color(theme_cfg.text_muted),
         ]
@@ -2074,7 +2123,7 @@ impl SettingsView {
             let border_color = theme_cfg.border;
             let surface = theme_cfg.surface;
             radius_row = radius_row.push(
-                container(text(theme_cfg, label).size(11).color(theme_cfg.text_muted))
+                container(text(font, label).size(11).color(theme_cfg.text_muted))
                     .padding([6, 12])
                     .style(move |_| container::Style {
                         background: Some(iced::Background::Color(surface)),
@@ -2090,6 +2139,7 @@ impl SettingsView {
 
         components::settings_card(
             theme_cfg,
+            font,
             "Typography & border radii",
             column![scale_col, semantic_row, radius_row]
                 .spacing(SECTION_SPACING)
@@ -2097,29 +2147,25 @@ impl SettingsView {
         )
     }
 
-    fn view_debug_buttons<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_debug_buttons<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
+    ) -> Element<'a, Message> {
         let buttons_row = row![
-            button(
-                text(theme_cfg, "Primary")
-                    .size(12)
-                    .color(theme_cfg.background),
-            )
-            .padding(BUTTON_PADDING_MD)
-            .style(styles::primary_button(theme_cfg))
-            .on_press(Message::DebugNoop),
-            button(text(theme_cfg, "Ghost").size(12).color(theme_cfg.text))
+            button(text(font, "Primary").size(12).color(theme_cfg.background),)
+                .padding(BUTTON_PADDING_MD)
+                .style(styles::primary_button(theme_cfg))
+                .on_press(Message::DebugNoop),
+            button(text(font, "Ghost").size(12).color(theme_cfg.text))
                 .padding(BUTTON_PADDING_MD)
                 .style(styles::ghost_button(theme_cfg, false))
                 .on_press(Message::DebugNoop),
-            button(
-                text(theme_cfg, "Ghost active")
-                    .size(12)
-                    .color(theme_cfg.primary),
-            )
-            .padding(BUTTON_PADDING_MD)
-            .style(styles::ghost_button(theme_cfg, true))
-            .on_press(Message::DebugNoop),
-            button(text(theme_cfg, "Danger").size(12).color(theme_cfg.danger))
+            button(text(font, "Ghost active").size(12).color(theme_cfg.primary),)
+                .padding(BUTTON_PADDING_MD)
+                .style(styles::ghost_button(theme_cfg, true))
+                .on_press(Message::DebugNoop),
+            button(text(font, "Danger").size(12).color(theme_cfg.danger))
                 .padding(BUTTON_PADDING_MD)
                 .style(styles::danger_button(theme_cfg))
                 .on_press(Message::DebugNoop),
@@ -2146,18 +2192,21 @@ impl SettingsView {
         let chips_row = row![
             components::chip(
                 theme_cfg,
+                font,
                 "Chip A",
                 self.debug_state.active_chip == 0,
                 Message::DebugChipSelected(0),
             ),
             components::chip(
                 theme_cfg,
+                font,
                 "Chip B",
                 self.debug_state.active_chip == 1,
                 Message::DebugChipSelected(1),
             ),
             components::chip_with_icon(
                 theme_cfg,
+                font,
                 icons::PALETTE_SVG,
                 "With icon",
                 self.debug_state.active_chip == 2,
@@ -2166,6 +2215,7 @@ impl SettingsView {
             Space::new().width(SPACE_LG),
             components::view_mode_toggle(
                 theme_cfg,
+                font,
                 self.debug_state.view_mode,
                 Message::DebugViewModeChanged,
             ),
@@ -2175,6 +2225,7 @@ impl SettingsView {
 
         let sort_row = components::sort_chip_list(
             theme_cfg,
+            font,
             &[
                 ("Title", SortField::Title),
                 ("Artist", SortField::Artist),
@@ -2188,6 +2239,7 @@ impl SettingsView {
 
         components::settings_card(
             theme_cfg,
+            font,
             "Buttons & chips",
             column![buttons_row, chips_row, sort_row]
                 .spacing(SECTION_SPACING)
@@ -2195,7 +2247,11 @@ impl SettingsView {
         )
     }
 
-    fn view_debug_controls<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_debug_controls<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
+    ) -> Element<'a, Message> {
         let toggler_row = row![
             toggler(self.debug_state.toggler)
                 .on_toggle(Message::DebugToggle)
@@ -2203,7 +2259,7 @@ impl SettingsView {
                 .style(styles::toggler_style(theme_cfg)),
             Space::new().width(SPACE_MD),
             text(
-                theme_cfg,
+                font,
                 if self.debug_state.toggler {
                     "Toggler (on)"
                 } else {
@@ -2218,7 +2274,7 @@ impl SettingsView {
         let sliders_row = row![
             column![
                 text(
-                    theme_cfg,
+                    font,
                     format!(
                         "Settings slider ({:.0}%)",
                         self.debug_state.slider_val * 100.0
@@ -2237,7 +2293,7 @@ impl SettingsView {
             ]
             .spacing(FORM_FIELD_SPACING),
             column![
-                text(theme_cfg, "Seek slider")
+                text(font, "Seek slider")
                     .size(11)
                     .color(theme_cfg.text_muted),
                 slider(
@@ -2251,7 +2307,7 @@ impl SettingsView {
             ]
             .spacing(FORM_FIELD_SPACING),
             column![
-                text(theme_cfg, "Volume slider")
+                text(font, "Volume slider")
                     .size(11)
                     .color(theme_cfg.text_muted),
                 slider(
@@ -2298,6 +2354,7 @@ impl SettingsView {
 
         components::settings_card(
             theme_cfg,
+            font,
             "Form controls",
             column![toggler_row, sliders_row, inputs_row]
                 .spacing(SECTION_SPACING)
@@ -2305,11 +2362,15 @@ impl SettingsView {
         )
     }
 
-    fn view_debug_feedback<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_debug_feedback<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
+    ) -> Element<'a, Message> {
         let metrics_row = row![
-            components::metric_box(theme_cfg, "Metric A", "1,234".to_string()),
-            components::metric_box(theme_cfg, "Metric B", "42.0 MB".to_string()),
-            components::metric_box(theme_cfg, "Metric C", "99.9%".to_string()),
+            components::metric_box(theme_cfg, font, "Metric A", "1,234".to_string()),
+            components::metric_box(theme_cfg, font, "Metric B", "42.0 MB".to_string()),
+            components::metric_box(theme_cfg, font, "Metric C", "99.9%".to_string()),
         ]
         .spacing(SPACE_LG);
 
@@ -2324,15 +2385,15 @@ impl SettingsView {
                 theme_cfg.text_muted,
             ),
             column![
-                components::scanning_indicator(theme_cfg, Some((12, 48))),
-                components::thumbnail_caching_indicator(theme_cfg),
+                components::scanning_indicator(theme_cfg, font, Some((12, 48))),
+                components::thumbnail_caching_indicator(theme_cfg, font),
                 container(
                     Marquee::new(
                         "Marquee sample — Scrolling long track or album metadata smoothly"
                     )
                     .size(12)
                     .color(theme_cfg.text)
-                    .font(theme_cfg.font),
+                    .font(font),
                 )
                 .width(Length::Fixed(240.0)),
             ]
@@ -2343,6 +2404,7 @@ impl SettingsView {
 
         let empty_preview = container(components::empty_state(
             theme_cfg,
+            font,
             "Empty state title",
             "Supporting muted subtitle for empty views",
         ))
@@ -2358,6 +2420,7 @@ impl SettingsView {
 
         components::settings_card(
             theme_cfg,
+            font,
             "Containers, indicators & feedback",
             column![metrics_row, indicators_row, empty_preview]
                 .spacing(SECTION_SPACING)
@@ -2365,7 +2428,11 @@ impl SettingsView {
         )
     }
 
-    fn view_debug_icons<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
+    fn view_debug_icons<'a>(
+        &'a self,
+        theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
+    ) -> Element<'a, Message> {
         const COLS: usize = 8;
         let all_icons: [(&'static str, &'static str); 42] = [
             ("Play", icons::PLAY_SVG),
@@ -2419,7 +2486,7 @@ impl SettingsView {
                 r = r.push(
                     column![
                         icons::icon(svg, 18.0, theme_cfg.text),
-                        text(theme_cfg, label).size(10).color(theme_cfg.text_muted),
+                        text(font, label).size(10).color(theme_cfg.text_muted),
                     ]
                     .spacing(SPACE_SM)
                     .align_x(Alignment::Center)
@@ -2432,7 +2499,7 @@ impl SettingsView {
             grid = grid.push(r);
         }
 
-        components::settings_card(theme_cfg, "Vector icons", grid.boxed())
+        components::settings_card(theme_cfg, font, "Vector icons", grid.boxed())
     }
 }
 
@@ -2454,6 +2521,7 @@ fn format_color_hex(c: Color) -> String {
 
 fn debug_color_tile<'a>(
     theme_cfg: &'a ThemeConfig,
+    font: iced::Font,
     name: &'static str,
     color: Color,
     is_fallback: bool,
@@ -2479,10 +2547,8 @@ fn debug_color_tile<'a>(
                 ..Default::default()
             }),
             column![
-                text(theme_cfg, name).size(11).color(theme_cfg.text),
-                text(theme_cfg, subtitle)
-                    .size(10)
-                    .color(theme_cfg.text_muted),
+                text(font, name).size(11).color(theme_cfg.text),
+                text(font, subtitle).size(10).color(theme_cfg.text_muted),
             ]
             .spacing(2),
         ]
@@ -2608,7 +2674,7 @@ mod tests {
             };
 
             // Render each view and verify it builds valid Iced elements without panic
-            let _element = settings_view.view(&theme_cfg, ctx);
+            let _element = settings_view.view(&theme_cfg, iced::Font::DEFAULT, ctx);
         }
     }
 
@@ -2691,7 +2757,7 @@ mod tests {
             is_repeat: false,
         };
 
-        let _element = settings_view.view(&theme_cfg, ctx);
+        let _element = settings_view.view(&theme_cfg, iced::Font::DEFAULT, ctx);
     }
 
     #[test]
@@ -2705,29 +2771,29 @@ mod tests {
             release_url: env!("CARGO_PKG_REPOSITORY").to_string(),
         };
         settings_view.update_status = updater::UpdateStatus::Available(update_info.clone());
-        drop(settings_view.view_sidebar(&theme_cfg));
+        drop(settings_view.view_sidebar(&theme_cfg, iced::Font::DEFAULT));
 
         // Test Downloading status
         settings_view.update_status = updater::UpdateStatus::Downloading {
             info: update_info.clone(),
             percent: 45,
         };
-        drop(settings_view.view_sidebar(&theme_cfg));
+        drop(settings_view.view_sidebar(&theme_cfg, iced::Font::DEFAULT));
 
         // Test ReadyToRestart status
         settings_view.update_status = updater::UpdateStatus::ReadyToRestart { info: update_info };
-        drop(settings_view.view_sidebar(&theme_cfg));
+        drop(settings_view.view_sidebar(&theme_cfg, iced::Font::DEFAULT));
 
         // Test Checking status
         settings_view.update_status = updater::UpdateStatus::Checking;
-        drop(settings_view.view_sidebar(&theme_cfg));
+        drop(settings_view.view_sidebar(&theme_cfg, iced::Font::DEFAULT));
 
         // Test UpToDate status
         settings_view.update_status = updater::UpdateStatus::UpToDate;
-        drop(settings_view.view_sidebar(&theme_cfg));
+        drop(settings_view.view_sidebar(&theme_cfg, iced::Font::DEFAULT));
 
         // Test Failed status
         settings_view.update_status = updater::UpdateStatus::Failed("Network error".to_string());
-        drop(settings_view.view_sidebar(&theme_cfg));
+        drop(settings_view.view_sidebar(&theme_cfg, iced::Font::DEFAULT));
     }
 }

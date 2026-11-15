@@ -314,6 +314,7 @@ impl LibraryView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
+        font: iced::Font,
         current_track_id: Option<i64>,
         is_playing: bool,
         format_cfg: &'a layout::LibraryFormatConfig,
@@ -323,7 +324,7 @@ impl LibraryView {
             "Search tracks... (album:\"…\" artist:… genre:… year:…)",
             &self.search_query,
         )
-        .font(theme_cfg.font)
+        .font(font)
         .size(12)
         .on_input(Message::SearchInputChanged)
         .padding([4, 8])
@@ -356,14 +357,14 @@ impl LibraryView {
                     SortDirection::Descending => icons::CHEVRON_DOWN_SVG,
                 };
                 row![
-                    text(theme_cfg, label).size(12),
+                    text(font, label).size(12),
                     Space::new().width(4),
                     icons::icon(sort_icon_svg, 12.0, theme_cfg.primary),
                 ]
                 .align_y(Alignment::Center)
                 .boxed()
             } else {
-                text(theme_cfg, label).size(12).boxed()
+                text(font, label).size(12).boxed()
             };
 
             button(content)
@@ -375,7 +376,7 @@ impl LibraryView {
 
         let mut table_header =
             row![
-                container(text(theme_cfg, "#").size(12).color(theme_cfg.text_muted),)
+                container(text(font, "#").size(12).color(theme_cfg.text_muted),)
                     .width(36)
                     .center_x(36),
             ]
@@ -393,14 +394,10 @@ impl LibraryView {
             let btn: Element<'a, Message> = if let Some(field) = col.sort_field {
                 header_btn(&col.header, field, width).boxed()
             } else {
-                container(
-                    text(theme_cfg, &col.header)
-                        .size(12)
-                        .color(theme_cfg.text_muted),
-                )
-                .width(width)
-                .padding([2, 0])
-                .boxed()
+                container(text(font, &col.header).size(12).color(theme_cfg.text_muted))
+                    .width(width)
+                    .padding([2, 0])
+                    .boxed()
             };
             table_header = table_header.push(btn);
         }
@@ -409,6 +406,7 @@ impl LibraryView {
         let content: Element<'a, Message> = if self.total_tracks == 0 {
             components::empty_state(
                 theme_cfg,
+                font,
                 "No tracks found",
                 "Scan a folder in Preferences to index your music library",
             )
@@ -452,12 +450,12 @@ impl LibraryView {
                     .boxed()
                 } else {
                     let index_element: Element<'a, Message> = if let Some(r) = rendered {
-                        text(theme_cfg, r.display_index.as_str())
+                        text(font, r.display_index.as_str())
                             .size(12)
                             .color(theme_cfg.text_muted)
                             .boxed()
                     } else {
-                        text(theme_cfg, format!("{}", display_index))
+                        text(font, format!("{}", display_index))
                             .size(12)
                             .color(theme_cfg.text_muted)
                             .boxed()
@@ -496,7 +494,7 @@ impl LibraryView {
 
                     let col_text: Element<'a, Message> =
                         if let Some(cell_value) = rendered.and_then(|r| r.cells.get(col_idx)) {
-                            text(theme_cfg, cell_value.as_str())
+                            text(font, cell_value.as_str())
                                 .size(text_size)
                                 .color(text_color)
                                 .width(width)
@@ -505,7 +503,7 @@ impl LibraryView {
                                 .boxed()
                         } else {
                             let cell_value = format_template(&col.format, track);
-                            text(theme_cfg, cell_value)
+                            text(font, cell_value)
                                 .size(text_size)
                                 .color(text_color)
                                 .width(width)
@@ -721,6 +719,6 @@ mod tests {
         view.replace_window(50_000, make_rows(50_000, view.window_capacity()));
 
         let format_cfg = LibraryFormatConfig::default();
-        let _element = view.view(&theme_cfg, None, false, &format_cfg);
+        let _element = view.view(&theme_cfg, iced::Font::DEFAULT, None, false, &format_cfg);
     }
 }

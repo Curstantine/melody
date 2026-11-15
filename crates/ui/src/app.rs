@@ -66,6 +66,7 @@ pub struct App {
     pub(crate) plugin_manager: PluginManager,
     pub(crate) theme_manager: ThemeManager,
     pub(crate) layout_manager: LayoutManager,
+    pub(crate) fonts: fonts::FontConfig,
 
     // Navigation & Tabs
     pub(crate) active_tab: ViewTab,
@@ -204,9 +205,6 @@ impl App {
 
         let mut theme_manager = ThemeManager::new();
         theme_manager.set_theme(&config.theme_name);
-        if let Some(ref font) = config.primary_font {
-            theme_manager.set_font(Some(font.clone()));
-        }
 
         let mut layout_manager = LayoutManager::new();
         layout_manager.select_layout(&config.layout_name);
@@ -225,7 +223,7 @@ impl App {
             state.artist_sort_field,
             config.artist_tile_width,
         );
-        let now_playing = NowPlayingView::new(config.lyrics_font.clone(), config.lyrics_font_size);
+        let now_playing = NowPlayingView::new();
         let playlists = PlaylistsView::new(state.playlists_view_mode, state.playlist_sort_field);
         let settings = SettingsView::new(state.settings_tab, Vec::new());
         let mut player_bar = PlayerBar::new();
@@ -262,6 +260,7 @@ impl App {
             plugin_manager,
             theme_manager,
             layout_manager,
+            fonts: config.fonts,
 
             active_tab: state.active_tab,
             tab_order: config.tab_order.clone(),
@@ -694,8 +693,10 @@ impl App {
                     if let Some(active_idx) =
                         self.now_playing.update_active_lyric_line(self.position_ms)
                     {
-                        let target_y =
-                            (active_idx as f32 * self.now_playing.line_stride() - 90.0).max(0.0);
+                        let target_y = (active_idx as f32
+                            * NowPlayingView::line_stride(self.fonts.lyrics_size)
+                            - 90.0)
+                            .max(0.0);
                         return scroll_to(
                             iced::widget::Id::new("lyrics_scroll"),
                             AbsoluteOffset {
@@ -1318,12 +1319,12 @@ impl App {
                 } else {
                     Some(font_name.trim().to_string())
                 };
-                self.now_playing.set_lyrics_font(font_opt);
+                self.fonts.set_lyrics(font_opt);
                 self.save_config_task()
             }
 
             Message::SetLyricsFontSize(size) => {
-                self.now_playing.lyrics_font_size = size.clamp(11, 28);
+                self.fonts.set_lyrics_size(size);
                 self.save_config_debounced()
             }
 
@@ -2900,7 +2901,7 @@ impl App {
                 } else {
                     Some(font_name.trim().to_string())
                 };
-                self.theme_manager.set_font(font_opt);
+                self.fonts.set_primary(font_opt);
                 self.save_config_task()
             }
 
@@ -3692,13 +3693,11 @@ impl App {
             theme_name: self.theme_manager.active_theme_name.clone(),
             layout_name: self.layout_manager.active_layout_name.clone(),
             custom_titlebar: self.custom_titlebar,
-            primary_font: self.theme_manager.current_config.font_family.clone(),
             page_size: self.library.page_size,
             tile_width: self.albums.tile_width,
             album_tile_width: self.albums.tile_width,
             artist_tile_width: self.artists.tile_width,
-            lyrics_font: self.now_playing.lyrics_font.clone(),
-            lyrics_font_size: self.now_playing.lyrics_font_size,
+            fonts: self.fonts.clone(),
             gapless: self.gapless,
             resampling: self.resampling_config.clone(),
             watch_library: self.watch_library,
@@ -3823,7 +3822,7 @@ impl App {
             self.settings.fonts_loaded = true;
             Some(Task::perform(
                 async move {
-                    tokio::task::spawn_blocking(theme::list_font_families)
+                    tokio::task::spawn_blocking(fonts::list_font_families)
                         .await
                         .unwrap_or_default()
                 },
@@ -4581,24 +4580,25 @@ impl App {
         )
         .on_press(Message::CancelDuplicatePrompt);
 
+        let font = self.fonts.primary_font();
         let dialog_content = column![
             row![
                 icons::icon(icons::DISC_SVG, 16.0, theme_cfg.primary),
                 Space::new().width(8),
-                components::text(theme_cfg, header)
+                components::text(font, header)
                     .size(14)
                     .color(theme_cfg.text),
             ]
             .align_y(Alignment::Center),
             Space::new().height(12),
-            components::text(theme_cfg, message_text)
+            components::text(font, message_text)
                 .size(12)
                 .color(theme_cfg.text_muted),
             Space::new().height(20),
             row![
                 Space::new().width(Length::Fill),
                 button(
-                    components::text(theme_cfg, "Cancel")
+                    components::text(font, "Cancel")
                         .size(12)
                         .color(theme_cfg.text_muted)
                 )
@@ -4607,7 +4607,7 @@ impl App {
                 .on_press(Message::CancelDuplicatePrompt),
                 Space::new().width(8),
                 button(
-                    components::text(theme_cfg, "Add anyway")
+                    components::text(font, "Add anyway")
                         .size(12)
                         .color(Color::WHITE)
                 )
@@ -4645,8 +4645,12 @@ impl App {
                 .root
                 .has_top_horizontal_navbar()
         {
-            let titlebar =
-                crate::views::TitlebarView::view(theme_cfg, self.title(), self.is_maximized);
+            let titlebar = crate::views::TitlebarView::view(
+                theme_cfg,
+                self.fonts.primary_font(),
+                self.title(),
+                self.is_maximized,
+            );
             iced::widget::column![titlebar, layout_view]
                 .width(iced::Length::Fill)
                 .height(iced::Length::Fill)
@@ -4680,6 +4684,7 @@ impl App {
                 menu,
                 &self.playlists.playlists,
                 theme_cfg,
+                self.fonts.primary_font(),
                 self.window_size,
                 Message::ContextMenu,
             ));

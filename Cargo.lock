@@ -896,6 +896,7 @@ name = "config"
 version = "0.5.0"
 dependencies = [
  "audio",
+ "fonts",
  "layout",
  "model",
  "paths",
@@ -1622,6 +1623,14 @@ dependencies = [
  "memmap2",
  "slotmap",
  "tinyvec",
+]
+
+[[package]]
+name = "fonts"
+version = "0.5.0"
+dependencies = [
+ "iced",
+ "serde",
 ]
 
 [[package]]
@@ -5773,6 +5782,7 @@ dependencies = [
  "config",
  "crossbeam-channel",
  "db",
+ "fonts",
  "iced",
  "layout",
  "metadata",
