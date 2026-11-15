@@ -96,22 +96,6 @@ mod tests {
     }
 
     #[test]
-    fn test_config_ignores_legacy_state_fields() {
-        let toml_with_state = r#"
-theme_name = "Nord"
-page_size = 75
-active_tab = "Albums"
-volume = 0.5
-is_shuffle = true
-is_repeat = true
-"#;
-        let cfg: AppConfig =
-            toml::from_str(toml_with_state).expect("Failed to parse config with legacy state");
-        assert_eq!(cfg.theme_name, "Nord");
-        assert_eq!(cfg.page_size, 75);
-    }
-
-    #[test]
     fn test_missing_config_returns_defaults() {
         let non_existent = PathBuf::from("/non/existent/path/melody_config.toml");
         let loaded = AppConfig::load_from_path(&non_existent);
@@ -236,40 +220,6 @@ is_repeat = true
     }
 
     #[test]
-    fn test_state_deserializes_from_legacy_config() {
-        let legacy_config_toml = r#"
-active_tab = "Playlists"
-settings_tab = "Scrobbling"
-volume = 0.42
-is_shuffle = true
-is_repeat = false
-albums_view_mode = "List"
-artists_view_mode = "Tile"
-playlists_view_mode = "Tile"
-album_sort_field = "Year"
-artist_sort_field = "AlbumCount"
-playlist_sort_field = "DateAdded"
-"#;
-        let state: AppState = toml::from_str(legacy_config_toml)
-            .expect("Failed to deserialize AppState from legacy config");
-        assert_eq!(state.active_tab, ViewTab::Playlists);
-        assert_eq!(state.settings_tab, SettingsTab::Scrobbling);
-        assert_eq!(state.volume, 0.42);
-        assert!(state.is_shuffle);
-        assert!(!state.is_repeat);
-        assert_eq!(state.albums_view_mode, ViewMode::List);
-        assert_eq!(state.artists_view_mode, ViewMode::Tile);
-        assert_eq!(state.playlists_view_mode, ViewMode::Tile);
-        assert_eq!(state.album_sort_field, AlbumSortField::Year);
-        assert_eq!(state.artist_sort_field, ArtistSortField::AlbumCount);
-        assert_eq!(state.playlist_sort_field, PlaylistSortField::DateAdded);
-        assert_eq!(state.window_width, WINDOW_MIN_WIDTH);
-        assert_eq!(state.window_height, WINDOW_MIN_HEIGHT);
-        assert_eq!(state.queue_id, None);
-        assert_eq!(state.playing_seq, None);
-    }
-
-    #[test]
     fn test_window_dimensions_deserialize() {
         let toml = r#"
 window_width = 1440.0
@@ -279,24 +229,5 @@ window_height = 900.0
             toml::from_str(toml).expect("Failed to parse state with width and height");
         assert_eq!(state.window_width, 1440.0);
         assert_eq!(state.window_height, 900.0);
-    }
-
-    #[test]
-    fn test_queue_state_aliases() {
-        let toml = r#"
-active_queue_id = 42
-current_seq = 7
-"#;
-        let state: AppState = toml::from_str(toml).expect("Failed to parse state with aliases");
-        assert_eq!(state.queue_id, Some(42));
-        assert_eq!(state.playing_seq, Some(7));
-
-        let toml2 = r#"
-queue_id = 99
-queue_seq = 3
-"#;
-        let state2: AppState = toml::from_str(toml2).expect("Failed to parse state with queue_seq");
-        assert_eq!(state2.queue_id, Some(99));
-        assert_eq!(state2.playing_seq, Some(3));
     }
 }

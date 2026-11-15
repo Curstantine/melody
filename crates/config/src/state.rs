@@ -58,19 +58,9 @@ pub struct AppState {
     #[serde(default = "default_height")]
     pub window_height: f32,
 
-    #[serde(
-        default,
-        alias = "active_queue_id",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub queue_id: Option<u64>,
-    #[serde(
-        default,
-        alias = "queue_seq",
-        alias = "current_seq",
-        alias = "active_queue_seq",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playing_seq: Option<usize>,
 }
 
@@ -98,27 +88,7 @@ impl Default for AppState {
 
 impl AppState {
     pub fn load() -> Self {
-        let path = paths::state_file();
-        if path.exists() {
-            Self::load_from_path(path)
-        } else {
-            // Backward-compatibility: if state.toml does not exist, attempt to load legacy
-            // state properties previously stored in config.toml before falling back to defaults.
-            let legacy_config = paths::config_file();
-            if legacy_config.exists() {
-                if let Ok(content) = fs::read_to_string(legacy_config) {
-                    if let Ok(state) = toml::from_str::<Self>(&content) {
-                        info!(
-                            "Migrated runtime state from legacy config at {:?}",
-                            legacy_config
-                        );
-                        return state;
-                    }
-                }
-            }
-            info!("No state file found at {:?}, using default state", path);
-            Self::default()
-        }
+        Self::load_from_path(paths::state_file())
     }
 
     pub fn load_from_path(path: &Path) -> Self {

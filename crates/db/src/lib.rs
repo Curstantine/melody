@@ -186,61 +186,6 @@ impl LibraryDatabase {
             )
             .await?;
 
-        // The original `playlists` / `playlist_tracks` tables were never written
-        // to by any code path; playlist contents are now owned by the M3U files
-        // themselves and the database only keeps a `playlist_files` reference.
-        let _ = self
-            .conn
-            .execute("DROP TABLE IF EXISTS playlist_tracks", ())
-            .await;
-        let _ = self
-            .conn
-            .execute("DROP TABLE IF EXISTS playlists", ())
-            .await;
-
-        // Safe migrations for databases created before schema additions
-        let _ = self
-            .conn
-            .execute("ALTER TABLE tracks ADD COLUMN album_artist TEXT", ())
-            .await;
-        let _ = self
-            .conn
-            .execute("ALTER TABLE tracks ADD COLUMN disc_num INTEGER", ())
-            .await;
-        let _ = self
-            .conn
-            .execute("ALTER TABLE tracks ADD COLUMN year INTEGER", ())
-            .await;
-        let _ = self
-            .conn
-            .execute("ALTER TABLE tracks ADD COLUMN composer TEXT", ())
-            .await;
-        let _ = self
-            .conn
-            .execute("ALTER TABLE tracks ADD COLUMN label TEXT", ())
-            .await;
-        let _ = self
-            .conn
-            .execute(
-                "ALTER TABLE tracks ADD COLUMN musicbrainz_track_id TEXT",
-                (),
-            )
-            .await;
-        let _ = self
-            .conn
-            .execute(
-                "ALTER TABLE tracks ADD COLUMN musicbrainz_artist_id TEXT",
-                (),
-            )
-            .await;
-        let _ = self
-            .conn
-            .execute(
-                "ALTER TABLE tracks ADD COLUMN musicbrainz_album_id TEXT",
-                (),
-            )
-            .await;
-
         let _ = self
             .conn
             .execute(
