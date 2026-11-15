@@ -51,7 +51,6 @@ pub enum Message {
     SetPlaylistsViewMode(ViewMode),
     SetAlbumTileWidth(u32),
     SetArtistTileWidth(u32),
-    SetNowPlayingCoverSize(u32),
     SelectLyricsFont(String),
     SetLyricsFontSize(u16),
 
@@ -283,10 +282,15 @@ pub enum Message {
     PlaybackAssetsLoaded {
         track_id: i64,
         cover: Option<Vec<u8>>,
+        now_playing_cover: Option<Vec<u8>>,
         blurred: Option<Vec<u8>>,
         next_cover: Option<Vec<u8>>,
         tech_info: Option<AudioTechnicalInfo>,
         lyrics: Option<String>,
+    },
+    NowPlayingCoverLoaded {
+        track_id: i64,
+        cover: Option<Vec<u8>>,
     },
     StorageStatsLoaded(CacheStats, u64),
 
@@ -349,9 +353,6 @@ impl std::fmt::Debug for Message {
             }
             Self::SetAlbumTileWidth(w) => f.debug_tuple("SetAlbumTileWidth").field(w).finish(),
             Self::SetArtistTileWidth(w) => f.debug_tuple("SetArtistTileWidth").field(w).finish(),
-            Self::SetNowPlayingCoverSize(s) => {
-                f.debug_tuple("SetNowPlayingCoverSize").field(s).finish()
-            }
             Self::SelectLyricsFont(s) => f.debug_tuple("SelectLyricsFont").field(s).finish(),
             Self::SetLyricsFontSize(s) => f.debug_tuple("SetLyricsFontSize").field(s).finish(),
             Self::TrackClicked(id) => f.debug_tuple("TrackClicked").field(id).finish(),
@@ -704,6 +705,7 @@ impl std::fmt::Debug for Message {
             Self::PlaybackAssetsLoaded {
                 track_id,
                 cover,
+                now_playing_cover,
                 blurred,
                 next_cover,
                 tech_info,
@@ -712,10 +714,16 @@ impl std::fmt::Debug for Message {
                 .debug_struct("PlaybackAssetsLoaded")
                 .field("track_id", track_id)
                 .field("cover_len", &bytes_len(cover))
+                .field("now_playing_cover_len", &bytes_len(now_playing_cover))
                 .field("blurred_len", &bytes_len(blurred))
                 .field("next_cover_len", &bytes_len(next_cover))
                 .field("has_tech_info", &tech_info.is_some())
                 .field("lyrics_len", &lyrics.as_ref().map(String::len))
+                .finish(),
+            Self::NowPlayingCoverLoaded { track_id, cover } => f
+                .debug_struct("NowPlayingCoverLoaded")
+                .field("track_id", track_id)
+                .field("cover_len", &bytes_len(cover))
                 .finish(),
             Self::StorageStatsLoaded(stats, size) => f
                 .debug_tuple("StorageStatsLoaded")

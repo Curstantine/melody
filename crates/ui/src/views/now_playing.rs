@@ -9,7 +9,7 @@ use theme::ThemeConfig;
 
 use super::ScrollOffset;
 
-pub const DEFAULT_NOW_PLAYING_COVER_SIZE: u32 = 260;
+pub const INFO_PANEL_WIDTH: f32 = 340.0;
 pub const DEFAULT_LYRICS_FONT_SIZE: u16 = 15;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -169,7 +169,6 @@ pub struct NowPlayingView {
     pub current_lyrics: Option<String>,
     pub parsed_lyrics: Option<ParsedLyrics>,
     pub last_active_line: Option<usize>,
-    pub cover_size: u32,
     pub lyrics_font: Option<String>,
     pub lyrics_iced_font: Option<iced::Font>,
     pub lyrics_font_size: u16,
@@ -183,7 +182,6 @@ impl Default for NowPlayingView {
             current_lyrics: None,
             parsed_lyrics: None,
             last_active_line: None,
-            cover_size: DEFAULT_NOW_PLAYING_COVER_SIZE,
             lyrics_font: None,
             lyrics_iced_font: None,
             lyrics_font_size: DEFAULT_LYRICS_FONT_SIZE,
@@ -194,23 +192,33 @@ impl Default for NowPlayingView {
 }
 
 impl NowPlayingView {
-    pub fn with_cover_size(cover_size: u32) -> Self {
-        Self {
-            cover_size,
-            ..Self::default()
-        }
-    }
-
-    pub fn set_lyrics_font(&mut self, font_name: Option<String>) {
-        self.lyrics_iced_font = font_name
+    pub fn new(lyrics_font: Option<String>, lyrics_font_size: u16) -> Self {
+        let lyrics_iced_font = lyrics_font
             .as_deref()
             .map(|name| theme::font_from_family_name(Some(name)));
-        self.lyrics_font = font_name;
+
+        Self {
+            current_lyrics: None,
+            parsed_lyrics: None,
+            last_active_line: None,
+            lyrics_font,
+            lyrics_iced_font,
+            lyrics_font_size,
+            cached: CachedNowPlaying::default(),
+            scroll_offset: ScrollOffset::default(),
+        }
     }
 
     /// Estimated vertical stride (in logical pixels) per synced lyric line for auto-scrolling.
     pub fn line_stride(&self) -> f32 {
         (self.lyrics_font_size as f32 * 2.0).max(24.0)
+    }
+
+    pub fn set_lyrics_font(&mut self, font: Option<String>) {
+        self.lyrics_iced_font = font
+            .as_deref()
+            .map(|name| theme::font_from_family_name(Some(name)));
+        self.lyrics_font = font;
     }
 
     pub fn set_lyrics(&mut self, lyrics: Option<String>) {
@@ -341,7 +349,7 @@ impl NowPlayingView {
         current_cover: Option<&'a image::Handle>,
         blurred_cover: Option<&'a image::Handle>,
         next_track: Option<&'a TrackRow>,
-        next_cover: Option<&'a image::Handle>,
+        _next_cover: Option<&'a image::Handle>,
         is_repeat: bool,
         is_shuffle: bool,
         position_ms: u64,
@@ -349,13 +357,11 @@ impl NowPlayingView {
     ) -> Element<'a, Message> {
         let content: Element<'a, Message> = match current_track {
             Some(track) => {
-                // 1. Left side: Cover art & clean floating lyrics (no background box)
-                let cover_size = self.cover_size as f32;
-                let cover_icon_size = (cover_size * 0.36).clamp(48.0, 100.0);
+                let cover_icon_size = (INFO_PANEL_WIDTH * 0.36).clamp(48.0, 100.0);
                 let cover_art = components::cover_art(
                     theme_cfg,
                     current_cover,
-                    cover_size,
+                    INFO_PANEL_WIDTH,
                     theme_cfg.border_radius.md,
                     icons::ALBUM_SVG,
                     cover_icon_size,
@@ -447,11 +453,6 @@ impl NowPlayingView {
                     .height(Length::Fill)
                     .style(styles::scrollable_style(theme_cfg));
 
-                let left_section = row![cover_art, Space::new().width(28), lyrics_panel,]
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .align_y(Alignment::Center);
-
                 let title = text(theme_cfg, &track.title)
                     .size(17)
                     .color(theme_cfg.text)
@@ -517,7 +518,7 @@ impl NowPlayingView {
                 ]
                 .align_y(Alignment::Center);
 
-                // Up Next Content Item (unboxed, with thumbnail cover image)
+                // Up Next Content Item
                 let next_track_item: Element<'a, Message> = match next_track {
                     Some(next) => {
                         let next_id = next.id;
@@ -528,16 +529,6 @@ impl NowPlayingView {
                         } else {
                             next.album.as_ref()
                         };
-
-                        let next_cover_widget = components::cover_art(
-                            theme_cfg,
-                            next_cover,
-                            32.0,
-                            theme_cfg.border_radius.sm,
-                            icons::DISC_SVG,
-                            16.0,
-                            theme_cfg.primary,
-                        );
 
                         let next_info = column![
                             text(theme_cfg, next_title).size(12).color(theme_cfg.text),
@@ -553,7 +544,7 @@ impl NowPlayingView {
                             .color(theme_cfg.text_muted);
 
                         button(
-                            row![next_cover_widget, next_info, duration_tag,]
+                            row![next_info, duration_tag,]
                                 .spacing(8)
                                 .align_y(Alignment::Center),
                         )
@@ -611,7 +602,7 @@ impl NowPlayingView {
                     .spacing(8)
                     .width(Length::Fill),
                 )
-                .width(340)
+                .width(INFO_PANEL_WIDTH)
                 .padding(iced::Padding {
                     top: 14.0,
                     right: 14.0,
@@ -629,12 +620,17 @@ impl NowPlayingView {
                     ..Default::default()
                 });
 
-                let right_section = column![Space::new().height(Length::Fill), bottom_right_card,]
-                    .width(340)
-                    .height(Length::Fill)
-                    .align_x(Alignment::End);
+                let right_section = column![
+                    Space::new().height(Length::Fill),
+                    cover_art,
+                    Space::new().height(16),
+                    bottom_right_card,
+                ]
+                .width(INFO_PANEL_WIDTH)
+                .height(Length::Fill)
+                .align_x(Alignment::Center);
 
-                row![left_section, Space::new().width(20), right_section,]
+                row![lyrics_panel, Space::new().width(20), right_section,]
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .boxed()
@@ -732,10 +728,7 @@ mod tests {
     #[test]
     fn test_now_playing_empty_state_renders() {
         let theme_cfg = ThemeConfig::default();
-        let mut now_playing_view = NowPlayingView::default();
-        assert_eq!(now_playing_view.cover_size, 260);
-        now_playing_view.cover_size = 300;
-        assert_eq!(now_playing_view.cover_size, 300);
+        let now_playing_view = NowPlayingView::default();
 
         let _element = now_playing_view.view(
             &theme_cfg, None, None, None, None, None, false, false, 0, None,

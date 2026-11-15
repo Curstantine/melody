@@ -208,18 +208,22 @@ impl App {
 
             LayoutComponent::Lyrics => {
                 let next_track = self.get_next_track();
-                container(self.now_playing.view(
-                    theme_cfg,
-                    self.current_track.as_ref(),
-                    self.current_cover.as_ref(),
-                    self.current_blurred_cover.as_ref(),
-                    next_track,
-                    self.current_next_cover.as_ref(),
-                    self.is_repeat,
-                    self.is_shuffle,
-                    self.position_ms,
-                    self.current_tech_info.as_ref(),
-                ))
+                container(
+                    self.now_playing.view(
+                        theme_cfg,
+                        self.current_track.as_ref(),
+                        self.current_now_playing_cover
+                            .as_ref()
+                            .or(self.current_cover.as_ref()),
+                        self.current_blurred_cover.as_ref(),
+                        next_track,
+                        self.current_next_cover.as_ref(),
+                        self.is_repeat,
+                        self.is_shuffle,
+                        self.position_ms,
+                        self.current_tech_info.as_ref(),
+                    ),
+                )
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .clip(true)
@@ -503,7 +507,9 @@ impl App {
                 self.now_playing.view(
                     theme_cfg,
                     self.current_track.as_ref(),
-                    self.current_cover.as_ref(),
+                    self.current_now_playing_cover
+                        .as_ref()
+                        .or(self.current_cover.as_ref()),
                     self.current_blurred_cover.as_ref(),
                     next_track,
                     self.current_next_cover.as_ref(),
@@ -534,7 +540,6 @@ impl App {
                 page_size: self.library.page_size,
                 album_tile_width: self.albums.tile_width,
                 artist_tile_width: self.artists.tile_width,
-                now_playing_cover_size: self.now_playing.cover_size,
                 lyrics_font: self.now_playing.lyrics_font.as_deref(),
                 lyrics_font_size: self.now_playing.lyrics_font_size,
                 primary_font: self.theme_manager.current_config.font_family.as_deref(),

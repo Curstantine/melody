@@ -4,8 +4,10 @@ use image::codecs::jpeg::JpegEncoder;
 use md5::{Digest, Md5};
 use tracing::debug;
 
-pub const THUMB_DIM_DEFAULT: u32 = 256;
-pub const THUMB_DIM_HIGH: u32 = 300;
+pub const THUMB_DIM_LOW: u32 = 256;
+pub const THUMB_DIM_MED: u32 = 300;
+pub const THUMB_DIM_HIGH: u32 = 680;
+pub const THUMB_DIM_DEFAULT: u32 = THUMB_DIM_LOW;
 pub const EXCEPTION_MIN_SIZE: usize = 100_000;
 
 /// Generates a deterministic hash-based cache key for a given track path and thumbnail dimension
@@ -73,7 +75,13 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
             let thumb = img.resize_to_fill(max_dim, max_dim, image::imageops::FilterType::Triangle);
             let rgb = image::DynamicImage::ImageRgb8(thumb.to_rgb8());
 
-            let quality = if max_dim >= THUMB_DIM_HIGH { 85 } else { 70 };
+            let quality = if max_dim >= THUMB_DIM_HIGH {
+                90
+            } else if max_dim >= THUMB_DIM_MED {
+                85
+            } else {
+                70
+            };
 
             let mut out_bytes = Vec::new();
             if rgb

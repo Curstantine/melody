@@ -4,8 +4,7 @@ pub mod state;
 
 pub use config::{
     default_tab_order, sanitize_tab_order, AppConfig, ScrobbleConfig, DEFAULT_ALBUM_TILE_WIDTH,
-    DEFAULT_ARTIST_TILE_WIDTH, DEFAULT_LAYOUT_NAME, DEFAULT_NOW_PLAYING_COVER_SIZE,
-    DEFAULT_PAGE_SIZE, DEFAULT_TILE_WIDTH,
+    DEFAULT_ARTIST_TILE_WIDTH, DEFAULT_LAYOUT_NAME, DEFAULT_PAGE_SIZE, DEFAULT_TILE_WIDTH,
 };
 pub use navigation::{PlaylistSection, SettingsTab, ViewTab};
 pub use state::AppState;
@@ -36,7 +35,6 @@ mod tests {
         assert_eq!(cfg.tile_width, 140);
         assert_eq!(cfg.album_tile_width, 140);
         assert_eq!(cfg.artist_tile_width, 140);
-        assert_eq!(cfg.now_playing_cover_size, 260);
         assert_eq!(cfg.lyrics_font, None);
         assert_eq!(cfg.lyrics_font_size, 15);
         assert!(cfg.gapless);
@@ -64,7 +62,6 @@ mod tests {
             tile_width: 190,
             album_tile_width: 190,
             artist_tile_width: 180,
-            now_playing_cover_size: 260,
             lyrics_font: Some("Noto Serif".to_string()),
             lyrics_font_size: 18,
             gapless: false,

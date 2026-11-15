@@ -60,7 +60,6 @@ pub struct SettingsContext<'a> {
     pub page_size: usize,
     pub album_tile_width: u32,
     pub artist_tile_width: u32,
-    pub now_playing_cover_size: u32,
     pub lyrics_font: Option<&'a str>,
     pub lyrics_font_size: u16,
     pub primary_font: Option<&'a str>,
@@ -888,22 +887,6 @@ impl SettingsView {
         );
 
         // 4. Now Playing Section
-        let now_playing_presets = [180, 220, 260, 300];
-        let now_playing_preset_buttons = {
-            let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
-            for &size in &now_playing_presets {
-                let is_sel = ctx.now_playing_cover_size == size;
-                let btn = components::chip(
-                    theme_cfg,
-                    format!("{} px", size),
-                    is_sel,
-                    Message::SetNowPlayingCoverSize(size),
-                );
-                r = r.push(btn);
-            }
-            r
-        };
-
         let active_lyrics_font = ctx.lyrics_font.unwrap_or("Default").to_string();
         let mut lyrics_font_options = self.available_fonts.clone();
         if !lyrics_font_options.iter().any(|f| f == "Default") {
@@ -952,38 +935,6 @@ impl SettingsView {
             theme_cfg,
             "Now playing",
             column![
-                row![
-                    column![
-                        text(theme_cfg, "Cover art dimension")
-                            .size(12)
-                            .color(theme_cfg.text_muted),
-                        text(
-                            theme_cfg,
-                            "Maximum dimension of the album cover displayed in the Now Playing view",
-                        )
-                        .size(11)
-                        .color(theme_cfg.text_muted),
-                    ]
-                    .spacing(FORM_FIELD_SPACING)
-                    .width(Length::Fill),
-                    row![
-                        text(theme_cfg, format!("{} px", ctx.now_playing_cover_size))
-                            .size(12)
-                            .color(theme_cfg.primary)
-                            .width(Length::Fixed(55.0)),
-                        Space::new().width(SPACE_SM),
-                        slider(160.0..=320.0, ctx.now_playing_cover_size as f32, |val| {
-                            Message::SetNowPlayingCoverSize(val.round() as u32)
-                        },)
-                        .on_release(Message::SaveConfig)
-                        .style(styles::settings_slider_style(theme_cfg))
-                        .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
-                        Space::new().width(SPACE_LG),
-                        now_playing_preset_buttons,
-                    ]
-                    .align_y(Alignment::Center),
-                ]
-                .align_y(Alignment::Center),
                 row![
                     column![
                         text(theme_cfg, "Lyrics font family")
@@ -2625,7 +2576,6 @@ mod tests {
                 page_size: 50,
                 album_tile_width: 170,
                 artist_tile_width: 160,
-                now_playing_cover_size: 220,
                 lyrics_font: Some("Noto Serif"),
                 lyrics_font_size: 16,
                 primary_font: Some("Noto Sans CJK JP"),
@@ -2713,7 +2663,6 @@ mod tests {
             page_size: 50,
             album_tile_width: 170,
             artist_tile_width: 160,
-            now_playing_cover_size: 220,
             lyrics_font: None,
             lyrics_font_size: 15,
             primary_font: None,
