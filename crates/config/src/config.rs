@@ -10,6 +10,7 @@ pub const DEFAULT_TILE_WIDTH: u32 = 140;
 pub const DEFAULT_ALBUM_TILE_WIDTH: u32 = 140;
 pub const DEFAULT_ARTIST_TILE_WIDTH: u32 = 140;
 pub const DEFAULT_NOW_PLAYING_COVER_SIZE: u32 = 260;
+pub const DEFAULT_LYRICS_FONT_SIZE: u16 = 15;
 pub const DEFAULT_LAYOUT_NAME: &str = layout::DEFAULT_LAYOUT_NAME;
 
 pub fn default_tab_order() -> Vec<ViewTab> {
@@ -67,6 +68,10 @@ pub struct AppConfig {
     pub artist_tile_width: u32,
     #[serde(default = "default_now_playing_cover_size")]
     pub now_playing_cover_size: u32,
+    #[serde(default)]
+    pub lyrics_font: Option<String>,
+    #[serde(default = "default_lyrics_font_size")]
+    pub lyrics_font_size: u16,
 
     #[serde(default = "default_true")]
     pub gapless: bool,
@@ -192,6 +197,10 @@ fn default_now_playing_cover_size() -> u32 {
     DEFAULT_NOW_PLAYING_COVER_SIZE
 }
 
+fn default_lyrics_font_size() -> u16 {
+    DEFAULT_LYRICS_FONT_SIZE
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
@@ -205,6 +214,8 @@ impl Default for AppConfig {
             album_tile_width: default_album_tile_width(),
             artist_tile_width: default_artist_tile_width(),
             now_playing_cover_size: default_now_playing_cover_size(),
+            lyrics_font: None,
+            lyrics_font_size: default_lyrics_font_size(),
             gapless: true,
             resampling: audio::ResamplingConfig::default(),
             watch_library: true,

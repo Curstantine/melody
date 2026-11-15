@@ -224,7 +224,9 @@ impl App {
             state.artist_sort_field,
             config.artist_tile_width,
         );
-        let now_playing = NowPlayingView::with_cover_size(config.now_playing_cover_size);
+        let mut now_playing = NowPlayingView::with_cover_size(config.now_playing_cover_size);
+        now_playing.set_lyrics_font(config.lyrics_font.clone());
+        now_playing.lyrics_font_size = config.lyrics_font_size;
         let playlists = PlaylistsView::new(state.playlists_view_mode, state.playlist_sort_field);
         let settings = SettingsView::new(state.settings_tab, Vec::new());
         let mut player_bar = PlayerBar::new();
@@ -563,7 +565,7 @@ impl App {
                         self.current_blurred_cover = None;
                         self.current_next_cover = None;
                         self.current_tech_info = None;
-                        self.now_playing.current_lyrics = None;
+                        self.now_playing.set_lyrics(None);
 
                         self.plugin_manager.on_track_change(&TrackMetadata {
                             title: title.clone(),
@@ -687,6 +689,23 @@ impl App {
                     }
                 }
 
+                if self.active_tab == ViewTab::Lyrics {
+                    if let Some(active_idx) =
+                        self.now_playing.update_active_lyric_line(self.position_ms)
+                    {
+                        let target_y =
+                            (active_idx as f32 * self.now_playing.line_stride() - 90.0).max(0.0);
+                        return scroll_to(
+                            iced::widget::Id::new("lyrics_scroll"),
+                            AbsoluteOffset {
+                                x: 0.0,
+                                y: target_y,
+                            },
+                            Animation::Instant,
+                        );
+                    }
+                }
+
                 Task::none()
             }
 
@@ -726,7 +745,7 @@ impl App {
                     self.current_blurred_cover = None;
                     self.current_next_cover = None;
                     self.current_tech_info = None;
-                    self.now_playing.current_lyrics = None;
+                    self.now_playing.set_lyrics(None);
                     self.sync_now_playing();
 
                     // Notify plugins synchronously (cheap state updates).
@@ -769,7 +788,7 @@ impl App {
                     self.current_blurred_cover = None;
                     self.current_next_cover = None;
                     self.current_tech_info = None;
-                    self.now_playing.current_lyrics = None;
+                    self.now_playing.set_lyrics(None);
                     self.sync_now_playing();
 
                     self.queue_next_gapless_track();
@@ -807,7 +826,7 @@ impl App {
                 self.current_blurred_cover = blurred.map(image::Handle::from_bytes);
                 self.current_next_cover = next_cover.map(image::Handle::from_bytes);
                 self.current_tech_info = tech_info;
-                self.now_playing.current_lyrics = lyrics;
+                self.now_playing.set_lyrics(lyrics);
                 self.sync_now_playing();
                 Task::none()
             }
@@ -945,6 +964,20 @@ impl App {
                 self.audio_controller
                     .seek(Duration::from_millis(clamped_pos));
                 self.position_ms = clamped_pos;
+                self.plugin_manager.on_seeked(self.position_ms);
+                Task::none()
+            }
+
+            Message::SeekToMs(ms) => {
+                let clamped = if self.duration_ms > 0 {
+                    ms.min(self.duration_ms)
+                } else {
+                    ms
+                };
+                self.audio_controller.seek(Duration::from_millis(clamped));
+                self.position_ms = clamped;
+                self.player_bar
+                    .update_position(self.position_ms, self.duration_ms);
                 self.plugin_manager.on_seeked(self.position_ms);
                 Task::none()
             }
@@ -1247,6 +1280,21 @@ impl App {
 
             Message::SetNowPlayingCoverSize(size) => {
                 self.now_playing.cover_size = size;
+                self.save_config_debounced()
+            }
+
+            Message::SelectLyricsFont(font_name) => {
+                let font_opt = if font_name == "Default" || font_name.trim().is_empty() {
+                    None
+                } else {
+                    Some(font_name.trim().to_string())
+                };
+                self.now_playing.set_lyrics_font(font_opt);
+                self.save_config_task()
+            }
+
+            Message::SetLyricsFontSize(size) => {
+                self.now_playing.lyrics_font_size = size.clamp(11, 28);
                 self.save_config_debounced()
             }
 
@@ -3252,7 +3300,7 @@ impl App {
 
                     let tech_info = metadata::extract_technical_info(&path, duration_ms);
 
-                    let lyrics = plugin_manager.fetch_lyrics(&artist, &title);
+                    let lyrics = plugin_manager.fetch_lyrics(Some(&path), &artist, &title);
 
                     let next_cover = next_track_path.and_then(|nt_path| {
                         thumbnail::get_or_create_thumbnail(&nt_path, thumbnail::THUMB_DIM_DEFAULT)
@@ -3589,6 +3637,8 @@ impl App {
             album_tile_width: self.albums.tile_width,
             artist_tile_width: self.artists.tile_width,
             now_playing_cover_size: self.now_playing.cover_size,
+            lyrics_font: self.now_playing.lyrics_font.clone(),
+            lyrics_font_size: self.now_playing.lyrics_font_size,
             gapless: self.gapless,
             resampling: self.resampling_config.clone(),
             watch_library: self.watch_library,

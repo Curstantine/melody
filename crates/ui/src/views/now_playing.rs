@@ -10,6 +10,145 @@ use theme::ThemeConfig;
 use super::ScrollOffset;
 
 pub const DEFAULT_NOW_PLAYING_COVER_SIZE: u32 = 260;
+pub const DEFAULT_LYRICS_FONT_SIZE: u16 = 15;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LrcLine {
+    pub time_ms: u64,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParsedLyrics {
+    Synced(Vec<LrcLine>),
+    Plain(String),
+}
+
+impl ParsedLyrics {
+    pub fn parse(raw: &str) -> Self {
+        let mut offset_ms: i64 = 0;
+        let mut entries: Vec<(i64, String)> = Vec::new();
+
+        for raw_line in raw.lines() {
+            let line = raw_line.trim();
+            if line.is_empty() {
+                continue;
+            }
+
+            let mut rest = line;
+            let mut timestamps = Vec::new();
+            let mut is_metadata_only = false;
+
+            while rest.starts_with('[') {
+                let Some(close_idx) = rest.find(']') else {
+                    break;
+                };
+                let tag = &rest[1..close_idx];
+                if let Some(ts_ms) = parse_lrc_timestamp(tag) {
+                    timestamps.push(ts_ms);
+                    rest = &rest[close_idx + 1..];
+                } else if let Some(off) = parse_lrc_offset(tag) {
+                    offset_ms = off;
+                    is_metadata_only = true;
+                    rest = &rest[close_idx + 1..];
+                } else if is_lrc_metadata_tag(tag) {
+                    is_metadata_only = true;
+                    rest = &rest[close_idx + 1..];
+                } else {
+                    break;
+                }
+            }
+
+            if !timestamps.is_empty() {
+                let lyric_text = rest.trim().to_string();
+                for ts in timestamps {
+                    entries.push((ts, lyric_text.clone()));
+                }
+            } else if is_metadata_only && rest.trim().is_empty() {
+                continue;
+            }
+        }
+
+        if entries.is_empty() {
+            return Self::Plain(raw.to_string());
+        }
+
+        let mut lines: Vec<LrcLine> = entries
+            .into_iter()
+            .map(|(ts, text)| LrcLine {
+                time_ms: (ts + offset_ms).max(0) as u64,
+                text,
+            })
+            .collect();
+        lines.sort_by_key(|l| l.time_ms);
+
+        Self::Synced(lines)
+    }
+
+    pub fn active_line_index(&self, position_ms: u64) -> Option<usize> {
+        match self {
+            Self::Synced(lines) if !lines.is_empty() => {
+                let idx = lines.partition_point(|l| l.time_ms <= position_ms);
+                idx.checked_sub(1)
+            }
+            _ => None,
+        }
+    }
+}
+
+fn parse_lrc_timestamp(tag: &str) -> Option<i64> {
+    let (min_str, sec_part) = tag.split_once(':')?;
+    if min_str.is_empty() || !min_str.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let minutes: i64 = min_str.parse().ok()?;
+
+    let (sec_str, frac_ms) = if let Some((s, f)) = sec_part.split_once('.') {
+        (s, parse_lrc_fraction_ms(f)?)
+    } else if let Some((s, f)) = sec_part.split_once(':') {
+        (s, parse_lrc_fraction_ms(f)?)
+    } else {
+        (sec_part, 0)
+    };
+
+    if sec_str.is_empty() || !sec_str.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let seconds: i64 = sec_str.parse().ok()?;
+    Some(minutes * 60_000 + seconds * 1_000 + frac_ms)
+}
+
+fn parse_lrc_fraction_ms(frac: &str) -> Option<i64> {
+    if frac.is_empty() || frac.len() > 3 || !frac.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let val: i64 = frac.parse().ok()?;
+    match frac.len() {
+        1 => Some(val * 100),
+        2 => Some(val * 10),
+        3 => Some(val),
+        _ => None,
+    }
+}
+
+fn parse_lrc_offset(tag: &str) -> Option<i64> {
+    let (key, val) = tag.split_once(':')?;
+    if key.trim().eq_ignore_ascii_case("offset") {
+        val.trim().parse::<i64>().ok()
+    } else {
+        None
+    }
+}
+
+fn is_lrc_metadata_tag(tag: &str) -> bool {
+    let Some((key, _)) = tag.split_once(':') else {
+        return false;
+    };
+    matches!(
+        key.trim().to_ascii_lowercase().as_str(),
+        "ar" | "ti" | "al" | "au" | "by" | "length" | "re" | "ve" | "tool"
+    )
+}
 
 /// Pre-rendered display strings so Now Playing rendering performs no string allocations per frame.
 #[derive(Debug, Default, Clone)]
@@ -28,7 +167,12 @@ pub struct CachedNowPlaying {
 #[derive(Debug, Clone)]
 pub struct NowPlayingView {
     pub current_lyrics: Option<String>,
+    pub parsed_lyrics: Option<ParsedLyrics>,
+    pub last_active_line: Option<usize>,
     pub cover_size: u32,
+    pub lyrics_font: Option<String>,
+    pub lyrics_iced_font: Option<iced::Font>,
+    pub lyrics_font_size: u16,
     pub cached: CachedNowPlaying,
     pub scroll_offset: ScrollOffset,
 }
@@ -37,7 +181,12 @@ impl Default for NowPlayingView {
     fn default() -> Self {
         Self {
             current_lyrics: None,
+            parsed_lyrics: None,
+            last_active_line: None,
             cover_size: DEFAULT_NOW_PLAYING_COVER_SIZE,
+            lyrics_font: None,
+            lyrics_iced_font: None,
+            lyrics_font_size: DEFAULT_LYRICS_FONT_SIZE,
             cached: CachedNowPlaying::default(),
             scroll_offset: ScrollOffset::default(),
         }
@@ -47,10 +196,42 @@ impl Default for NowPlayingView {
 impl NowPlayingView {
     pub fn with_cover_size(cover_size: u32) -> Self {
         Self {
-            current_lyrics: None,
             cover_size,
-            cached: CachedNowPlaying::default(),
-            scroll_offset: ScrollOffset::default(),
+            ..Self::default()
+        }
+    }
+
+    pub fn set_lyrics_font(&mut self, font_name: Option<String>) {
+        self.lyrics_iced_font = font_name
+            .as_deref()
+            .map(|name| theme::font_from_family_name(Some(name)));
+        self.lyrics_font = font_name;
+    }
+
+    /// Estimated vertical stride (in logical pixels) per synced lyric line for auto-scrolling.
+    pub fn line_stride(&self) -> f32 {
+        (self.lyrics_font_size as f32 * 2.0).max(24.0)
+    }
+
+    pub fn set_lyrics(&mut self, lyrics: Option<String>) {
+        self.parsed_lyrics = lyrics.as_deref().map(ParsedLyrics::parse);
+        self.current_lyrics = lyrics;
+        self.last_active_line = None;
+        self.scroll_offset.set(0.0);
+    }
+
+    /// Updates the active synced lyric line for `position_ms` and returns `Some(idx)`
+    /// only when the active line changed.
+    pub fn update_active_lyric_line(&mut self, position_ms: u64) -> Option<usize> {
+        let active = self
+            .parsed_lyrics
+            .as_ref()
+            .and_then(|p| p.active_line_index(position_ms));
+        if active != self.last_active_line {
+            self.last_active_line = active;
+            active
+        } else {
+            None
         }
     }
 
@@ -144,6 +325,8 @@ impl NowPlayingView {
 
     pub fn clear(&mut self) {
         self.current_lyrics = None;
+        self.parsed_lyrics = None;
+        self.last_active_line = None;
         self.scroll_offset.set(0.0);
         self.update_track(None);
         self.update_next_track(None);
@@ -161,6 +344,7 @@ impl NowPlayingView {
         next_cover: Option<&'a image::Handle>,
         is_repeat: bool,
         is_shuffle: bool,
+        position_ms: u64,
         _tech_info: Option<&'a AudioTechnicalInfo>,
     ) -> Element<'a, Message> {
         let content: Element<'a, Message> = match current_track {
@@ -178,22 +362,78 @@ impl NowPlayingView {
                     theme_cfg.primary,
                 );
 
-                let lyrics_body: Element<'a, Message> = if let Some(ref lyr) = self.current_lyrics {
-                    text(theme_cfg, lyr).size(15).color(theme_cfg.text).boxed()
-                } else {
-                    column![
-                        text(theme_cfg, "No lyrics found for this track.")
-                            .size(14)
-                            .color(theme_cfg.text),
-                        Space::new().height(4),
-                        text(
-                            theme_cfg,
-                            "Place a .lrc file in the same directory or configure a lyrics plugin."
-                        )
-                        .size(12)
-                        .color(theme_cfg.text_muted),
-                    ]
-                    .boxed()
+                let lyrics_font = self.lyrics_iced_font.unwrap_or(theme_cfg.font);
+                let base_size = u32::from(self.lyrics_font_size);
+                let inactive_size = base_size.saturating_sub(1).max(10);
+                let active_size = base_size.saturating_add(1);
+
+                let lyrics_body: Element<'a, Message> = match &self.parsed_lyrics {
+                    Some(ParsedLyrics::Synced(lines)) => {
+                        let active_idx = self
+                            .parsed_lyrics
+                            .as_ref()
+                            .and_then(|p| p.active_line_index(position_ms));
+
+                        let mut col = column![].spacing(6).width(Length::Fill);
+                        for (idx, line) in lines.iter().enumerate() {
+                            let is_active = active_idx == Some(idx);
+                            let display_text = if line.text.is_empty() {
+                                "•••"
+                            } else {
+                                line.text.as_str()
+                            };
+                            let line_color = if is_active {
+                                theme_cfg.primary
+                            } else {
+                                theme_cfg.text_muted
+                            };
+                            let line_size = if is_active {
+                                active_size
+                            } else {
+                                inactive_size
+                            };
+                            let lyric_btn = button(
+                                text(theme_cfg, display_text)
+                                    .size(line_size)
+                                    .color(line_color)
+                                    .font(lyrics_font),
+                            )
+                            .on_press(Message::SeekToMs(line.time_ms))
+                            .padding([2, 4])
+                            .width(Length::Fill)
+                            .style(styles::ghost_button(theme_cfg, false));
+                            col = col.push(lyric_btn);
+                        }
+                        col.boxed()
+                    }
+                    Some(ParsedLyrics::Plain(lyr)) => text(theme_cfg, lyr)
+                        .size(base_size)
+                        .color(theme_cfg.text)
+                        .font(lyrics_font)
+                        .boxed(),
+                    None => {
+                        if let Some(ref lyr) = self.current_lyrics {
+                            text(theme_cfg, lyr)
+                                .size(base_size)
+                                .color(theme_cfg.text)
+                                .font(lyrics_font)
+                                .boxed()
+                        } else {
+                            column![
+                                text(theme_cfg, "No lyrics found for this track.")
+                                    .size(14)
+                                    .color(theme_cfg.text),
+                                Space::new().height(4),
+                                text(
+                                    theme_cfg,
+                                    "Place a .lrc file in the same directory or embed lyrics in the audio file."
+                                )
+                                .size(12)
+                                .color(theme_cfg.text_muted),
+                            ]
+                            .boxed()
+                        }
+                    }
                 };
 
                 let scroll_offset = &self.scroll_offset;
@@ -497,8 +737,9 @@ mod tests {
         now_playing_view.cover_size = 300;
         assert_eq!(now_playing_view.cover_size, 300);
 
-        let _element =
-            now_playing_view.view(&theme_cfg, None, None, None, None, None, false, false, None);
+        let _element = now_playing_view.view(
+            &theme_cfg, None, None, None, None, None, false, false, 0, None,
+        );
     }
 
     #[test]
@@ -552,10 +793,8 @@ mod tests {
         };
 
         let lyrics_text = "[00:00.00] Cruising down the neon street\n[00:15.00] Bass in the night";
-        let mut now_playing_view = NowPlayingView {
-            current_lyrics: Some(lyrics_text.to_string()),
-            ..Default::default()
-        };
+        let mut now_playing_view = NowPlayingView::default();
+        now_playing_view.set_lyrics(Some(lyrics_text.to_string()));
         now_playing_view.update_track(Some(&track));
         now_playing_view.update_next_track(Some(&next_track));
         now_playing_view.update_tech_info(Some(&tech_info));
@@ -569,7 +808,48 @@ mod tests {
             None,
             true,
             true,
+            5_000,
             Some(&tech_info),
         );
+    }
+
+    #[test]
+    fn test_lrc_parsing_and_active_line() {
+        let raw = "\
+[ar:Synthwave Master]
+[ti:Midnight Drive]
+[offset:500]
+[00:01.00] First line
+[00:05.25][00:12.50] Chorus line
+[00:08.00] Second line
+";
+        let parsed = ParsedLyrics::parse(raw);
+        let ParsedLyrics::Synced(lines) = &parsed else {
+            panic!("Expected synced lyrics");
+        };
+        assert_eq!(lines.len(), 4);
+        assert_eq!(lines[0].time_ms, 1_500);
+        assert_eq!(lines[0].text, "First line");
+        assert_eq!(lines[1].time_ms, 5_750);
+        assert_eq!(lines[1].text, "Chorus line");
+        assert_eq!(lines[2].time_ms, 8_500);
+        assert_eq!(lines[2].text, "Second line");
+        assert_eq!(lines[3].time_ms, 13_000);
+        assert_eq!(lines[3].text, "Chorus line");
+
+        assert_eq!(parsed.active_line_index(1_000), None);
+        assert_eq!(parsed.active_line_index(1_500), Some(0));
+        assert_eq!(parsed.active_line_index(6_000), Some(1));
+        assert_eq!(parsed.active_line_index(99_000), Some(3));
+    }
+
+    #[test]
+    fn test_lrc_plain_text_fallback() {
+        let parsed = ParsedLyrics::parse("Just plain lyrics\nNo timestamps here");
+        assert_eq!(
+            parsed,
+            ParsedLyrics::Plain("Just plain lyrics\nNo timestamps here".to_string())
+        );
+        assert_eq!(parsed.active_line_index(1_000), None);
     }
 }

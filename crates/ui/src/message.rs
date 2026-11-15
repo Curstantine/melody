@@ -29,6 +29,7 @@ pub enum Message {
     PreviousTrack,
     Seek(f32),
     SeekFinished,
+    SeekToMs(u64),
     VolumeChanged(f32),
     AudioTick,
     ToggleShuffle,
@@ -51,6 +52,8 @@ pub enum Message {
     SetAlbumTileWidth(u32),
     SetArtistTileWidth(u32),
     SetNowPlayingCoverSize(u32),
+    SelectLyricsFont(String),
+    SetLyricsFontSize(u16),
 
     // Track interactions
     TrackClicked(i64),
@@ -316,6 +319,7 @@ impl std::fmt::Debug for Message {
             Self::PreviousTrack => write!(f, "PreviousTrack"),
             Self::Seek(v) => f.debug_tuple("Seek").field(v).finish(),
             Self::SeekFinished => write!(f, "SeekFinished"),
+            Self::SeekToMs(ms) => f.debug_tuple("SeekToMs").field(ms).finish(),
             Self::VolumeChanged(v) => f.debug_tuple("VolumeChanged").field(v).finish(),
             Self::AudioTick => write!(f, "AudioTick"),
             Self::ToggleShuffle => write!(f, "ToggleShuffle"),
@@ -348,6 +352,8 @@ impl std::fmt::Debug for Message {
             Self::SetNowPlayingCoverSize(s) => {
                 f.debug_tuple("SetNowPlayingCoverSize").field(s).finish()
             }
+            Self::SelectLyricsFont(s) => f.debug_tuple("SelectLyricsFont").field(s).finish(),
+            Self::SetLyricsFontSize(s) => f.debug_tuple("SetLyricsFontSize").field(s).finish(),
             Self::TrackClicked(id) => f.debug_tuple("TrackClicked").field(id).finish(),
             Self::OpenTrackContextMenu { track_id, context } => f
                 .debug_struct("OpenTrackContextMenu")

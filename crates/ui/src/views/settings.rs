@@ -61,6 +61,8 @@ pub struct SettingsContext<'a> {
     pub album_tile_width: u32,
     pub artist_tile_width: u32,
     pub now_playing_cover_size: u32,
+    pub lyrics_font: Option<&'a str>,
+    pub lyrics_font_size: u16,
     pub primary_font: Option<&'a str>,
     pub total_tracks: usize,
     pub total_albums: usize,
@@ -902,41 +904,137 @@ impl SettingsView {
             r
         };
 
+        let active_lyrics_font = ctx.lyrics_font.unwrap_or("Default").to_string();
+        let mut lyrics_font_options = self.available_fonts.clone();
+        if !lyrics_font_options.iter().any(|f| f == "Default") {
+            lyrics_font_options.insert(0, "Default".to_string());
+        }
+        if let Some(active) = ctx.lyrics_font {
+            if !lyrics_font_options.iter().any(|f| f == active) {
+                lyrics_font_options.push(active.to_string());
+            }
+        }
+
+        let lyrics_font_selector = pick_list(
+            Some(active_lyrics_font),
+            lyrics_font_options,
+            |option: &String| option.clone(),
+        )
+        .on_select(Message::SelectLyricsFont)
+        .placeholder("Select a system font...")
+        .font(theme_cfg.font)
+        .padding(INPUT_PADDING)
+        .text_size(12)
+        .handle(pick_list::Handle::Arrow {
+            size: Some(11.0.into()),
+        })
+        .width(Length::Fixed(220.0))
+        .style(styles::pick_list_style(theme_cfg))
+        .menu_style(styles::menu_style(theme_cfg));
+
+        let lyrics_size_presets: [u16; 4] = [13, 15, 18, 22];
+        let lyrics_size_preset_buttons = {
+            let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
+            for &size in &lyrics_size_presets {
+                let is_sel = ctx.lyrics_font_size == size;
+                let btn = components::chip(
+                    theme_cfg,
+                    format!("{} px", size),
+                    is_sel,
+                    Message::SetLyricsFontSize(size),
+                );
+                r = r.push(btn);
+            }
+            r
+        };
+
         let now_playing_card = components::settings_card(
             theme_cfg,
             "Now playing",
-            row![
-                column![
-                    text(theme_cfg, "Cover art dimension")
-                        .size(12)
-                        .color(theme_cfg.text_muted),
-                    text(
-                        theme_cfg,
-                        "Maximum dimension of the album cover displayed in the Now Playing view",
-                    )
-                    .size(11)
-                    .color(theme_cfg.text_muted),
-                ]
-                .spacing(FORM_FIELD_SPACING)
-                .width(Length::Fill),
+            column![
                 row![
-                    text(theme_cfg, format!("{} px", ctx.now_playing_cover_size))
-                        .size(12)
-                        .color(theme_cfg.primary)
-                        .width(Length::Fixed(55.0)),
-                    Space::new().width(SPACE_SM),
-                    slider(160.0..=320.0, ctx.now_playing_cover_size as f32, |val| {
-                        Message::SetNowPlayingCoverSize(val.round() as u32)
-                    },)
-                    .on_release(Message::SaveConfig)
-                    .style(styles::settings_slider_style(theme_cfg))
-                    .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
-                    Space::new().width(SPACE_LG),
-                    now_playing_preset_buttons,
+                    column![
+                        text(theme_cfg, "Cover art dimension")
+                            .size(12)
+                            .color(theme_cfg.text_muted),
+                        text(
+                            theme_cfg,
+                            "Maximum dimension of the album cover displayed in the Now Playing view",
+                        )
+                        .size(11)
+                        .color(theme_cfg.text_muted),
+                    ]
+                    .spacing(FORM_FIELD_SPACING)
+                    .width(Length::Fill),
+                    row![
+                        text(theme_cfg, format!("{} px", ctx.now_playing_cover_size))
+                            .size(12)
+                            .color(theme_cfg.primary)
+                            .width(Length::Fixed(55.0)),
+                        Space::new().width(SPACE_SM),
+                        slider(160.0..=320.0, ctx.now_playing_cover_size as f32, |val| {
+                            Message::SetNowPlayingCoverSize(val.round() as u32)
+                        },)
+                        .on_release(Message::SaveConfig)
+                        .style(styles::settings_slider_style(theme_cfg))
+                        .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
+                        Space::new().width(SPACE_LG),
+                        now_playing_preset_buttons,
+                    ]
+                    .align_y(Alignment::Center),
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    column![
+                        text(theme_cfg, "Lyrics font family")
+                            .size(12)
+                            .color(theme_cfg.text_muted),
+                        text(
+                            theme_cfg,
+                            "Font used for lyrics in Now Playing (Default follows the primary UI font)",
+                        )
+                        .size(11)
+                        .color(theme_cfg.text_muted),
+                    ]
+                    .spacing(FORM_FIELD_SPACING)
+                    .width(Length::Fill),
+                    lyrics_font_selector,
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    column![
+                        text(theme_cfg, "Lyrics font size")
+                            .size(12)
+                            .color(theme_cfg.text_muted),
+                        text(
+                            theme_cfg,
+                            "Base text size for synced and plain lyrics in Now Playing",
+                        )
+                        .size(11)
+                        .color(theme_cfg.text_muted),
+                    ]
+                    .spacing(FORM_FIELD_SPACING)
+                    .width(Length::Fill),
+                    row![
+                        text(theme_cfg, format!("{} px", ctx.lyrics_font_size))
+                            .size(12)
+                            .color(theme_cfg.primary)
+                            .width(Length::Fixed(55.0)),
+                        Space::new().width(SPACE_SM),
+                        slider(11.0..=28.0, ctx.lyrics_font_size as f32, |val| {
+                            Message::SetLyricsFontSize(val.round() as u16)
+                        })
+                        .on_release(Message::SaveConfig)
+                        .style(styles::settings_slider_style(theme_cfg))
+                        .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
+                        Space::new().width(SPACE_LG),
+                        lyrics_size_preset_buttons,
+                    ]
+                    .align_y(Alignment::Center),
                 ]
                 .align_y(Alignment::Center),
             ]
-            .align_y(Alignment::Center)
+            .spacing(SPACE_MD)
             .boxed(),
         );
 
@@ -2528,6 +2626,8 @@ mod tests {
                 album_tile_width: 170,
                 artist_tile_width: 160,
                 now_playing_cover_size: 220,
+                lyrics_font: Some("Noto Serif"),
+                lyrics_font_size: 16,
                 primary_font: Some("Noto Sans CJK JP"),
                 total_tracks: 120,
                 total_albums: 15,
@@ -2614,6 +2714,8 @@ mod tests {
             album_tile_width: 170,
             artist_tile_width: 160,
             now_playing_cover_size: 220,
+            lyrics_font: None,
+            lyrics_font_size: 15,
             primary_font: None,
             total_tracks: 10,
             total_albums: 2,

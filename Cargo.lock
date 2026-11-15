@@ -3886,7 +3886,9 @@ version = "0.5.0"
 dependencies = [
  "async-io",
  "crossbeam-channel",
+ "encoding_rs",
  "md-5",
+ "metadata",
  "mpris-server",
  "paths",
  "serde",

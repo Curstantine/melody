@@ -37,6 +37,8 @@ mod tests {
         assert_eq!(cfg.album_tile_width, 140);
         assert_eq!(cfg.artist_tile_width, 140);
         assert_eq!(cfg.now_playing_cover_size, 260);
+        assert_eq!(cfg.lyrics_font, None);
+        assert_eq!(cfg.lyrics_font_size, 15);
         assert!(cfg.gapless);
         assert!(cfg.watch_library);
         assert!(!cfg.scrobble.listenbrainz_enabled);
@@ -63,6 +65,8 @@ mod tests {
             album_tile_width: 190,
             artist_tile_width: 180,
             now_playing_cover_size: 260,
+            lyrics_font: Some("Noto Serif".to_string()),
+            lyrics_font_size: 18,
             gapless: false,
             resampling: audio::ResamplingConfig::default(),
             watch_library: false,

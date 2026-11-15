@@ -399,6 +399,47 @@ fn parse_index_slash(val: &str) -> Option<u32> {
     }
 }
 
+fn is_lyrics_tag_key(key: &str) -> bool {
+    let upper = key.to_uppercase();
+    matches!(
+        upper.as_str(),
+        "LYRICS" | "UNSYNCEDLYRICS" | "UNSYNCED LYRICS" | "SYNCEDLYRICS" | "USLT" | "©LYR"
+    ) || upper.starts_with("LYRICS-")
+        || upper.starts_with("LYRICS:")
+}
+
+/// Extracts embedded lyrics from audio file container or stream metadata tags.
+pub fn extract_lyrics(path: &Path) -> Option<String> {
+    init_ffmpeg();
+    let ictx = ffmpeg_next::format::input(path).ok()?;
+
+    let extract_from_dict = |dict: ffmpeg_next::DictionaryRef<'_>| -> Option<String> {
+        for (k, v) in dict.iter() {
+            if is_lyrics_tag_key(k) {
+                let cleaned = sanitize_tag_bytes(v.as_bytes())
+                    .replace("\r\n", "\n")
+                    .replace('\r', "\n");
+                if !cleaned.is_empty() {
+                    return Some(cleaned);
+                }
+            }
+        }
+        None
+    };
+
+    if let Some(lyrics) = extract_from_dict(ictx.metadata()) {
+        return Some(lyrics);
+    }
+
+    if let Some(st) = ictx.streams().best(ffmpeg_next::media::Type::Audio) {
+        if let Some(lyrics) = extract_from_dict(st.metadata()) {
+            return Some(lyrics);
+        }
+    }
+
+    None
+}
+
 pub fn extract_cover_art(path: &Path) -> Option<Vec<u8>> {
     let is_flac = path
         .extension()
@@ -805,5 +846,27 @@ mod tests {
         assert_eq!(no_cover, None);
 
         let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_lyrics_tag_key_matching() {
+        assert!(is_lyrics_tag_key("LYRICS"));
+        assert!(is_lyrics_tag_key("lyrics"));
+        assert!(is_lyrics_tag_key("UNSYNCEDLYRICS"));
+        assert!(is_lyrics_tag_key("unsynced lyrics"));
+        assert!(is_lyrics_tag_key("SYNCEDLYRICS"));
+        assert!(is_lyrics_tag_key("USLT"));
+        assert!(is_lyrics_tag_key("©lyr"));
+        assert!(is_lyrics_tag_key("lyrics-eng"));
+        assert!(is_lyrics_tag_key("lyrics-xxx"));
+        assert!(is_lyrics_tag_key("LYRICS:eng"));
+        assert!(!is_lyrics_tag_key("TITLE"));
+        assert!(!is_lyrics_tag_key("ARTIST"));
+    }
+
+    #[test]
+    fn test_extract_lyrics_missing_file() {
+        let missing = Path::new("/nonexistent/melody_missing_track.mp3");
+        assert_eq!(extract_lyrics(missing), None);
     }
 }

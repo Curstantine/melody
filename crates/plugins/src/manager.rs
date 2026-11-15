@@ -29,7 +29,12 @@ pub trait Plugin: Send + Sync {
     fn on_shuffle_change(&self, _is_shuffle: bool) -> Result<(), String> {
         Ok(())
     }
-    fn fetch_lyrics(&self, _artist: &str, _title: &str) -> Result<Option<String>, String> {
+    fn fetch_lyrics(
+        &self,
+        _path: Option<&std::path::Path>,
+        _artist: &str,
+        _title: &str,
+    ) -> Result<Option<String>, String> {
         Ok(None)
     }
     fn scrobble(&self, _track: &TrackMetadata, _timestamp: u64) -> Result<(), String> {
@@ -150,10 +155,15 @@ impl PluginManager {
         }
     }
 
-    pub fn fetch_lyrics(&self, artist: &str, title: &str) -> Option<String> {
+    pub fn fetch_lyrics(
+        &self,
+        path: Option<&std::path::Path>,
+        artist: &str,
+        title: &str,
+    ) -> Option<String> {
         if let Ok(list) = self.plugins.read() {
             for p in list.iter() {
-                match p.fetch_lyrics(artist, title) {
+                match p.fetch_lyrics(path, artist, title) {
                     Ok(Some(lyrics)) => return Some(lyrics),
                     Ok(None) => {}
                     Err(e) => {
@@ -213,7 +223,12 @@ mod tests {
             Ok(())
         }
 
-        fn fetch_lyrics(&self, artist: &str, title: &str) -> Result<Option<String>, String> {
+        fn fetch_lyrics(
+            &self,
+            _path: Option<&std::path::Path>,
+            artist: &str,
+            title: &str,
+        ) -> Result<Option<String>, String> {
             if artist == "TestArtist" && title == "TestSong" {
                 Ok(Some("La la la test lyrics".to_string()))
             } else {
@@ -257,10 +272,14 @@ mod tests {
         manager.on_playback_end();
         assert!(end_flag.load(Ordering::SeqCst));
 
-        let lyrics = manager.fetch_lyrics("TestArtist", "TestSong");
+        let lyrics = manager.fetch_lyrics(
+            Some(std::path::Path::new("/test/path.mp3")),
+            "TestArtist",
+            "TestSong",
+        );
         assert_eq!(lyrics, Some("La la la test lyrics".to_string()));
 
-        let no_lyrics = manager.fetch_lyrics("Unknown", "Song");
+        let no_lyrics = manager.fetch_lyrics(None, "Unknown", "Song");
         assert_eq!(no_lyrics, None);
     }
 

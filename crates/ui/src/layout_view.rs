@@ -217,6 +217,7 @@ impl App {
                     self.current_next_cover.as_ref(),
                     self.is_repeat,
                     self.is_shuffle,
+                    self.position_ms,
                     self.current_tech_info.as_ref(),
                 ))
                 .width(Length::Fill)
@@ -508,6 +509,7 @@ impl App {
                     self.current_next_cover.as_ref(),
                     self.is_repeat,
                     self.is_shuffle,
+                    self.position_ms,
                     self.current_tech_info.as_ref(),
                 )
             }
@@ -533,6 +535,8 @@ impl App {
                 album_tile_width: self.albums.tile_width,
                 artist_tile_width: self.artists.tile_width,
                 now_playing_cover_size: self.now_playing.cover_size,
+                lyrics_font: self.now_playing.lyrics_font.as_deref(),
+                lyrics_font_size: self.now_playing.lyrics_font_size,
                 primary_font: self.theme_manager.current_config.font_family.as_deref(),
                 total_tracks: self.library.total_tracks,
                 total_albums: self.albums.len(),
