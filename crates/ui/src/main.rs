@@ -1,5 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use app::App;
+use config::{AppConfig, AppState};
+use iced::{
+    window::{self, Position},
+    Size,
+};
+use tracing::info;
+
 mod app;
 mod layout_view;
 mod message;
@@ -10,10 +18,6 @@ mod window_decorations;
 #[global_allocator]
 static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
     tracy_client::ProfiledAllocator::new(std::alloc::System, 100);
-
-use app::App;
-use iced::window;
-use tracing::info;
 
 fn main() -> iced::Result {
     updater::init();
@@ -50,30 +54,28 @@ fn main() -> iced::Result {
             .try_init();
     }
 
-    let state = config::AppState::load();
-    let config = config::AppConfig::load();
-    let (width, height) = state.window_size().unwrap_or((1130.0, 740.0));
-    let width = width.max(1000.0);
-    let height = height.max(520.0);
-
+    let state = AppState::load();
+    let config = AppConfig::load();
     let app_icon =
         iced::window::icon::from_file_data(include_bytes!("../../../assets/melody.png"), None).ok();
 
-    #[allow(unused_mut)]
     let mut window_settings = window::Settings {
         icon: app_icon,
-        size: iced::Size::new(width, height),
-        min_size: Some(iced::Size::new(1000.0, 520.0)),
-        position: window::Position::Centered,
+        size: Size::new(state.window_width, state.window_height),
+        min_size: Some(Size::new(
+            config::WINDOW_MIN_WIDTH,
+            config::WINDOW_MIN_HEIGHT,
+        )),
+        position: Position::Centered,
         decorations: !config.custom_titlebar,
         ..Default::default()
     };
 
     #[cfg(target_os = "windows")]
     {
+        use iced::window::settings::platform::CornerPreference;
         window_settings.platform_specific.undecorated_shadow = true;
-        window_settings.platform_specific.corner_preference =
-            window::settings::platform::CornerPreference::Round;
+        window_settings.platform_specific.corner_preference = CornerPreference::Round;
     }
 
     #[cfg(target_os = "linux")]
@@ -82,9 +84,11 @@ fn main() -> iced::Result {
     }
 
     #[cfg(target_os = "macos")]
-    if !config.custom_titlebar {
-        window_settings.platform_specific.titlebar_transparent = true;
-        window_settings.platform_specific.fullsize_content_view = true;
+    {
+        if !config.custom_titlebar {
+            window_settings.platform_specific.titlebar_transparent = true;
+            window_settings.platform_specific.fullsize_content_view = true;
+        }
     }
 
     let app_config = config.clone();

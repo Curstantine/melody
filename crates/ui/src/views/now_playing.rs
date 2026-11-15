@@ -382,6 +382,7 @@ impl NowPlayingView {
                                 .align_y(Alignment::Center),
                         )
                         .style(styles::tile(theme_cfg))
+                        .padding(0)
                         .on_press(Message::PlayTrack(next_id))
                         .width(Length::Fill)
                         .boxed()

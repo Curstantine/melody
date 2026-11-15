@@ -7,7 +7,7 @@ pub use config::{
     DEFAULT_ARTIST_TILE_WIDTH, DEFAULT_PAGE_SIZE, DEFAULT_TILE_WIDTH,
 };
 pub use navigation::{PlaylistSection, SettingsTab, ViewTab};
-pub use state::AppState;
+pub use state::{AppState, WINDOW_MIN_HEIGHT, WINDOW_MIN_WIDTH};
 
 #[cfg(test)]
 mod tests {
@@ -188,8 +188,8 @@ is_repeat = true
         assert_eq!(st.album_sort_field, AlbumSortField::Title);
         assert_eq!(st.artist_sort_field, ArtistSortField::Artist);
         assert_eq!(st.playlist_sort_field, PlaylistSortField::Name);
-        assert_eq!(st.window_size, None);
-        assert_eq!(st.window_size(), None);
+        assert_eq!(st.window_width, WINDOW_MIN_WIDTH);
+        assert_eq!(st.window_height, WINDOW_MIN_HEIGHT);
         assert_eq!(st.queue_id, None);
         assert_eq!(st.playing_seq, None);
     }
@@ -208,9 +208,8 @@ is_repeat = true
             album_sort_field: AlbumSortField::Artist,
             artist_sort_field: ArtistSortField::TrackCount,
             playlist_sort_field: PlaylistSortField::TrackCount,
-            window_size: Some((1280.0, 800.0)),
-            window_width: None,
-            window_height: None,
+            window_width: 1280.0,
+            window_height: 800.0,
             queue_id: Some(12),
             playing_seq: Some(5),
         };
@@ -223,7 +222,8 @@ is_repeat = true
 
         let loaded = AppState::load_from_path(&temp_file);
         assert_eq!(custom, loaded);
-        assert_eq!(loaded.window_size(), Some((1280.0, 800.0)));
+        assert_eq!(loaded.window_width, 1280.0);
+        assert_eq!(loaded.window_height, 800.0);
 
         let _ = std::fs::remove_file(temp_file);
     }
@@ -263,20 +263,22 @@ playlist_sort_field = "DateAdded"
         assert_eq!(state.album_sort_field, AlbumSortField::Year);
         assert_eq!(state.artist_sort_field, ArtistSortField::AlbumCount);
         assert_eq!(state.playlist_sort_field, PlaylistSortField::DateAdded);
-        assert_eq!(state.window_size, None);
+        assert_eq!(state.window_width, WINDOW_MIN_WIDTH);
+        assert_eq!(state.window_height, WINDOW_MIN_HEIGHT);
         assert_eq!(state.queue_id, None);
         assert_eq!(state.playing_seq, None);
     }
 
     #[test]
-    fn test_window_size_fallback_from_width_height() {
+    fn test_window_dimensions_deserialize() {
         let toml = r#"
 window_width = 1440.0
 window_height = 900.0
 "#;
         let state: AppState =
             toml::from_str(toml).expect("Failed to parse state with width and height");
-        assert_eq!(state.window_size(), Some((1440.0, 900.0)));
+        assert_eq!(state.window_width, 1440.0);
+        assert_eq!(state.window_height, 900.0);
     }
 
     #[test]

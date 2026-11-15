@@ -6,8 +6,19 @@ use tracing::{error, info};
 use crate::navigation::{SettingsTab, ViewTab};
 use model::{AlbumSortField, ArtistSortField, PlaylistSortField, ViewMode};
 
-fn default_volume() -> f32 {
+pub const WINDOW_MIN_WIDTH: f32 = 1000.0;
+pub const WINDOW_MIN_HEIGHT: f32 = 520.0;
+
+const fn default_volume() -> f32 {
     1.0
+}
+
+const fn default_width() -> f32 {
+    WINDOW_MIN_WIDTH
+}
+
+const fn default_height() -> f32 {
+    WINDOW_MIN_HEIGHT
 }
 
 /// Persistent runtime state of the application and player.
@@ -42,12 +53,10 @@ pub struct AppState {
     #[serde(default)]
     pub playlist_sort_field: PlaylistSortField,
 
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub window_size: Option<(f32, f32)>,
-    #[serde(default, skip_serializing)]
-    pub window_width: Option<f32>,
-    #[serde(default, skip_serializing)]
-    pub window_height: Option<f32>,
+    #[serde(default = "default_width")]
+    pub window_width: f32,
+    #[serde(default = "default_height")]
+    pub window_height: f32,
 
     #[serde(
         default,
@@ -79,9 +88,8 @@ impl Default for AppState {
             album_sort_field: AlbumSortField::Title,
             artist_sort_field: ArtistSortField::Artist,
             playlist_sort_field: PlaylistSortField::Name,
-            window_size: None,
-            window_width: None,
-            window_height: None,
+            window_width: default_width(),
+            window_height: default_height(),
             queue_id: None,
             playing_seq: None,
         }
@@ -89,16 +97,6 @@ impl Default for AppState {
 }
 
 impl AppState {
-    pub fn window_size(&self) -> Option<(f32, f32)> {
-        if let Some(size) = self.window_size {
-            Some(size)
-        } else if let (Some(w), Some(h)) = (self.window_width, self.window_height) {
-            Some((w, h))
-        } else {
-            None
-        }
-    }
-
     pub fn load() -> Self {
         let path = paths::state_file();
         if path.exists() {

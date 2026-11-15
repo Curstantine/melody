@@ -328,10 +328,10 @@ impl App {
 
             context_menu: None,
             duplicate_prompt: None,
-            window_size: {
-                let (w, h) = state.window_size().unwrap_or((1130.0, 740.0));
-                iced::Size::new(w.max(1000.0), h.max(520.0))
-            },
+            window_size: iced::Size::new(
+                state.window_width.max(config::WINDOW_MIN_WIDTH),
+                state.window_height.max(config::WINDOW_MIN_HEIGHT),
+            ),
             is_maximized: false,
             custom_titlebar: config.custom_titlebar,
             last_titlebar_press: None,
@@ -3737,9 +3737,8 @@ impl App {
             album_sort_field: self.albums.sort_field,
             artist_sort_field: self.artists.sort_field,
             playlist_sort_field: self.playlists.sort_field,
-            window_size: Some((self.window_size.width, self.window_size.height)),
-            window_width: None,
-            window_height: None,
+            window_width: self.window_size.width,
+            window_height: self.window_size.height,
             queue_id,
             playing_seq,
         }
