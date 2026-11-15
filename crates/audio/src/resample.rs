@@ -118,6 +118,7 @@ impl Default for ResamplingConfig {
 
 impl ResamplingConfig {
     /// Builds an FFmpeg AVOptions dictionary to pass into `ResamplerContext::get_with`.
+    #[cfg(feature = "ffmpeg")]
     pub fn to_dictionary(&self) -> ffmpeg_next::Dictionary<'static> {
         let mut dict = ffmpeg_next::Dictionary::new();
         match self.filter {
@@ -160,6 +161,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_resampling_config_defaults() {
+        let default_cfg = ResamplingConfig::default();
+        assert_eq!(default_cfg.filter, ResamplingFilter::Kaiser);
+        assert_eq!(default_cfg.quality, ResamplingQuality::Standard);
+        assert!(default_cfg.linear_interp);
+    }
+
+    #[cfg(feature = "ffmpeg")]
+    #[test]
     fn test_resampling_configuration_and_dictionary() {
         let default_cfg = ResamplingConfig::default();
         assert_eq!(default_cfg.filter, ResamplingFilter::Kaiser);
@@ -178,6 +188,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "ffmpeg")]
     #[test]
     fn test_resampler_context_creation_with_filters() {
         let _ = ffmpeg_next::init();

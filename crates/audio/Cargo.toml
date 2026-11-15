@@ -6,11 +6,18 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = ["ffmpeg"]
+ffmpeg = ["dep:ffmpeg-next"]
+symphonia = ["dep:symphonia", "dep:rubato"]
+
 [dependencies]
 cpal.workspace = true
-ffmpeg-next.workspace = true
+ffmpeg-next = { workspace = true, optional = true }
 ringbuf.workspace = true
+rubato = { workspace = true, optional = true }
 crossbeam-channel.workspace = true
 serde.workspace = true
+symphonia = { workspace = true, optional = true }
 thiserror.workspace = true
 tracing.workspace = true

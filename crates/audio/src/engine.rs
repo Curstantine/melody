@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
@@ -6,19 +6,12 @@ use std::time::{Duration, Instant};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use ffmpeg_next::format::context::Input;
-use ffmpeg_next::media::Type;
-use ffmpeg_next::software::resampling::context::Context as ResamplerContext;
-use ffmpeg_next::util::{
-    channel_layout::ChannelLayout,
-    format::{sample::Type as SampleType, Sample},
-    frame::Audio as AudioFrame,
-};
 use ringbuf::traits::{Consumer, Observer, Producer, Split};
 use ringbuf::HeapRb;
 use thiserror::Error;
 use tracing::{error, info, warn};
 
+use crate::backend::{LoadedTrack, RingSink};
 use crate::{commands::AudioCommand, status::AudioStatus};
 
 /// ~1.5 seconds of stereo f32 at 48 kHz: 48_000 * 2 * 1.5 = 144_000 samples.
@@ -138,42 +131,10 @@ impl Default for AudioEngine {
     }
 }
 
-fn init_ffmpeg() {
-    static ONCE: std::sync::Once = std::sync::Once::new();
-    ONCE.call_once(|| {
-        let _ = ffmpeg_next::init();
-    });
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TrackBoundary {
     pub switch_at_sample: u64,
     pub next_duration_ms: u64,
-}
-
-struct LoadedTrack {
-    path: PathBuf,
-    duration_ms: u64,
-    input: Input,
-    decoder: ffmpeg_next::codec::decoder::Audio,
-    stream_index: usize,
-    resampler: ResamplerContext,
-    reached_eof: bool,
-    decoded_frame: AudioFrame,
-    resampled_frame: AudioFrame,
-}
-
-fn target_channel_layout(channels: usize) -> ChannelLayout {
-    match channels {
-        1 => ChannelLayout::MONO,
-        2 => ChannelLayout::STEREO,
-        3 => ChannelLayout::SURROUND,
-        4 => ChannelLayout::QUAD,
-        5 => ChannelLayout::_5POINT0,
-        6 => ChannelLayout::_5POINT1,
-        8 => ChannelLayout::_7POINT1,
-        n => ChannelLayout::default(n as i32),
-    }
 }
 
 struct AudioStreamContext {
@@ -290,52 +251,21 @@ fn run_audio_worker(
         // 2. Decode audio if playing and loaded
         if status.is_playing() {
             let ctx = ensure_stream(&mut stream_ctx, &status, &flush_flag);
-            let device_channels = ctx.device_channels;
             let output_latency_us = &ctx.output_latency_us;
 
             let mut transition_to = None;
             if let Some(track) = loaded_track.as_mut() {
-                if !track.reached_eof {
+                if !track.reached_eof() {
                     eof_deadline = None;
 
-                    // Try to read next packet from input
-                    match track.input.packets().next() {
-                        Some((stream, packet)) => {
-                            if stream.index() == track.stream_index {
-                                if let Err(e) = track.decoder.send_packet(&packet) {
-                                    warn!("Audio decoder send_packet error: {}", e);
-                                } else {
-                                    drain_decoder_frames(
-                                        track,
-                                        &mut ctx.ring_producer,
-                                        device_channels,
-                                        &flush_flag,
-                                        &mut written_samples,
-                                    );
-                                }
-                            }
-                        }
-                        None => {
-                            track.reached_eof = true;
-                            let _ = track.decoder.send_eof();
-                            drain_decoder_frames(
-                                track,
-                                &mut ctx.ring_producer,
-                                device_channels,
-                                &flush_flag,
-                                &mut written_samples,
-                            );
-                            flush_resampler(
-                                track,
-                                &mut ctx.ring_producer,
-                                device_channels,
-                                &flush_flag,
-                                &mut written_samples,
-                            );
-
-                            if let Some(next) = next_track.take() {
-                                transition_to = Some(next);
-                            }
+                    let mut sink = RingSink {
+                        ring_producer: &mut ctx.ring_producer,
+                        flush_flag: &flush_flag,
+                        written_samples: &mut written_samples,
+                    };
+                    if track.decode_step(&mut sink) {
+                        if let Some(next) = next_track.take() {
+                            transition_to = Some(next);
                         }
                     }
                 } else if let Some(next) = next_track.take() {
@@ -389,12 +319,13 @@ fn run_audio_worker(
             if let Some(next) = transition_to {
                 info!(
                     "Transitioning gaplessly to next track {:?} (switch at sample {})",
-                    next.path, written_samples
+                    next.path(),
+                    written_samples
                 );
                 if let Some(ref mut bp) = ctx.boundary_producer {
                     let _ = bp.try_push(TrackBoundary {
                         switch_at_sample: written_samples,
-                        next_duration_ms: next.duration_ms,
+                        next_duration_ms: next.duration_ms(),
                     });
                 }
                 loaded_track = Some(next);
@@ -447,110 +378,7 @@ fn run_audio_worker(
     }
 }
 
-fn push_frame_data(
-    data_bytes: &[u8],
-    total_floats: usize,
-    ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
-    flush_flag: &Arc<AtomicBool>,
-    written_samples: &mut u64,
-) -> bool {
-    let byte_count = total_floats * std::mem::size_of::<f32>();
-    if data_bytes.len() < byte_count {
-        return true;
-    }
-    let ptr = data_bytes.as_ptr();
-    if (ptr as usize).is_multiple_of(std::mem::align_of::<f32>()) {
-        let float_slice = unsafe { std::slice::from_raw_parts(ptr as *const f32, total_floats) };
-        if let Some(ref mut prod) = ring_producer {
-            return push_to_ring_buffer(prod, float_slice, flush_flag, written_samples);
-        }
-    } else {
-        let mut aligned = vec![0.0f32; total_floats];
-        unsafe {
-            std::ptr::copy_nonoverlapping(ptr, aligned.as_mut_ptr() as *mut u8, byte_count);
-        }
-        if let Some(ref mut prod) = ring_producer {
-            return push_to_ring_buffer(prod, &aligned, flush_flag, written_samples);
-        }
-    }
-    true
-}
-
-fn drain_decoder_frames(
-    track: &mut LoadedTrack,
-    ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
-    device_channels: usize,
-    flush_flag: &Arc<AtomicBool>,
-    written_samples: &mut u64,
-) {
-    while track
-        .decoder
-        .receive_frame(&mut track.decoded_frame)
-        .is_ok()
-    {
-        if flush_flag.load(Ordering::Relaxed) {
-            break;
-        }
-
-        // Resample decoded frame to destination format/rate/channels
-        match track
-            .resampler
-            .run(&track.decoded_frame, &mut track.resampled_frame)
-        {
-            Ok(_) => {
-                let samples_count = track.resampled_frame.samples();
-                if samples_count > 0 {
-                    let total_floats = samples_count * device_channels;
-                    let data_bytes = track.resampled_frame.data(0);
-                    if !push_frame_data(
-                        data_bytes,
-                        total_floats,
-                        ring_producer,
-                        flush_flag,
-                        written_samples,
-                    ) {
-                        break;
-                    }
-                }
-            }
-            Err(e) => {
-                warn!("Resampling error: {}", e);
-            }
-        }
-    }
-}
-
-fn flush_resampler(
-    track: &mut LoadedTrack,
-    ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
-    device_channels: usize,
-    flush_flag: &Arc<AtomicBool>,
-    written_samples: &mut u64,
-) {
-    while let Ok(Some(_)) = track.resampler.flush(&mut track.resampled_frame) {
-        if flush_flag.load(Ordering::Relaxed) {
-            break;
-        }
-
-        let samples_count = track.resampled_frame.samples();
-        if samples_count == 0 {
-            break;
-        }
-        let total_floats = samples_count * device_channels;
-        let data_bytes = track.resampled_frame.data(0);
-        if !push_frame_data(
-            data_bytes,
-            total_floats,
-            ring_producer,
-            flush_flag,
-            written_samples,
-        ) {
-            break;
-        }
-    }
-}
-
-fn push_to_ring_buffer(
+pub(crate) fn push_to_ring_buffer(
     prod: &mut ringbuf::HeapProd<f32>,
     samples: &[f32],
     flush_flag: &Arc<AtomicBool>,
@@ -951,14 +779,14 @@ fn handle_command(
         AudioCommand::Load { path, autoplay } => {
             info!("Loading audio file: {:?}", path);
             *next_track = None;
-            match load_track(&path, device_sample_rate, device_channels, resampling_cfg) {
+            match LoadedTrack::load(&path, device_sample_rate, device_channels, resampling_cfg) {
                 Ok(track) => {
                     // Flush any stale audio from the previous track and wait for the consumer
                     // callback to acknowledge it before loading the new track and decoding samples.
                     flush_audio_buffer(flush_flag);
                     *written_samples = 0;
 
-                    let duration_ms = track.duration_ms;
+                    let duration_ms = track.duration_ms();
                     *loaded_track = Some(track);
                     status.set_duration_ms(duration_ms);
                     status.set_position_ms(0);
@@ -976,13 +804,14 @@ fn handle_command(
         }
         AudioCommand::SetNextTrack(maybe_path) => match maybe_path {
             Some(path) => {
-                if next_track.as_ref().map(|t| &t.path) == Some(&path) {
+                if next_track.as_ref().map(|t| t.path()) == Some(path.as_path()) {
                     return;
                 }
                 info!("Preloading next track for gapless audio: {:?}", path);
-                match load_track(&path, device_sample_rate, device_channels, resampling_cfg) {
+                match LoadedTrack::load(&path, device_sample_rate, device_channels, resampling_cfg)
+                {
                     Ok(track) => {
-                        info!("Preloaded next track successfully: {:?}", track.path);
+                        info!("Preloaded next track successfully: {:?}", track.path());
                         *next_track = Some(track);
                     }
                     Err(e) => {
@@ -1013,14 +842,7 @@ fn handle_command(
             status.set_position_ms(0);
             *next_track = None;
             if let Some(track) = loaded_track.as_mut() {
-                let _ = track.input.seek(0, ..);
-                track.decoder.flush();
-                while let Ok(Some(_)) = track.resampler.flush(&mut track.resampled_frame) {
-                    if track.resampled_frame.samples() == 0 {
-                        break;
-                    }
-                }
-                track.reached_eof = false;
+                track.seek_to_start();
             }
             flush_audio_buffer(flush_flag);
             *written_samples = 0;
@@ -1033,30 +855,17 @@ fn handle_command(
                 } else {
                     duration
                 };
-                // ffmpeg-next input.seek passes stream_index = -1 to avformat_seek_file,
-                // which expects timestamp in AV_TIME_BASE units (microseconds).
-                let seek_micros = target_dur.as_micros() as i64;
 
-                match track.input.seek(seek_micros, ..) {
+                match track.seek(target_dur) {
                     Ok(_) => {
-                        track.decoder.flush();
-                        while let Ok(Some(_)) = track.resampler.flush(&mut track.resampled_frame) {
-                            if track.resampled_frame.samples() == 0 {
-                                break;
-                            }
-                        }
-                        track.reached_eof = false;
                         flush_audio_buffer(flush_flag);
                         *written_samples = 0;
 
                         if let Some(ref mut next) = next_track {
-                            let _ = next.input.seek(0, ..);
-                            next.decoder.flush();
-                            next.reached_eof = false;
+                            next.seek_to_start();
                         }
 
                         status.set_position_ms(target_dur.as_millis() as u64);
-                        info!("Seeked to {:?}", target_dur);
                     }
                     Err(e) => {
                         warn!("Failed to seek: {}", e);
@@ -1071,162 +880,13 @@ fn handle_command(
             info!("Updating audio resampling configuration: {:?}", new_cfg);
             *resampling_cfg = new_cfg.clone();
             if let Some(track) = loaded_track.as_mut() {
-                let src_ch = get_decoder_channel_layout(&track.decoder);
-                let src_rate = if track.decoder.rate() > 0 {
-                    track.decoder.rate()
-                } else {
-                    44100
-                };
-                match create_resampler(
-                    track.decoder.format(),
-                    src_ch,
-                    src_rate,
-                    device_sample_rate,
-                    device_channels,
-                    &new_cfg,
-                ) {
-                    Ok(r) => track.resampler = r,
-                    Err(e) => warn!("Failed to re-initialize resampler for loaded track: {}", e),
-                }
+                track.reconfigure_resampler(device_sample_rate, device_channels, &new_cfg);
             }
             if let Some(track) = next_track.as_mut() {
-                let src_ch = get_decoder_channel_layout(&track.decoder);
-                let src_rate = if track.decoder.rate() > 0 {
-                    track.decoder.rate()
-                } else {
-                    44100
-                };
-                match create_resampler(
-                    track.decoder.format(),
-                    src_ch,
-                    src_rate,
-                    device_sample_rate,
-                    device_channels,
-                    &new_cfg,
-                ) {
-                    Ok(r) => track.resampler = r,
-                    Err(e) => warn!("Failed to re-initialize resampler for next track: {}", e),
-                }
+                track.reconfigure_resampler(device_sample_rate, device_channels, &new_cfg);
             }
         }
     }
-}
-
-fn get_decoder_channel_layout(decoder: &ffmpeg_next::codec::decoder::Audio) -> ChannelLayout {
-    if decoder.channel_layout().is_empty() {
-        let ch = if decoder.channels() > 0 {
-            decoder.channels() as usize
-        } else {
-            2
-        };
-        target_channel_layout(ch)
-    } else {
-        decoder.channel_layout()
-    }
-}
-
-fn create_resampler(
-    src_format: Sample,
-    src_channel_layout: ChannelLayout,
-    src_rate: u32,
-    dst_sample_rate: u32,
-    dst_channels: usize,
-    resampling_cfg: &crate::resample::ResamplingConfig,
-) -> Result<ResamplerContext, ffmpeg_next::Error> {
-    let dst_format = Sample::F32(SampleType::Packed);
-    let dst_channel_layout = target_channel_layout(dst_channels);
-    let options = resampling_cfg.to_dictionary();
-
-    match ResamplerContext::get_with(
-        src_format,
-        src_channel_layout,
-        src_rate,
-        dst_format,
-        dst_channel_layout,
-        dst_sample_rate,
-        options,
-    ) {
-        Ok(resampler) => Ok(resampler),
-        Err(err) => {
-            warn!(
-                "Failed to initialize resampler with {:?}: {}. Falling back to default SWR Kaiser sinc.",
-                resampling_cfg, err
-            );
-            let fallback_dict = crate::resample::ResamplingConfig::default().to_dictionary();
-            ResamplerContext::get_with(
-                src_format,
-                src_channel_layout,
-                src_rate,
-                dst_format,
-                dst_channel_layout,
-                dst_sample_rate,
-                fallback_dict,
-            )
-        }
-    }
-}
-
-fn load_track(
-    path: &Path,
-    dst_sample_rate: u32,
-    dst_channels: usize,
-    resampling_cfg: &crate::resample::ResamplingConfig,
-) -> Result<LoadedTrack, Box<dyn std::error::Error + Send + Sync>> {
-    init_ffmpeg();
-
-    let input = ffmpeg_next::format::input(path)?;
-    let audio_stream = input
-        .streams()
-        .best(Type::Audio)
-        .ok_or("No audio stream found in file")?;
-
-    let stream_index = audio_stream.index();
-    let time_base = audio_stream.time_base();
-
-    // Duration calculation
-    let duration_ms = if audio_stream.duration() > 0 {
-        let tb = f64::from(time_base.numerator()) / f64::from(time_base.denominator());
-        (audio_stream.duration() as f64 * tb * 1000.0) as u64
-    } else if input.duration() > 0 {
-        (input.duration() as f64 / f64::from(ffmpeg_next::ffi::AV_TIME_BASE) * 1000.0) as u64
-    } else {
-        0
-    };
-
-    let context_decoder =
-        ffmpeg_next::codec::context::Context::from_parameters(audio_stream.parameters())?;
-    let decoder = context_decoder.decoder().audio()?;
-
-    let src_format = decoder.format();
-    let src_channel_layout = get_decoder_channel_layout(&decoder);
-    let src_rate = if decoder.rate() > 0 {
-        decoder.rate()
-    } else {
-        44100
-    };
-
-    let resampler = create_resampler(
-        src_format,
-        src_channel_layout,
-        src_rate,
-        dst_sample_rate,
-        dst_channels,
-        resampling_cfg,
-    )?;
-
-    let loaded = LoadedTrack {
-        path: path.to_path_buf(),
-        duration_ms,
-        input,
-        decoder,
-        stream_index,
-        resampler,
-        reached_eof: false,
-        decoded_frame: AudioFrame::empty(),
-        resampled_frame: AudioFrame::empty(),
-    };
-
-    Ok(loaded)
 }
 
 #[cfg(test)]

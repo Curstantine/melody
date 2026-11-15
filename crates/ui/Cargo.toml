@@ -63,7 +63,9 @@ tracy-client = { workspace = true, optional = true, default-features = false, fe
 tracing-tracy = { workspace = true, optional = true }
 
 [features]
-default = []
+default = ["ffmpeg"]
+ffmpeg = ["audio/ffmpeg", "metadata/ffmpeg"]
+symphonia = ["audio/symphonia", "metadata/symphonia"]
 tracy = ["dep:tracy-client", "dep:tracing-tracy"]
 
 [target.'cfg(windows)'.dependencies]

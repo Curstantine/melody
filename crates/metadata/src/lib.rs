@@ -6,7 +6,14 @@ use std::{
 
 use model::NewTrack;
 
+#[cfg(all(feature = "ffmpeg", feature = "symphonia"))]
+compile_error!("Features `ffmpeg` and `symphonia` are mutually exclusive in `metadata`.");
+
 pub mod error;
+#[cfg(feature = "ffmpeg")]
+mod ffmpeg_backend;
+#[cfg(feature = "symphonia")]
+mod symphonia_backend;
 pub mod watcher;
 
 pub use error::MetadataError;
@@ -72,98 +79,22 @@ impl AudioTechnicalInfo {
     }
 }
 
-fn init_ffmpeg() {
-    static ONCE: std::sync::Once = std::sync::Once::new();
-    ONCE.call_once(|| {
-        let _ = ffmpeg_next::init();
-    });
-}
-
-pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTechnicalInfo> {
-    init_ffmpeg();
-    let file_size_bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
-    let ictx = ffmpeg_next::format::input(path).ok()?;
-
-    let audio_stream = ictx.streams().best(ffmpeg_next::media::Type::Audio)?;
-    let codec_params = audio_stream.parameters();
-    let raw_par_ptr = unsafe { codec_params.as_ptr() };
-    if raw_par_ptr.is_null() {
-        return None;
-    }
-    let raw_par = unsafe { &*raw_par_ptr };
-
-    let sample_rate_hz = if raw_par.sample_rate > 0 {
-        raw_par.sample_rate as u32
-    } else {
-        44100
-    };
-
-    let channels = if raw_par.ch_layout.nb_channels > 0 {
-        raw_par.ch_layout.nb_channels as u32
-    } else {
-        2
-    };
-
-    let bit_depth = if raw_par.bits_per_raw_sample > 0 {
-        Some(raw_par.bits_per_raw_sample as u32)
-    } else if raw_par.bits_per_coded_sample > 0 {
-        Some(raw_par.bits_per_coded_sample as u32)
-    } else {
-        match raw_par.format {
-            // AV_SAMPLE_FMT_U8 / U8P
-            0 | 5 => Some(8),
-            // AV_SAMPLE_FMT_S16 / S16P
-            1 | 6 => Some(16),
-            // AV_SAMPLE_FMT_S32 / S32P / FLT / FLTP
-            2 | 7 | 3 | 8 => Some(32),
-            // AV_SAMPLE_FMT_DBL / DBLP / S64 / S64P
-            4 | 9 | 10 | 11 => Some(64),
-            _ => None,
-        }
-    };
-
-    let codec_id = codec_params.id();
-    let codec_name = match codec_id {
-        ffmpeg_next::codec::Id::FLAC => "FLAC".to_string(),
-        ffmpeg_next::codec::Id::MP3 => "MP3 (MPEG Audio Layer III)".to_string(),
-        ffmpeg_next::codec::Id::AAC => "AAC (Advanced Audio Coding)".to_string(),
-        ffmpeg_next::codec::Id::VORBIS => "Vorbis".to_string(),
-        ffmpeg_next::codec::Id::OPUS => "Opus".to_string(),
-        ffmpeg_next::codec::Id::ALAC => "ALAC (Apple Lossless)".to_string(),
-        ffmpeg_next::codec::Id::PCM_S16LE
-        | ffmpeg_next::codec::Id::PCM_S16BE
-        | ffmpeg_next::codec::Id::PCM_S24LE
-        | ffmpeg_next::codec::Id::PCM_S24BE
-        | ffmpeg_next::codec::Id::PCM_S32LE
-        | ffmpeg_next::codec::Id::PCM_S32BE
-        | ffmpeg_next::codec::Id::PCM_F32LE
-        | ffmpeg_next::codec::Id::PCM_F32BE => "PCM (Uncompressed)".to_string(),
-        _ => {
-            let name = codec_id.name();
-            if name.is_empty() {
-                path.extension()
-                    .and_then(|e| e.to_str())
-                    .map(|e| e.to_uppercase())
-                    .unwrap_or_else(|| "Unknown".to_string())
-            } else {
-                name.to_uppercase()
-            }
-        }
-    };
-
-    let channel_layout = match channels {
+pub(crate) fn channel_layout_label(channels: u32) -> String {
+    match channels {
         1 => "Mono".to_string(),
         2 => "Stereo".to_string(),
         6 => "5.1 Surround".to_string(),
         8 => "7.1 Surround".to_string(),
         n => format!("{n} Channels"),
-    };
+    }
+}
 
+pub(crate) fn format_name_for_path(path: &Path) -> String {
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
         .map(|s| s.to_lowercase());
-    let format_name = match ext.as_deref() {
+    match ext.as_deref() {
         Some("flac") => "FLAC Lossless",
         Some("mp3") => "MP3 Audio",
         Some("wav") => "WAV Audio",
@@ -173,57 +104,28 @@ pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTech
         Some("aiff") | Some("aif") => "AIFF Audio",
         _ => "Audio",
     }
-    .to_string();
-
-    let bitrate_kbps = if ictx.bit_rate() > 0 {
-        Some((ictx.bit_rate() / 1000) as u32)
-    } else if duration_ms > 0 && file_size_bytes > 0 {
-        Some(((file_size_bytes * 8) / duration_ms) as u32)
-    } else {
-        None
-    };
-
-    Some(AudioTechnicalInfo {
-        format_name,
-        codec_name,
-        sample_rate_hz,
-        bit_depth,
-        channels,
-        channel_layout,
-        bitrate_kbps,
-        file_size_bytes,
-    })
+    .to_string()
 }
 
-pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
-    init_ffmpeg();
-    let file_len = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
-    let ictx = ffmpeg_next::format::input(path).map_err(|e| {
-        if !path.exists() {
-            MetadataError::Io(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "File not found",
-            ))
-        } else {
-            MetadataError::Ffmpeg(e)
-        }
-    })?;
+#[derive(Default)]
+pub(crate) struct ParsedTags {
+    title: Option<String>,
+    artist: Option<String>,
+    album_artist: Option<String>,
+    album: Option<String>,
+    genre: Option<String>,
+    track_num: Option<u32>,
+    disc_num: Option<u32>,
+    year: Option<u32>,
+    composer: Option<String>,
+    label: Option<String>,
+    musicbrainz_track_id: Option<String>,
+    musicbrainz_artist_id: Option<String>,
+    musicbrainz_album_id: Option<String>,
+}
 
-    let mut title: Option<String> = None;
-    let mut artist: Option<String> = None;
-    let mut album_artist: Option<String> = None;
-    let mut album: Option<String> = None;
-    let mut genre: Option<String> = None;
-    let mut track_num: Option<u32> = None;
-    let mut disc_num: Option<u32> = None;
-    let mut year: Option<u32> = None;
-    let mut composer: Option<String> = None;
-    let mut label: Option<String> = None;
-    let mut musicbrainz_track_id: Option<String> = None;
-    let mut musicbrainz_artist_id: Option<String> = None;
-    let mut musicbrainz_album_id: Option<String> = None;
-
-    let mut parse_tag = |key: &str, val_str: &str| {
+impl ParsedTags {
+    pub(crate) fn parse_tag(&mut self, key: &str, val_str: &str) {
         let val = sanitize_tag_bytes(val_str.as_bytes());
         if val.is_empty() {
             return;
@@ -231,102 +133,104 @@ pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
 
         let key_upper = key.to_uppercase();
         match key_upper.as_str() {
-            "TITLE" | "TIT2" if title.is_none() => title = Some(val),
-            "ARTIST" | "TPE1" if artist.is_none() => artist = Some(val),
+            "TITLE" | "TIT2" if self.title.is_none() => self.title = Some(val),
+            "ARTIST" | "TPE1" if self.artist.is_none() => self.artist = Some(val),
             "ALBUMARTIST" | "ALBUM ARTIST" | "ALBUM_ARTIST" | "TPE2" | "AART"
-                if album_artist.is_none() =>
+                if self.album_artist.is_none() =>
             {
-                album_artist = Some(val)
+                self.album_artist = Some(val)
             }
-            "ALBUM" | "TALB" if album.is_none() => album = Some(val),
-            "GENRE" | "TCON" if genre.is_none() => genre = Some(val),
-            "TRACK" | "TRACKNUMBER" | "TRCK" if track_num.is_none() => {
-                track_num = parse_index_slash(&val);
+            "ALBUM" | "TALB" if self.album.is_none() => self.album = Some(val),
+            "GENRE" | "TCON" if self.genre.is_none() => self.genre = Some(val),
+            "TRACK" | "TRACKNUMBER" | "TRCK" if self.track_num.is_none() => {
+                self.track_num = parse_index_slash(&val);
             }
-            "DISC" | "DISCNUMBER" | "TPOS" if disc_num.is_none() => {
-                disc_num = parse_index_slash(&val);
+            "DISC" | "DISCNUMBER" | "TPOS" if self.disc_num.is_none() => {
+                self.disc_num = parse_index_slash(&val);
             }
-            "DATE" | "YEAR" | "TYER" | "TDRC" | "TDRL" | "ORIGINALDATE" if year.is_none() => {
-                year = parse_year(&val);
+            "DATE" | "YEAR" | "TYER" | "TDRC" | "TDRL" | "ORIGINALDATE" if self.year.is_none() => {
+                self.year = parse_year(&val);
             }
-            "COMPOSER" | "TCOM" if composer.is_none() => composer = Some(val),
-            "LABEL" | "PUBLISHER" | "ORGANIZATION" | "TPUB" if label.is_none() => label = Some(val),
+            "COMPOSER" | "TCOM" if self.composer.is_none() => self.composer = Some(val),
+            "LABEL" | "PUBLISHER" | "ORGANIZATION" | "TPUB" if self.label.is_none() => {
+                self.label = Some(val)
+            }
             "MUSICBRAINZ_TRACKID" | "MUSICBRAINZ TRACK ID" | "MUSICBRAINZ_RECORDINGID"
-                if musicbrainz_track_id.is_none() =>
+                if self.musicbrainz_track_id.is_none() =>
             {
-                musicbrainz_track_id = Some(val);
+                self.musicbrainz_track_id = Some(val);
             }
-            "MUSICBRAINZ_ARTISTID" | "MUSICBRAINZ ARTIST ID" if musicbrainz_artist_id.is_none() => {
-                musicbrainz_artist_id = Some(val);
+            "MUSICBRAINZ_ARTISTID" | "MUSICBRAINZ ARTIST ID"
+                if self.musicbrainz_artist_id.is_none() =>
+            {
+                self.musicbrainz_artist_id = Some(val);
             }
-            "MUSICBRAINZ_ALBUMID" | "MUSICBRAINZ ALBUM ID" if musicbrainz_album_id.is_none() => {
-                musicbrainz_album_id = Some(val);
+            "MUSICBRAINZ_ALBUMID" | "MUSICBRAINZ ALBUM ID"
+                if self.musicbrainz_album_id.is_none() =>
+            {
+                self.musicbrainz_album_id = Some(val);
             }
             _ => {}
         }
-    };
-
-    // 1. Parse container metadata
-    for (k, v) in ictx.metadata().iter() {
-        parse_tag(k, v);
     }
 
-    // 2. Parse audio stream metadata
-    let audio_stream = ictx.streams().best(ffmpeg_next::media::Type::Audio);
-    if let Some(ref st) = audio_stream {
-        for (k, v) in st.metadata().iter() {
-            parse_tag(k, v);
+    pub(crate) fn into_new_track(self, path: &Path, duration_ms: u64) -> NewTrack {
+        let default_title = path
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .map(|s| s.replace('\0', ""))
+            .unwrap_or_else(|| "Unknown Title".to_string());
+
+        NewTrack {
+            file_path: path.to_string_lossy().replace('\0', ""),
+            title: self.title.unwrap_or(default_title),
+            artist: self.artist.unwrap_or_else(|| "Unknown Artist".to_string()),
+            album_artist: self.album_artist,
+            album: self.album.unwrap_or_else(|| "Unknown Album".to_string()),
+            genre: self.genre,
+            duration_ms,
+            track_num: self.track_num,
+            disc_num: self.disc_num,
+            year: self.year,
+            composer: self.composer,
+            label: self.label,
+            musicbrainz_track_id: self.musicbrainz_track_id,
+            musicbrainz_artist_id: self.musicbrainz_artist_id,
+            musicbrainz_album_id: self.musicbrainz_album_id,
         }
     }
+}
 
-    // Duration calculation
-    let mut duration_ms = 0u64;
-    let format_dur = ictx.duration();
-    if format_dur > 0 {
-        duration_ms = (format_dur as u64) / 1000;
-    } else if let Some(ref st) = audio_stream {
-        let dur = st.duration();
-        if dur > 0 {
-            let tb = st.time_base();
-            let secs = (dur as f64) * (tb.numerator() as f64) / (tb.denominator() as f64);
-            duration_ms = (secs * 1000.0).round() as u64;
-        }
+pub fn extract_technical_info(path: &Path, duration_ms: u64) -> Option<AudioTechnicalInfo> {
+    #[cfg(feature = "ffmpeg")]
+    {
+        ffmpeg_backend::extract_technical_info(path, duration_ms)
     }
-
-    if duration_ms == 0 && file_len > 0 {
-        let br = ictx.bit_rate();
-        if br > 0 {
-            duration_ms = (file_len * 8 * 1000) / (br as u64);
-        }
+    #[cfg(feature = "symphonia")]
+    {
+        symphonia_backend::extract_technical_info(path, duration_ms)
     }
+    #[cfg(not(any(feature = "ffmpeg", feature = "symphonia")))]
+    {
+        let _ = (path, duration_ms);
+        None
+    }
+}
 
-    let default_title = path
-        .file_stem()
-        .map(|s| s.to_string_lossy().to_string())
-        .map(|s| s.replace('\0', ""))
-        .unwrap_or_else(|| "Unknown Title".to_string());
-
-    let title = title.unwrap_or(default_title);
-    let artist = artist.unwrap_or_else(|| "Unknown Artist".to_string());
-    let album = album.unwrap_or_else(|| "Unknown Album".to_string());
-
-    Ok(NewTrack {
-        file_path: path.to_string_lossy().replace('\0', ""),
-        title,
-        artist,
-        album_artist,
-        album,
-        genre,
-        duration_ms,
-        track_num,
-        disc_num,
-        year,
-        composer,
-        label,
-        musicbrainz_track_id,
-        musicbrainz_artist_id,
-        musicbrainz_album_id,
-    })
+pub fn extract_metadata(path: &Path) -> Result<NewTrack, MetadataError> {
+    #[cfg(feature = "ffmpeg")]
+    {
+        ffmpeg_backend::extract_metadata(path)
+    }
+    #[cfg(feature = "symphonia")]
+    {
+        symphonia_backend::extract_metadata(path)
+    }
+    #[cfg(not(any(feature = "ffmpeg", feature = "symphonia")))]
+    {
+        let _ = path;
+        Err(MetadataError::UnsupportedFormat)
+    }
 }
 
 pub fn sanitize_tag_bytes(bytes: &[u8]) -> String {
@@ -410,34 +314,19 @@ fn is_lyrics_tag_key(key: &str) -> bool {
 
 /// Extracts embedded lyrics from audio file container or stream metadata tags.
 pub fn extract_lyrics(path: &Path) -> Option<String> {
-    init_ffmpeg();
-    let ictx = ffmpeg_next::format::input(path).ok()?;
-
-    let extract_from_dict = |dict: ffmpeg_next::DictionaryRef<'_>| -> Option<String> {
-        for (k, v) in dict.iter() {
-            if is_lyrics_tag_key(k) {
-                let cleaned = sanitize_tag_bytes(v.as_bytes())
-                    .replace("\r\n", "\n")
-                    .replace('\r', "\n");
-                if !cleaned.is_empty() {
-                    return Some(cleaned);
-                }
-            }
-        }
+    #[cfg(feature = "ffmpeg")]
+    {
+        ffmpeg_backend::extract_lyrics(path)
+    }
+    #[cfg(feature = "symphonia")]
+    {
+        symphonia_backend::extract_lyrics(path)
+    }
+    #[cfg(not(any(feature = "ffmpeg", feature = "symphonia")))]
+    {
+        let _ = path;
         None
-    };
-
-    if let Some(lyrics) = extract_from_dict(ictx.metadata()) {
-        return Some(lyrics);
     }
-
-    if let Some(st) = ictx.streams().best(ffmpeg_next::media::Type::Audio) {
-        if let Some(lyrics) = extract_from_dict(st.metadata()) {
-            return Some(lyrics);
-        }
-    }
-
-    None
 }
 
 pub fn extract_cover_art(path: &Path) -> Option<Vec<u8>> {
@@ -453,29 +342,14 @@ pub fn extract_cover_art(path: &Path) -> Option<Vec<u8>> {
         }
     }
 
-    init_ffmpeg();
+    #[cfg(feature = "ffmpeg")]
+    if let Some(art) = ffmpeg_backend::extract_embedded_cover_art(path) {
+        return Some(art);
+    }
 
-    if let Ok(ictx) = ffmpeg_next::format::input(path) {
-        for stream in ictx.streams() {
-            let is_attached_pic = stream
-                .disposition()
-                .contains(ffmpeg_next::format::stream::Disposition::ATTACHED_PIC);
-
-            let is_video = stream.parameters().medium() == ffmpeg_next::media::Type::Video;
-
-            if is_attached_pic || is_video {
-                let av_stream_ptr = unsafe { stream.as_ptr() };
-                if !av_stream_ptr.is_null() {
-                    unsafe {
-                        let pkt = (*av_stream_ptr).attached_pic;
-                        if !pkt.data.is_null() && pkt.size > 0 {
-                            let slice = std::slice::from_raw_parts(pkt.data, pkt.size as usize);
-                            return Some(slice.to_vec());
-                        }
-                    }
-                }
-            }
-        }
+    #[cfg(feature = "symphonia")]
+    if let Some(art) = symphonia_backend::extract_embedded_cover_art(path) {
+        return Some(art);
     }
 
     if !is_flac {

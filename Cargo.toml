@@ -29,9 +29,9 @@ repository = "https://github.com/Curstantine/melody"
 paths = { path = "crates/paths" }
 model = { path = "crates/model" }
 thumbnail = { path = "crates/thumbnail" }
-metadata = { path = "crates/metadata" }
+metadata = { path = "crates/metadata", default-features = false }
 db = { path = "crates/db" }
-audio = { path = "crates/audio" }
+audio = { path = "crates/audio", default-features = false }
 plugins = { path = "crates/plugins" }
 updater = { path = "crates/updater" }
 theme = { path = "crates/theme" }
@@ -55,8 +55,22 @@ mpris-server = "0.11.0"
 notify = "8.2"
 rfd = "0.18"
 ringbuf = "0.6"
+rubato = "0.16"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+symphonia = { version = "0.5.4", default-features = false, features = [
+    "aac",
+    "adpcm",
+    "alac",
+    "flac",
+    "isomp4",
+    "mkv",
+    "mp3",
+    "ogg",
+    "pcm",
+    "vorbis",
+    "wav",
+] }
 thiserror = "2.0"
 tokio = "1"
 toml = "1.2"

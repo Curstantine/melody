@@ -6,11 +6,17 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = ["ffmpeg"]
+ffmpeg = ["dep:ffmpeg-next"]
+symphonia = ["dep:symphonia"]
+
 [dependencies]
 crossbeam-channel.workspace = true
 encoding_rs.workspace = true
-ffmpeg-next.workspace = true
+ffmpeg-next = { workspace = true, optional = true }
 model.workspace = true
 notify.workspace = true
+symphonia = { workspace = true, optional = true }
 thiserror.workspace = true
 tracing.workspace = true
