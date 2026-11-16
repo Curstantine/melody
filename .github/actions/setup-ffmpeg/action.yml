@@ -168,6 +168,8 @@ runs:
         tar -xzf ffmpeg.tar.gz
         cd FFmpeg-n9.0.2
 
+        export PKG_CONFIG_PATH="$HOME/ffmpeg-deps/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+
         ./configure \
           --prefix="$HOME/ffmpeg" \
           --enable-shared \
@@ -185,7 +187,8 @@ runs:
           --enable-decoder=mp3,mp3float,flac,vorbis,opus,aac,alac,pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be,pcm_f32le,pcm_f32be,pcm_u8,pcm_alaw,pcm_mulaw \
           --enable-libsoxr \
           --extra-cflags="-I$HOME/ffmpeg-deps/include" \
-          --extra-ldflags="-L$HOME/ffmpeg-deps/lib"
+          --extra-ldflags="-L$HOME/ffmpeg-deps/lib" \
+          --extra-libs="-lm"
 
         make -j"$(nproc)"
         make install
