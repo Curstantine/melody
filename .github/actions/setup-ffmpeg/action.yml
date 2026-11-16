@@ -1,0 +1,208 @@
+name: Set up minimal FFmpeg
+description: Builds or restores from cache a minimal FFmpeg + static libsoxr build for Windows (MSVC) and Linux.
+
+outputs:
+  win:
+    description: Path to FFmpeg bin directory containing DLLs (Windows)
+    value: ${{ steps.export-env-win.outputs.win }}
+  linux:
+    description: Path to FFmpeg lib directory containing shared libraries (Linux)
+    value: ${{ steps.export-env-linux.outputs.linux }}
+
+runs:
+  using: composite
+  steps:
+    # =========================================================================
+    # Windows (MSVC)
+    # =========================================================================
+    - name: Cache minimal FFmpeg build (Windows)
+      id: cache-ffmpeg-win
+      if: runner.os == 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: C:\ffmpeg
+        # Bump the version suffix (v1) if configure flags or dependencies change.
+        key: ffmpeg-9.0.2-soxr-0.1.3-msvc-x64-v1
+
+    - name: Set up MSYS2 (Windows)
+      if: runner.os == 'Windows' && steps.cache-ffmpeg-win.outputs.cache-hit != 'true'
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: UCRT64
+        path-type: inherit
+        update: false
+        install: >-
+          curl
+          make
+          nasm
+          diffutils
+          tar
+
+    - name: Set up MSVC environment (Windows)
+      if: runner.os == 'Windows' && steps.cache-ffmpeg-win.outputs.cache-hit != 'true'
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Build static libsoxr (Windows)
+      if: runner.os == 'Windows' && steps.cache-ffmpeg-win.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        git clone --depth 1 --branch 0.1.3 https://github.com/chirlu/soxr.git "$env:TEMP\soxr-src"
+        cmake -S "$env:TEMP\soxr-src" -B "$env:TEMP\soxr-build" `
+          -A x64 `
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 `
+          -DBUILD_SHARED_LIBS=OFF `
+          -DBUILD_TESTS=OFF `
+          -DBUILD_EXAMPLES=OFF `
+          -DWITH_OPENMP=OFF `
+          -DCMAKE_INSTALL_PREFIX="C:\ffmpeg-deps"
+        cmake --build "$env:TEMP\soxr-build" --config Release --parallel
+        cmake --install "$env:TEMP\soxr-build" --config Release
+
+    - name: Build minimal FFmpeg (Windows)
+      if: runner.os == 'Windows' && steps.cache-ffmpeg-win.outputs.cache-hit != 'true'
+      shell: msys2 {0}
+      run: |
+        set -euo pipefail
+
+        # Ensure MSVC's cl.exe / link.exe / lib.exe take precedence over MSYS2's /usr/bin/link.exe
+        MSVC_BIN="$(dirname "$(which cl)")"
+        export PATH="$MSVC_BIN:$PATH"
+
+        WORKDIR="/tmp/ffmpeg-build"
+        mkdir -p "$WORKDIR"
+        cd "$WORKDIR"
+
+        curl -fsSL "https://github.com/FFmpeg/FFmpeg/archive/refs/tags/n9.0.2.tar.gz" -o ffmpeg.tar.gz
+        tar -xzf ffmpeg.tar.gz
+        cd FFmpeg-n9.0.2
+
+        ./configure \
+          --toolchain=msvc \
+          --prefix=/c/ffmpeg \
+          --enable-shared \
+          --disable-static \
+          --disable-programs \
+          --disable-doc \
+          --disable-avdevice \
+          --disable-avfilter \
+          --disable-swscale \
+          --disable-postproc \
+          --disable-network \
+          --disable-everything \
+          --enable-protocol=file \
+          --enable-demuxer=mp3,flac,ogg,wav,mov,aac,aiff \
+          --enable-parser=mp3,flac,vorbis,opus,aac,mpegaudio \
+          --enable-decoder=mp3,mp3float,flac,vorbis,opus,aac,alac,pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be,pcm_f32le,pcm_f32be,pcm_u8,pcm_alaw,pcm_mulaw \
+          --enable-libsoxr \
+          --extra-cflags="-IC:/ffmpeg-deps/include" \
+          --extra-ldflags="-LIBPATH:C:/ffmpeg-deps/lib"
+
+        make -j"$(nproc)"
+        make install
+
+    - name: Export FFmpeg environment (Windows)
+      id: export-env-win
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $ffmpegRoot = "C:\ffmpeg"
+        $binDir = Join-Path $ffmpegRoot "bin"
+        Write-Host "FFmpeg Root: $ffmpegRoot"
+        Write-Host "FFmpeg Bin: $binDir"
+        Get-ChildItem -Path $binDir -Filter "*.dll" | ForEach-Object {
+          Write-Host ("  {0} ({1:N2} MB)" -f $_.Name, ($_.Length / 1MB))
+        }
+
+        # ffmpeg-sys-next looks for FFMPEG_DIR containing include/ and lib/
+        "FFMPEG_DIR=$ffmpegRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "$binDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        "win=$binDir" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+    # =========================================================================
+    # Linux
+    # =========================================================================
+    - name: Cache minimal FFmpeg build (Linux)
+      id: cache-ffmpeg-linux
+      if: runner.os == 'Linux'
+      uses: actions/cache@v4
+      with:
+        path: ~/ffmpeg
+        # Bump the version suffix (v1) if configure flags or dependencies change.
+        key: ffmpeg-9.0.2-soxr-0.1.3-linux-x64-v1
+
+    - name: Install FFmpeg build tools (Linux)
+      if: runner.os == 'Linux' && steps.cache-ffmpeg-linux.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y nasm cmake
+
+    - name: Build static libsoxr (Linux)
+      if: runner.os == 'Linux' && steps.cache-ffmpeg-linux.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        git clone --depth 1 --branch 0.1.3 https://github.com/chirlu/soxr.git /tmp/soxr-src
+        cmake -S /tmp/soxr-src -B /tmp/soxr-build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+          -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DBUILD_TESTS=OFF \
+          -DBUILD_EXAMPLES=OFF \
+          -DWITH_OPENMP=OFF \
+          -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg-deps"
+        cmake --build /tmp/soxr-build --parallel
+        cmake --install /tmp/soxr-build
+
+    - name: Build minimal FFmpeg (Linux)
+      if: runner.os == 'Linux' && steps.cache-ffmpeg-linux.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        WORKDIR="/tmp/ffmpeg-build"
+        mkdir -p "$WORKDIR"
+        cd "$WORKDIR"
+
+        curl -fsSL "https://github.com/FFmpeg/FFmpeg/archive/refs/tags/n9.0.2.tar.gz" -o ffmpeg.tar.gz
+        tar -xzf ffmpeg.tar.gz
+        cd FFmpeg-n9.0.2
+
+        ./configure \
+          --prefix="$HOME/ffmpeg" \
+          --enable-shared \
+          --disable-static \
+          --disable-programs \
+          --disable-doc \
+          --disable-avdevice \
+          --disable-avfilter \
+          --disable-swscale \
+          --disable-postproc \
+          --disable-network \
+          --disable-everything \
+          --enable-protocol=file \
+          --enable-demuxer=mp3,flac,ogg,wav,mov,aac,aiff \
+          --enable-parser=mp3,flac,vorbis,opus,aac,mpegaudio \
+          --enable-decoder=mp3,mp3float,flac,vorbis,opus,aac,alac,pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be,pcm_f32le,pcm_f32be,pcm_u8,pcm_alaw,pcm_mulaw \
+          --enable-libsoxr \
+          --extra-cflags="-I$HOME/ffmpeg-deps/include" \
+          --extra-ldflags="-L$HOME/ffmpeg-deps/lib"
+
+        make -j"$(nproc)"
+        make install
+
+    - name: Export FFmpeg environment (Linux)
+      id: export-env-linux
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        FFMPEG_ROOT="$HOME/ffmpeg"
+        LIB_DIR="$FFMPEG_ROOT/lib"
+        echo "FFmpeg Root: $FFMPEG_ROOT"
+        echo "FFmpeg Lib: $LIB_DIR"
+        ls -lh "$LIB_DIR"/lib*.so* || true
+
+        echo "FFMPEG_DIR=$FFMPEG_ROOT" >> "$GITHUB_ENV"
+        echo "LD_LIBRARY_PATH=${LIB_DIR}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+        echo "linux=$LIB_DIR" >> "$GITHUB_OUTPUT"

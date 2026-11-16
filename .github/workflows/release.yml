@@ -61,43 +61,12 @@ jobs:
             libxcursor-dev \
             libxi-dev \
             libxrandr-dev \
-            libavcodec-dev \
-            libavformat-dev \
-            libavutil-dev \
-            libswresample-dev \
             libfuse2
 
-      # --- Windows Dependencies ---
-      - name: Set up FFmpeg (Windows)
+      # --- FFmpeg (Windows & Linux) ---
+      - name: Set up minimal FFmpeg
         id: setup-ffmpeg
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z"
-          $archive = "$env:TEMP\ffmpeg-release-full-shared.7z"
-          $dest = "C:\ffmpeg"
-
-          Write-Host "Downloading FFmpeg full-shared archive from $url..."
-          Invoke-WebRequest -Uri $url -OutFile $archive
-
-          Write-Host "Extracting archive to $dest..."
-          7z x $archive "-o$dest" -y | Out-Null
-
-          $extractedRoot = (Get-ChildItem -Path $dest -Directory | Select-Object -First 1).FullName
-          Write-Host "Discovered FFmpeg Root: $extractedRoot"
-
-          $binDir = Join-Path $extractedRoot "bin"
-          $includeDir = Join-Path $extractedRoot "include"
-          $libDir = Join-Path $extractedRoot "lib"
-
-          Write-Host "FFmpeg Bin: $binDir"
-          Write-Host "FFmpeg Include: $includeDir"
-          Write-Host "FFmpeg Lib: $libDir"
-
-          # ffmpeg-sys-next looks for FFMPEG_DIR containing include/ and lib/
-          "FFMPEG_DIR=$extractedRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "$binDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          "ffmpeg-bin=$binDir" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+        uses: ./.github/actions/setup-ffmpeg
 
       - name: Set up .NET (for Velopack packaging)
         uses: actions/setup-dotnet@v4
@@ -105,7 +74,12 @@ jobs:
           dotnet-version: '8.0.x'
 
       # --- Build Release Binary ---
-      - name: Build release binary
+      - name: Build release binary (Linux)
+        if: runner.os == 'Linux'
+        run: RUSTFLAGS='-C link-arg=-Wl,-rpath,$ORIGIN' cargo build --release --target ${{ matrix.target }} -p ui --bin melody
+
+      - name: Build release binary (Windows)
+        if: runner.os == 'Windows'
         run: cargo build --release --target ${{ matrix.target }} -p ui --bin melody
 
       # --- Package Linux Artifacts (AppImage installer + portable tar.gz) ---
@@ -126,12 +100,14 @@ jobs:
           # 2. Download previous release assets for delta generation (if available)
           vpk download github --repoUrl "https://github.com/${{ github.repository }}" --token "${{ secrets.GITHUB_TOKEN }}" --outputDir dist-pkg --channel linux || true
 
-          # 3. Prepare staging directory with all runtime assets
+          # 3. Prepare staging directory with all runtime assets & FFmpeg shared libraries
           STAGING_DIR="dist-staging"
           mkdir -p "$STAGING_DIR"
           cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$STAGING_DIR/"
           cp -r themes "$STAGING_DIR/"
           cp -r layouts "$STAGING_DIR/"
+          FFMPEG_LIB="${{ steps.setup-ffmpeg.outputs.linux }}"
+          cp -a "$FFMPEG_LIB"/lib{avcodec,avformat,avutil,swresample}.so* "$STAGING_DIR/"
 
           # 4. Build Linux AppImage via Velopack
           vpk pack \
@@ -159,6 +135,7 @@ jobs:
           cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$PORTABLE_DIR/"
           cp -r themes "$PORTABLE_DIR/"
           cp -r layouts "$PORTABLE_DIR/"
+          cp -a "$FFMPEG_LIB"/lib{avcodec,avformat,avutil,swresample}.so* "$PORTABLE_DIR/"
           tar -czvf "dist-pkg/melody-${RELEASE_TAG}-portable.tar.gz" "$PORTABLE_DIR"
           rm -rf "$PORTABLE_DIR"
 
@@ -191,7 +168,7 @@ jobs:
           Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" -Destination $stagingDir
           Copy-Item -Recurse "themes" -Destination $stagingDir
           Copy-Item -Recurse "layouts" -Destination $stagingDir
-          $binDir = "${{ steps.setup-ffmpeg.outputs.ffmpeg-bin }}"
+          $binDir = "${{ steps.setup-ffmpeg.outputs.win }}"
           $dlls = Get-ChildItem -Path $binDir -Filter "*.dll" | Where-Object { $_.Name -match '^(avcodec|avformat|avutil|swresample)' }
           $dlls | ForEach-Object {
             Copy-Item $_.FullName -Destination $stagingDir
