@@ -1220,10 +1220,10 @@ checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
 name = "db"
 version = "0.5.1"
 dependencies = [
- "encoding_rs",
  "metadata",
  "model",
  "paths",
+ "playlist",
  "thiserror 2.0.21",
  "tokio",
  "tracing",
@@ -3977,6 +3977,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
+name = "playlist"
+version = "0.5.1"
+dependencies = [
+ "encoding_rs",
+ "model",
+ "paths",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "plugins"
 version = "0.5.1"
 dependencies = [
@@ -6148,6 +6158,7 @@ dependencies = [
  "metadata",
  "model",
  "paths",
+ "playlist",
  "plugins",
  "queue",
  "rfd",

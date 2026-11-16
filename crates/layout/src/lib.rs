@@ -4,7 +4,6 @@ use std::{collections::HashMap, fs, path::Path};
 
 use tracing::{error, info, warn};
 
-#[allow(unused_imports)]
 pub use schema::{
     parse_kdl_layout, AlbumsFormatConfig, Alignment, ArtistsFormatConfig, ColumnFormatConfig,
     ContainerStyle, LayoutComponent, LayoutNode, LayoutParseError, LayoutTemplate,

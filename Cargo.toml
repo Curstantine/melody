@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/paths",
     "crates/model",
+    "crates/playlist",
     "crates/thumbnail",
     "crates/metadata",
     "crates/db",
@@ -28,6 +29,7 @@ repository = "https://github.com/Curstantine/melody"
 [workspace.dependencies]
 paths = { path = "crates/paths" }
 model = { path = "crates/model" }
+playlist = { path = "crates/playlist" }
 thumbnail = { path = "crates/thumbnail" }
 metadata = { path = "crates/metadata", default-features = false }
 db = { path = "crates/db" }

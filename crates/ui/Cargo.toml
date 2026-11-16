@@ -20,6 +20,7 @@ OriginalFilename = "melody.exe"
 [dependencies]
 paths.workspace = true
 model.workspace = true
+playlist.workspace = true
 thumbnail.workspace = true
 metadata.workspace = true
 db.workspace = true

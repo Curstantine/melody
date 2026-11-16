@@ -2,12 +2,13 @@ use std::{path::PathBuf, sync::Arc};
 
 use components::{ContextMenuAction, TrackMenuContext};
 use config::{PlaylistSection, SettingsTab, ViewTab};
-use db::{PlaylistResolution, ScanSummary};
+use db::ScanSummary;
 use metadata::AudioTechnicalInfo;
 use model::{
     AlbumSortField, AlbumSummary, ArtistSortField, ArtistSummary, PlaylistSortField,
     PlaylistSummary, SortField, Track, TrackFilter, TrackRow, ViewMode,
 };
+use playlist::PlaylistResolution;
 use thumbnail::CacheStats;
 
 /// What a resolved playlist should be used for.
