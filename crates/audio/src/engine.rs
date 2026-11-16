@@ -23,7 +23,7 @@ const RING_BUFFER_CAPACITY: usize = 262_144;
 const FALLBACK_OUTPUT_LATENCY: Duration = Duration::from_millis(50);
 
 #[derive(Error, Debug)]
-pub enum AudioEngineError {
+enum AudioEngineError {
     #[error("No audio output device available")]
     NoDevice,
     #[error("CPAL device error: {0}")]
@@ -42,7 +42,7 @@ pub struct AudioController {
 }
 
 impl AudioController {
-    pub fn send(&self, cmd: AudioCommand) {
+    fn send(&self, cmd: AudioCommand) {
         let _ = self.cmd_tx.send(cmd);
     }
 
@@ -152,9 +152,9 @@ impl Default for AudioEngine {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct TrackBoundary {
-    pub switch_at_sample: u64,
-    pub next_duration_ms: u64,
+struct TrackBoundary {
+    switch_at_sample: u64,
+    next_duration_ms: u64,
 }
 
 struct AudioStreamContext {
@@ -593,19 +593,19 @@ type CpalStreamSetup = (
 );
 
 /// Shared, per-stream state handed to the realtime output callbacks.
-pub struct CallbackState<'a> {
-    pub consumer: &'a mut ringbuf::HeapCons<f32>,
-    pub boundary_consumer: &'a mut ringbuf::HeapCons<TrackBoundary>,
-    pub current_boundary: &'a mut Option<TrackBoundary>,
-    pub consumed_samples: &'a mut u64,
-    pub flush_flag: &'a AtomicBool,
-    pub status: &'a AudioStatus,
-    pub sample_rate: u32,
-    pub channels: usize,
-    pub pos_rem: &'a mut u64,
+struct CallbackState<'a> {
+    consumer: &'a mut ringbuf::HeapCons<f32>,
+    boundary_consumer: &'a mut ringbuf::HeapCons<TrackBoundary>,
+    current_boundary: &'a mut Option<TrackBoundary>,
+    consumed_samples: &'a mut u64,
+    flush_flag: &'a AtomicBool,
+    status: &'a AudioStatus,
+    sample_rate: u32,
+    channels: usize,
+    pos_rem: &'a mut u64,
 }
 
-pub fn pop_samples_with_boundary(data: &mut [f32], state: &mut CallbackState) -> usize {
+fn pop_samples_with_boundary(data: &mut [f32], state: &mut CallbackState) -> usize {
     let mut total_read = 0;
 
     while total_read < data.len() {

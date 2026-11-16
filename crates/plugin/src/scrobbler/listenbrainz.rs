@@ -55,10 +55,6 @@ impl ListenBrainzPlugin {
             meta: PluginMetadata {
                 id: "builtin.listenbrainz".to_string(),
                 name: "ListenBrainz Scrobbler".to_string(),
-                version: "1.0.0".to_string(),
-                author: "melody".to_string(),
-                description: "Submits playback history and now playing status to ListenBrainz"
-                    .to_string(),
             },
             config: Arc::new(RwLock::new(config)),
             enabled: Arc::new(AtomicBool::new(enabled)),
@@ -68,13 +64,6 @@ impl ListenBrainzPlugin {
             scrobbled: Arc::new(AtomicBool::new(false)),
             scrobble_count: Arc::new(AtomicU64::new(0)),
             last_status: Arc::new(RwLock::new("Ready".to_string())),
-        }
-    }
-
-    pub fn update_config(&self, config: ListenBrainzConfig) {
-        self.enabled.store(config.enabled, Ordering::Relaxed);
-        if let Ok(mut cfg) = self.config.write() {
-            *cfg = config;
         }
     }
 
@@ -109,7 +98,7 @@ impl ListenBrainzPlugin {
         }
     }
 
-    pub fn config(&self) -> ListenBrainzConfig {
+    fn config(&self) -> ListenBrainzConfig {
         self.config.read().map(|c| c.clone()).unwrap_or_default()
     }
 
@@ -120,7 +109,8 @@ impl ListenBrainzPlugin {
             .unwrap_or_else(|_| "Unknown".to_string())
     }
 
-    pub fn scrobble_count(&self) -> u64 {
+    #[cfg(test)]
+    fn scrobble_count(&self) -> u64 {
         self.scrobble_count.load(Ordering::Relaxed)
     }
 
@@ -384,16 +374,6 @@ impl Plugin for ListenBrainzPlugin {
             self.submit_scrobble(&track, timestamp);
         }
 
-        Ok(())
-    }
-
-    fn scrobble(&self, track: &TrackMetadata, timestamp: u64) -> Result<(), String> {
-        self.submit_scrobble(track, timestamp);
-        Ok(())
-    }
-
-    fn update_now_playing(&self, track: &TrackMetadata) -> Result<(), String> {
-        self.submit_now_playing(track);
         Ok(())
     }
 }

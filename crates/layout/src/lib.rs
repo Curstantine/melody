@@ -4,18 +4,18 @@ use std::{collections::HashMap, fs, path::Path};
 
 use tracing::{error, info, warn};
 
+use schema::parse_kdl_layout;
 pub use schema::{
-    parse_kdl_layout, AlbumsFormatConfig, Alignment, ArtistsFormatConfig, ColumnFormatConfig,
-    ContainerStyle, LayoutComponent, LayoutNode, LayoutParseError, LayoutTemplate,
-    LibraryFormatConfig, Orientation, PlaylistsFormatConfig, QueueFormatConfig, SizeConstraint,
-    ViewFormatsConfig,
+    AlbumsFormatConfig, Alignment, ArtistsFormatConfig, ColumnFormatConfig, ContainerStyle,
+    LayoutComponent, LayoutNode, LayoutTemplate, LibraryFormatConfig, Orientation,
+    PlaylistsFormatConfig, QueueFormatConfig, SizeConstraint, ViewFormatsConfig,
 };
 
 pub const DEFAULT_LAYOUT_NAME: &str = "Default";
 
 #[derive(Debug, Clone)]
 pub struct LayoutManager {
-    pub layouts: HashMap<String, LayoutTemplate>,
+    layouts: HashMap<String, LayoutTemplate>,
     pub active_layout_name: String,
     pub current_template: LayoutTemplate,
     cached_layout_names: Vec<String>,

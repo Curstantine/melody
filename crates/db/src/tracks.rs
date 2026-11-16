@@ -3,9 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use turso::params;
 
-use model::{
-    intern, NewTrack, SortDirection, SortField, Track, TrackFilter, TrackIdHeader, TrackRow,
-};
+use model::{intern, NewTrack, SortDirection, SortField, Track, TrackFilter, TrackRow};
 
 use crate::helpers::{
     filter_clause, map_track_row, map_track_row_summary, sanitize_db_opt, sanitize_db_text,
@@ -14,7 +12,7 @@ use crate::helpers::{
 use crate::{DbError, LibraryDatabase, SQL_IN_CLAUSE_CHUNK_SIZE};
 
 impl LibraryDatabase {
-    pub async fn insert_or_update_track(&self, track: &NewTrack) -> Result<i64, DbError> {
+    pub(crate) async fn insert_or_update_track(&self, track: &NewTrack) -> Result<i64, DbError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
@@ -70,7 +68,7 @@ impl LibraryDatabase {
         Ok(id)
     }
 
-    pub async fn insert_tracks_batch(&self, tracks: &[NewTrack]) -> Result<usize, DbError> {
+    pub(crate) async fn insert_tracks_batch(&self, tracks: &[NewTrack]) -> Result<usize, DbError> {
         if tracks.is_empty() {
             return Ok(0);
         }
@@ -195,53 +193,6 @@ impl LibraryDatabase {
         } else {
             Ok(0)
         }
-    }
-
-    /// Read queries with LIMIT and OFFSET based on the active viewport
-    /// Never pull all tracks into a `Vec<Track>`
-    pub async fn get_tracks_window(
-        &self,
-        offset: usize,
-        limit: usize,
-        filter: Option<&TrackFilter>,
-        sort_field: SortField,
-        sort_dir: SortDirection,
-    ) -> Result<Vec<Track>, DbError> {
-        let sort_col = sort_column(sort_field);
-
-        let dir_str = match sort_dir {
-            SortDirection::Ascending => "ASC",
-            SortDirection::Descending => "DESC",
-        };
-
-        let mut tracks = Vec::with_capacity(limit);
-        let mut binds: Vec<turso::Value> = Vec::new();
-        let clause = filter_clause(filter, &mut binds);
-        binds.push(turso::Value::from(limit as i64));
-        binds.push(turso::Value::from(offset as i64));
-
-        let query = format!(
-            r#"
-            SELECT id, file_path, title, artist, album_artist, album, genre, duration_ms,
-                   track_num, disc_num, year, composer, label,
-                   musicbrainz_track_id, musicbrainz_artist_id, musicbrainz_album_id, added_timestamp
-            FROM tracks{}
-            ORDER BY {} {}
-            LIMIT ? OFFSET ?
-            "#,
-            clause, sort_col, dir_str
-        );
-
-        let mut rows = self
-            .conn
-            .query(&query, turso::params_from_iter(binds))
-            .await?;
-
-        while let Some(row) = rows.next().await? {
-            tracks.push(map_track_row(&row)?);
-        }
-
-        Ok(tracks)
     }
 
     /// Reads a narrow slice of track rows for the virtualized library list.
@@ -401,34 +352,6 @@ impl LibraryDatabase {
         Ok(out)
     }
 
-    /// Lightweight in-memory index struct for global shuffle, playlist generation, or totals
-    pub async fn get_all_track_headers(&self) -> Result<Vec<TrackIdHeader>, DbError> {
-        let mut rows = self
-            .conn
-            .query("SELECT id, duration_ms FROM tracks ORDER BY id ASC", ())
-            .await?;
-
-        let mut headers = Vec::new();
-        while let Some(row) = rows.next().await? {
-            let id: i64 = row.get(0)?;
-            let dur: i64 = row.get(1)?;
-            headers.push(TrackIdHeader {
-                id,
-                duration_ms: dur as u32,
-            });
-        }
-        Ok(headers)
-    }
-
-    pub async fn delete_track(&self, id: i64) -> Result<bool, DbError> {
-        let affected = self
-            .conn
-            .execute("DELETE FROM tracks WHERE id = ?1", params![id])
-            .await?;
-        Ok(affected > 0)
-    }
-
-    /// Retrieves all configured music library scan paths
     /// Wipes all indexed tracks from the database.
     ///
     /// Playlist file references are intentionally preserved: the referenced

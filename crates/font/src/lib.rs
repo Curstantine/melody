@@ -3,7 +3,7 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-pub const DEFAULT_LYRICS_FONT_SIZE: u16 = 15;
+const DEFAULT_LYRICS_FONT_SIZE: u16 = 15;
 
 fn default_lyrics_font_size() -> u16 {
     DEFAULT_LYRICS_FONT_SIZE

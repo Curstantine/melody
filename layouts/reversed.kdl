@@ -1,4 +1,4 @@
-layout name="Reversed" description="Top player controls with clean view area" {
+layout name="Reversed" {
     view-formats {
         library {
             column "Title" format="{title}" fill-portion=4 sort="title"
@@ -26,11 +26,11 @@ layout name="Reversed" description="Top player controls with clean view area" {
     }
 
     column {
-        player-bar height=72
+        player-bar
         divider orientation="horizontal"
-        navbar height=32
+        navbar
         divider orientation="horizontal"
-        main-view fill=true
-        status-bar height=24
+        main-view
+        status-bar
     }
 }

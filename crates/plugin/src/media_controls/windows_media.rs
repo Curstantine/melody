@@ -82,11 +82,6 @@ mod win {
             let meta = PluginMetadata {
                 id: "builtin.windows_media".to_string(),
                 name: "Windows Media Controls (SMTC)".to_string(),
-                version: "1.0.0".to_string(),
-                author: "melody".to_string(),
-                description:
-                    "Integrates with Windows System Media Transport Controls (SMTC) and media keys"
-                        .to_string(),
             };
 
             let inner = Arc::new(WindowsMediaInner::new());

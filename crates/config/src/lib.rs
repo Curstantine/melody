@@ -2,16 +2,14 @@ pub mod config;
 pub mod navigation;
 pub mod state;
 
-pub use config::{
-    default_tab_order, sanitize_tab_order, AppConfig, ScrobbleConfig, DEFAULT_ALBUM_TILE_WIDTH,
-    DEFAULT_ARTIST_TILE_WIDTH, DEFAULT_PAGE_SIZE, DEFAULT_TILE_WIDTH,
-};
+pub use config::{AppConfig, ScrobbleConfig, DEFAULT_ALBUM_TILE_WIDTH, DEFAULT_ARTIST_TILE_WIDTH};
 pub use navigation::{PlaylistSection, SettingsTab, ViewTab};
 pub use state::{AppState, WINDOW_MIN_HEIGHT, WINDOW_MIN_WIDTH};
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::sanitize_tab_order;
     use model::{AlbumSortField, ArtistSortField, PlaylistSortField, ViewMode};
     use std::path::PathBuf;
 
@@ -32,7 +30,6 @@ mod tests {
         assert_eq!(cfg.layout_name, layout::DEFAULT_LAYOUT_NAME);
         assert_eq!(cfg.fonts.primary, None);
         assert_eq!(cfg.page_size, 50);
-        assert_eq!(cfg.tile_width, 140);
         assert_eq!(cfg.album_tile_width, 140);
         assert_eq!(cfg.artist_tile_width, 140);
         assert_eq!(cfg.fonts.lyrics, None);
@@ -59,7 +56,6 @@ mod tests {
             custom_titlebar: true,
             minimize_to_tray: true,
             page_size: 100,
-            tile_width: 190,
             album_tile_width: 190,
             artist_tile_width: 180,
             fonts: font::FontConfig::new(

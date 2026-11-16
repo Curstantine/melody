@@ -46,7 +46,7 @@ impl AudioStatus {
     }
 
     #[inline]
-    pub fn set_position_ms(&self, ms: u64) {
+    pub(crate) fn set_position_ms(&self, ms: u64) {
         self.inner.position_ms.store(ms, Ordering::Relaxed);
     }
 
@@ -56,7 +56,7 @@ impl AudioStatus {
     }
 
     #[inline]
-    pub fn set_duration_ms(&self, ms: u64) {
+    pub(crate) fn set_duration_ms(&self, ms: u64) {
         self.inner.duration_ms.store(ms, Ordering::Relaxed);
     }
 
@@ -66,39 +66,40 @@ impl AudioStatus {
     }
 
     #[inline]
-    pub fn set_playing(&self, playing: bool) {
+    pub(crate) fn set_playing(&self, playing: bool) {
         self.inner.is_playing.store(playing, Ordering::Relaxed);
     }
 
     #[inline]
-    pub fn is_loaded(&self) -> bool {
+    pub(crate) fn is_loaded(&self) -> bool {
         self.inner.is_loaded.load(Ordering::Relaxed)
     }
 
     #[inline]
-    pub fn set_loaded(&self, loaded: bool) {
+    pub(crate) fn set_loaded(&self, loaded: bool) {
         self.inner.is_loaded.store(loaded, Ordering::Relaxed);
     }
 
     #[inline]
-    pub fn volume(&self) -> f32 {
+    pub(crate) fn volume(&self) -> f32 {
         (self.inner.volume_raw.load(Ordering::Relaxed) as f32) / 1000.0
     }
 
     #[inline]
-    pub fn set_volume(&self, vol: f32) {
+    pub(crate) fn set_volume(&self, vol: f32) {
         let clamped = vol.clamp(0.0, 2.0);
         let raw = (clamped * 1000.0).round() as u32;
         self.inner.volume_raw.store(raw, Ordering::Relaxed);
     }
 
+    #[cfg(test)]
     #[inline]
-    pub fn is_ended(&self) -> bool {
+    pub(crate) fn is_ended(&self) -> bool {
         self.inner.is_ended.load(Ordering::Relaxed)
     }
 
     #[inline]
-    pub fn set_ended(&self, ended: bool) {
+    pub(crate) fn set_ended(&self, ended: bool) {
         self.inner.is_ended.store(ended, Ordering::Relaxed);
     }
 
@@ -107,13 +108,14 @@ impl AudioStatus {
         self.inner.is_ended.swap(false, Ordering::Relaxed)
     }
 
+    #[cfg(test)]
     #[inline]
-    pub fn gapless_transition(&self) -> bool {
+    pub(crate) fn gapless_transition(&self) -> bool {
         self.inner.gapless_transition.load(Ordering::Relaxed)
     }
 
     #[inline]
-    pub fn set_gapless_transition(&self, val: bool) {
+    pub(crate) fn set_gapless_transition(&self, val: bool) {
         self.inner.gapless_transition.store(val, Ordering::Release);
     }
 

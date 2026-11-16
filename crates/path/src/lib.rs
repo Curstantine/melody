@@ -17,30 +17,29 @@ pub fn app_name() -> &'static str {
 }
 
 /// Returns true if running in a debug build.
+#[cfg(test)]
 #[inline]
-pub fn is_debug() -> bool {
+fn is_debug() -> bool {
     cfg!(debug_assertions)
 }
 
 /// Returns the primary `ProjectDirs` object for Melody, if resolvable by the platform.
-pub fn project_dirs() -> Option<&'static ProjectDirs> {
+#[cfg(test)]
+fn project_dirs() -> Option<&'static ProjectDirs> {
     app_paths().project_dirs.as_ref()
 }
 
 /// Resolved and prepared filesystem paths for Melody.
-pub struct AppPaths {
-    pub project_dirs: Option<ProjectDirs>,
-    pub config_dir: PathBuf,
-    pub data_dir: PathBuf,
-    pub state_dir: PathBuf,
-    pub cache_dir: PathBuf,
-    pub config_file: PathBuf,
-    pub state_file: PathBuf,
-    pub database_file: PathBuf,
-    pub thumbnail_cache_dir: PathBuf,
-    pub user_themes_dir: PathBuf,
-    pub user_layouts_dir: PathBuf,
-    pub playlists_dir: PathBuf,
+struct AppPaths {
+    #[cfg(test)]
+    project_dirs: Option<ProjectDirs>,
+    config_file: PathBuf,
+    state_file: PathBuf,
+    database_file: PathBuf,
+    thumbnail_cache_dir: PathBuf,
+    user_themes_dir: PathBuf,
+    user_layouts_dir: PathBuf,
+    playlists_dir: PathBuf,
 }
 
 impl AppPaths {
@@ -84,11 +83,8 @@ impl AppPaths {
         let _ = std::fs::create_dir_all(&playlists_dir);
 
         Self {
+            #[cfg(test)]
             project_dirs: proj,
-            config_dir,
-            data_dir,
-            state_dir,
-            cache_dir,
             config_file,
             state_file,
             database_file,
@@ -103,28 +99,8 @@ impl AppPaths {
 static APP_PATHS: OnceLock<AppPaths> = OnceLock::new();
 
 /// Returns the globally resolved [`AppPaths`] instance, initializing on first access.
-pub fn app_paths() -> &'static AppPaths {
+fn app_paths() -> &'static AppPaths {
     APP_PATHS.get_or_init(AppPaths::initialize)
-}
-
-/// Directory where application configuration files (e.g. `config.toml`, themes) reside.
-pub fn config_dir() -> &'static Path {
-    &app_paths().config_dir
-}
-
-/// Directory where persistent application data (e.g. `library.db`) resides.
-pub fn data_dir() -> &'static Path {
-    &app_paths().data_dir
-}
-
-/// Directory where persistent runtime state files (e.g. `state.toml`) reside.
-pub fn state_dir() -> &'static Path {
-    &app_paths().state_dir
-}
-
-/// Directory where ephemeral caches (e.g. downscaled cover art thumbnails) reside.
-pub fn cache_dir() -> &'static Path {
-    &app_paths().cache_dir
 }
 
 /// Path to the main application configuration file (`config.toml`).

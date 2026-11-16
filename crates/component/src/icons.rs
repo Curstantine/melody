@@ -160,7 +160,7 @@ pub const WINDOW_CLOSE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" vi
 
 static SVG_CACHE: OnceLock<Mutex<HashMap<&'static str, Handle>>> = OnceLock::new();
 
-pub fn handle_for_svg(svg_str: &'static str) -> Handle {
+fn handle_for_svg(svg_str: &'static str) -> Handle {
     let cache = SVG_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
     if let Ok(guard) = cache.lock() {
         if let Some(handle) = guard.get(svg_str) {

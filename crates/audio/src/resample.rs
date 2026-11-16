@@ -119,7 +119,7 @@ impl Default for ResamplingConfig {
 impl ResamplingConfig {
     /// Builds an FFmpeg AVOptions dictionary to pass into `ResamplerContext::get_with`.
     #[cfg(feature = "ffmpeg")]
-    pub fn to_dictionary(&self) -> ffmpeg_next::Dictionary<'static> {
+    pub(crate) fn to_dictionary(&self) -> ffmpeg_next::Dictionary<'static> {
         let mut dict = ffmpeg_next::Dictionary::new();
         match self.filter {
             ResamplingFilter::Soxr => {

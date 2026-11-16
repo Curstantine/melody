@@ -63,7 +63,7 @@ impl AudioTechnicalInfo {
         }
     }
 
-    pub fn formatted_sample_rate(&self) -> String {
+    fn formatted_sample_rate(&self) -> String {
         if self.sample_rate_hz.is_multiple_of(1000) {
             format!("{} kHz", self.sample_rate_hz / 1000)
         } else {
@@ -365,7 +365,7 @@ pub fn extract_cover_art(path: &Path) -> Option<Vec<u8>> {
     extract_directory_cover_art(path)
 }
 
-pub fn extract_flac_picture(path: &Path) -> Option<Vec<u8>> {
+fn extract_flac_picture(path: &Path) -> Option<Vec<u8>> {
     let mut file = File::open(path).ok()?;
     let mut header = [0u8; 4];
     file.read_exact(&mut header).ok()?;
@@ -476,7 +476,7 @@ fn parse_flac_picture_block<R: Read + Seek>(
     Some((pic_type, data))
 }
 
-pub fn extract_id3_picture(path: &Path) -> Option<Vec<u8>> {
+fn extract_id3_picture(path: &Path) -> Option<Vec<u8>> {
     let mut file = File::open(path).ok()?;
     let mut header = [0u8; 10];
     if file.read_exact(&mut header).is_err() {

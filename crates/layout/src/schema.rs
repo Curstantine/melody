@@ -301,7 +301,8 @@ pub enum LayoutNode {
 
 impl LayoutNode {
     /// Returns `true` if this layout tree contains a horizontal [`LayoutComponent::Navbar`].
-    pub fn has_horizontal_navbar(&self) -> bool {
+    #[cfg(test)]
+    fn has_horizontal_navbar(&self) -> bool {
         match self {
             Self::Component(LayoutComponent::Navbar { orientation, .. }) => {
                 *orientation == Orientation::Horizontal
@@ -339,8 +340,6 @@ impl LayoutNode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct LayoutTemplate {
     pub name: String,
-    pub description: String,
-    pub author: String,
     pub root: LayoutNode,
     pub view_formats: ViewFormatsConfig,
 }
@@ -358,10 +357,6 @@ pub enum LayoutParseError {
     Kdl(#[from] kdl::KdlError),
     #[error("Missing layout root node")]
     MissingLayoutNode,
-    #[error("Invalid property value for '{key}': {message}")]
-    InvalidProperty { key: String, message: String },
-    #[error("Unknown layout node '{0}'")]
-    UnknownNode(String),
 }
 
 /// Parses a KDL string into a [`LayoutTemplate`].
@@ -375,18 +370,6 @@ pub fn parse_kdl_layout(content: &str) -> Result<LayoutTemplate, LayoutParseErro
             .and_then(|v| v.as_string())
             .or_else(|| get_arg(layout_node, 0).and_then(|v| v.as_string()))
             .unwrap_or("Custom")
-            .to_string();
-
-        let description = layout_node
-            .get("description")
-            .and_then(|v| v.as_string())
-            .unwrap_or("")
-            .to_string();
-
-        let author = layout_node
-            .get("author")
-            .and_then(|v| v.as_string())
-            .unwrap_or("")
             .to_string();
 
         let children_doc = layout_node
@@ -421,8 +404,6 @@ pub fn parse_kdl_layout(content: &str) -> Result<LayoutTemplate, LayoutParseErro
 
         Ok(LayoutTemplate {
             name,
-            description,
-            author,
             root,
             view_formats,
         })
@@ -455,8 +436,6 @@ pub fn parse_kdl_layout(content: &str) -> Result<LayoutTemplate, LayoutParseErro
 
         Ok(LayoutTemplate {
             name: "Custom".to_string(),
-            description: String::new(),
-            author: String::new(),
             root,
             view_formats,
         })
@@ -992,19 +971,18 @@ mod tests {
     #[test]
     fn test_parse_default_layout() {
         let kdl = r#"
-            layout name="Default" description="Standard layout" {
+            layout name="Default" {
                 column {
-                    navbar height=32
-                    main-view fill=true
-                    player-bar height=72
-                    status-bar height=24
+                    navbar
+                    main-view
+                    player-bar
+                    status-bar
                 }
             }
         "#;
 
         let template = parse_kdl_layout(kdl).expect("valid layout");
         assert_eq!(template.name, "Default");
-        assert_eq!(template.description, "Standard layout");
 
         match template.root {
             LayoutNode::Column { children, .. } => {

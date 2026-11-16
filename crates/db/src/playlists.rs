@@ -129,7 +129,7 @@ impl LibraryDatabase {
     ///
     /// Used to map M3U playlist entries onto indexed library tracks when
     /// building a playback queue. Unmatched paths are simply absent from the map.
-    pub async fn get_track_ids_by_paths(
+    pub(crate) async fn get_track_ids_by_paths(
         &self,
         paths: &[String],
     ) -> Result<HashMap<String, i64>, DbError> {

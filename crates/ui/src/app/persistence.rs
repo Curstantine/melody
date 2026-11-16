@@ -53,7 +53,6 @@ impl App {
             custom_titlebar: self.custom_titlebar,
             minimize_to_tray: self.minimize_to_tray,
             page_size: self.library.page_size,
-            tile_width: self.albums.tile_width,
             album_tile_width: self.albums.tile_width,
             artist_tile_width: self.artists.tile_width,
             fonts: self.fonts.clone(),

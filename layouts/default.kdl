@@ -1,4 +1,4 @@
-layout name="Default" description="Top navigation bar and bottom player" {
+layout name="Default" {
     view-formats {
         library {
             column "Title" format="{title}" fill-portion=4 sort="title"
@@ -26,10 +26,10 @@ layout name="Default" description="Top navigation bar and bottom player" {
     }
 
     column {
-        navbar height=32
+        navbar
         divider orientation="horizontal"
-        main-view fill=true
-        player-bar height=72
-        status-bar height=24
+        main-view
+        player-bar
+        status-bar
     }
 }

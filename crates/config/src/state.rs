@@ -91,7 +91,7 @@ impl AppState {
         Self::load_from_path(path::state_file())
     }
 
-    pub fn load_from_path(path: &Path) -> Self {
+    pub(crate) fn load_from_path(path: &Path) -> Self {
         if !path.exists() {
             info!("No state file found at {:?}, using default state", path);
             return Self::default();

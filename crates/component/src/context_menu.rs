@@ -7,9 +7,9 @@ use model::{AlbumSummary, ArtistSummary, PlaylistSummary, TrackRow};
 use crate::{icons, styles, text};
 use theme::ThemeConfig;
 
-pub const CONTEXT_MENU_WIDTH: f32 = 220.0;
-pub const SUBMENU_WIDTH: f32 = 200.0;
-pub const ITEM_HEIGHT: f32 = 24.0;
+const CONTEXT_MENU_WIDTH: f32 = 220.0;
+const SUBMENU_WIDTH: f32 = 200.0;
+const ITEM_HEIGHT: f32 = 24.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TrackMenuContext {

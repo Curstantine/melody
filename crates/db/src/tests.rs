@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use metadata::{is_supported_audio_path, SUPPORTED_AUDIO_EXTENSIONS};
 use model::{NewTrack, QueueRecord, SortDirection, SortField, TrackFilter};
 
 use crate::*;
@@ -90,7 +91,7 @@ async fn test_database_lifecycle_and_pagination() {
 
     // Test window pagination (limit 20, offset 0)
     let page1 = db
-        .get_tracks_window(0, 20, None, SortField::Title, SortDirection::Ascending)
+        .get_track_rows_window(0, 20, None, SortField::Title, SortDirection::Ascending)
         .await
         .expect("Window failed");
     assert_eq!(page1.len(), 20);
@@ -99,7 +100,7 @@ async fn test_database_lifecycle_and_pagination() {
 
     // Test second page (limit 20, offset 20)
     let page2 = db
-        .get_tracks_window(20, 20, None, SortField::Title, SortDirection::Ascending)
+        .get_track_rows_window(20, 20, None, SortField::Title, SortDirection::Ascending)
         .await
         .expect("Window failed");
     assert_eq!(page2.len(), 20);
@@ -107,15 +108,10 @@ async fn test_database_lifecycle_and_pagination() {
 
     // Test last partial page (offset 100, limit 20 -> 5 tracks)
     let page6 = db
-        .get_tracks_window(100, 20, None, SortField::Title, SortDirection::Ascending)
+        .get_track_rows_window(100, 20, None, SortField::Title, SortDirection::Ascending)
         .await
         .expect("Window failed");
     assert_eq!(page6.len(), 5);
-
-    // Test lightweight headers
-    let headers = db.get_all_track_headers().await.expect("Headers failed");
-    assert_eq!(headers.len(), 105);
-    assert_eq!(headers[0].id, 1);
 
     // Test album aggregation
     let albums = db.get_albums().await.expect("Albums failed");

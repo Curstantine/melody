@@ -65,14 +65,6 @@ pub fn format_duration(duration_ms: u64) -> String {
     }
 }
 
-/// Lightweight in-memory index struct to keep memory footprint minimal (~30-50MB)
-/// even for 100k+ library entries. Used for shuffle, totals, and ID lookups.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TrackIdHeader {
-    pub id: i64,
-    pub duration_ms: u32,
-}
-
 /// A narrow projection of a track used by the virtualized library list.
 ///
 /// Only the columns actually rendered in a list row are fetched. Combined with

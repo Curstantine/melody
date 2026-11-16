@@ -13,4 +13,4 @@ pub use media_controls::WindowsMediaPlugin;
 pub use scrobbler::{
     LastFmConfig, LastFmPlugin, ListenBrainzConfig, ListenBrainzPlugin, ScrobbleService,
 };
-pub use types::{PlayerAction, PluginHook, PluginMetadata, PluginResult, TrackMetadata};
+pub use types::{PlayerAction, PluginMetadata, TrackMetadata};

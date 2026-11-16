@@ -9,23 +9,20 @@ const EXCEPTION_MIN_SIZE: usize = 100_000;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Resolution {
     Low,
-    Med,
     High,
 }
 
 impl Resolution {
-    pub const fn dim(self) -> u32 {
+    const fn dim(self) -> u32 {
         match self {
             Self::Low => 256,
-            Self::Med => 300,
             Self::High => 680,
         }
     }
 
-    pub const fn quality(self) -> u8 {
+    const fn quality(self) -> u8 {
         match self {
             Self::Low => 70,
-            Self::Med => 85,
             Self::High => 90,
         }
     }

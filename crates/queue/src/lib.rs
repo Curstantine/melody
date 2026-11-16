@@ -16,15 +16,15 @@ pub const QUEUE_ROW_HEIGHT: f32 = 26.0;
 
 /// Approximate visible rows used to size the materialized window (mirrors how
 /// the library view uses `page_size` as its visible-row proxy).
-pub const QUEUE_WINDOW_ROWS: usize = 100;
+const QUEUE_WINDOW_ROWS: usize = 100;
 
 /// Buffered rows kept above and below the visible range. The window reloads
 /// only when scrolling leaves it, which prevents thrashing while keeping
 /// per-frame widget work bounded no matter how large the queue is.
-pub const QUEUE_WINDOW_BUFFER_ROWS: usize = 100;
+const QUEUE_WINDOW_BUFFER_ROWS: usize = 100;
 
 /// Maximum tracks materialized for rendering at once.
-pub fn queue_window_capacity() -> usize {
+fn queue_window_capacity() -> usize {
     QUEUE_WINDOW_ROWS + 2 * QUEUE_WINDOW_BUFFER_ROWS
 }
 
@@ -281,7 +281,7 @@ pub struct QueueStore {
     pub summaries: Vec<QueueSummary>,
     pub active: Option<u64>,
     pub active_queue: Option<Queue>,
-    pub next_id: u64,
+    next_id: u64,
 }
 
 impl QueueStore {
@@ -363,7 +363,7 @@ impl QueueStore {
     }
 
     /// Materializes a queue loaded from the database and marks it active.
-    pub fn apply_loaded(&mut self, queue: Queue) {
+    fn apply_loaded(&mut self, queue: Queue) {
         let id = queue.id;
         if let Some(summary) = self.summaries.iter_mut().find(|q| q.id == id) {
             summary.track_count = queue.tracks.len();

@@ -37,12 +37,6 @@ pub trait Plugin: Send + Sync {
     ) -> Result<Option<String>, String> {
         Ok(None)
     }
-    fn scrobble(&self, _track: &TrackMetadata, _timestamp: u64) -> Result<(), String> {
-        Ok(())
-    }
-    fn update_now_playing(&self, _track: &TrackMetadata) -> Result<(), String> {
-        Ok(())
-    }
 }
 
 #[derive(Clone, Default)]
@@ -174,26 +168,6 @@ impl PluginManager {
         }
         None
     }
-
-    pub fn scrobble(&self, track: &TrackMetadata, timestamp: u64) {
-        if let Ok(list) = self.plugins.read() {
-            for p in list.iter() {
-                if let Err(e) = p.scrobble(track, timestamp) {
-                    error!("Plugin {} scrobble error: {}", p.metadata().id, e);
-                }
-            }
-        }
-    }
-
-    pub fn update_now_playing(&self, track: &TrackMetadata) {
-        if let Ok(list) = self.plugins.read() {
-            for p in list.iter() {
-                if let Err(e) = p.update_now_playing(track) {
-                    error!("Plugin {} update_now_playing error: {}", p.metadata().id, e);
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -248,9 +222,6 @@ mod tests {
             meta: PluginMetadata {
                 id: "test.plugin".to_string(),
                 name: "Test Plugin".to_string(),
-                version: "0.1.0".to_string(),
-                author: "Tester".to_string(),
-                description: "Test".to_string(),
             },
             track_changed: track_flag.clone(),
             playback_ended: end_flag.clone(),
@@ -332,9 +303,6 @@ mod tests {
             meta: PluginMetadata {
                 id: "test.full".to_string(),
                 name: "Full".to_string(),
-                version: "1.0.0".to_string(),
-                author: "Tester".to_string(),
-                description: "".to_string(),
             },
             playing: playing.clone(),
             position: position.clone(),

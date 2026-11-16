@@ -105,7 +105,7 @@ pub fn chip_with_icon<'a, M: Clone + 'static>(
 }
 
 /// A chip button representing a view mode (List or Tiles).
-pub fn view_mode_chip<'a, M: Clone + 'static>(
+fn view_mode_chip<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
     font: iced::Font,
     mode: ViewMode,
@@ -148,7 +148,7 @@ pub fn view_mode_toggle<'a, M: Clone + 'static>(
 }
 
 /// A sort chip displaying the field label and an active sort direction indicator arrow.
-pub fn sort_chip<'a, T: Copy + PartialEq, M: Clone + 'static>(
+fn sort_chip<'a, T: Copy + PartialEq, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
     font: iced::Font,
     label: &'a str,

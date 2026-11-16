@@ -47,8 +47,6 @@ pub struct ParsedPlaylist {
     /// Human-readable name derived from the file stem.
     pub name: String,
     pub entries: Vec<PlaylistEntry>,
-    /// Whether an `#EXTM3U` header (extended playlist) was present.
-    pub extended: bool,
 }
 
 /// A single row in an opened playlist's detail list.
@@ -82,7 +80,7 @@ pub fn is_supported_playlist_file(path: &Path) -> bool {
 }
 
 /// Derives a display name for a playlist from its file stem.
-pub fn playlist_name_from_path(path: &Path) -> String {
+fn playlist_name_from_path(path: &Path) -> String {
     path.file_stem()
         .and_then(|s| s.to_str())
         .map(|s| s.trim().to_string())
@@ -133,7 +131,7 @@ fn sanitized_truncate(s: &str, max: usize) -> String {
 }
 
 /// Resolves a raw playlist path (absolute or relative) against `playlist_dir`.
-pub fn resolve_entry_path(playlist_dir: &Path, raw: &str) -> PathBuf {
+fn resolve_entry_path(playlist_dir: &Path, raw: &str) -> PathBuf {
     let candidate = Path::new(raw);
     let path = if candidate.is_absolute() {
         candidate.to_path_buf()
@@ -200,14 +198,13 @@ pub fn parse_m3u_preview_paths<P: AsRef<Path>>(
 
 /// Parses playlist text. `origin` is used for the name and for resolving
 /// relative entries; it does not need to exist on disk.
-pub fn parse_m3u_str(content: &str, origin: &Path) -> ParsedPlaylist {
+fn parse_m3u_str(content: &str, origin: &Path) -> ParsedPlaylist {
     let playlist_dir: PathBuf = origin
         .parent()
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."));
 
     let mut entries = Vec::new();
-    let mut extended = false;
     let mut pending: Option<(Option<String>, Option<u64>)> = None;
 
     for raw_line in content.lines() {
@@ -218,10 +215,6 @@ pub fn parse_m3u_str(content: &str, origin: &Path) -> ParsedPlaylist {
 
         if let Some(rest) = line.strip_prefix("#EXTINF:") {
             pending = Some(parse_extinf(rest));
-            continue;
-        }
-        if line.eq_ignore_ascii_case("#EXTM3U") {
-            extended = true;
             continue;
         }
         if line.starts_with('#') {
@@ -245,7 +238,6 @@ pub fn parse_m3u_str(content: &str, origin: &Path) -> ParsedPlaylist {
     ParsedPlaylist {
         name: playlist_name_from_path(origin),
         entries,
-        extended,
     }
 }
 
@@ -367,7 +359,7 @@ pub fn append_tracks_to_m3u<P: AsRef<Path>>(
 }
 
 /// Normalizes path components lexically without touching the filesystem.
-pub fn normalize_path(path: &Path) -> PathBuf {
+fn normalize_path(path: &Path) -> PathBuf {
     let mut normalized = PathBuf::new();
     for component in path.components() {
         match component {
@@ -399,7 +391,6 @@ mod tests {
     fn parses_extended_playlist() {
         let text = "#EXTM3U\n#EXTINF:123,Test Song\nmusic/song.mp3\n# comment\n#EXTINF:45.5,Other\n/tmp/other.flac\n";
         let parsed = parse_m3u_str(text, Path::new("/playlists/list.m3u8"));
-        assert!(parsed.extended);
         assert_eq!(parsed.name, "list");
         assert_eq!(parsed.entries.len(), 2);
         assert_eq!(parsed.entries[0].title.as_deref(), Some("Test Song"));

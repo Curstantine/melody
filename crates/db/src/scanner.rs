@@ -6,15 +6,13 @@ use std::sync::Arc;
 use tracing::{info, warn};
 use walkdir::WalkDir;
 
-use metadata::extract_metadata;
+use metadata::{extract_metadata, is_supported_audio_path};
 use model::NewTrack;
 
-use crate::{
-    is_supported_audio_path, DbError, LibraryDatabase, ScanSummary, SQL_IN_CLAUSE_CHUNK_SIZE,
-};
+use crate::{DbError, LibraryDatabase, ScanSummary, SQL_IN_CLAUSE_CHUNK_SIZE};
 
 impl LibraryDatabase {
-    pub async fn index_files_parallel<F: FnMut(usize, usize)>(
+    pub(crate) async fn index_files_parallel<F: FnMut(usize, usize)>(
         &self,
         files: &[PathBuf],
         mut progress_cb: Option<F>,
@@ -157,7 +155,7 @@ impl LibraryDatabase {
     }
 
     /// Filters a list of file paths, returning only those that do NOT currently exist in the database.
-    pub async fn filter_new_paths<P: AsRef<Path>>(
+    pub(crate) async fn filter_new_paths<P: AsRef<Path>>(
         &self,
         paths: &[P],
     ) -> Result<Vec<PathBuf>, DbError> {

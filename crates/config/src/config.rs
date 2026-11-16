@@ -5,12 +5,11 @@ use tracing::{error, info};
 
 use crate::navigation::ViewTab;
 
-pub const DEFAULT_PAGE_SIZE: usize = 50;
-pub const DEFAULT_TILE_WIDTH: u32 = 140;
+const DEFAULT_PAGE_SIZE: usize = 50;
 pub const DEFAULT_ALBUM_TILE_WIDTH: u32 = 140;
 pub const DEFAULT_ARTIST_TILE_WIDTH: u32 = 140;
 
-pub fn default_tab_order() -> Vec<ViewTab> {
+pub(crate) fn default_tab_order() -> Vec<ViewTab> {
     vec![
         ViewTab::Tracks,
         ViewTab::Lyrics,
@@ -20,7 +19,7 @@ pub fn default_tab_order() -> Vec<ViewTab> {
     ]
 }
 
-pub fn sanitize_tab_order(order: &[ViewTab]) -> Vec<ViewTab> {
+pub(crate) fn sanitize_tab_order(order: &[ViewTab]) -> Vec<ViewTab> {
     let standard = default_tab_order();
     let mut sanitized = Vec::with_capacity(standard.len());
     for &tab in order {
@@ -58,8 +57,6 @@ pub struct AppConfig {
 
     #[serde(default = "default_page_size")]
     pub page_size: usize,
-    #[serde(default = "default_tile_width")]
-    pub tile_width: u32,
     #[serde(default = "default_album_tile_width")]
     pub album_tile_width: u32,
     #[serde(default = "default_artist_tile_width")]
@@ -178,10 +175,6 @@ fn default_page_size() -> usize {
     DEFAULT_PAGE_SIZE
 }
 
-fn default_tile_width() -> u32 {
-    DEFAULT_TILE_WIDTH
-}
-
 fn default_album_tile_width() -> u32 {
     DEFAULT_ALBUM_TILE_WIDTH
 }
@@ -199,7 +192,6 @@ impl Default for AppConfig {
             custom_titlebar: false,
             minimize_to_tray: false,
             page_size: default_page_size(),
-            tile_width: default_tile_width(),
             album_tile_width: default_album_tile_width(),
             artist_tile_width: default_artist_tile_width(),
             fonts: font::FontConfig::default(),
@@ -242,7 +234,7 @@ impl AppConfig {
         Self::load_from_path(path)
     }
 
-    pub fn load_from_path(path: &Path) -> Self {
+    pub(crate) fn load_from_path(path: &Path) -> Self {
         if !path.exists() {
             info!("No config file found at {:?}, using default settings", path);
             return Self::default();

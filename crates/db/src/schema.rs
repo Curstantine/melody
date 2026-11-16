@@ -29,9 +29,9 @@ impl LibraryDatabase {
         Ok(library_db)
     }
 
-    pub const SCHEMA_VERSION: i32 = 1;
+    const SCHEMA_VERSION: i32 = 1;
 
-    pub async fn init_schema(&self) -> Result<(), DbError> {
+    async fn init_schema(&self) -> Result<(), DbError> {
         let current_version: i32 = {
             let mut rows = self.conn.query("PRAGMA user_version;", ()).await?;
             if let Some(row) = rows.next().await? {

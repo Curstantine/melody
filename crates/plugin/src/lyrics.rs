@@ -13,11 +13,6 @@ impl LyricsPlugin {
             meta: PluginMetadata {
                 id: "builtin.lyrics".to_string(),
                 name: "Local Lyrics Provider".to_string(),
-                version: "1.0.0".to_string(),
-                author: "melody".to_string(),
-                description:
-                    "Loads matching lyrics (.lrc or .txt) from the track directory or embedded tags"
-                        .to_string(),
             },
         }
     }

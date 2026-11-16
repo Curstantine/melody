@@ -62,35 +62,9 @@ impl Marquee {
         self.font = font;
         self
     }
-
-    pub fn speed(mut self, speed_px_per_sec: f32) -> Self {
-        self.speed_px_per_sec = speed_px_per_sec;
-        self
-    }
-
-    pub fn gap(mut self, gap: f32) -> Self {
-        self.gap = gap;
-        self
-    }
-
-    pub fn pause_ms(mut self, pause_ms: u64) -> Self {
-        self.pause_start_ms = pause_ms;
-        self.pause_end_ms = pause_ms;
-        self
-    }
-
-    pub fn pause_start_ms(mut self, pause_start_ms: u64) -> Self {
-        self.pause_start_ms = pause_start_ms;
-        self
-    }
-
-    pub fn pause_end_ms(mut self, pause_end_ms: u64) -> Self {
-        self.pause_end_ms = pause_end_ms;
-        self
-    }
 }
 
-pub struct State<P: Paragraph> {
+struct State<P: Paragraph> {
     paragraph: text::paragraph::Plain<P>,
 }
 

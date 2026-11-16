@@ -3,10 +3,7 @@ use std::{collections::HashMap, fs, path::Path};
 use iced::Theme;
 use tracing::{info, warn};
 
-pub use crate::{
-    colors::hex_color,
-    config::{ThemeConfig, DEFAULT_THEME_NAME},
-};
+pub use crate::config::{ThemeConfig, DEFAULT_THEME_NAME};
 
 mod colors;
 mod config;
@@ -14,7 +11,7 @@ mod radius;
 
 #[derive(Debug, Clone)]
 pub struct ThemeManager {
-    pub themes: HashMap<String, ThemeConfig>,
+    themes: HashMap<String, ThemeConfig>,
     pub active_theme_name: String,
     pub current_config: ThemeConfig,
     cached_theme_names: Vec<String>,

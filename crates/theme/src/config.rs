@@ -67,7 +67,7 @@ impl ThemeConfig {
         self.slider_rail.unwrap_or(self.surface)
     }
 
-    pub fn to_seed(&self) -> Seed {
+    fn to_seed(&self) -> Seed {
         Seed {
             background: self.background,
             text: self.text,
@@ -78,7 +78,7 @@ impl ThemeConfig {
         }
     }
 
-    pub fn to_iced_theme(&self) -> Theme {
+    pub(crate) fn to_iced_theme(&self) -> Theme {
         Theme::custom(self.name.clone(), self.to_seed())
     }
 }

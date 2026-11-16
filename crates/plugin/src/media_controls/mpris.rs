@@ -349,10 +349,6 @@ mod linux {
             let meta = PluginMetadata {
                 id: "builtin.mpris".to_string(),
                 name: "MPRIS D-Bus Interface".to_string(),
-                version: "1.0.0".to_string(),
-                author: "melody".to_string(),
-                description: "Exposes org.mpris.MediaPlayer2 player interface on Linux D-Bus"
-                    .to_string(),
             };
 
             let inner = MprisInner::new(action_tx);
