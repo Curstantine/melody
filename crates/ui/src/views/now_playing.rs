@@ -175,7 +175,7 @@ impl NowPlayingView {
         blurred_cover: Option<&'a image::Handle>,
         next_track: Option<&'a TrackRow>,
         _next_cover: Option<&'a image::Handle>,
-        is_repeat: bool,
+        repeat_mode: model::RepeatMode,
         is_shuffle: bool,
         position_ms: u64,
         _tech_info: Option<&'a AudioTechnicalInfo>,
@@ -316,11 +316,16 @@ impl NowPlayingView {
 
                 // Up Next Section Header (natural casing, font size 11 matching secondary headers)
                 let mut up_next_tags = row![].spacing(6).align_y(Alignment::Center);
-                if is_repeat {
+                if repeat_mode != model::RepeatMode::Off {
+                    let repeat_svg = if repeat_mode == model::RepeatMode::One {
+                        icons::REPEAT_ONE_SVG
+                    } else {
+                        icons::REPEAT_SVG
+                    };
                     up_next_tags = up_next_tags.push(
                         row![
-                            icons::icon(icons::REPEAT_SVG, 10.0, theme_cfg.primary),
-                            text(fonts.primary_font(), "Repeat")
+                            icons::icon(repeat_svg, 10.0, theme_cfg.primary),
+                            text(fonts.primary_font(), repeat_mode.label())
                                 .size(10)
                                 .color(theme_cfg.primary),
                         ]
@@ -576,7 +581,7 @@ mod tests {
             None,
             None,
             None,
-            false,
+            model::RepeatMode::Off,
             false,
             0,
             None,
@@ -648,7 +653,7 @@ mod tests {
             None,
             Some(&next_track),
             None,
-            true,
+            model::RepeatMode::One,
             true,
             5_000,
             Some(&tech_info),

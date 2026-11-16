@@ -88,10 +88,12 @@ pub struct SettingsContext<'a> {
     pub scrobble_percent: u32,
     pub gapless: bool,
     pub resampling: audio::ResamplingConfig,
+    pub output_device: Option<&'a str>,
+    pub available_output_devices: &'a [String],
     pub watch_library: bool,
     pub volume: f32,
     pub is_shuffle: bool,
-    pub is_repeat: bool,
+    pub repeat_mode: model::RepeatMode,
 }
 
 /// Interactive sample state for the Debug settings page.
@@ -288,10 +290,12 @@ mod tests {
                 scrobble_percent: 50,
                 gapless: true,
                 resampling: audio::ResamplingConfig::default(),
+                output_device: None,
+                available_output_devices: &[],
                 watch_library: true,
                 volume: 1.0,
                 is_shuffle: false,
-                is_repeat: false,
+                repeat_mode: model::RepeatMode::Off,
             };
 
             // Render each view and verify it builds valid Iced elements without panic
@@ -373,10 +377,12 @@ mod tests {
             scrobble_percent: 50,
             gapless: true,
             resampling: custom_resampling,
+            output_device: Some("Test DAC"),
+            available_output_devices: &[],
             watch_library: false,
             volume: 1.0,
             is_shuffle: false,
-            is_repeat: false,
+            repeat_mode: model::RepeatMode::All,
         };
 
         let _element = settings_view.view(&theme_cfg, iced::Font::DEFAULT, ctx);

@@ -2,7 +2,7 @@
 mod linux {
     use std::path::PathBuf;
     use std::sync::{
-        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicU8, Ordering},
         Arc, Mutex, RwLock,
     };
     use std::time::Duration;
@@ -29,7 +29,23 @@ mod linux {
         position_ms: Arc<AtomicU64>,
         volume: Arc<AtomicU32>, // stored as (vol * 10000.0) as u32
         is_shuffle: Arc<AtomicBool>,
-        is_repeat: Arc<AtomicBool>,
+        repeat_mode: Arc<AtomicU8>,
+    }
+
+    fn encode_repeat_mode(mode: model::RepeatMode) -> u8 {
+        match mode {
+            model::RepeatMode::Off => 0,
+            model::RepeatMode::All => 1,
+            model::RepeatMode::One => 2,
+        }
+    }
+
+    fn decode_repeat_mode(code: u8) -> model::RepeatMode {
+        match code {
+            1 => model::RepeatMode::All,
+            2 => model::RepeatMode::One,
+            _ => model::RepeatMode::Off,
+        }
     }
 
     impl MprisInner {
@@ -41,7 +57,7 @@ mod linux {
                 position_ms: Arc::new(AtomicU64::new(0)),
                 volume: Arc::new(AtomicU32::new(10000)), // 1.0 default
                 is_shuffle: Arc::new(AtomicBool::new(false)),
-                is_repeat: Arc::new(AtomicBool::new(false)),
+                repeat_mode: Arc::new(AtomicU8::new(0)),
             }
         }
 
@@ -185,20 +201,22 @@ mod linux {
         }
 
         async fn loop_status(&self) -> fdo::Result<LoopStatus> {
-            if self.is_repeat.load(Ordering::Relaxed) {
-                Ok(LoopStatus::Track)
-            } else {
-                Ok(LoopStatus::None)
+            match decode_repeat_mode(self.repeat_mode.load(Ordering::Relaxed)) {
+                model::RepeatMode::Off => Ok(LoopStatus::None),
+                model::RepeatMode::All => Ok(LoopStatus::Playlist),
+                model::RepeatMode::One => Ok(LoopStatus::Track),
             }
         }
 
         async fn set_loop_status(&self, loop_status: LoopStatus) -> ZbusResult<()> {
-            let repeat = match loop_status {
-                LoopStatus::None => false,
-                LoopStatus::Track | LoopStatus::Playlist => true,
+            let mode = match loop_status {
+                LoopStatus::None => model::RepeatMode::Off,
+                LoopStatus::Playlist => model::RepeatMode::All,
+                LoopStatus::Track => model::RepeatMode::One,
             };
-            self.is_repeat.store(repeat, Ordering::Relaxed);
-            let _ = self.action_tx.send(PlayerAction::SetRepeat(repeat));
+            self.repeat_mode
+                .store(encode_repeat_mode(mode), Ordering::Relaxed);
+            let _ = self.action_tx.send(PlayerAction::SetRepeat(mode));
             Ok(())
         }
 
@@ -498,12 +516,14 @@ mod linux {
             Ok(())
         }
 
-        fn on_repeat_change(&self, is_repeat: bool) -> Result<(), String> {
-            self.inner.is_repeat.store(is_repeat, Ordering::Relaxed);
-            let loop_status = if is_repeat {
-                LoopStatus::Track
-            } else {
-                LoopStatus::None
+        fn on_repeat_change(&self, mode: model::RepeatMode) -> Result<(), String> {
+            self.inner
+                .repeat_mode
+                .store(encode_repeat_mode(mode), Ordering::Relaxed);
+            let loop_status = match mode {
+                model::RepeatMode::Off => LoopStatus::None,
+                model::RepeatMode::All => LoopStatus::Playlist,
+                model::RepeatMode::One => LoopStatus::Track,
             };
             self.send_msg(MprisServerMsg::PropertiesChanged(vec![
                 Property::LoopStatus(loop_status),
@@ -549,7 +569,7 @@ mod tests {
         assert!(mpris.on_position_change(5000).is_ok());
         assert!(mpris.on_seeked(6000).is_ok());
         assert!(mpris.on_volume_change(0.8).is_ok());
-        assert!(mpris.on_repeat_change(true).is_ok());
+        assert!(mpris.on_repeat_change(model::RepeatMode::All).is_ok());
         assert!(mpris.on_shuffle_change(true).is_ok());
         assert!(mpris.on_playback_end().is_ok());
     }

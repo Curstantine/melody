@@ -270,6 +270,44 @@ pub enum ViewMode {
     Tile,
 }
 
+/// Queue and track repeat behavior.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RepeatMode {
+    #[default]
+    Off,
+    All,
+    One,
+}
+
+impl RepeatMode {
+    pub const ALL: [RepeatMode; 3] = [RepeatMode::Off, RepeatMode::All, RepeatMode::One];
+
+    /// Cycles through `Off -> All -> One -> Off`.
+    pub fn next(self) -> Self {
+        match self {
+            Self::Off => Self::All,
+            Self::All => Self::One,
+            Self::One => Self::Off,
+        }
+    }
+
+    /// Human-readable label for UI selectors and indicators.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Off => "Off",
+            Self::All => "Repeat all",
+            Self::One => "Repeat one",
+        }
+    }
+}
+
+impl std::fmt::Display for RepeatMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.label())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,5 +317,12 @@ mod tests {
         assert_eq!(format_duration(500), "0:00");
         assert_eq!(format_duration(65000), "1:05");
         assert_eq!(format_duration(3665000), "1:01:05");
+    }
+
+    #[test]
+    fn test_repeat_mode_cycle() {
+        assert_eq!(RepeatMode::Off.next(), RepeatMode::All);
+        assert_eq!(RepeatMode::All.next(), RepeatMode::One);
+        assert_eq!(RepeatMode::One.next(), RepeatMode::Off);
     }
 }

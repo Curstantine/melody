@@ -364,6 +364,7 @@ impl App {
     pub(super) fn step_active_queue(&mut self, forward: bool) -> Option<i64> {
         let position_seed = self.position_ms;
         let is_shuffle = self.is_shuffle;
+        let repeat_all = self.repeat_mode == model::RepeatMode::All;
         let queue = self.queues.active_queue_mut()?;
         if queue.is_empty() {
             return None;
@@ -382,9 +383,17 @@ impl App {
                 pick
             }
         } else if forward {
-            queue.next_index()?
+            match queue.next_index() {
+                Some(idx) => idx,
+                None if repeat_all => 0,
+                None => return None,
+            }
         } else {
-            queue.previous_index()?
+            match queue.previous_index() {
+                Some(idx) => idx,
+                None if repeat_all => queue.len() - 1,
+                None => return None,
+            }
         };
 
         queue.set_current(target);

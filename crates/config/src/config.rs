@@ -73,6 +73,9 @@ pub struct AppConfig {
     #[serde(default)]
     pub resampling: audio::ResamplingConfig,
 
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_device: Option<String>,
+
     #[serde(default = "default_true")]
     pub watch_library: bool,
 
@@ -202,6 +205,7 @@ impl Default for AppConfig {
             fonts: font::FontConfig::default(),
             gapless: true,
             resampling: audio::ResamplingConfig::default(),
+            output_device: None,
             watch_library: true,
             scrobble: ScrobbleConfig::default(),
         }

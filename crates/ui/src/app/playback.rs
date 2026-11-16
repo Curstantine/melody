@@ -53,7 +53,7 @@ impl App {
                     }
                     self.plugin_manager.on_playback_end();
 
-                    if self.is_repeat {
+                    if self.repeat_mode == model::RepeatMode::One {
                         if let Some(track) = &self.current_track {
                             self.plugin_manager.on_track_change(&TrackMetadata {
                                 title: track.title.clone(),
@@ -164,6 +164,13 @@ impl App {
                         self.position_ms = self.duration_ms;
                     }
                     self.plugin_manager.on_playback_end();
+                    if self.repeat_mode == model::RepeatMode::One {
+                        self.audio_controller.seek(Duration::from_millis(0));
+                        self.position_ms = 0;
+                        self.audio_controller.play();
+                        self.queue_next_gapless_track();
+                        return Task::none();
+                    }
                     return self.update(Message::NextTrack);
                 }
 
@@ -396,13 +403,6 @@ impl App {
             }
 
             Message::NextTrack => {
-                if self.is_repeat {
-                    self.audio_controller.seek(Duration::from_millis(0));
-                    self.position_ms = 0;
-                    self.audio_controller.play();
-                    return Task::none();
-                }
-
                 if self.queues.active.is_some() {
                     if let Some(id) = self.step_active_queue(true) {
                         self.queues.touch_active_summary();
@@ -430,11 +430,34 @@ impl App {
             }
 
             Message::ToggleRepeat => {
-                self.is_repeat = !self.is_repeat;
-                info!("Repeat toggled: {}", self.is_repeat);
-                self.plugin_manager.on_repeat_change(self.is_repeat);
-                self.queue_next_gapless_track();
-                self.save_state_task()
+                let next_mode = self.repeat_mode.next();
+                self.update(Message::SetRepeatMode(next_mode))
+            }
+
+            Message::SetRepeatMode(mode) => {
+                if self.repeat_mode != mode {
+                    self.repeat_mode = mode;
+                    info!("Repeat mode set: {:?}", self.repeat_mode);
+                    self.plugin_manager.on_repeat_change(self.repeat_mode);
+                    self.queue_next_gapless_track();
+                    return self.save_state_task();
+                }
+                Task::none()
+            }
+
+            Message::SetOutputDevice(device) => {
+                if self.output_device != device {
+                    self.output_device = device.clone();
+                    info!("Audio output device changed: {:?}", self.output_device);
+                    self.audio_controller.set_output_device(device);
+                    return self.save_config_task();
+                }
+                Task::none()
+            }
+
+            Message::RefreshOutputDevices => {
+                self.available_output_devices = audio::list_output_devices();
+                Task::none()
             }
 
             Message::ToggleGapless(enabled) => {
@@ -579,13 +602,7 @@ impl App {
                         Task::none()
                     }
                 }
-                PlayerAction::SetRepeat(repeat) => {
-                    if self.is_repeat != repeat {
-                        self.update(Message::ToggleRepeat)
-                    } else {
-                        Task::none()
-                    }
-                }
+                PlayerAction::SetRepeat(mode) => self.update(Message::SetRepeatMode(mode)),
                 PlayerAction::OpenUri(uri) => {
                     if let Ok(url) = url::Url::parse(&uri) {
                         if url.scheme() == "file" {
@@ -631,6 +648,9 @@ impl App {
             }
             if let Some(idx) = queue.next_index() {
                 return queue.tracks.get(idx);
+            }
+            if self.repeat_mode == model::RepeatMode::All {
+                return queue.tracks.first();
             }
             return None;
         }
@@ -751,7 +771,7 @@ impl App {
             return;
         }
 
-        if self.is_repeat {
+        if self.repeat_mode == model::RepeatMode::One {
             if let Some(track) = &self.current_track {
                 let path = PathBuf::from(&track.file_path);
                 self.audio_controller.set_next_track(Some(path));

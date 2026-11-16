@@ -54,6 +54,9 @@ pub const SHUFFLE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox
 /// Boxicons `repeat`.
 pub const REPEAT_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M17 5H6c-1.1 0-2 .9-2 2v5h2V7h11v3l5-4l-5-4zm1 12H7v-3l-5 4l5 4v-3h11c1.1 0 2-.9 2-2v-5h-2z"/></svg>"#;
 
+/// Repeat-one variant of [`REPEAT_SVG`] with a centered `1` indicator.
+pub const REPEAT_ONE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M17 5H6c-1.1 0-2 .9-2 2v5h2V7h11v3l5-4l-5-4zm1 12H7v-3l-5 4l5 4v-3h11c1.1 0 2-.9 2-2v-5h-2z"/><path fill="currentColor" d="M11.7 9h1.6v6h-1.6v-4.2l-1.3.85l-.75-1.15z"/></svg>"#;
+
 /// Boxicons `search`.
 pub const SEARCH_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M18 10c0-4.41-3.59-8-8-8s-8 3.59-8 8s3.59 8 8 8c1.85 0 3.54-.63 4.9-1.69l5.1 5.1L21.41 20l-5.1-5.1A8 8 0 0 0 18 10M4 10c0-3.31 2.69-6 6-6s6 2.69 6 6s-2.69 6-6 6s-6-2.69-6-6"/></svg>"#;
 

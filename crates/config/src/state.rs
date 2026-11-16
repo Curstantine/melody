@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use crate::navigation::{SettingsTab, ViewTab};
-use model::{AlbumSortField, ArtistSortField, PlaylistSortField, ViewMode};
+use model::{AlbumSortField, ArtistSortField, PlaylistSortField, RepeatMode, ViewMode};
 
 pub const WINDOW_MIN_WIDTH: f32 = 1000.0;
 pub const WINDOW_MIN_HEIGHT: f32 = 520.0;
@@ -38,7 +38,7 @@ pub struct AppState {
     #[serde(default)]
     pub is_shuffle: bool,
     #[serde(default)]
-    pub is_repeat: bool,
+    pub repeat_mode: RepeatMode,
 
     #[serde(default)]
     pub albums_view_mode: ViewMode,
@@ -71,7 +71,7 @@ impl Default for AppState {
             settings_tab: SettingsTab::Appearance,
             volume: default_volume(),
             is_shuffle: false,
-            is_repeat: false,
+            repeat_mode: RepeatMode::Off,
             albums_view_mode: ViewMode::Tile,
             artists_view_mode: ViewMode::Tile,
             playlists_view_mode: ViewMode::List,
@@ -99,7 +99,17 @@ impl AppState {
 
         match fs::read_to_string(path) {
             Ok(content) => match toml::from_str::<Self>(&content) {
-                Ok(state) => {
+                Ok(mut state) => {
+                    // Migrate legacy `is_repeat = true` when `repeat_mode` is absent
+                    if state.repeat_mode == RepeatMode::Off {
+                        if let Ok(table) = toml::from_str::<toml::Table>(&content) {
+                            if !table.contains_key("repeat_mode")
+                                && table.get("is_repeat").and_then(|v| v.as_bool()) == Some(true)
+                            {
+                                state.repeat_mode = RepeatMode::One;
+                            }
+                        }
+                    }
                     info!("Successfully loaded state from {:?}", path);
                     state
                 }

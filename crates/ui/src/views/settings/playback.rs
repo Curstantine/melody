@@ -1,8 +1,8 @@
-use iced::widget::{column, pick_list, row, slider, toggler, Space, Widget};
+use iced::widget::{button, column, pick_list, row, slider, toggler, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
-use component::{self, styles, text};
+use component::{self, icons, styles, text};
 use theme::ThemeConfig;
 
 use super::*;
@@ -19,6 +19,72 @@ impl SettingsView {
             font,
             "Playback preferences",
             Some("Configure audio transitions and playback behavior"),
+        );
+
+        // 0. Audio Output Device Card
+        const SYSTEM_DEFAULT_LABEL: &str = "System Default";
+        let mut device_options = Vec::with_capacity(1 + ctx.available_output_devices.len());
+        device_options.push(SYSTEM_DEFAULT_LABEL.to_string());
+        for dev in ctx.available_output_devices {
+            device_options.push(dev.clone());
+        }
+        if let Some(configured) = ctx.output_device {
+            if !device_options.iter().any(|d| d == configured) {
+                device_options.push(configured.to_string());
+            }
+        }
+        let selected_device = ctx
+            .output_device
+            .map(ToString::to_string)
+            .unwrap_or_else(|| SYSTEM_DEFAULT_LABEL.to_string());
+
+        let device_selector = pick_list(Some(selected_device), device_options, |d: &String| {
+            d.clone()
+        })
+        .on_select(|selected| {
+            if selected == SYSTEM_DEFAULT_LABEL {
+                Message::SetOutputDevice(None)
+            } else {
+                Message::SetOutputDevice(Some(selected))
+            }
+        })
+        .font(font)
+        .padding(INPUT_PADDING)
+        .text_size(12)
+        .handle(pick_list::Handle::Arrow {
+            size: Some(11.0.into()),
+        })
+        .width(Length::Fixed(SETTING_DROPDOWN_WIDTH))
+        .style(styles::pick_list_style(theme_cfg))
+        .menu_style(styles::menu_style(theme_cfg));
+
+        let refresh_devices_btn = button(icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text))
+            .padding([6, 8])
+            .style(styles::ghost_button(theme_cfg, false))
+            .on_press(Message::RefreshOutputDevices);
+
+        let output_device_row = row![
+            column![
+                text(font, "Output device")
+                    .size(12)
+                    .color(theme_cfg.text_muted),
+                text(font, "Select the audio hardware device used for playback",)
+                    .size(11)
+                    .color(theme_cfg.text_muted),
+            ]
+            .spacing(FORM_FIELD_SPACING)
+            .width(Length::Fill),
+            row![device_selector, refresh_devices_btn]
+                .spacing(8)
+                .align_y(Alignment::Center),
+        ]
+        .align_y(Alignment::Center);
+
+        let output_card = component::settings_card(
+            theme_cfg,
+            font,
+            "Audio output",
+            column![output_device_row].boxed(),
         );
 
         // 1. Audio Transitions Card
@@ -92,24 +158,37 @@ impl SettingsView {
         ]
         .align_y(Alignment::Center);
 
+        let repeat_selector = pick_list(
+            Some(ctx.repeat_mode),
+            &model::RepeatMode::ALL[..],
+            |mode: &model::RepeatMode| mode.label().to_string(),
+        )
+        .on_select(Message::SetRepeatMode)
+        .font(font)
+        .padding(INPUT_PADDING)
+        .text_size(12)
+        .handle(pick_list::Handle::Arrow {
+            size: Some(11.0.into()),
+        })
+        .width(Length::Fixed(SETTING_DROPDOWN_WIDTH))
+        .style(styles::pick_list_style(theme_cfg))
+        .menu_style(styles::menu_style(theme_cfg));
+
         let repeat_row = row![
             column![
-                text(font, "Repeat playback")
+                text(font, "Repeat mode")
                     .size(12)
                     .color(theme_cfg.text_muted),
                 text(
                     font,
-                    "Loop the active queue continuously when the final track completes",
+                    "Choose whether playback stops, loops the active queue, or loops the current track",
                 )
                 .size(11)
                 .color(theme_cfg.text_muted),
             ]
             .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
-            toggler(ctx.is_repeat)
-                .on_toggle(|_| Message::ToggleRepeat)
-                .size(TOGGLER_SIZE)
-                .style(styles::toggler_style(theme_cfg)),
+            repeat_selector,
         ]
         .align_y(Alignment::Center);
 
@@ -254,6 +333,7 @@ impl SettingsView {
 
         column![
             header,
+            output_card,
             transitions_card,
             behavior_card,
             resampling_card,

@@ -41,7 +41,7 @@ pub enum PlayerAction {
     SetPosition(std::time::Duration),
     SetVolume(f32),
     SetShuffle(bool),
-    SetRepeat(bool),
+    SetRepeat(model::RepeatMode),
     OpenUri(String),
     Raise,
     Quit,

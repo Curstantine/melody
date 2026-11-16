@@ -59,6 +59,7 @@ impl App {
             fonts: self.fonts.clone(),
             gapless: self.gapless,
             resampling: self.resampling_config.clone(),
+            output_device: self.output_device.clone(),
             watch_library: self.watch_library,
             scrobble: self.scrobble_config.clone(),
         }
@@ -89,7 +90,7 @@ impl App {
             settings_tab: self.settings.active_tab,
             volume: self.volume,
             is_shuffle: self.is_shuffle,
-            is_repeat: self.is_repeat,
+            repeat_mode: self.repeat_mode,
             albums_view_mode: self.albums.view_mode,
             artists_view_mode: self.artists.view_mode,
             playlists_view_mode: self.playlists.view_mode,

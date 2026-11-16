@@ -20,4 +20,6 @@ pub enum AudioCommand {
     SetNextTrack(Option<PathBuf>),
     /// Update audio resampling configuration parameters
     SetResampling(crate::resample::ResamplingConfig),
+    /// Switch the CPAL output device (`None` = system default)
+    SetOutputDevice(Option<String>),
 }

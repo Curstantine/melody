@@ -476,7 +476,7 @@ impl SettingsView {
         font: iced::Font,
     ) -> Element<'a, Message> {
         const COLS: usize = 8;
-        let all_icons: [(&'static str, &'static str); 42] = [
+        let all_icons: [(&'static str, &'static str); 43] = [
             ("Play", icons::PLAY_SVG),
             ("Play circle", icons::PLAY_CIRCLE_SVG),
             ("Pause", icons::PAUSE_SVG),
@@ -492,6 +492,7 @@ impl SettingsView {
             ("Queue", icons::QUEUE_SVG),
             ("Shuffle", icons::SHUFFLE_SVG),
             ("Repeat", icons::REPEAT_SVG),
+            ("Repeat one", icons::REPEAT_ONE_SVG),
             ("Search", icons::SEARCH_SVG),
             ("Speaker", icons::SPEAKER_PLAYING_SVG),
             ("Chevron up", icons::CHEVRON_UP_SVG),

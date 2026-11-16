@@ -224,7 +224,7 @@ impl App {
                         self.current_blurred_cover.as_ref(),
                         next_track,
                         self.current_next_cover.as_ref(),
-                        self.is_repeat,
+                        self.repeat_mode,
                         self.is_shuffle,
                         self.position_ms,
                         self.current_tech_info.as_ref(),
@@ -252,7 +252,7 @@ impl App {
                 self.duration_ms,
                 self.volume,
                 self.is_shuffle,
-                self.is_repeat,
+                self.repeat_mode,
             ),
 
             LayoutComponent::TrackInfo => container(self.player_bar.view_track_info(
@@ -291,7 +291,7 @@ impl App {
             LayoutComponent::PlaybackOptions => container(self.player_bar.view_options(
                 theme_cfg,
                 self.is_shuffle,
-                self.is_repeat,
+                self.repeat_mode,
             ))
             .padding([4, 8])
             .boxed(),
@@ -531,7 +531,7 @@ impl App {
                     self.current_blurred_cover.as_ref(),
                     next_track,
                     self.current_next_cover.as_ref(),
-                    self.is_repeat,
+                    self.repeat_mode,
                     self.is_shuffle,
                     self.position_ms,
                     self.current_tech_info.as_ref(),
@@ -585,10 +585,12 @@ impl App {
                 scrobble_percent: self.scrobble_config.scrobble_percent,
                 gapless: self.gapless,
                 resampling: self.resampling_config.clone(),
+                output_device: self.output_device.as_deref(),
+                available_output_devices: &self.available_output_devices,
                 watch_library: self.watch_library,
                 volume: self.volume,
                 is_shuffle: self.is_shuffle,
-                is_repeat: self.is_repeat,
+                repeat_mode: self.repeat_mode,
             },
         )
     }

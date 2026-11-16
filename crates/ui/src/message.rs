@@ -35,7 +35,10 @@ pub enum Message {
     AudioTick,
     ToggleShuffle,
     ToggleRepeat,
+    SetRepeatMode(model::RepeatMode),
     ToggleGapless(bool),
+    SetOutputDevice(Option<String>),
+    RefreshOutputDevices,
     SetResamplingFilter(audio::ResamplingFilter),
     SetResamplingQuality(audio::ResamplingQuality),
     ToggleResamplingLinearInterp(bool),
@@ -333,7 +336,10 @@ impl std::fmt::Debug for Message {
             Self::AudioTick => write!(f, "AudioTick"),
             Self::ToggleShuffle => write!(f, "ToggleShuffle"),
             Self::ToggleRepeat => write!(f, "ToggleRepeat"),
+            Self::SetRepeatMode(m) => f.debug_tuple("SetRepeatMode").field(m).finish(),
             Self::ToggleGapless(v) => f.debug_tuple("ToggleGapless").field(v).finish(),
+            Self::SetOutputDevice(d) => f.debug_tuple("SetOutputDevice").field(d).finish(),
+            Self::RefreshOutputDevices => write!(f, "RefreshOutputDevices"),
             Self::SetResamplingFilter(filter) => {
                 f.debug_tuple("SetResamplingFilter").field(filter).finish()
             }

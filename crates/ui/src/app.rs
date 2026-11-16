@@ -110,8 +110,10 @@ pub struct App {
     pub(crate) duration_ms: u64,
     pub(crate) volume: f32,
     pub(crate) is_shuffle: bool,
-    pub(crate) is_repeat: bool,
+    pub(crate) repeat_mode: model::RepeatMode,
     pub(crate) gapless: bool,
+    pub(crate) output_device: Option<String>,
+    pub(crate) available_output_devices: Vec<String>,
     pub(crate) resampling_config: audio::ResamplingConfig,
     pub(crate) pending_gapless_next: Option<TrackRow>,
 
@@ -183,6 +185,8 @@ impl App {
         let audio_controller = audio_engine.controller();
         audio_controller.set_volume(state.volume);
         audio_controller.set_resampling(config.resampling.clone());
+        audio_controller.set_output_device(config.output_device.clone());
+        let available_output_devices = audio::list_output_devices();
 
         let plugin_manager = PluginManager::new();
 
@@ -314,8 +318,10 @@ impl App {
             duration_ms: 0,
             volume: state.volume,
             is_shuffle: state.is_shuffle,
-            is_repeat: state.is_repeat,
+            repeat_mode: state.repeat_mode,
             gapless: config.gapless,
+            output_device: config.output_device,
+            available_output_devices,
             resampling_config: config.resampling,
             pending_gapless_next: None,
 
@@ -501,7 +507,10 @@ impl App {
             | Message::NextTrack
             | Message::ToggleShuffle
             | Message::ToggleRepeat
+            | Message::SetRepeatMode(_)
             | Message::ToggleGapless(_)
+            | Message::SetOutputDevice(_)
+            | Message::RefreshOutputDevices
             | Message::SetResamplingFilter(_)
             | Message::SetResamplingQuality(_)
             | Message::ToggleResamplingLinearInterp(_)

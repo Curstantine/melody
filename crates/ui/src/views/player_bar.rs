@@ -283,7 +283,7 @@ impl PlayerBar {
         &'a self,
         theme_cfg: &'a ThemeConfig,
         is_shuffle: bool,
-        is_repeat: bool,
+        repeat_mode: model::RepeatMode,
     ) -> Element<'a, Message> {
         let bar_fg = theme_cfg.player_bar_text_color();
 
@@ -300,13 +300,22 @@ impl PlayerBar {
         .style(styles::player_bar_button(theme_cfg, is_shuffle))
         .on_press(Message::ToggleShuffle);
 
+        let repeat_active = repeat_mode != model::RepeatMode::Off;
+        let repeat_svg = match repeat_mode {
+            model::RepeatMode::One => icons::REPEAT_ONE_SVG,
+            model::RepeatMode::Off | model::RepeatMode::All => icons::REPEAT_SVG,
+        };
         let repeat_btn = button(icons::icon(
-            icons::REPEAT_SVG,
+            repeat_svg,
             15.0,
-            if is_repeat { theme_cfg.primary } else { bar_fg },
+            if repeat_active {
+                theme_cfg.primary
+            } else {
+                bar_fg
+            },
         ))
         .padding([6, 8])
-        .style(styles::player_bar_button(theme_cfg, is_repeat))
+        .style(styles::player_bar_button(theme_cfg, repeat_active))
         .on_press(Message::ToggleRepeat);
 
         row![shuffle_btn, repeat_btn]
@@ -327,7 +336,7 @@ impl PlayerBar {
         duration_ms: u64,
         volume: f32,
         is_shuffle: bool,
-        is_repeat: bool,
+        repeat_mode: model::RepeatMode,
     ) -> Element<'a, Message> {
         let bar_fg = theme_cfg.player_bar_text_color();
         let bar_muted = iced::Color { a: 0.6, ..bar_fg };
@@ -370,7 +379,7 @@ impl PlayerBar {
             .align_x(Alignment::Center)
             .align_y(Alignment::Center);
 
-        let options = self.view_options(theme_cfg, is_shuffle, is_repeat);
+        let options = self.view_options(theme_cfg, is_shuffle, repeat_mode);
         let vol = self.view_volume(theme_cfg, font, volume);
         let right_controls = row![options, Space::new().width(6), vol]
             .spacing(4)

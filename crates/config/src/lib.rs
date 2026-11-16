@@ -69,6 +69,7 @@ mod tests {
             ),
             gapless: false,
             resampling: audio::ResamplingConfig::default(),
+            output_device: Some("USB DAC".to_string()),
             watch_library: false,
             scrobble: ScrobbleConfig {
                 listenbrainz_enabled: true,
@@ -166,7 +167,7 @@ mod tests {
         assert_eq!(st.settings_tab, SettingsTab::Appearance);
         assert_eq!(st.volume, 1.0);
         assert!(!st.is_shuffle);
-        assert!(!st.is_repeat);
+        assert_eq!(st.repeat_mode, model::RepeatMode::Off);
         assert_eq!(st.albums_view_mode, ViewMode::Tile);
         assert_eq!(st.artists_view_mode, ViewMode::Tile);
         assert_eq!(st.playlists_view_mode, ViewMode::List);
@@ -186,7 +187,7 @@ mod tests {
             settings_tab: SettingsTab::Library,
             volume: 0.65,
             is_shuffle: true,
-            is_repeat: true,
+            repeat_mode: model::RepeatMode::All,
             albums_view_mode: ViewMode::List,
             artists_view_mode: ViewMode::List,
             playlists_view_mode: ViewMode::Tile,
@@ -230,5 +231,20 @@ window_height = 900.0
             toml::from_str(toml).expect("Failed to parse state with width and height");
         assert_eq!(state.window_width, 1440.0);
         assert_eq!(state.window_height, 900.0);
+    }
+
+    #[test]
+    fn test_legacy_is_repeat_migrates_to_repeat_one() {
+        let temp_dir = std::env::temp_dir();
+        let temp_file = temp_dir.join(format!(
+            "melody_test_legacy_repeat_{}.toml",
+            std::process::id()
+        ));
+        std::fs::write(&temp_file, "is_repeat = true\n").expect("Write legacy state");
+
+        let loaded = AppState::load_from_path(&temp_file);
+        assert_eq!(loaded.repeat_mode, model::RepeatMode::One);
+
+        let _ = std::fs::remove_file(temp_file);
     }
 }

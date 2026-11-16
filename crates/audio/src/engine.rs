@@ -86,9 +86,29 @@ impl AudioController {
         self.send(AudioCommand::SetResampling(config));
     }
 
+    /// Switches the active audio output device (`None` = system default).
+    pub fn set_output_device(&self, device: Option<String>) {
+        self.send(AudioCommand::SetOutputDevice(device));
+    }
+
     pub fn status(&self) -> &AudioStatus {
         &self.status
     }
+}
+
+/// Enumerates available audio output device names on the default CPAL host.
+pub fn list_output_devices() -> Vec<String> {
+    let host = cpal::default_host();
+    let Ok(devices) = host.output_devices() else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = devices
+        .filter_map(|dev| dev.description().ok().map(|d| d.name().to_string()))
+        .filter(|name| !name.is_empty())
+        .collect();
+    names.sort();
+    names.dedup();
+    names
 }
 
 pub struct AudioEngine {
@@ -146,20 +166,45 @@ struct AudioStreamContext {
     boundary_producer: Option<ringbuf::HeapProd<TrackBoundary>>,
 }
 
+fn resolve_output_device(host: &cpal::Host, device_name: Option<&str>) -> Option<cpal::Device> {
+    if let Some(target_name) = device_name {
+        if let Ok(mut devices) = host.output_devices() {
+            if let Some(found) = devices.find(|dev| {
+                dev.description()
+                    .ok()
+                    .is_some_and(|d| d.name() == target_name)
+            }) {
+                return Some(found);
+            }
+        }
+        warn!(
+            "Configured audio output device '{}' not found, falling back to system default",
+            target_name
+        );
+    }
+    host.default_output_device()
+}
+
 fn init_cpal_output_stream(
+    device_name: Option<&str>,
     status: &AudioStatus,
     flush_flag: &Arc<AtomicBool>,
 ) -> AudioStreamContext {
     let host = cpal::default_host();
-    let device = host.default_output_device();
+    let device = resolve_output_device(&host, device_name);
 
     let (stream, device_sample_rate, device_channels, ring_producer, boundary_producer) =
         match device {
             Some(dev) => match setup_cpal_stream(&dev, status.clone(), flush_flag.clone()) {
                 Ok((st, sr, ch, latency_us, prod, bound_prod)) => {
+                    let active_name = dev
+                        .description()
+                        .ok()
+                        .map(|d| d.name().to_string())
+                        .unwrap_or_else(|| "Unknown".to_string());
                     info!(
-                        "Audio output stream initialized successfully ({} Hz, {} ch)",
-                        sr, ch
+                        "Audio output stream initialized on '{}' ({} Hz, {} ch)",
+                        active_name, sr, ch
                     );
                     (Some((st, latency_us)), sr, ch, Some(prod), Some(bound_prod))
                 }
@@ -192,10 +237,52 @@ fn init_cpal_output_stream(
 
 fn ensure_stream<'a>(
     ctx: &'a mut Option<AudioStreamContext>,
+    device_name: Option<&str>,
     status: &AudioStatus,
     flush_flag: &Arc<AtomicBool>,
 ) -> &'a mut AudioStreamContext {
-    ctx.get_or_insert_with(|| init_cpal_output_stream(status, flush_flag))
+    ctx.get_or_insert_with(|| init_cpal_output_stream(device_name, status, flush_flag))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn switch_output_device(
+    stream_ctx: &mut Option<AudioStreamContext>,
+    selected_output_device: &mut Option<String>,
+    new_device: Option<String>,
+    status: &AudioStatus,
+    flush_flag: &Arc<AtomicBool>,
+    loaded_track: &mut Option<LoadedTrack>,
+    next_track: &mut Option<LoadedTrack>,
+    written_samples: &mut u64,
+    resampling_cfg: &crate::resample::ResamplingConfig,
+) {
+    if *selected_output_device == new_device {
+        return;
+    }
+    *selected_output_device = new_device;
+    if stream_ctx.is_some() {
+        *stream_ctx = None;
+        flush_audio_buffer(flush_flag);
+        *written_samples = 0;
+        let ctx = ensure_stream(
+            stream_ctx,
+            selected_output_device.as_deref(),
+            status,
+            flush_flag,
+        );
+        let sr = ctx.device_sample_rate;
+        let ch = ctx.device_channels;
+        if let Some(track) = loaded_track.as_mut() {
+            track.reconfigure_resampler(sr, ch, resampling_cfg);
+            let pos = Duration::from_millis(status.position_ms());
+            if let Err(e) = track.seek(pos) {
+                warn!("Failed to re-seek track after device switch: {}", e);
+            }
+        }
+        if let Some(track) = next_track.as_mut() {
+            track.reconfigure_resampler(sr, ch, resampling_cfg);
+        }
+    }
 }
 
 fn run_audio_worker(
@@ -206,6 +293,7 @@ fn run_audio_worker(
     info!("Starting audio worker thread");
 
     let mut stream_ctx: Option<AudioStreamContext> = None;
+    let mut selected_output_device: Option<String> = None;
     let mut loaded_track: Option<LoadedTrack> = None;
     let mut next_track: Option<LoadedTrack> = None;
     let mut written_samples: u64 = 0;
@@ -215,6 +303,20 @@ fn run_audio_worker(
     loop {
         // 1. Process all pending commands
         while let Ok(cmd) = cmd_rx.try_recv() {
+            if let AudioCommand::SetOutputDevice(new_device) = cmd {
+                switch_output_device(
+                    &mut stream_ctx,
+                    &mut selected_output_device,
+                    new_device,
+                    &status,
+                    &flush_flag,
+                    &mut loaded_track,
+                    &mut next_track,
+                    &mut written_samples,
+                    &resampling_cfg,
+                );
+                continue;
+            }
             let is_playback_cmd = matches!(
                 cmd,
                 AudioCommand::Load { .. }
@@ -225,7 +327,12 @@ fn run_audio_worker(
                     | AudioCommand::SetResampling(_)
             );
             let (sr, ch, prod) = if is_playback_cmd || stream_ctx.is_some() {
-                let ctx = ensure_stream(&mut stream_ctx, &status, &flush_flag);
+                let ctx = ensure_stream(
+                    &mut stream_ctx,
+                    selected_output_device.as_deref(),
+                    &status,
+                    &flush_flag,
+                );
                 (
                     ctx.device_sample_rate,
                     ctx.device_channels,
@@ -250,7 +357,12 @@ fn run_audio_worker(
 
         // 2. Decode audio if playing and loaded
         if status.is_playing() {
-            let ctx = ensure_stream(&mut stream_ctx, &status, &flush_flag);
+            let ctx = ensure_stream(
+                &mut stream_ctx,
+                selected_output_device.as_deref(),
+                &status,
+                &flush_flag,
+            );
             let output_latency_us = &ctx.output_latency_us;
 
             let mut transition_to = None;
@@ -336,6 +448,19 @@ fn run_audio_worker(
 
             // Not playing: block until next command or clean channel disconnection
             match cmd_rx.recv() {
+                Ok(AudioCommand::SetOutputDevice(new_device)) => {
+                    switch_output_device(
+                        &mut stream_ctx,
+                        &mut selected_output_device,
+                        new_device,
+                        &status,
+                        &flush_flag,
+                        &mut loaded_track,
+                        &mut next_track,
+                        &mut written_samples,
+                        &resampling_cfg,
+                    );
+                }
                 Ok(cmd) => {
                     let is_playback_cmd = matches!(
                         cmd,
@@ -347,7 +472,12 @@ fn run_audio_worker(
                             | AudioCommand::SetResampling(_)
                     );
                     let (sr, ch, prod) = if is_playback_cmd || stream_ctx.is_some() {
-                        let ctx = ensure_stream(&mut stream_ctx, &status, &flush_flag);
+                        let ctx = ensure_stream(
+                            &mut stream_ctx,
+                            selected_output_device.as_deref(),
+                            &status,
+                            &flush_flag,
+                        );
                         (
                             ctx.device_sample_rate,
                             ctx.device_channels,
@@ -886,6 +1016,7 @@ fn handle_command(
                 track.reconfigure_resampler(device_sample_rate, device_channels, &new_cfg);
             }
         }
+        AudioCommand::SetOutputDevice(_) => {}
     }
 }
 
@@ -1067,5 +1198,11 @@ mod tests {
         assert_eq!(status.duration_ms(), 200_000);
         assert_eq!(state.current_boundary, &None);
         assert_eq!(*state.consumed_samples, 100);
+    }
+
+    #[test]
+    fn test_list_output_devices_does_not_panic() {
+        let devices = list_output_devices();
+        assert!(devices.iter().all(|d| !d.is_empty()));
     }
 }

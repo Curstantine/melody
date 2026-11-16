@@ -39,7 +39,7 @@ mod win {
         PlaybackStatusChanged(bool),
         PlaybackEnded,
         Seeked(u64),
-        RepeatChanged(bool),
+        RepeatChanged(model::RepeatMode),
         ShuffleChanged(bool),
     }
 
@@ -48,7 +48,7 @@ mod win {
         is_playing: Arc<AtomicBool>,
         position_ms: Arc<AtomicU64>,
         is_shuffle: Arc<AtomicBool>,
-        is_repeat: Arc<AtomicBool>,
+        repeat_mode: Arc<std::sync::atomic::AtomicU8>,
     }
 
     impl WindowsMediaInner {
@@ -58,8 +58,16 @@ mod win {
                 is_playing: Arc::new(AtomicBool::new(false)),
                 position_ms: Arc::new(AtomicU64::new(0)),
                 is_shuffle: Arc::new(AtomicBool::new(false)),
-                is_repeat: Arc::new(AtomicBool::new(false)),
+                repeat_mode: Arc::new(std::sync::atomic::AtomicU8::new(0)),
             }
+        }
+    }
+
+    fn to_smtc_repeat_mode(mode: model::RepeatMode) -> MediaPlaybackAutoRepeatMode {
+        match mode {
+            model::RepeatMode::Off => MediaPlaybackAutoRepeatMode::None,
+            model::RepeatMode::All => MediaPlaybackAutoRepeatMode::List,
+            model::RepeatMode::One => MediaPlaybackAutoRepeatMode::Track,
         }
     }
 
@@ -200,21 +208,19 @@ mod win {
         let mut hidden_window: Option<HiddenWindow> = None;
         let mut cached_track: Option<TrackMetadata> = None;
         let mut cached_playing = false;
-        let mut cached_repeat = false;
+        let mut cached_repeat = model::RepeatMode::Off;
         let mut cached_shuffle = false;
         let mut cached_position_ms: u64 = 0;
 
         let apply_cached_state = |state: &mut SmtcState,
-                                  cached_repeat: bool,
+                                  cached_repeat: model::RepeatMode,
                                   cached_shuffle: bool,
                                   cached_track: &Option<TrackMetadata>,
                                   cached_position_ms: u64,
                                   cached_playing: bool| {
-            let _ = state.controls.SetAutoRepeatMode(if cached_repeat {
-                MediaPlaybackAutoRepeatMode::Track
-            } else {
-                MediaPlaybackAutoRepeatMode::None
-            });
+            let _ = state
+                .controls
+                .SetAutoRepeatMode(to_smtc_repeat_mode(cached_repeat));
             let _ = state.controls.SetShuffleEnabled(cached_shuffle);
 
             if let Some(ref track) = cached_track {
@@ -350,15 +356,10 @@ mod win {
                     }
                 }
 
-                WindowsMediaMsg::RepeatChanged(is_repeat) => {
-                    cached_repeat = is_repeat;
+                WindowsMediaMsg::RepeatChanged(mode) => {
+                    cached_repeat = mode;
                     if let Some(ref mut state) = smtc_state {
-                        let mode = if is_repeat {
-                            MediaPlaybackAutoRepeatMode::Track
-                        } else {
-                            MediaPlaybackAutoRepeatMode::None
-                        };
-                        let _ = state.controls.SetAutoRepeatMode(mode);
+                        let _ = state.controls.SetAutoRepeatMode(to_smtc_repeat_mode(mode));
                     }
                 }
 
@@ -463,7 +464,11 @@ mod win {
             move |_, args: windows::core::Ref<'_, AutoRepeatModeChangeRequestedEventArgs>| {
                 let args = args.ok()?;
                 let mode = args.RequestedAutoRepeatMode()?;
-                let repeat = mode != MediaPlaybackAutoRepeatMode::None;
+                let repeat = match mode {
+                    MediaPlaybackAutoRepeatMode::Track => model::RepeatMode::One,
+                    MediaPlaybackAutoRepeatMode::List => model::RepeatMode::All,
+                    _ => model::RepeatMode::Off,
+                };
                 let _ = action_tx.send(PlayerAction::SetRepeat(repeat));
                 Ok(())
             }
@@ -588,11 +593,14 @@ mod win {
             Ok(())
         }
 
-        fn on_repeat_change(&self, is_repeat: bool) -> Result<(), String> {
-            self.inner.is_repeat.store(is_repeat, Ordering::Relaxed);
-            let _ = self
-                .worker_tx
-                .send(WindowsMediaMsg::RepeatChanged(is_repeat));
+        fn on_repeat_change(&self, mode: model::RepeatMode) -> Result<(), String> {
+            let code = match mode {
+                model::RepeatMode::Off => 0,
+                model::RepeatMode::All => 1,
+                model::RepeatMode::One => 2,
+            };
+            self.inner.repeat_mode.store(code, Ordering::Relaxed);
+            let _ = self.worker_tx.send(WindowsMediaMsg::RepeatChanged(mode));
             Ok(())
         }
 
@@ -634,7 +642,7 @@ mod tests {
         assert!(plugin.on_position_change(5000).is_ok());
         assert!(plugin.on_seeked(6000).is_ok());
         assert!(plugin.on_volume_change(0.8).is_ok());
-        assert!(plugin.on_repeat_change(true).is_ok());
+        assert!(plugin.on_repeat_change(model::RepeatMode::One).is_ok());
         assert!(plugin.on_shuffle_change(true).is_ok());
         assert!(plugin.on_playback_end().is_ok());
     }

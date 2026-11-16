@@ -23,7 +23,7 @@ pub trait Plugin: Send + Sync {
     fn on_volume_change(&self, _volume: f32) -> Result<(), String> {
         Ok(())
     }
-    fn on_repeat_change(&self, _is_repeat: bool) -> Result<(), String> {
+    fn on_repeat_change(&self, _mode: model::RepeatMode) -> Result<(), String> {
         Ok(())
     }
     fn on_shuffle_change(&self, _is_shuffle: bool) -> Result<(), String> {
@@ -135,10 +135,10 @@ impl PluginManager {
         }
     }
 
-    pub fn on_repeat_change(&self, is_repeat: bool) {
+    pub fn on_repeat_change(&self, mode: model::RepeatMode) {
         if let Ok(list) = self.plugins.read() {
             for p in list.iter() {
-                if let Err(e) = p.on_repeat_change(is_repeat) {
+                if let Err(e) = p.on_repeat_change(mode) {
                     error!("Plugin {} on_repeat_change error: {}", p.metadata().id, e);
                 }
             }
@@ -285,13 +285,13 @@ mod tests {
 
     #[test]
     fn test_plugin_hooks_dispatch() {
-        use std::sync::atomic::AtomicU64;
+        use std::sync::atomic::{AtomicU64, AtomicU8};
 
         struct FullPlugin {
             meta: PluginMetadata,
             playing: Arc<AtomicBool>,
             position: Arc<AtomicU64>,
-            repeat: Arc<AtomicBool>,
+            repeat: Arc<AtomicU8>,
             shuffle: Arc<AtomicBool>,
         }
 
@@ -307,8 +307,13 @@ mod tests {
                 self.position.store(pos, Ordering::SeqCst);
                 Ok(())
             }
-            fn on_repeat_change(&self, is_repeat: bool) -> Result<(), String> {
-                self.repeat.store(is_repeat, Ordering::SeqCst);
+            fn on_repeat_change(&self, mode: model::RepeatMode) -> Result<(), String> {
+                let code = match mode {
+                    model::RepeatMode::Off => 0,
+                    model::RepeatMode::All => 1,
+                    model::RepeatMode::One => 2,
+                };
+                self.repeat.store(code, Ordering::SeqCst);
                 Ok(())
             }
             fn on_shuffle_change(&self, is_shuffle: bool) -> Result<(), String> {
@@ -320,7 +325,7 @@ mod tests {
         let manager = PluginManager::new();
         let playing = Arc::new(AtomicBool::new(false));
         let position = Arc::new(AtomicU64::new(0));
-        let repeat = Arc::new(AtomicBool::new(false));
+        let repeat = Arc::new(AtomicU8::new(0));
         let shuffle = Arc::new(AtomicBool::new(false));
 
         let plugin = Arc::new(FullPlugin {
@@ -345,8 +350,8 @@ mod tests {
         manager.on_position_change(42000);
         assert_eq!(position.load(Ordering::SeqCst), 42000);
 
-        manager.on_repeat_change(true);
-        assert!(repeat.load(Ordering::SeqCst));
+        manager.on_repeat_change(model::RepeatMode::One);
+        assert_eq!(repeat.load(Ordering::SeqCst), 2);
 
         manager.on_shuffle_change(true);
         assert!(shuffle.load(Ordering::SeqCst));

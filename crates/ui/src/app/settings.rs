@@ -35,6 +35,8 @@ impl App {
                     if let Some(font_task) = self.ensure_fonts_task() {
                         tasks.push(font_task);
                     }
+                } else if tab == SettingsTab::Playback {
+                    self.available_output_devices = audio::list_output_devices();
                 }
                 Task::batch(tasks)
             }
