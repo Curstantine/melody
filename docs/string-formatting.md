@@ -2,7 +2,6 @@
 
 Melody includes a lightweight, flexible template formatting engine in [`model::template`](file:///crates/model/src/template.rs) (accessible via [`format_template`](file:///crates/model/src/template.rs#L112)). It allows users to dynamically customize how tracks, albums, artists, playlists, and queues are displayed throughout the UI via KDL layout files.
 
----
 
 ## 1. Syntax Overview
 
@@ -35,7 +34,6 @@ The templating engine supports three core constructs:
    {title} • {genre} -> "Yūaku no Inori - Anima immortalis est."  (dangling • is stripped)
    ```
 
----
 
 ## 2. Supported Fields Reference
 
@@ -112,7 +110,6 @@ Depending on the context / view where the formatting string is used, different f
 | `{source_playlist}` | | Source playlist identifier (if applicable) | `None` |
 | `{track_count}` | `{tracks}` | Total tracks in queue | `1` |
 
----
 
 ## 3. Configuring View Formats in KDL Layouts
 

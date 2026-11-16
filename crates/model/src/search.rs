@@ -26,6 +26,14 @@ pub struct TrackFilter {
     pub genre: Option<String>,
     /// Exact year match — `year:2020`
     pub year: Option<u32>,
+    /// Exact composer match — `composer:"..."`
+    pub composer: Option<String>,
+    /// Exact label match — `label:"..."`
+    pub label: Option<String>,
+    /// Exact track number match — `track:1` or `track_num:1`
+    pub track_num: Option<u32>,
+    /// Exact disc number match — `disc:1` or `disc_num:1`
+    pub disc_num: Option<u32>,
 }
 
 impl TrackFilter {
@@ -46,9 +54,19 @@ impl TrackFilter {
                 "album_artist" | "albumartist" => filter.album_artist = Some(value),
                 "genre" => filter.genre = Some(value),
                 "title" => filter.title = Some(value),
+                "composer" => filter.composer = Some(value),
+                "label" => filter.label = Some(value),
                 "year" => match value.trim().parse::<u32>() {
                     Ok(year) => filter.year = Some(year),
                     // Not a valid year: keep the raw token as free text.
+                    Err(_) => filter.text.push(token),
+                },
+                "track" | "track_num" => match value.trim().parse::<u32>() {
+                    Ok(track) => filter.track_num = Some(track),
+                    Err(_) => filter.text.push(token),
+                },
+                "disc" | "disc_num" => match value.trim().parse::<u32>() {
+                    Ok(disc) => filter.disc_num = Some(disc),
                     Err(_) => filter.text.push(token),
                 },
                 _ => filter.text.push(token),
@@ -81,6 +99,10 @@ impl TrackFilter {
             && self.artist.is_none()
             && self.genre.is_none()
             && self.year.is_none()
+            && self.composer.is_none()
+            && self.label.is_none()
+            && self.track_num.is_none()
+            && self.disc_num.is_none()
     }
 
     /// Derives a human-readable queue name from the filter's dominant scope.
@@ -96,6 +118,12 @@ impl TrackFilter {
         }
         if let Some(genre) = &self.genre {
             return Some(genre.clone());
+        }
+        if let Some(composer) = &self.composer {
+            return Some(composer.clone());
+        }
+        if let Some(label) = &self.label {
+            return Some(label.clone());
         }
         match self.text.len() {
             0 => None,
@@ -124,6 +152,18 @@ impl TrackFilter {
         }
         if let Some(v) = self.year {
             parts.push(format!("year:{}", v));
+        }
+        if let Some(v) = &self.composer {
+            parts.push(format!("composer:{}", format_value(v)));
+        }
+        if let Some(v) = &self.label {
+            parts.push(format!("label:{}", format_value(v)));
+        }
+        if let Some(v) = self.track_num {
+            parts.push(format!("track:{}", v));
+        }
+        if let Some(v) = self.disc_num {
+            parts.push(format!("disc:{}", v));
         }
         for term in &self.text {
             parts.push(format_value(term));
@@ -179,7 +219,19 @@ fn split_field(token: &str) -> Option<(&str, String)> {
     }
     let known = matches!(
         field.to_ascii_lowercase().as_str(),
-        "album" | "artist" | "album_artist" | "albumartist" | "genre" | "title" | "year"
+        "album"
+            | "artist"
+            | "album_artist"
+            | "albumartist"
+            | "genre"
+            | "title"
+            | "year"
+            | "composer"
+            | "label"
+            | "track"
+            | "track_num"
+            | "disc"
+            | "disc_num"
     );
     if known {
         Some((field, value.to_string()))

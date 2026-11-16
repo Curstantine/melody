@@ -79,7 +79,7 @@ impl FieldLookup for TrackRow {
             "artist" => Some(Cow::Borrowed(self.display_artist())),
             "album" => Some(Cow::Borrowed(&self.album)),
             "album_artist" => self.album_artist.as_deref().map(Cow::Borrowed),
-            "genre" => self.genre.as_deref().map(Cow::Borrowed),
+            "genre" => self.genre.as_deref().map(crate::model::format_multi_value),
             "year" => self.year.map(|y| Cow::Owned(y.to_string())),
             "track_num" | "track_number" => self.track_num.map(|n| Cow::Owned(n.to_string())),
             "disc_num" | "disc_number" => self.disc_num.map(|d| Cow::Owned(d.to_string())),

@@ -80,8 +80,9 @@ impl NowPlayingView {
                 details_items.push(format!("{}", yr));
             }
             if let Some(ref g) = track.genre {
-                if !g.trim().is_empty() {
-                    details_items.push(g.clone());
+                let formatted = model::model::format_multi_value(g);
+                if !formatted.trim().is_empty() {
+                    details_items.push(formatted.into_owned());
                 }
             }
             if let Some(t_num) = track.track_num {

@@ -321,7 +321,7 @@ impl LibraryView {
     ) -> Element<'a, Message> {
         // 1. Search Bar & View Mode Toolbar
         let search_input = text_input(
-            "Search tracks... (album:\"…\" artist:… genre:… year:…)",
+            "Search tracks... (album:\"…\" artist:… genre:… year:… composer:… label:… track:… disc:…)",
             &self.search_query,
         )
         .font(font)

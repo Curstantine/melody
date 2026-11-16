@@ -39,6 +39,19 @@ impl Track {
     }
 }
 
+/// Formats `;`-separated multi-value metadata tags as `, `-separated values for display.
+pub fn format_multi_value(raw: &str) -> std::borrow::Cow<'_, str> {
+    if !raw.contains(';') {
+        return std::borrow::Cow::Borrowed(raw);
+    }
+    let parts: Vec<&str> = raw
+        .split(';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    std::borrow::Cow::Owned(parts.join(", "))
+}
+
 pub fn format_duration(duration_ms: u64) -> String {
     let total_seconds = duration_ms / 1000;
     let minutes = total_seconds / 60;

@@ -1497,6 +1497,22 @@ fn filter_clause(filter: Option<&TrackFilter>, binds: &mut Vec<turso::Value>) ->
         clauses.push("year = CAST(? AS INTEGER)".to_string());
         binds.push(turso::Value::from(year.to_string()));
     }
+    if let Some(value) = &filter.composer {
+        clauses.push("composer = ?".to_string());
+        binds.push(turso::Value::from(value.clone()));
+    }
+    if let Some(value) = &filter.label {
+        clauses.push("label = ?".to_string());
+        binds.push(turso::Value::from(value.clone()));
+    }
+    if let Some(track_num) = filter.track_num {
+        clauses.push("track_num = CAST(? AS INTEGER)".to_string());
+        binds.push(turso::Value::from(track_num.to_string()));
+    }
+    if let Some(disc_num) = filter.disc_num {
+        clauses.push("disc_num = CAST(? AS INTEGER)".to_string());
+        binds.push(turso::Value::from(disc_num.to_string()));
+    }
 
     if clauses.is_empty() {
         String::new()
