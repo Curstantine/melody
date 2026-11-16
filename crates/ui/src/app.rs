@@ -1080,6 +1080,14 @@ impl App {
                 self.active_tab = tab;
                 if tab != ViewTab::Lyrics {
                     self.current_now_playing_cover = None;
+                    self.current_blurred_cover = None;
+                    self.current_next_cover = None;
+                }
+                if tab != ViewTab::Albums {
+                    self.albums.clear_covers();
+                }
+                if tab != ViewTab::Playlists {
+                    self.playlists.clear_covers();
                 }
                 let save_task = self.save_state_task();
                 let scroll_task = self.restore_tab_scroll_task(tab);
@@ -1827,7 +1835,7 @@ impl App {
             }
 
             Message::ClearThumbnailCache => {
-                info!("Purging thumbnail disk and GPU cache");
+                info!("Purging thumbnail cache");
                 self.albums.clear_covers();
                 let db_path = self.db_path;
                 Task::perform(

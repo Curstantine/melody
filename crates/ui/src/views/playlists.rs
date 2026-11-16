@@ -277,6 +277,10 @@ impl PlaylistsView {
         self.last_detail_scroll.set(0.0);
     }
 
+    pub fn clear_covers(&mut self) {
+        self.playlist_covers.clear();
+    }
+
     pub fn recompute_rendered_playlists(&mut self, playlists_fmt: &layout::PlaylistsFormatConfig) {
         self.rendered_playlists = self
             .playlists
