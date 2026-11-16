@@ -51,6 +51,8 @@ runs:
         cmake -S "$env:TEMP\soxr-src" -B "$env:TEMP\soxr-build" `
           -A x64 `
           "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" `
+          -DCMAKE_POLICY_DEFAULT_CMP0091=NEW `
+          -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded `
           -DBUILD_SHARED_LIBS=OFF `
           -DBUILD_TESTS=OFF `
           -DBUILD_EXAMPLES=OFF `
