@@ -16,23 +16,8 @@ pub fn app_name() -> &'static str {
     }
 }
 
-/// Returns true if running in a debug build.
-#[cfg(test)]
-#[inline]
-fn is_debug() -> bool {
-    cfg!(debug_assertions)
-}
-
-/// Returns the primary `ProjectDirs` object for Melody, if resolvable by the platform.
-#[cfg(test)]
-fn project_dirs() -> Option<&'static ProjectDirs> {
-    app_paths().project_dirs.as_ref()
-}
-
 /// Resolved and prepared filesystem paths for Melody.
 struct AppPaths {
-    #[cfg(test)]
-    project_dirs: Option<ProjectDirs>,
     config_file: PathBuf,
     state_file: PathBuf,
     database_file: PathBuf,
@@ -83,8 +68,6 @@ impl AppPaths {
         let _ = std::fs::create_dir_all(&playlists_dir);
 
         Self {
-            #[cfg(test)]
-            project_dirs: proj,
             config_file,
             state_file,
             database_file,
@@ -372,20 +355,16 @@ mod tests {
     fn test_app_name_and_debug_isolation() {
         if cfg!(debug_assertions) {
             assert_eq!(app_name(), "melody.debug");
-            assert!(is_debug());
         } else {
             assert_eq!(app_name(), "melody");
-            assert!(!is_debug());
         }
 
-        if let Some(proj) = project_dirs() {
-            let path_str = proj.config_dir().to_string_lossy();
-            assert!(
-                path_str.contains(app_name()),
-                "config dir {path_str} should contain {}",
-                app_name()
-            );
-        }
+        let path_str = config_file().to_string_lossy();
+        assert!(
+            path_str.contains(app_name()),
+            "config file {path_str} should contain {}",
+            app_name()
+        );
     }
 
     #[test]

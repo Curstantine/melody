@@ -109,11 +109,6 @@ impl ListenBrainzPlugin {
             .unwrap_or_else(|_| "Unknown".to_string())
     }
 
-    #[cfg(test)]
-    fn scrobble_count(&self) -> u64 {
-        self.scrobble_count.load(Ordering::Relaxed)
-    }
-
     fn set_status(&self, status: String) {
         if let Ok(mut s) = self.last_status.write() {
             *s = status;
@@ -395,7 +390,7 @@ mod tests {
         let plugin = ListenBrainzPlugin::new(config.clone());
         assert_eq!(plugin.metadata().id, "builtin.listenbrainz");
         assert_eq!(plugin.config().user_token, "test_token_123");
-        assert_eq!(plugin.scrobble_count(), 0);
+        assert_eq!(plugin.scrobble_count.load(Ordering::Relaxed), 0);
 
         let short_track = TrackMetadata {
             title: "Short Intro".to_string(),

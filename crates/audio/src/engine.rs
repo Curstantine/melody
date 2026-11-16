@@ -1104,7 +1104,7 @@ mod tests {
                 pos,
                 dur
             );
-            if controller.status().is_ended() {
+            if controller.status().take_ended() {
                 saw_ended = true;
                 assert_eq!(pos, dur, "When ended, position must equal duration");
                 break;
@@ -1141,11 +1141,10 @@ mod tests {
         status.set_duration_ms(100_000);
         status.set_playing(true);
 
-        assert!(!status.gapless_transition());
+        assert!(!status.take_gapless_transition());
         status.set_gapless_transition(true);
-        assert!(status.gapless_transition());
         assert!(status.take_gapless_transition());
-        assert!(!status.gapless_transition());
+        assert!(!status.take_gapless_transition());
 
         // Test sample-accurate boundary transition in pop_samples_with_boundary
         let audio_rb = HeapRb::<f32>::new(1024);

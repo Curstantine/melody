@@ -92,12 +92,6 @@ impl AudioStatus {
         self.inner.volume_raw.store(raw, Ordering::Relaxed);
     }
 
-    #[cfg(test)]
-    #[inline]
-    pub(crate) fn is_ended(&self) -> bool {
-        self.inner.is_ended.load(Ordering::Relaxed)
-    }
-
     #[inline]
     pub(crate) fn set_ended(&self, ended: bool) {
         self.inner.is_ended.store(ended, Ordering::Relaxed);
@@ -106,12 +100,6 @@ impl AudioStatus {
     #[inline]
     pub fn take_ended(&self) -> bool {
         self.inner.is_ended.swap(false, Ordering::Relaxed)
-    }
-
-    #[cfg(test)]
-    #[inline]
-    pub(crate) fn gapless_transition(&self) -> bool {
-        self.inner.gapless_transition.load(Ordering::Relaxed)
     }
 
     #[inline]
@@ -138,7 +126,7 @@ mod tests {
         assert!(!status.is_playing());
         assert!(!status.is_loaded());
         assert_eq!(status.volume(), 1.0);
-        assert!(!status.is_ended());
+        assert!(!status.take_ended());
 
         // Update position and verify relaxed read
         status.set_position_ms(12500);
@@ -164,8 +152,7 @@ mod tests {
 
         // End flag & swap
         status.set_ended(true);
-        assert!(status.is_ended());
         assert!(status.take_ended());
-        assert!(!status.is_ended());
+        assert!(!status.take_ended());
     }
 }

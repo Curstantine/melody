@@ -165,12 +165,6 @@ impl LibraryWatcher {
         Ok(())
     }
 
-    /// Returns whether a folder is currently being watched.
-    #[cfg(test)]
-    fn is_watching<P: AsRef<Path>>(&self, path: P) -> bool {
-        self.watched_folders.contains(path.as_ref())
-    }
-
     /// Stops watching all directories.
     pub fn stop(&mut self) {
         for folder in self.watched_folders.drain() {
@@ -218,18 +212,18 @@ mod tests {
 
         watcher.watch_folder(&dir1).unwrap();
         watcher.watch_folder(&dir2).unwrap();
-        assert!(watcher.is_watching(&dir1));
-        assert!(watcher.is_watching(&dir2));
-        assert!(!watcher.is_watching(&dir3));
+        assert!(watcher.watched_folders.contains(&dir1));
+        assert!(watcher.watched_folders.contains(&dir2));
+        assert!(!watcher.watched_folders.contains(&dir3));
 
         watcher.unwatch_folder(&dir1).unwrap();
-        assert!(!watcher.is_watching(&dir1));
-        assert!(watcher.is_watching(&dir2));
+        assert!(!watcher.watched_folders.contains(&dir1));
+        assert!(watcher.watched_folders.contains(&dir2));
 
         watcher.update_folders(&[&dir2, &dir3]).unwrap();
-        assert!(!watcher.is_watching(&dir1));
-        assert!(watcher.is_watching(&dir2));
-        assert!(watcher.is_watching(&dir3));
+        assert!(!watcher.watched_folders.contains(&dir1));
+        assert!(watcher.watched_folders.contains(&dir2));
+        assert!(watcher.watched_folders.contains(&dir3));
 
         let _ = std::fs::remove_dir_all(&temp);
     }

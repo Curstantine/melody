@@ -300,21 +300,6 @@ pub enum LayoutNode {
 }
 
 impl LayoutNode {
-    /// Returns `true` if this layout tree contains a horizontal [`LayoutComponent::Navbar`].
-    #[cfg(test)]
-    fn has_horizontal_navbar(&self) -> bool {
-        match self {
-            Self::Component(LayoutComponent::Navbar { orientation, .. }) => {
-                *orientation == Orientation::Horizontal
-            }
-            Self::Column { children, .. }
-            | Self::Row { children, .. }
-            | Self::Stack { children, .. } => children.iter().any(Self::has_horizontal_navbar),
-            Self::Container { child, .. } => child.has_horizontal_navbar(),
-            Self::Divider { .. } | Self::Spacer { .. } | Self::Component(_) => false,
-        }
-    }
-
     /// Returns `true` if this layout tree starts with a horizontal
     /// [`LayoutComponent::Navbar`] at the very top of the window, so custom
     /// titlebar window controls can be merged into it.
@@ -1181,7 +1166,6 @@ mod tests {
             "#,
         )
         .unwrap();
-        assert!(reversed.root.has_horizontal_navbar());
         assert!(!reversed.root.has_top_horizontal_navbar());
 
         let sidebar = parse_kdl_layout(

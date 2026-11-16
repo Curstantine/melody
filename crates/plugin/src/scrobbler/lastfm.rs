@@ -144,11 +144,6 @@ impl LastFmPlugin {
             .unwrap_or_else(|_| "Unknown".to_string())
     }
 
-    #[cfg(test)]
-    fn scrobble_count(&self) -> u64 {
-        self.scrobble_count.load(Ordering::Relaxed)
-    }
-
     fn set_status(&self, status: String) {
         if let Ok(mut s) = self.last_status.write() {
             *s = status;
@@ -455,7 +450,7 @@ mod tests {
         let plugin = LastFmPlugin::new(config.clone());
         assert_eq!(plugin.metadata().id, "builtin.lastfm");
         assert_eq!(plugin.config().session_key, "session_key_test");
-        assert_eq!(plugin.scrobble_count(), 0);
+        assert_eq!(plugin.scrobble_count.load(Ordering::Relaxed), 0);
 
         let track = TrackMetadata {
             title: "Comfortably Numb".to_string(),
