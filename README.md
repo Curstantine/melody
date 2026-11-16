@@ -7,6 +7,7 @@ Cross-platform music player, built with lightness and extensibility in mind.
 1. Melody is built with musicolet-like queues; every track you play either creates a new queue or adds it to an existing one.
 2. User customizable KDL layouts and themes. See references for layouts [here](./layouts), and themes [here](./themes).
 3. Scrobbling to platforms like ListenBrainz and Last.fm.
+4. Supports playlists through M3U files.
 
 ## Screenshots
 
