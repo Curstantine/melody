@@ -1,7 +1,9 @@
+use std::borrow::Cow;
+
 use iced::widget::{
     button, column, container, image, mouse_area, row, scrollable, text_input, Space, Widget,
 };
-use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length};
+use iced::{Alignment, Element, Length};
 
 use component::{self, icons, styles, text};
 use model::{format_template, PlaylistSortField, ViewMode};
@@ -87,21 +89,20 @@ impl PlaylistsView {
             let playlist = &self.playlists[idx];
             let is_selected = self.selected_id == Some(playlist.id);
 
-            let (line1, line2, details_label) = if let Some(cached) =
-                self.rendered_playlists.get(idx)
-            {
-                (
-                    std::borrow::Cow::Borrowed(cached.list_line1.as_str()),
-                    std::borrow::Cow::Borrowed(cached.list_line2.as_str()),
-                    std::borrow::Cow::Borrowed(cached.list_details.as_str()),
-                )
-            } else {
-                (
-                    std::borrow::Cow::Owned(format_template(&playlists_fmt.list_line1, playlist)),
-                    std::borrow::Cow::Owned(format_template(&playlists_fmt.list_line2, playlist)),
-                    std::borrow::Cow::Owned(format_template(&playlists_fmt.list_details, playlist)),
-                )
-            };
+            let (line1, line2, details_label) =
+                if let Some(cached) = self.rendered_playlists.get(idx) {
+                    (
+                        Cow::Borrowed(cached.list_line1.as_str()),
+                        Cow::Borrowed(cached.list_line2.as_str()),
+                        Cow::Borrowed(cached.list_details.as_str()),
+                    )
+                } else {
+                    (
+                        Cow::Owned(format_template(&playlists_fmt.list_line1, playlist)),
+                        Cow::Owned(format_template(&playlists_fmt.list_line2, playlist)),
+                        Cow::Owned(format_template(&playlists_fmt.list_details, playlist)),
+                    )
+                };
 
             let subtitle = text(font, line2).size(11).color(theme_cfg.text_muted);
 
@@ -213,13 +214,13 @@ impl PlaylistsView {
 
             let (line1, line2) = if let Some(cached) = self.rendered_playlists.get(idx) {
                 (
-                    std::borrow::Cow::Borrowed(cached.tile_line1.as_str()),
-                    std::borrow::Cow::Borrowed(cached.tile_line2.as_str()),
+                    Cow::Borrowed(cached.tile_line1.as_str()),
+                    Cow::Borrowed(cached.tile_line2.as_str()),
                 )
             } else {
                 (
-                    std::borrow::Cow::Owned(format_template(&playlists_fmt.tile_line1, playlist)),
-                    std::borrow::Cow::Owned(format_template(&playlists_fmt.tile_line2, playlist)),
+                    Cow::Owned(format_template(&playlists_fmt.tile_line1, playlist)),
+                    Cow::Owned(format_template(&playlists_fmt.tile_line2, playlist)),
                 )
             };
 
@@ -348,129 +349,25 @@ impl PlaylistsView {
         .width(Length::Fill)
         .boxed()
     }
-
-    // ── Playlist detail ─────────────────────────────────────────────────────
 }
 
-/// Renders either a 2x2 grid of track album covers, a single full-size cover,
-/// or a fallback icon inside the playlist tile.
+/// Renders the playlist tile cover (either a single cover, a pre-composited
+/// 2x2 collage, or a fallback icon) using `component::catalog_cover_art`.
 pub(super) fn render_playlist_tile_cover<'a>(
     theme_cfg: &'a ThemeConfig,
     covers: Option<&Vec<image::Handle>>,
     size: f32,
     on_press: Message,
 ) -> Element<'a, Message> {
-    let radius = theme_cfg.border_radius.md;
-    let border_color = theme_cfg.border;
-
-    match covers {
-        Some(list) if list.len() >= 4 => {
-            let half = (size / 2.0).floor();
-            let corner_radius = radius;
-            let mut top_row = row![].spacing(0);
-            top_row = top_row.push(
-                image(list[0].clone())
-                    .width(Length::Fixed(half))
-                    .height(Length::Fixed(half))
-                    .content_fit(ContentFit::Cover)
-                    .border_radius(iced::border::Radius {
-                        top_left: corner_radius.top_left,
-                        ..Default::default()
-                    }),
-            );
-            top_row = top_row.push(
-                image(list[1].clone())
-                    .width(Length::Fixed(half))
-                    .height(Length::Fixed(half))
-                    .content_fit(ContentFit::Cover)
-                    .border_radius(iced::border::Radius {
-                        top_right: corner_radius.top_right,
-                        ..Default::default()
-                    }),
-            );
-
-            let mut bottom_row = row![].spacing(0);
-            bottom_row = bottom_row.push(
-                image(list[2].clone())
-                    .width(Length::Fixed(half))
-                    .height(Length::Fixed(half))
-                    .content_fit(ContentFit::Cover)
-                    .border_radius(iced::border::Radius {
-                        bottom_left: corner_radius.bottom_left,
-                        ..Default::default()
-                    }),
-            );
-            bottom_row = bottom_row.push(
-                image(list[3].clone())
-                    .width(Length::Fixed(half))
-                    .height(Length::Fixed(half))
-                    .content_fit(ContentFit::Cover)
-                    .border_radius(iced::border::Radius {
-                        bottom_right: corner_radius.bottom_right,
-                        ..Default::default()
-                    }),
-            );
-
-            let grid_content = column![top_row, bottom_row].spacing(0);
-            let image_layer = container(grid_content)
-                .width(size)
-                .height(size)
-                .clip(true)
-                .style(move |_theme| container::Style {
-                    border: Border {
-                        radius,
-                        color: border_color,
-                        width: 1.0,
-                    },
-                    ..Default::default()
-                });
-
-            let overlay_btn = button(Space::new().width(Length::Fill).height(Length::Fill))
-                .width(size)
-                .height(size)
-                .style(move |_theme, status| {
-                    let bg = match status {
-                        button::Status::Active => Color::TRANSPARENT,
-                        button::Status::Hovered | button::Status::Pressed => {
-                            Color::from_rgba(0.0, 0.0, 0.0, 0.5)
-                        }
-                        button::Status::Disabled => Color::TRANSPARENT,
-                    };
-                    button::Style {
-                        background: Some(Background::Color(bg)),
-                        border: Border {
-                            radius,
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    }
-                })
-                .on_press(on_press);
-
-            iced::widget::stack([image_layer.boxed(), overlay_btn.boxed()]).boxed()
-        }
-        Some(list) if !list.is_empty() => {
-            // 1 to 3 covers: render first cover full size (classic music player behavior)
-            component::catalog_cover_art(
-                theme_cfg,
-                Some(&list[0]),
-                size,
-                radius,
-                icons::PLAYLIST_SVG,
-                size * 0.34,
-                theme_cfg.primary,
-                on_press,
-            )
-        }
-        _ => component::catalog_cover_art(
-            theme_cfg,
-            None,
-            size,
-            radius,
-            icons::PLAYLIST_SVG,
-            size * 0.34,
-            theme_cfg.primary,
-            on_press,
-        ),
-    }
+    let cover = covers.and_then(|list| list.first());
+    component::catalog_cover_art(
+        theme_cfg,
+        cover,
+        size,
+        theme_cfg.border_radius.md,
+        icons::PLAYLIST_SVG,
+        size * 0.34,
+        theme_cfg.primary,
+        on_press,
+    )
 }

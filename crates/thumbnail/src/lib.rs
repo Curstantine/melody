@@ -4,14 +4,36 @@ use image::codecs::jpeg::JpegEncoder;
 use md5::{Digest, Md5};
 use tracing::debug;
 
-pub const THUMB_DIM_LOW: u32 = 256;
-pub const THUMB_DIM_MED: u32 = 300;
-pub const THUMB_DIM_HIGH: u32 = 680;
-pub const THUMB_DIM_DEFAULT: u32 = THUMB_DIM_LOW;
-pub const EXCEPTION_MIN_SIZE: usize = 100_000;
+const EXCEPTION_MIN_SIZE: usize = 100_000;
 
-/// Generates a deterministic hash-based cache key for a given track path and thumbnail dimension
-pub fn compute_thumbnail_cache_key(track_path: &Path, max_dim: u32) -> String {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Resolution {
+    Low,
+    Med,
+    High,
+}
+
+impl Resolution {
+    pub const fn dim(self) -> u32 {
+        match self {
+            Self::Low => 256,
+            Self::Med => 300,
+            Self::High => 680,
+        }
+    }
+
+    pub const fn quality(self) -> u8 {
+        match self {
+            Self::Low => 70,
+            Self::Med => 85,
+            Self::High => 90,
+        }
+    }
+}
+
+/// Generates a deterministic hash-based cache key for a given track path and thumbnail resolution
+pub fn compute_cache_key(track_path: &Path, res: Resolution) -> String {
+    let max_dim = res.dim();
     let mut hasher = Md5::new();
     hasher.update(b"v3_square");
     hasher.update(track_path.to_string_lossy().as_bytes());
@@ -36,15 +58,14 @@ pub fn compute_thumbnail_cache_key(track_path: &Path, max_dim: u32) -> String {
 }
 
 /// Retrieves an existing thumbnail from disk cache, or extracts, downscales, and caches it.
-/// Returns small JPEG bytes (~8-15 KB) suitable for smooth GPU texture rendering.
-pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8>> {
+pub fn get_or_create(track_path: &Path, res: Resolution) -> Option<Vec<u8>> {
+    let max_dim = res.dim();
     let cache_dir = path::thumbnail_cache_dir();
-    let cache_key = compute_thumbnail_cache_key(track_path, max_dim);
+    let cache_key = compute_cache_key(track_path, res);
 
     let thumb_file = cache_dir.join(format!("{}.jpg", cache_key));
     let none_marker = cache_dir.join(format!("{}.none", cache_key));
 
-    // 1. Fast hit: cached thumbnail already exists on disk
     if thumb_file.is_file() {
         if let Ok(bytes) = fs::read(&thumb_file) {
             if !bytes.is_empty() {
@@ -53,12 +74,10 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
         }
     }
 
-    // Fast negative hit: we already checked this file previously and it has no cover art
     if none_marker.is_file() {
         return None;
     }
 
-    // 2. Extract original cover art bytes from audio container or folder
     let original_bytes = match metadata::extract_cover_art(track_path) {
         Some(bytes) if !bytes.is_empty() => bytes,
         _ => {
@@ -69,23 +88,14 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
         }
     };
 
-    // 3. Decode image and downscale to thumbnail dimensions
     match image::load_from_memory(&original_bytes) {
         Ok(img) => {
             let thumb = img.resize_to_fill(max_dim, max_dim, image::imageops::FilterType::Triangle);
             let rgb = image::DynamicImage::ImageRgb8(thumb.to_rgb8());
 
-            let quality = if max_dim >= THUMB_DIM_HIGH {
-                90
-            } else if max_dim >= THUMB_DIM_MED {
-                85
-            } else {
-                70
-            };
-
             let mut out_bytes = Vec::new();
             if rgb
-                .write_with_encoder(JpegEncoder::new_with_quality(&mut out_bytes, quality))
+                .write_with_encoder(JpegEncoder::new_with_quality(&mut out_bytes, res.quality()))
                 .is_ok()
             {
                 let _ = fs::create_dir_all(cache_dir);
@@ -119,7 +129,7 @@ pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8
 
 /// Generates a heavily blurred low-resolution JPEG thumbnail (~2-5 KB)
 /// suitable for full-screen ambient backdrop rendering with bilinear texture smoothing.
-pub fn generate_blurred_cover(image_bytes: &[u8]) -> Option<Vec<u8>> {
+pub fn generate_blurred(image_bytes: &[u8]) -> Option<Vec<u8>> {
     let img = image::load_from_memory(image_bytes).ok()?;
     let small = img.thumbnail_exact(64, 64);
     let blurred = image::imageops::blur(&small, 6.0);
@@ -128,6 +138,36 @@ pub fn generate_blurred_cover(image_bytes: &[u8]) -> Option<Vec<u8>> {
 
     let mut out_bytes = Vec::new();
     rgb.write_with_encoder(JpegEncoder::new_with_quality(&mut out_bytes, 70))
+        .ok()?;
+
+    Some(out_bytes)
+}
+
+/// Composites up to 4 cover images into a 2x2 square JPEG collage at `res`
+/// dimensions so multi-cover playlist tiles can render through a single rounded image widget.
+pub fn generate_collage(images: &[Vec<u8>], res: Resolution) -> Option<Vec<u8>> {
+    let dim = res.dim();
+    if images.len() < 4 || dim < 2 {
+        return None;
+    }
+    let half = dim / 2;
+    let size = half * 2;
+    let mut canvas = image::RgbaImage::new(size, size);
+
+    for (idx, bytes) in images.iter().take(4).enumerate() {
+        let img = image::load_from_memory(bytes).ok()?;
+        let tile = img
+            .resize_to_fill(half, half, image::imageops::FilterType::Triangle)
+            .to_rgba8();
+        let x = ((idx as u32) % 2) * half;
+        let y = ((idx as u32) / 2) * half;
+        image::imageops::replace(&mut canvas, &tile, x as i64, y as i64);
+    }
+
+    let mut out_bytes = Vec::new();
+    image::DynamicImage::ImageRgba8(canvas)
+        .to_rgb8()
+        .write_with_encoder(JpegEncoder::new_with_quality(&mut out_bytes, 85))
         .ok()?;
 
     Some(out_bytes)
@@ -202,19 +242,47 @@ mod tests {
         std::fs::write(&song_path, b"dummy audio content").expect("Write song failed");
         img.save(&cover_path).expect("Save test cover failed");
 
-        let thumb_opt = get_or_create_thumbnail(&song_path, 200);
+        let thumb_opt = get_or_create(&song_path, Resolution::Low);
         assert!(thumb_opt.is_some(), "Thumbnail should be generated");
         let thumb_bytes = thumb_opt.unwrap();
         assert!(!thumb_bytes.is_empty());
 
         let decoded =
             image::load_from_memory(&thumb_bytes).expect("Failed to decode generated thumbnail");
-        assert_eq!(decoded.width(), 200);
-        assert_eq!(decoded.height(), 200);
+        assert_eq!(decoded.width(), Resolution::Low.dim());
+        assert_eq!(decoded.height(), Resolution::Low.dim());
 
-        let cached_thumb = get_or_create_thumbnail(&song_path, 200);
+        let cached_thumb = get_or_create(&song_path, Resolution::Low);
         assert_eq!(cached_thumb, Some(thumb_bytes));
 
         let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_generate_collage_cover() {
+        let colors = [
+            image::Rgb([255, 0, 0]),
+            image::Rgb([0, 255, 0]),
+            image::Rgb([0, 0, 255]),
+            image::Rgb([255, 255, 0]),
+        ];
+        let encoded: Vec<Vec<u8>> = colors
+            .iter()
+            .map(|&c| {
+                let img = image::RgbImage::from_pixel(64, 64, c);
+                let mut buf = Vec::new();
+                image::DynamicImage::ImageRgb8(img)
+                    .write_with_encoder(JpegEncoder::new_with_quality(&mut buf, 90))
+                    .unwrap();
+                buf
+            })
+            .collect();
+
+        assert!(generate_collage(&encoded[..3], Resolution::Low).is_none());
+
+        let collage_bytes = generate_collage(&encoded, Resolution::Low).expect("collage generated");
+        let decoded = image::load_from_memory(&collage_bytes).expect("valid collage image");
+        assert_eq!(decoded.width(), Resolution::Low.dim());
+        assert_eq!(decoded.height(), Resolution::Low.dim());
     }
 }

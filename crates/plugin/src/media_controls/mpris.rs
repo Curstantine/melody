@@ -268,7 +268,10 @@ mod linux {
                 // If cover thumbnail exists in cache, expose artUrl
                 let thumb_path = path::thumbnail_cache_dir().join(format!(
                     "{}.jpg",
-                    thumbnail::compute_thumbnail_cache_key(&PathBuf::from(&track.file_path), 500)
+                    thumbnail::compute_cache_key(
+                        &PathBuf::from(&track.file_path),
+                        thumbnail::Resolution::High
+                    )
                 ));
                 if thumb_path.exists() {
                     if let Ok(art_url) = Url::from_file_path(&thumb_path) {
@@ -451,7 +454,10 @@ mod linux {
 
             let thumb_path = path::thumbnail_cache_dir().join(format!(
                 "{}.jpg",
-                thumbnail::compute_thumbnail_cache_key(&PathBuf::from(&track.file_path), 500)
+                thumbnail::compute_cache_key(
+                    &PathBuf::from(&track.file_path),
+                    thumbnail::Resolution::High
+                )
             ));
             if thumb_path.exists() {
                 if let Ok(art_url) = Url::from_file_path(&thumb_path) {

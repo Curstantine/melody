@@ -514,8 +514,8 @@ mod win {
         // Thumbnail resolution: probe thumbnail cache
         let path = PathBuf::from(&track.file_path);
         // Ensure thumbnail is available in cache
-        let _ = thumbnail::get_or_create_thumbnail(&path, 500);
-        let key = thumbnail::compute_thumbnail_cache_key(&path, 500);
+        let _ = thumbnail::get_or_create(&path, thumbnail::Resolution::High);
+        let key = thumbnail::compute_cache_key(&path, thumbnail::Resolution::High);
         let thumb_file = path::thumbnail_cache_dir().join(format!("{}.jpg", key));
         if thumb_file.is_file() {
             let clean_path = thumb_file.to_string_lossy().to_string();

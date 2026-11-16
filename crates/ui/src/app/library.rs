@@ -644,16 +644,9 @@ impl App {
                 tokio::task::spawn_blocking(move || {
                     let mut results = Vec::with_capacity(resolved.len());
                     for (key, path) in resolved {
-                        // `None` bytes means "no cover available"; `Some` carries the
-                        // downscaled JPEG. A missing path is treated as no cover.
-                        let bytes = match path {
-                            Some(path) => thumbnail::get_or_create_thumbnail(
-                                &path,
-                                thumbnail::THUMB_DIM_DEFAULT,
-                            )
-                            .unwrap_or_default(),
-                            None => Vec::new(),
-                        };
+                        let bytes = path
+                            .and_then(|p| thumbnail::get_or_create(&p, thumbnail::Resolution::Low))
+                            .unwrap_or_default();
                         results.push((key, bytes));
                     }
 
@@ -696,10 +689,8 @@ impl App {
                         for chunk in paths.chunks(chunk_size.max(1)) {
                             s.spawn(move || {
                                 for path in chunk {
-                                    let _ = thumbnail::get_or_create_thumbnail(
-                                        path,
-                                        thumbnail::THUMB_DIM_DEFAULT,
-                                    );
+                                    let _ =
+                                        thumbnail::get_or_create(path, thumbnail::Resolution::Low);
                                 }
                             });
                         }

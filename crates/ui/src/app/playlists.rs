@@ -613,16 +613,22 @@ impl App {
                             playlist::parse_m3u_preview_paths(&m3u_path, 4).unwrap_or_default();
                         let mut covers = Vec::with_capacity(track_paths.len());
                         for track_path in track_paths {
-                            if let Some(bytes) = thumbnail::get_or_create_thumbnail(
-                                &track_path,
-                                thumbnail::THUMB_DIM_DEFAULT,
-                            ) {
+                            if let Some(bytes) =
+                                thumbnail::get_or_create(&track_path, thumbnail::Resolution::Low)
+                            {
                                 if !bytes.is_empty() {
                                     covers.push(bytes);
                                 }
                             }
                         }
-                        results.push((id, covers));
+
+                        let final_covers =
+                            thumbnail::generate_collage(&covers, thumbnail::Resolution::Low)
+                                .or_else(|| covers.into_iter().next())
+                                .into_iter()
+                                .collect();
+
+                        results.push((id, final_covers));
                     }
                     results
                 })

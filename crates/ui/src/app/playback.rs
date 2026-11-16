@@ -706,12 +706,10 @@ impl App {
         Task::perform(
             async move {
                 tokio::task::spawn_blocking(move || {
-                    let cover =
-                        thumbnail::get_or_create_thumbnail(&path, thumbnail::THUMB_DIM_HIGH);
-                    let blurred =
-                        thumbnail::get_or_create_thumbnail(&path, thumbnail::THUMB_DIM_DEFAULT)
-                            .as_deref()
-                            .and_then(thumbnail::generate_blurred_cover);
+                    let cover = thumbnail::get_or_create(&path, thumbnail::Resolution::High);
+                    let blurred = thumbnail::get_or_create(&path, thumbnail::Resolution::Low)
+                        .as_deref()
+                        .and_then(thumbnail::generate_blurred);
                     (cover, blurred)
                 })
                 .await
@@ -739,16 +737,15 @@ impl App {
         Task::perform(
             async move {
                 tokio::task::spawn_blocking(move || {
-                    let cover =
-                        thumbnail::get_or_create_thumbnail(&path, thumbnail::THUMB_DIM_DEFAULT);
+                    let cover = thumbnail::get_or_create(&path, thumbnail::Resolution::Low);
 
                     let now_playing_cover = if load_now_playing_cover {
-                        thumbnail::get_or_create_thumbnail(&path, thumbnail::THUMB_DIM_HIGH)
+                        thumbnail::get_or_create(&path, thumbnail::Resolution::High)
                     } else {
                         None
                     };
 
-                    let blurred = cover.as_deref().and_then(thumbnail::generate_blurred_cover);
+                    let blurred = cover.as_deref().and_then(thumbnail::generate_blurred);
 
                     let tech_info = metadata::extract_technical_info(&path, duration_ms);
 
