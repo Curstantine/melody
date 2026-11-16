@@ -109,6 +109,7 @@ pub struct App {
     pub(crate) position_ms: u64,
     pub(crate) duration_ms: u64,
     pub(crate) volume: f32,
+    pub(crate) pre_mute_volume: f32,
     pub(crate) is_shuffle: bool,
     pub(crate) repeat_mode: model::RepeatMode,
     pub(crate) gapless: bool,
@@ -317,6 +318,11 @@ impl App {
             position_ms: 0,
             duration_ms: 0,
             volume: state.volume,
+            pre_mute_volume: if state.volume > 0.01 {
+                state.volume
+            } else {
+                1.0
+            },
             is_shuffle: state.is_shuffle,
             repeat_mode: state.repeat_mode,
             gapless: config.gapless,
@@ -519,6 +525,7 @@ impl App {
             | Message::SeekFinished
             | Message::SeekToMs(_)
             | Message::VolumeChanged(_)
+            | Message::ToggleMute
             | Message::MediaControlAction(_) => self.handle_playback_message(message),
 
             Message::SelectTab(_)

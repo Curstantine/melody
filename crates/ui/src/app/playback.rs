@@ -558,11 +558,22 @@ impl App {
             }
 
             Message::VolumeChanged(vol) => {
-                self.volume = vol;
-                self.player_bar.update_volume(vol);
-                self.audio_controller.set_volume(vol);
-                self.plugin_manager.on_volume_change(vol);
-                self.save_state_debounced()
+                if vol > 0.01 {
+                    self.pre_mute_volume = vol;
+                }
+                self.apply_volume(vol)
+            }
+
+            Message::ToggleMute => {
+                let target = if self.volume > 0.01 {
+                    self.pre_mute_volume = self.volume;
+                    0.0
+                } else if self.pre_mute_volume > 0.01 {
+                    self.pre_mute_volume
+                } else {
+                    1.0
+                };
+                self.apply_volume(target)
             }
 
             Message::MediaControlAction(action) => match action {
@@ -792,5 +803,15 @@ impl App {
             self.audio_controller.set_next_track(None);
             self.pending_gapless_next = None;
         }
+    }
+
+    /// Updates the active volume across UI, audio engine, and plugins, then schedules a state save.
+    fn apply_volume(&mut self, vol: f32) -> Task<Message> {
+        let clamped = vol.clamp(0.0, 1.0);
+        self.volume = clamped;
+        self.player_bar.update_volume(clamped);
+        self.audio_controller.set_volume(clamped);
+        self.plugin_manager.on_volume_change(clamped);
+        self.save_state_debounced()
     }
 }

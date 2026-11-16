@@ -132,6 +132,8 @@ impl SettingsView {
             .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
             slider(0.0..=1.0, ctx.volume, Message::VolumeChanged)
+                .step(0.01)
+                .on_release(Message::SaveState)
                 .style(styles::settings_slider_style(theme_cfg))
                 .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
         ]

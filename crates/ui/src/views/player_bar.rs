@@ -245,22 +245,28 @@ impl PlayerBar {
         let bar_muted = iced::Color { a: 0.6, ..bar_fg };
 
         let vol_slider = slider(0.0..=1.0, volume, Message::VolumeChanged)
+            .step(0.01)
             .on_release(Message::SaveState)
             .style(styles::volume_slider_style(theme_cfg))
             .width(90);
 
+        let mute_btn = button(icons::icon(
+            if volume <= 0.01 {
+                icons::VOL_MUTE_SVG
+            } else if volume < 0.5 {
+                icons::VOL_LOW_SVG
+            } else {
+                icons::VOL_HIGH_SVG
+            },
+            15.0,
+            bar_fg,
+        ))
+        .padding([4, 6])
+        .style(styles::player_bar_button(theme_cfg, false))
+        .on_press(Message::ToggleMute);
+
         row![
-            icons::icon(
-                if volume <= 0.01 {
-                    icons::VOL_MUTE_SVG
-                } else if volume < 0.5 {
-                    icons::VOL_LOW_SVG
-                } else {
-                    icons::VOL_HIGH_SVG
-                },
-                15.0,
-                bar_fg
-            ),
+            mute_btn,
             vol_slider,
             text(
                 font,
