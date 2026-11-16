@@ -18,7 +18,7 @@ runs:
     - name: Cache minimal FFmpeg build (Windows)
       id: cache-ffmpeg-win
       if: runner.os == 'Windows'
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: C:\ffmpeg
         # Bump the version suffix (v1) if configure flags or dependencies change.
@@ -125,7 +125,7 @@ runs:
     - name: Cache minimal FFmpeg build (Linux)
       id: cache-ffmpeg-linux
       if: runner.os == 'Linux'
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/ffmpeg
         # Bump the version suffix (v1) if configure flags or dependencies change.
