@@ -13,7 +13,7 @@ use model::{
 };
 
 use crate::message::Message;
-use components::{self, icons, styles};
+use component::{self, icons, styles};
 use theme::ThemeConfig;
 
 #[cfg(test)]
@@ -37,7 +37,7 @@ fn cover_key(album: &AlbumSummary) -> String {
 fn columns_for_width(width: f32, tile_width: u32) -> usize {
     let usable = (width - HORIZONTAL_PADDING).max(tile_width as f32);
     let tile = tile_width as f32;
-    (((usable + components::CATALOG_ROW_SPACING) / (tile + components::CATALOG_ROW_SPACING)).floor()
+    (((usable + component::CATALOG_ROW_SPACING) / (tile + component::CATALOG_ROW_SPACING)).floor()
         as usize)
         .max(1)
 }
@@ -269,10 +269,10 @@ impl AlbumsView {
         match self.view_mode {
             ViewMode::Tile => {
                 self.tile_width as f32
-                    + components::CATALOG_TILE_META_HEIGHT
-                    + components::CATALOG_ROW_SPACING
+                    + component::CATALOG_TILE_META_HEIGHT
+                    + component::CATALOG_ROW_SPACING
             }
-            ViewMode::List => components::CATALOG_LIST_ROW_HEIGHT,
+            ViewMode::List => component::CATALOG_LIST_ROW_HEIGHT,
         }
     }
 
@@ -625,7 +625,7 @@ impl AlbumsView {
         format_cfg: &'a layout::AlbumsFormatConfig,
     ) -> Element<'a, Message> {
         if self.albums.is_empty() {
-            return components::empty_state(
+            return component::empty_state(
                 theme_cfg,
                 font,
                 "No albums indexed",
@@ -634,7 +634,7 @@ impl AlbumsView {
         }
 
         let header_bar = row![
-            components::sort_chip_list(
+            component::sort_chip_list(
                 theme_cfg,
                 font,
                 &[
@@ -650,7 +650,7 @@ impl AlbumsView {
                 Message::AlbumSortChanged,
             ),
             Space::new().width(Length::Fill),
-            components::view_mode_toggle(
+            component::view_mode_toggle(
                 theme_cfg,
                 font,
                 self.view_mode,
@@ -708,13 +708,13 @@ impl AlbumsView {
         let visible = self.visible_albums();
         for (chunk_idx, chunk) in visible.chunks(per_row).enumerate() {
             let mut tile_row = row![]
-                .spacing(components::CATALOG_ROW_SPACING)
+                .spacing(component::CATALOG_ROW_SPACING)
                 .align_y(Alignment::Start);
 
             for (item_in_chunk, album) in chunk.iter().enumerate() {
                 let win_idx = chunk_idx * per_row + item_in_chunk;
                 let abs_idx = self.window_start + win_idx;
-                let leading = components::catalog_cover_art(
+                let leading = component::catalog_cover_art(
                     theme_cfg,
                     self.get_album_cover(album),
                     tile_w,
@@ -741,7 +741,7 @@ impl AlbumsView {
                 };
 
                 tile_row = tile_row.push(
-                    components::CatalogTile {
+                    component::CatalogTile {
                         theme: theme_cfg,
                         font,
                         tile_width: tile_w,
@@ -806,7 +806,7 @@ impl AlbumsView {
         format_cfg: &'a layout::AlbumsFormatConfig,
     ) -> Element<'a, Message> {
         let total_rows = self.albums.len();
-        let row_h = components::CATALOG_LIST_ROW_HEIGHT;
+        let row_h = component::CATALOG_LIST_ROW_HEIGHT;
 
         let mut content = column![].spacing(0).width(Length::Fill);
 
@@ -833,13 +833,13 @@ impl AlbumsView {
             };
 
             content = content.push(
-                components::CatalogRow {
+                component::CatalogRow {
                     theme: theme_cfg,
                     font,
-                    leading: components::cover_art(
+                    leading: component::cover_art(
                         theme_cfg,
                         self.get_album_cover(album),
-                        components::CATALOG_LIST_ART_SIZE,
+                        component::CATALOG_LIST_ART_SIZE,
                         theme_cfg.border_radius.sm,
                         icons::DISC_SVG,
                         20.0,

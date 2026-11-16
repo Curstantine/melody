@@ -2,7 +2,7 @@ use iced::widget::{button, column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
-use components::{self, border_hori, icons, styles, text};
+use component::{self, border_hori, icons, styles, text};
 use config::SettingsTab;
 use theme::ThemeConfig;
 

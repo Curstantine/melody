@@ -10,5 +10,5 @@ repository.workspace = true
 image = { workspace = true, features = ["jpeg", "png"] }
 md-5.workspace = true
 metadata.workspace = true
-paths.workspace = true
+path.workspace = true
 tracing.workspace = true

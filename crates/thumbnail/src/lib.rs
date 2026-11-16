@@ -38,7 +38,7 @@ pub fn compute_thumbnail_cache_key(track_path: &Path, max_dim: u32) -> String {
 /// Retrieves an existing thumbnail from disk cache, or extracts, downscales, and caches it.
 /// Returns small JPEG bytes (~8-15 KB) suitable for smooth GPU texture rendering.
 pub fn get_or_create_thumbnail(track_path: &Path, max_dim: u32) -> Option<Vec<u8>> {
-    let cache_dir = paths::thumbnail_cache_dir();
+    let cache_dir = path::thumbnail_cache_dir();
     let cache_key = compute_thumbnail_cache_key(track_path, max_dim);
 
     let thumb_file = cache_dir.join(format!("{}.jpg", cache_key));
@@ -142,7 +142,7 @@ pub struct CacheStats {
 
 /// Calculates the number of thumbnail cache files and their total footprint in bytes
 pub fn get_thumbnail_cache_stats() -> CacheStats {
-    let dir = paths::thumbnail_cache_dir();
+    let dir = path::thumbnail_cache_dir();
     let mut file_count = 0;
     let mut total_bytes = 0;
 
@@ -167,7 +167,7 @@ pub fn get_thumbnail_cache_stats() -> CacheStats {
 
 /// Deletes all cached thumbnail files and negative lookup markers from disk
 pub fn clear_thumbnail_cache() -> std::io::Result<usize> {
-    let dir = paths::thumbnail_cache_dir();
+    let dir = path::thumbnail_cache_dir();
     let mut removed = 0;
 
     if dir.is_dir() {

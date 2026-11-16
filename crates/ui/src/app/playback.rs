@@ -4,7 +4,7 @@ use iced::widget::operation::scrollable::{scroll_to, AbsoluteOffset};
 use iced::widget::operation::Animation;
 use iced::Task;
 use model::TrackRow;
-use plugins::{PlayerAction, TrackMetadata};
+use plugin::{PlayerAction, TrackMetadata};
 use tracing::info;
 
 use crate::message::Message;

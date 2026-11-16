@@ -3,7 +3,7 @@ use iced::widget::{
 };
 use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length};
 
-use components::{self, icons, styles, text};
+use component::{self, icons, styles, text};
 use model::{format_template, PlaylistSortField, ViewMode};
 use theme::ThemeConfig;
 
@@ -25,7 +25,7 @@ impl PlaylistsView {
         }
 
         if self.playlists.is_empty() {
-            return components::empty_state(
+            return component::empty_state(
                 theme_cfg,
                 font,
                 "No playlists yet",
@@ -34,7 +34,7 @@ impl PlaylistsView {
         }
 
         let header = row![
-            components::sort_chip_list(
+            component::sort_chip_list(
                 theme_cfg,
                 font,
                 &[
@@ -47,7 +47,7 @@ impl PlaylistsView {
                 Message::PlaylistSortChanged,
             ),
             Space::new().width(Length::Fill),
-            components::view_mode_toggle(
+            component::view_mode_toggle(
                 theme_cfg,
                 font,
                 self.view_mode,
@@ -434,7 +434,7 @@ pub(super) fn render_playlist_tile_cover<'a>(
         }
         Some(list) if !list.is_empty() => {
             // 1 to 3 covers: render first cover full size (classic music player behavior)
-            components::catalog_cover_art(
+            component::catalog_cover_art(
                 theme_cfg,
                 Some(&list[0]),
                 size,
@@ -445,7 +445,7 @@ pub(super) fn render_playlist_tile_cover<'a>(
                 on_press,
             )
         }
-        _ => components::catalog_cover_art(
+        _ => component::catalog_cover_art(
             theme_cfg,
             None,
             size,

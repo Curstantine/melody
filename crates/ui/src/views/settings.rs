@@ -4,7 +4,7 @@ use iced::widget::{row, scrollable, Widget};
 use iced::{Element, Length};
 
 use crate::message::Message;
-use components::{self, styles};
+use component::{self, styles};
 use config::SettingsTab;
 use model::ViewMode;
 use model::{SortDirection, SortField};
@@ -127,7 +127,7 @@ pub struct SettingsView {
     pub active_tab: SettingsTab,
     pub available_fonts: Vec<String>,
     pub library_folders: Vec<String>,
-    pub scrobble_test_status: Option<(plugins::scrobbler::ScrobbleService, Result<String, String>)>,
+    pub scrobble_test_status: Option<(plugin::scrobbler::ScrobbleService, Result<String, String>)>,
     pub fonts_loaded: bool,
     pub update_status: updater::UpdateStatus,
     pub show_debug_subpage: bool,

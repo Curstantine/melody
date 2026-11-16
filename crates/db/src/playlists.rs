@@ -100,7 +100,7 @@ impl LibraryDatabase {
             )
             .await?;
 
-        let managed_dir = paths::playlists_dir();
+        let managed_dir = path::playlists_dir();
         let mut playlists = Vec::new();
         while let Some(row) = rows.next().await? {
             let id: i64 = row.get(0)?;

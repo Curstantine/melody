@@ -48,10 +48,10 @@ impl ThemeManager {
         self.themes
             .insert(DEFAULT_THEME_NAME.to_string(), ThemeConfig::default());
 
-        if let Some(bundled) = paths::bundled_themes_dir() {
+        if let Some(bundled) = path::bundled_themes_dir() {
             self.load_from_folder(&bundled);
         }
-        self.load_from_folder(paths::user_themes_dir());
+        self.load_from_folder(path::user_themes_dir());
 
         if let Some(active) = self.themes.get(&self.active_theme_name) {
             self.current_config = active.clone();

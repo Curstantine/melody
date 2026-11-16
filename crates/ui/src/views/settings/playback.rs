@@ -2,7 +2,7 @@ use iced::widget::{column, pick_list, row, slider, toggler, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
-use components::{self, styles, text};
+use component::{self, styles, text};
 use theme::ThemeConfig;
 
 use super::*;
@@ -14,7 +14,7 @@ impl SettingsView {
         font: iced::Font,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let header = components::settings_header(
+        let header = component::settings_header(
             theme_cfg,
             font,
             "Playback preferences",
@@ -43,7 +43,7 @@ impl SettingsView {
         ]
         .align_y(Alignment::Center);
 
-        let transitions_card = components::settings_card(
+        let transitions_card = component::settings_card(
             theme_cfg,
             font,
             "Audio transitions",
@@ -134,7 +134,7 @@ impl SettingsView {
         ]
         .align_y(Alignment::Center);
 
-        let behavior_card = components::settings_card(
+        let behavior_card = component::settings_card(
             theme_cfg,
             font,
             "Playback behavior",
@@ -245,7 +245,7 @@ impl SettingsView {
             resampling_rows.push(linear_interp_row);
         }
 
-        let resampling_card = components::settings_card(
+        let resampling_card = component::settings_card(
             theme_cfg,
             font,
             "Audio resampling",

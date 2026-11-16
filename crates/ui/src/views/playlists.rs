@@ -4,7 +4,7 @@ use iced::widget::{column, container, image, row, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use ::queue::QueueStore;
-use components::{self, icons};
+use component::{self, icons};
 use config::PlaylistSection;
 use model::{
     format_template, FieldLookup, PlaylistSortField, PlaylistSummary, SortDirection, TrackRow,
@@ -352,7 +352,7 @@ impl PlaylistsView {
         font: iced::Font,
     ) -> Element<'a, Message> {
         let section_chip = |label: &'static str, section: PlaylistSection, icon: &'static str| {
-            components::chip_with_icon(
+            component::chip_with_icon(
                 theme_cfg,
                 font,
                 icon,
@@ -373,7 +373,7 @@ impl PlaylistsView {
         match self.section {
             PlaylistSection::Playlists => {
                 if self.selected_id.is_some() {
-                    bar = bar.push(components::chip_with_icon(
+                    bar = bar.push(component::chip_with_icon(
                         theme_cfg,
                         font,
                         icons::ARROW_LEFT_SVG,
@@ -383,7 +383,7 @@ impl PlaylistsView {
                     ));
                 } else {
                     bar = bar
-                        .push(components::chip_with_icon(
+                        .push(component::chip_with_icon(
                             theme_cfg,
                             font,
                             icons::FOLDER_SVG,
@@ -391,7 +391,7 @@ impl PlaylistsView {
                             false,
                             Message::ImportPlaylistsClicked,
                         ))
-                        .push(components::chip_with_icon(
+                        .push(component::chip_with_icon(
                             theme_cfg,
                             font,
                             icons::PLUS_SVG,
@@ -402,7 +402,7 @@ impl PlaylistsView {
                 }
             }
             PlaylistSection::Queues => {
-                bar = bar.push(components::chip_with_icon(
+                bar = bar.push(component::chip_with_icon(
                     theme_cfg,
                     font,
                     icons::PLUS_SVG,
@@ -434,7 +434,7 @@ fn case_insensitive(a: &str, b: &str) -> std::cmp::Ordering {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use components::TrackRow;
+    use component::TrackRow;
     use model::{PlaylistSortField, ViewMode};
     use playlist::{parse_m3u, write_m3u, PlaylistEntry, PlaylistItem};
     use std::path::PathBuf;

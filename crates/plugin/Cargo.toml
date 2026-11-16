@@ -1,5 +1,5 @@
 [package]
-name = "plugins"
+name = "plugin"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-paths.workspace = true
+path.workspace = true
 thumbnail.workspace = true
 metadata.workspace = true
 encoding_rs.workspace = true

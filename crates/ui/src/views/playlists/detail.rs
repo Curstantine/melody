@@ -4,7 +4,7 @@ use iced::widget::{
 use iced::{Alignment, Element, Length};
 
 use ::queue::{queue_window_for_start, queue_window_start, QueueStore, QUEUE_ROW_HEIGHT};
-use components::{self, icons, styles, text, TrackMenuContext};
+use component::{self, icons, styles, text, TrackMenuContext};
 use model::{format_template, FieldLookup};
 use theme::ThemeConfig;
 
@@ -153,7 +153,7 @@ impl PlaylistsView {
         };
 
         let actions = row![
-            components::chip_with_icon(
+            component::chip_with_icon(
                 theme_cfg,
                 font,
                 icons::PLAY_SVG,
@@ -161,7 +161,7 @@ impl PlaylistsView {
                 false,
                 Message::PlayPlaylist(playlist_id),
             ),
-            components::chip_with_icon(
+            component::chip_with_icon(
                 theme_cfg,
                 font,
                 icons::NEXT_SVG,
@@ -169,7 +169,7 @@ impl PlaylistsView {
                 false,
                 Message::PlaylistPlayNext(playlist_id),
             ),
-            components::chip_with_icon(
+            component::chip_with_icon(
                 theme_cfg,
                 font,
                 icons::QUEUE_SVG,
@@ -177,7 +177,7 @@ impl PlaylistsView {
                 false,
                 Message::PlaylistToQueue(playlist_id),
             ),
-            components::chip_with_icon(
+            component::chip_with_icon(
                 theme_cfg,
                 font,
                 icons::REFRESH_SVG,
@@ -185,7 +185,7 @@ impl PlaylistsView {
                 false,
                 Message::RenamePlaylist(playlist_id),
             ),
-            components::chip_with_icon(
+            component::chip_with_icon(
                 theme_cfg,
                 font,
                 icons::TRASH_SVG,
@@ -213,7 +213,7 @@ impl PlaylistsView {
 
         let mut list = column![].spacing(1).width(Length::Fill);
         if self.detail_items.is_empty() {
-            list = list.push(components::empty_state(
+            list = list.push(component::empty_state(
                 theme_cfg,
                 font,
                 "This playlist is empty",
@@ -279,7 +279,7 @@ impl PlaylistsView {
                     };
 
                 list = list.push(
-                    components::TrackRow {
+                    component::TrackRow {
                         theme: theme_cfg,
                         font,
                         index,
@@ -332,7 +332,7 @@ impl PlaylistsView {
         queue_fmt: &'a layout::QueueFormatConfig,
     ) -> Element<'a, Message> {
         if store.is_empty() {
-            return components::empty_state(
+            return component::empty_state(
                 theme_cfg,
                 font,
                 "No queues open",
@@ -350,7 +350,7 @@ impl PlaylistsView {
                 .filter(|(id, _)| *id == queue.id)
                 .map(|(_, label)| label.as_str())
                 .unwrap_or(queue.name.as_str());
-            let chip_btn = components::chip(
+            let chip_btn = component::chip(
                 theme_cfg,
                 font,
                 chip_label,
@@ -376,7 +376,7 @@ impl PlaylistsView {
             let Some(id) = store.active else {
                 return column![
                     chips,
-                    components::empty_state(
+                    component::empty_state(
                         theme_cfg,
                         font,
                         "No active queue",
@@ -398,7 +398,7 @@ impl PlaylistsView {
                 chips,
                 Self::queue_header(theme_cfg, font, name, &self.queue_header_tracks_str, id),
                 self.queue_save_form(theme_cfg, font),
-                components::empty_state(theme_cfg, font, "Loading queue…", "Fetching tracks"),
+                component::empty_state(theme_cfg, font, "Loading queue…", "Fetching tracks"),
             ]
             .height(Length::Fill)
             .width(Length::Fill)
@@ -422,7 +422,7 @@ impl PlaylistsView {
         // to the whole queue (same approach as the library view).
         let mut list = column![].spacing(0).width(Length::Fill);
         if active.is_empty() {
-            list = list.push(components::empty_state(
+            list = list.push(component::empty_state(
                 theme_cfg,
                 font,
                 "Queue is empty",
@@ -468,7 +468,7 @@ impl PlaylistsView {
                     )
                 };
                 list = list.push(
-                    components::TrackRow {
+                    component::TrackRow {
                         theme: theme_cfg,
                         font,
                         index,

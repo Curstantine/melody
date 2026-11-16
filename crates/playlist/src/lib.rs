@@ -110,7 +110,7 @@ pub fn sanitize_playlist_filename(name: &str) -> String {
 
 /// Returns a non-colliding `.m3u8` path inside the managed playlists directory.
 pub fn unique_playlist_path(name: &str) -> PathBuf {
-    let dir = paths::playlists_dir();
+    let dir = path::playlists_dir();
     let base = sanitize_playlist_filename(name);
     let mut candidate = dir.join(format!("{base}.m3u8"));
     let mut counter = 2;

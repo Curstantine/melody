@@ -180,7 +180,7 @@ impl App {
             self.settings.fonts_loaded = true;
             Some(Task::perform(
                 async move {
-                    tokio::task::spawn_blocking(fonts::list_font_families)
+                    tokio::task::spawn_blocking(font::list_font_families)
                         .await
                         .unwrap_or_default()
                 },

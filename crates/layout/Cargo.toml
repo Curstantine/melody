@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-paths.workspace = true
+path.workspace = true
 model.workspace = true
 iced = { workspace = true, features = ["advanced", "thread-pool"] }
 kdl.workspace = true

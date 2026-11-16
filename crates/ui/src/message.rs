@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use components::{ContextMenuAction, TrackMenuContext};
+use component::{ContextMenuAction, TrackMenuContext};
 use config::{PlaylistSection, SettingsTab, ViewTab};
 use db::ScanSummary;
 use metadata::AudioTechnicalInfo;
@@ -39,7 +39,7 @@ pub enum Message {
     SetResamplingFilter(audio::ResamplingFilter),
     SetResamplingQuality(audio::ResamplingQuality),
     ToggleResamplingLinearInterp(bool),
-    MediaControlAction(plugins::PlayerAction),
+    MediaControlAction(plugin::PlayerAction),
 
     // Navigation & Views
     SelectTab(ViewTab),
@@ -262,8 +262,8 @@ pub enum Message {
     LastFmUrlChanged(String),
     ToggleSubmitNowPlaying(bool),
     SetScrobblePercent(u32),
-    TestScrobble(plugins::scrobbler::ScrobbleService),
-    ScrobbleTestFinished(plugins::scrobbler::ScrobbleService, Result<String, String>),
+    TestScrobble(plugin::scrobbler::ScrobbleService),
+    ScrobbleTestFinished(plugin::scrobbler::ScrobbleService, Result<String, String>),
 
     // Library Maintenance
     AddLibraryFolderClicked,

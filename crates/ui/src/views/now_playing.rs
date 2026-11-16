@@ -4,7 +4,7 @@ use metadata::AudioTechnicalInfo;
 use model::{ParsedLyrics, Track, TrackRow};
 
 use crate::message::Message;
-use components::{self, icons, styles, text};
+use component::{self, icons, styles, text};
 use theme::ThemeConfig;
 
 use super::ScrollOffset;
@@ -169,7 +169,7 @@ impl NowPlayingView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        fonts: &fonts::FontConfig,
+        fonts: &font::FontConfig,
         current_track: Option<&'a Track>,
         current_cover: Option<&'a image::Handle>,
         blurred_cover: Option<&'a image::Handle>,
@@ -183,7 +183,7 @@ impl NowPlayingView {
         let content: Element<'a, Message> = match current_track {
             Some(track) => {
                 let cover_icon_size = (INFO_PANEL_WIDTH * 0.36).clamp(48.0, 100.0);
-                let cover_art = components::cover_art(
+                let cover_art = component::cover_art(
                     theme_cfg,
                     current_cover,
                     INFO_PANEL_WIDTH,
@@ -430,9 +430,9 @@ impl NowPlayingView {
                         artist_album_text,
                         details_row,
                         extra_tags,
-                        components::border_vert(1.0, theme_cfg.border),
+                        component::border_vert(1.0, theme_cfg.border),
                         tech_info_section,
-                        components::border_vert(1.0, theme_cfg.border),
+                        component::border_vert(1.0, theme_cfg.border),
                         up_next_header,
                         next_track_item,
                     ]
@@ -472,7 +472,7 @@ impl NowPlayingView {
                     .height(Length::Fill)
                     .boxed()
             }
-            None => components::empty_state(
+            None => component::empty_state(
                 theme_cfg,
                 fonts.primary_font(),
                 "No track playing",
@@ -570,7 +570,7 @@ mod tests {
 
         let _element = now_playing_view.view(
             &theme_cfg,
-            &fonts::FontConfig::default(),
+            &font::FontConfig::default(),
             None,
             None,
             None,
@@ -642,7 +642,7 @@ mod tests {
 
         let _element = now_playing_view.view(
             &theme_cfg,
-            &fonts::FontConfig::default(),
+            &font::FontConfig::default(),
             Some(&track),
             None,
             None,

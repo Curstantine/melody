@@ -2,7 +2,7 @@ use iced::widget::{button, column, container, pick_list, row, slider, toggler, S
 use iced::{Alignment, Border, Element, Length};
 
 use crate::message::Message;
-use components::{self, icons, styles, text};
+use component::{self, icons, styles, text};
 use theme::ThemeConfig;
 
 use super::*;
@@ -14,7 +14,7 @@ impl SettingsView {
         font: iced::Font,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let header = components::settings_header(theme_cfg, font, "Appearance & interface", Some("Customize color palette, typography font family, default display modes, and layout density"));
+        let header = component::settings_header(theme_cfg, font, "Appearance & interface", Some("Customize color palette, typography font family, default display modes, and layout density"));
 
         // Theme & Layout Card
         let theme_buttons = {
@@ -26,7 +26,7 @@ impl SettingsView {
                 } else {
                     icons::DISC_SVG
                 };
-                let btn = components::chip_with_icon(
+                let btn = component::chip_with_icon(
                     theme_cfg,
                     font,
                     icon_svg,
@@ -48,7 +48,7 @@ impl SettingsView {
                 } else {
                     icons::ALBUM_SVG
                 };
-                let btn = components::chip_with_icon(
+                let btn = component::chip_with_icon(
                     theme_cfg,
                     font,
                     icon_svg,
@@ -95,7 +95,7 @@ impl SettingsView {
         .style(styles::ghost_button(theme_cfg, false))
         .on_press(Message::ReloadThemesAndLayouts);
 
-        let theme_layout_card = components::settings_card(
+        let theme_layout_card = component::settings_card(
             theme_cfg,
             font,
             "Theme & layout",
@@ -200,7 +200,7 @@ impl SettingsView {
             ..Default::default()
         });
 
-        let font_card = components::settings_card(
+        let font_card = component::settings_card(
             theme_cfg,
             font,
             "Typography & font configuration",
@@ -234,7 +234,7 @@ impl SettingsView {
             let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
             for &size in &page_sizes {
                 let is_sel = ctx.page_size == size;
-                let btn = components::chip(
+                let btn = component::chip(
                     theme_cfg,
                     font,
                     format!("{} tracks", size),
@@ -246,7 +246,7 @@ impl SettingsView {
             r
         };
 
-        let library_tab_card = components::settings_card(
+        let library_tab_card = component::settings_card(
             theme_cfg,
             font,
             "Library tab",
@@ -285,7 +285,7 @@ impl SettingsView {
             ]
             .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
-            components::view_mode_toggle(
+            component::view_mode_toggle(
                 theme_cfg,
                 font,
                 ctx.albums_view_mode,
@@ -299,7 +299,7 @@ impl SettingsView {
             let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
             for &width in &album_tile_presets {
                 let is_sel = ctx.album_tile_width == width;
-                let btn = components::chip(
+                let btn = component::chip(
                     theme_cfg,
                     font,
                     format!("{} px", width),
@@ -341,7 +341,7 @@ impl SettingsView {
         ]
         .align_y(Alignment::Center);
 
-        let albums_tab_card = components::settings_card(
+        let albums_tab_card = component::settings_card(
             theme_cfg,
             font,
             "Albums tab",
@@ -365,7 +365,7 @@ impl SettingsView {
             ]
             .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
-            components::view_mode_toggle(
+            component::view_mode_toggle(
                 theme_cfg,
                 font,
                 ctx.artists_view_mode,
@@ -379,7 +379,7 @@ impl SettingsView {
             let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
             for &width in &artist_tile_presets {
                 let is_sel = ctx.artist_tile_width == width;
-                let btn = components::chip(
+                let btn = component::chip(
                     theme_cfg,
                     font,
                     format!("{} px", width),
@@ -421,7 +421,7 @@ impl SettingsView {
         ]
         .align_y(Alignment::Center);
 
-        let artists_tab_card = components::settings_card(
+        let artists_tab_card = component::settings_card(
             theme_cfg,
             font,
             "Artists tab",
@@ -464,7 +464,7 @@ impl SettingsView {
             let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
             for &size in &lyrics_size_presets {
                 let is_sel = ctx.lyrics_font_size == size;
-                let btn = components::chip(
+                let btn = component::chip(
                     theme_cfg,
                     font,
                     format!("{} px", size),
@@ -476,7 +476,7 @@ impl SettingsView {
             r
         };
 
-        let now_playing_card = components::settings_card(
+        let now_playing_card = component::settings_card(
             theme_cfg,
             font,
             "Now playing",
@@ -535,7 +535,7 @@ impl SettingsView {
             .boxed(),
         );
 
-        let debug_gallery_card = components::settings_card(
+        let debug_gallery_card = component::settings_card(
             theme_cfg,
             font,
             "Miscellaneous",

@@ -12,10 +12,10 @@ use iced::widget::{container, image, Space, Widget};
 use iced::{Background, Element, Subscription, Task, Theme};
 use model::{Track, TrackRow};
 #[cfg(target_os = "linux")]
-use plugins::media_controls::MprisPlugin;
+use plugin::media_controls::MprisPlugin;
 #[cfg(target_os = "windows")]
-use plugins::media_controls::WindowsMediaPlugin;
-use plugins::{
+use plugin::media_controls::WindowsMediaPlugin;
+use plugin::{
     scrobbler::{LastFmPlugin, ListenBrainzPlugin},
     PlayerAction, PluginManager,
 };
@@ -26,7 +26,7 @@ use crate::views::{
     AlbumsView, ArtistsView, LibraryView, NowPlayingView, PlayerBar, PlaylistsView, SettingsView,
 };
 use ::queue::QueueStore;
-use components::ContextMenuState;
+use component::ContextMenuState;
 use config::{AppConfig, AppState, ScrobbleConfig, SettingsTab, ViewTab};
 use layout::LayoutManager;
 use theme::ThemeManager;
@@ -70,7 +70,7 @@ pub struct App {
     pub(crate) plugin_manager: PluginManager,
     pub(crate) theme_manager: ThemeManager,
     pub(crate) layout_manager: LayoutManager,
-    pub(crate) fonts: fonts::FontConfig,
+    pub(crate) fonts: font::FontConfig,
 
     // Navigation & Tabs
     pub(crate) active_tab: ViewTab,
@@ -167,7 +167,7 @@ impl App {
         let t_new = std::time::Instant::now();
         info!("Initializing Melody Native Player application");
 
-        let db_path = paths::database_file();
+        let db_path = path::database_file();
         info!("Using SQLite database at: {:?}", db_path);
 
         let db = tokio::runtime::Handle::current().block_on(async {
@@ -218,8 +218,8 @@ impl App {
         let mut layout_manager = LayoutManager::new();
         layout_manager.select_layout(&config.layout_name);
 
-        let config_path = paths::config_file();
-        let state_path = paths::state_file();
+        let config_path = path::config_file();
+        let state_path = path::state_file();
 
         let library = LibraryView::new(config.page_size);
         let albums = AlbumsView::with_tile_width(
@@ -432,7 +432,7 @@ impl App {
         info!(
             "App loaded in {:?} (+{:?} since process start)",
             t_new.elapsed(),
-            paths::elapsed_since_app_start()
+            path::elapsed_since_app_start()
         );
 
         (app, initial_task)
@@ -727,7 +727,7 @@ impl App {
 
         let mut layers = vec![base_view];
         if let Some(ref menu) = self.context_menu {
-            layers.push(components::render_context_menu(
+            layers.push(component::render_context_menu(
                 menu,
                 &self.playlists.playlists,
                 theme_cfg,

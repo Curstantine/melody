@@ -65,7 +65,7 @@ pub struct AppConfig {
     #[serde(default = "default_artist_tile_width")]
     pub artist_tile_width: u32,
     #[serde(flatten)]
-    pub fonts: fonts::FontConfig,
+    pub fonts: font::FontConfig,
 
     #[serde(default = "default_true")]
     pub gapless: bool,
@@ -107,11 +107,11 @@ pub struct ScrobbleConfig {
 }
 
 fn default_listenbrainz_url() -> String {
-    plugins::scrobbler::listenbrainz::DEFAULT_LISTENBRAINZ_API_URL.to_string()
+    plugin::scrobbler::listenbrainz::DEFAULT_LISTENBRAINZ_API_URL.to_string()
 }
 
 fn default_lastfm_url() -> String {
-    plugins::scrobbler::lastfm::DEFAULT_LASTFM_API_URL.to_string()
+    plugin::scrobbler::lastfm::DEFAULT_LASTFM_API_URL.to_string()
 }
 
 fn default_true() -> bool {
@@ -140,8 +140,8 @@ impl Default for ScrobbleConfig {
 }
 
 impl ScrobbleConfig {
-    pub fn to_listenbrainz_config(&self) -> plugins::ListenBrainzConfig {
-        plugins::ListenBrainzConfig {
+    pub fn to_listenbrainz_config(&self) -> plugin::ListenBrainzConfig {
+        plugin::ListenBrainzConfig {
             enabled: self.listenbrainz_enabled,
             user_token: self.listenbrainz_token.clone(),
             api_url: self.listenbrainz_api_url.clone(),
@@ -150,8 +150,8 @@ impl ScrobbleConfig {
         }
     }
 
-    pub fn to_lastfm_config(&self) -> plugins::LastFmConfig {
-        plugins::LastFmConfig {
+    pub fn to_lastfm_config(&self) -> plugin::LastFmConfig {
+        plugin::LastFmConfig {
             enabled: self.lastfm_enabled,
             api_key: self.lastfm_api_key.clone(),
             api_secret: self.lastfm_api_secret.clone(),
@@ -199,7 +199,7 @@ impl Default for AppConfig {
             tile_width: default_tile_width(),
             album_tile_width: default_album_tile_width(),
             artist_tile_width: default_artist_tile_width(),
-            fonts: fonts::FontConfig::default(),
+            fonts: font::FontConfig::default(),
             gapless: true,
             resampling: audio::ResamplingConfig::default(),
             watch_library: true,
@@ -210,7 +210,7 @@ impl Default for AppConfig {
 
 impl AppConfig {
     pub fn load() -> Self {
-        let path = paths::config_file();
+        let path = path::config_file();
         if path.exists() {
             return Self::load_from_path(path);
         }
@@ -272,7 +272,7 @@ impl AppConfig {
     pub fn save_to_path(&self, path: &Path) {
         match toml::to_string_pretty(self) {
             Ok(content) => {
-                if let Err(err) = paths::atomic_write(path, &content) {
+                if let Err(err) = path::atomic_write(path, &content) {
                     error!("Failed to write settings to {:?}: {}", path, err);
                 } else {
                     info!("Saved settings to {:?}", path);

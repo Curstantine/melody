@@ -4,7 +4,7 @@ use iced::{Element, Length};
 use crate::app::App;
 use crate::message::Message;
 use crate::views::{self, StatusBar, StatusBarContext};
-use components::{icons, styles, text};
+use component::{icons, styles, text};
 use config::ViewTab;
 use layout::schema::{ContainerStyle, LayoutComponent, LayoutNode, Orientation};
 use theme::ThemeConfig;

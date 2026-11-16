@@ -9,7 +9,7 @@ repository.workspace = true
 [dependencies]
 metadata.workspace = true
 model.workspace = true
-paths.workspace = true
+path.workspace = true
 playlist.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }

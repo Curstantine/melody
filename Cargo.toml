@@ -1,21 +1,21 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/paths",
+    "crates/path",
     "crates/model",
     "crates/playlist",
     "crates/thumbnail",
     "crates/metadata",
     "crates/db",
     "crates/audio",
-    "crates/plugins",
+    "crates/plugin",
     "crates/updater",
     "crates/theme",
-    "crates/fonts",
+    "crates/font",
     "crates/layout",
     "crates/queue",
     "crates/config",
-    "crates/components",
+    "crates/component",
     "crates/ui",
 ]
 
@@ -27,21 +27,21 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/Curstantine/melody"
 
 [workspace.dependencies]
-paths = { path = "crates/paths" }
+path = { path = "crates/path" }
 model = { path = "crates/model" }
 playlist = { path = "crates/playlist" }
 thumbnail = { path = "crates/thumbnail" }
 metadata = { path = "crates/metadata", default-features = false }
 db = { path = "crates/db" }
 audio = { path = "crates/audio", default-features = false }
-plugins = { path = "crates/plugins" }
+plugin = { path = "crates/plugin" }
 updater = { path = "crates/updater" }
 theme = { path = "crates/theme" }
-fonts = { path = "crates/fonts" }
+font = { path = "crates/font" }
 layout = { path = "crates/layout" }
 queue = { path = "crates/queue" }
 config = { path = "crates/config" }
-components = { path = "crates/components" }
+component = { path = "crates/component" }
 
 async-io = "2.6"
 cpal = "0.18"

@@ -23,7 +23,7 @@ static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
 fn main() -> iced::Result {
     updater::init();
 
-    paths::init_app_start_time();
+    path::init_app_start_time();
 
     // Initialize logging / tracing
     #[cfg(feature = "tracy")]
@@ -71,7 +71,7 @@ fn main() -> iced::Result {
 
     if let Some(ref font_name) = config.fonts.primary {
         info!("Setting default font from saved config to: {font_name}");
-        builder = builder.default_font(fonts::font_from_family_name(Some(font_name)));
+        builder = builder.default_font(font::font_from_family_name(Some(font_name)));
     }
 
     builder.run()
@@ -103,7 +103,7 @@ pub fn build_window_settings(config: &AppConfig, width: f32, height: f32) -> win
 
     #[cfg(target_os = "linux")]
     {
-        window_settings.platform_specific.application_id = paths::app_name().to_string();
+        window_settings.platform_specific.application_id = path::app_name().to_string();
     }
 
     #[cfg(target_os = "macos")]

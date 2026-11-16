@@ -4,7 +4,7 @@ use iced::window::Direction;
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
-use components::{icons, styles, text};
+use component::{icons, styles, text};
 use theme::ThemeConfig;
 
 /// Height of the custom window titlebar in logical pixels.

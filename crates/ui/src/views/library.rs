@@ -8,7 +8,7 @@ use iced::{Alignment, Element, Length};
 use model::{format_template, SortDirection, SortField, TrackFilter, TrackRow};
 
 use crate::message::Message;
-use components::{self, icons, styles, text, TrackMenuContext};
+use component::{self, icons, styles, text, TrackMenuContext};
 use theme::ThemeConfig;
 
 /// Fixed pixel height of a single track row. The virtualization math depends on
@@ -404,7 +404,7 @@ impl LibraryView {
 
         // 3. Track Content (virtualized list)
         let content: Element<'a, Message> = if self.total_tracks == 0 {
-            components::empty_state(
+            component::empty_state(
                 theme_cfg,
                 font,
                 "No tracks found",

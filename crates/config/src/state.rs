@@ -88,7 +88,7 @@ impl Default for AppState {
 
 impl AppState {
     pub fn load() -> Self {
-        Self::load_from_path(paths::state_file())
+        Self::load_from_path(path::state_file())
     }
 
     pub fn load_from_path(path: &Path) -> Self {
@@ -124,7 +124,7 @@ impl AppState {
     pub fn save_to_path(&self, path: &Path) {
         match toml::to_string_pretty(self) {
             Ok(content) => {
-                if let Err(err) = paths::atomic_write(path, &content) {
+                if let Err(err) = path::atomic_write(path, &content) {
                     error!("Failed to write state to {:?}: {}", path, err);
                 } else {
                     info!("Saved state to {:?}", path);

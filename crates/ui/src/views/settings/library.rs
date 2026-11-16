@@ -2,7 +2,7 @@ use iced::widget::{button, column, container, row, toggler, Space, Widget};
 use iced::{Alignment, Border, Element, Length};
 
 use crate::message::Message;
-use components::{self, icons, styles, text};
+use component::{self, icons, styles, text};
 use theme::ThemeConfig;
 
 use super::*;
@@ -14,23 +14,23 @@ impl SettingsView {
         font: iced::Font,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let header = components::settings_header(theme_cfg, font, "Library & storage", Some("Manage indexed audio directories, rescan metadata, monitor disk caches, or reset storage"));
+        let header = component::settings_header(theme_cfg, font, "Library & storage", Some("Manage indexed audio directories, rescan metadata, monitor disk caches, or reset storage"));
 
         // Storage and Index Metrics
         let storage_stats_row1 = row![
-            components::metric_box(
+            component::metric_box(
                 theme_cfg,
                 font,
                 "Songs indexed",
                 format!("{}", ctx.total_tracks)
             ),
-            components::metric_box(
+            component::metric_box(
                 theme_cfg,
                 font,
                 "Albums cataloged",
                 format!("{}", ctx.total_albums)
             ),
-            components::metric_box(
+            component::metric_box(
                 theme_cfg,
                 font,
                 "Artists cataloged",
@@ -40,13 +40,13 @@ impl SettingsView {
         .spacing(CHIP_ROW_SPACING);
 
         let storage_stats_row2 = row![
-            components::metric_box(
+            component::metric_box(
                 theme_cfg,
                 font,
                 "Database file size",
                 format_file_size(ctx.db_size_bytes),
             ),
-            components::metric_box(
+            component::metric_box(
                 theme_cfg,
                 font,
                 "Disk thumbnail cache",
@@ -59,7 +59,7 @@ impl SettingsView {
         ]
         .spacing(CHIP_ROW_SPACING);
 
-        let stats_card = components::settings_card(
+        let stats_card = component::settings_card(
             theme_cfg,
             font,
             "Storage & index metrics",
@@ -196,7 +196,7 @@ impl SettingsView {
         ]
         .align_y(Alignment::Center);
 
-        let folders_card = components::settings_card(
+        let folders_card = component::settings_card(
             theme_cfg,
             font,
             "Scanned directories",
@@ -288,7 +288,7 @@ impl SettingsView {
             Some(Message::ClearLibrary)
         });
 
-        let actions_card = components::settings_card(
+        let actions_card = component::settings_card(
             theme_cfg,
             font,
             "Library actions & maintenance",

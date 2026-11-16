@@ -2,7 +2,7 @@ use iced::widget::{button, column, container, row, slider, text_input, toggler, 
 use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::message::Message;
-use components::{self, icons, styles, text};
+use component::{self, icons, styles, text};
 use theme::ThemeConfig;
 
 use super::*;
@@ -14,7 +14,7 @@ impl SettingsView {
         font: iced::Font,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
-        let header = components::settings_header(theme_cfg, font, "Scrobbling & social audio", Some("Track your listening habits and broadcast live playback status to ListenBrainz and Last.fm"));
+        let header = component::settings_header(theme_cfg, font, "Scrobbling & social audio", Some("Track your listening habits and broadcast live playback status to ListenBrainz and Last.fm"));
 
         // 1. General Preferences Card
         let submit_now_playing_row = row![
@@ -69,7 +69,7 @@ impl SettingsView {
         ]
         .align_y(Alignment::Center);
 
-        let prefs_card = components::settings_card(
+        let prefs_card = component::settings_card(
             theme_cfg,
             font,
             "Scrobble preferences",
@@ -79,7 +79,7 @@ impl SettingsView {
         );
 
         // 2. ListenBrainz Card
-        let lb_test_banner = if let Some((plugins::scrobbler::ScrobbleService::ListenBrainz, res)) =
+        let lb_test_banner = if let Some((plugin::scrobbler::ScrobbleService::ListenBrainz, res)) =
             self.scrobble_test_status.as_ref()
         {
             let (color, msg) = match res {
@@ -118,7 +118,7 @@ impl SettingsView {
         .padding(BUTTON_PADDING_MD)
         .style(styles::ghost_button(theme_cfg, false))
         .on_press(Message::TestScrobble(
-            plugins::scrobbler::ScrobbleService::ListenBrainz,
+            plugin::scrobbler::ScrobbleService::ListenBrainz,
         ));
 
         let mut lb_column = column![
@@ -175,10 +175,10 @@ impl SettingsView {
         }
 
         let listenbrainz_card =
-            components::settings_card(theme_cfg, font, "ListenBrainz plugin", lb_column.boxed());
+            component::settings_card(theme_cfg, font, "ListenBrainz plugin", lb_column.boxed());
 
         // 3. Last.fm Card
-        let lastfm_test_banner = if let Some((plugins::scrobbler::ScrobbleService::LastFm, res)) =
+        let lastfm_test_banner = if let Some((plugin::scrobbler::ScrobbleService::LastFm, res)) =
             self.scrobble_test_status.as_ref()
         {
             let (color, msg) = match res {
@@ -217,7 +217,7 @@ impl SettingsView {
         .padding(BUTTON_PADDING_MD)
         .style(styles::ghost_button(theme_cfg, false))
         .on_press(Message::TestScrobble(
-            plugins::scrobbler::ScrobbleService::LastFm,
+            plugin::scrobbler::ScrobbleService::LastFm,
         ));
 
         let mut lastfm_column = column![
@@ -293,7 +293,7 @@ impl SettingsView {
         }
 
         let lastfm_card =
-            components::settings_card(theme_cfg, font, "Last.fm plugin", lastfm_column.boxed());
+            component::settings_card(theme_cfg, font, "Last.fm plugin", lastfm_column.boxed());
 
         column![
             header,

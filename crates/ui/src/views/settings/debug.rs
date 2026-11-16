@@ -5,8 +5,8 @@ use iced::widget::{
 use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::message::Message;
-use components::Marquee;
-use components::{self, icons, styles, text};
+use component::Marquee;
+use component::{self, icons, styles, text};
 use model::SortField;
 use theme::ThemeConfig;
 
@@ -17,7 +17,7 @@ impl SettingsView {
         theme_cfg: &'a ThemeConfig,
         font: iced::Font,
     ) -> Element<'a, Message> {
-        let back_btn = components::chip_with_icon(
+        let back_btn = component::chip_with_icon(
             theme_cfg,
             font,
             icons::ARROW_LEFT_SVG,
@@ -26,7 +26,7 @@ impl SettingsView {
             Message::SetDebugSubpage(false),
         );
 
-        let header = components::settings_header(
+        let header = component::settings_header(
             theme_cfg,
             font,
             "Component gallery & theme tokens",
@@ -109,7 +109,7 @@ impl SettingsView {
             grid = grid.push(r);
         }
 
-        components::settings_card(theme_cfg, font, "Theme colors", grid.boxed())
+        component::settings_card(theme_cfg, font, "Theme colors", grid.boxed())
     }
 
     pub(super) fn view_debug_typography<'a>(
@@ -179,7 +179,7 @@ impl SettingsView {
             );
         }
 
-        components::settings_card(
+        component::settings_card(
             theme_cfg,
             font,
             "Typography & border radii",
@@ -232,21 +232,21 @@ impl SettingsView {
         .align_y(Alignment::Center);
 
         let chips_row = row![
-            components::chip(
+            component::chip(
                 theme_cfg,
                 font,
                 "Chip A",
                 self.debug_state.active_chip == 0,
                 Message::DebugChipSelected(0),
             ),
-            components::chip(
+            component::chip(
                 theme_cfg,
                 font,
                 "Chip B",
                 self.debug_state.active_chip == 1,
                 Message::DebugChipSelected(1),
             ),
-            components::chip_with_icon(
+            component::chip_with_icon(
                 theme_cfg,
                 font,
                 icons::PALETTE_SVG,
@@ -255,7 +255,7 @@ impl SettingsView {
                 Message::DebugChipSelected(2),
             ),
             Space::new().width(SPACE_LG),
-            components::view_mode_toggle(
+            component::view_mode_toggle(
                 theme_cfg,
                 font,
                 self.debug_state.view_mode,
@@ -265,7 +265,7 @@ impl SettingsView {
         .spacing(CHIP_ROW_SPACING)
         .align_y(Alignment::Center);
 
-        let sort_row = components::sort_chip_list(
+        let sort_row = component::sort_chip_list(
             theme_cfg,
             font,
             &[
@@ -279,7 +279,7 @@ impl SettingsView {
             Message::DebugSortChanged,
         );
 
-        components::settings_card(
+        component::settings_card(
             theme_cfg,
             font,
             "Buttons & chips",
@@ -394,7 +394,7 @@ impl SettingsView {
         .spacing(SPACE_LG)
         .align_y(Alignment::Center);
 
-        components::settings_card(
+        component::settings_card(
             theme_cfg,
             font,
             "Form controls",
@@ -410,14 +410,14 @@ impl SettingsView {
         font: iced::Font,
     ) -> Element<'a, Message> {
         let metrics_row = row![
-            components::metric_box(theme_cfg, font, "Metric A", "1,234".to_string()),
-            components::metric_box(theme_cfg, font, "Metric B", "42.0 MB".to_string()),
-            components::metric_box(theme_cfg, font, "Metric C", "99.9%".to_string()),
+            component::metric_box(theme_cfg, font, "Metric A", "1,234".to_string()),
+            component::metric_box(theme_cfg, font, "Metric B", "42.0 MB".to_string()),
+            component::metric_box(theme_cfg, font, "Metric C", "99.9%".to_string()),
         ]
         .spacing(SPACE_LG);
 
         let indicators_row = row![
-            components::cover_art(
+            component::cover_art(
                 theme_cfg,
                 None,
                 56.0,
@@ -427,8 +427,8 @@ impl SettingsView {
                 theme_cfg.text_muted,
             ),
             column![
-                components::scanning_indicator(theme_cfg, font, Some((12, 48))),
-                components::thumbnail_caching_indicator(theme_cfg, font),
+                component::scanning_indicator(theme_cfg, font, Some((12, 48))),
+                component::thumbnail_caching_indicator(theme_cfg, font),
                 container(
                     Marquee::new(
                         "Marquee sample — Scrolling long track or album metadata smoothly"
@@ -444,7 +444,7 @@ impl SettingsView {
         .spacing(SPACE_LG)
         .align_y(Alignment::Center);
 
-        let empty_preview = container(components::empty_state(
+        let empty_preview = container(component::empty_state(
             theme_cfg,
             font,
             "Empty state title",
@@ -460,7 +460,7 @@ impl SettingsView {
             ..Default::default()
         });
 
-        components::settings_card(
+        component::settings_card(
             theme_cfg,
             font,
             "Containers, indicators & feedback",
@@ -541,7 +541,7 @@ impl SettingsView {
             grid = grid.push(r);
         }
 
-        components::settings_card(theme_cfg, font, "Vector icons", grid.boxed())
+        component::settings_card(theme_cfg, font, "Vector icons", grid.boxed())
     }
 }
 

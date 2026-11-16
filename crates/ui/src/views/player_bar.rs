@@ -5,7 +5,7 @@ use iced::{Alignment, Element, Length};
 use model::{format_duration, Track};
 
 use crate::message::Message;
-use components::{self, icons, styles, text};
+use component::{self, icons, styles, text};
 use theme::ThemeConfig;
 
 /// Self-contained state and view component for the bottom persistent player bar widget.
@@ -95,7 +95,7 @@ impl PlayerBar {
         let bar_fg = theme_cfg.player_bar_text_color();
         let bar_muted = iced::Color { a: 0.6, ..bar_fg };
 
-        let cover_art = components::cover_art(
+        let cover_art = component::cover_art(
             theme_cfg,
             current_cover,
             46.0,
@@ -107,12 +107,12 @@ impl PlayerBar {
 
         let track_details = match current_track {
             Some(track) => column![
-                components::Marquee::new(&track.title)
+                component::Marquee::new(&track.title)
                     .size(13.0)
                     .color(bar_fg)
                     .font(font)
                     .animating(is_playing),
-                components::Marquee::new(&self.artist_album)
+                component::Marquee::new(&self.artist_album)
                     .size(11.0)
                     .color(bar_muted)
                     .font(font)

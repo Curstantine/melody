@@ -1,7 +1,7 @@
 use iced::widget::operation::scrollable::{snap_to, RelativeOffset};
 use iced::widget::operation::Animation;
 use iced::Task;
-use plugins::scrobbler::ScrobbleService;
+use plugin::scrobbler::ScrobbleService;
 use tracing::info;
 
 use crate::message::Message;

@@ -2,7 +2,7 @@ use iced::widget::{button, column, row, text_input, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use ::queue::{queue_window_for_start, queue_window_start, QueueStore, QUEUE_ROW_HEIGHT};
-use components::{self, icons, styles, text};
+use component::{self, icons, styles, text};
 use model::format_template;
 use theme::ThemeConfig;
 
@@ -111,7 +111,7 @@ impl PlaylistsView {
             ]
             .spacing(2)
             .width(Length::Fill),
-            components::chip_with_icon(
+            component::chip_with_icon(
                 theme_cfg,
                 font,
                 icons::PLAYLIST_SVG,
@@ -119,7 +119,7 @@ impl PlaylistsView {
                 false,
                 Message::QueueSaveClicked,
             ),
-            components::chip_with_icon(
+            component::chip_with_icon(
                 theme_cfg,
                 font,
                 icons::TRASH_SVG,

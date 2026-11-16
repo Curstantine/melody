@@ -62,7 +62,7 @@ mod tests {
             tile_width: 190,
             album_tile_width: 190,
             artist_tile_width: 180,
-            fonts: fonts::FontConfig::new(
+            fonts: font::FontConfig::new(
                 Some("Inter".to_string()),
                 Some("Noto Serif".to_string()),
                 18,

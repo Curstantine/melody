@@ -6,7 +6,7 @@ use model::{SortDirection, SortField, TrackFilter, TrackRow};
 
 use crate::message::{Message, PlaylistOpenIntent};
 use ::queue::DEFAULT_QUEUE_NAME;
-use components::{
+use component::{
     icons, styles, ContextMenuAction, ContextMenuState, ContextMenuTarget, TrackMenuContext,
 };
 use config::{PlaylistSection, ViewTab};
@@ -241,7 +241,7 @@ impl App {
                 self.update(Message::QueueRemoveTrack { queue_id, index })
             }
             ContextMenuAction::RevealInFileManager(path) => {
-                if let Err(err) = paths::reveal_in_file_manager(std::path::Path::new(&path)) {
+                if let Err(err) = path::reveal_in_file_manager(std::path::Path::new(&path)) {
                     tracing::warn!(%path, %err, "Failed to reveal file in file manager");
                 }
                 Task::none()
@@ -531,20 +531,18 @@ impl App {
             row![
                 icons::icon(icons::DISC_SVG, 16.0, theme_cfg.primary),
                 Space::new().width(8),
-                components::text(font, header)
-                    .size(14)
-                    .color(theme_cfg.text),
+                component::text(font, header).size(14).color(theme_cfg.text),
             ]
             .align_y(Alignment::Center),
             Space::new().height(12),
-            components::text(font, message_text)
+            component::text(font, message_text)
                 .size(12)
                 .color(theme_cfg.text_muted),
             Space::new().height(20),
             row![
                 Space::new().width(Length::Fill),
                 button(
-                    components::text(font, "Cancel")
+                    component::text(font, "Cancel")
                         .size(12)
                         .color(theme_cfg.text_muted)
                 )
@@ -553,7 +551,7 @@ impl App {
                 .on_press(Message::CancelDuplicatePrompt),
                 Space::new().width(8),
                 button(
-                    components::text(font, "Add anyway")
+                    component::text(font, "Add anyway")
                         .size(12)
                         .color(Color::WHITE)
                 )
