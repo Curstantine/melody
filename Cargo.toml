@@ -74,6 +74,7 @@ symphonia = { version = "0.5.4", default-features = false, features = [
 thiserror = "2.0"
 tokio = "1"
 toml = "1.2"
+tray-icon = { version = "0.26", default-features = false, features = ["ksni"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 tracing-tracy = "0.12"

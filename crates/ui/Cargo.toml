@@ -56,6 +56,8 @@ rfd.workspace = true
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tokio = { workspace = true, features = ["rt", "time"] }
+tray-icon.workspace = true
+image = { workspace = true, features = ["png"] }
 url.workspace = true
 
 # Profiling dependencies (optional)

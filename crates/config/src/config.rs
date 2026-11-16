@@ -53,6 +53,9 @@ pub struct AppConfig {
     #[serde(default)]
     pub custom_titlebar: bool,
 
+    #[serde(default)]
+    pub minimize_to_tray: bool,
+
     #[serde(default = "default_page_size")]
     pub page_size: usize,
     #[serde(default = "default_tile_width")]
@@ -191,6 +194,7 @@ impl Default for AppConfig {
             theme_name: default_theme_name(),
             layout_name: default_layout_name(),
             custom_titlebar: false,
+            minimize_to_tray: false,
             page_size: default_page_size(),
             tile_width: default_tile_width(),
             album_tile_width: default_album_tile_width(),

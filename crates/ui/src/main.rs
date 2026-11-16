@@ -11,6 +11,7 @@ use tracing::info;
 mod app;
 mod layout_view;
 mod message;
+mod tray;
 mod views;
 mod window_decorations;
 
@@ -56,18 +57,40 @@ fn main() -> iced::Result {
 
     let state = AppState::load();
     let config = AppConfig::load();
+    let app_config = config.clone();
+    let app_state = state.clone();
+
+    let mut builder = iced::daemon(
+        move || App::new_with(app_config.clone(), app_state.clone()),
+        App::update,
+        App::view,
+    )
+    .title(App::title)
+    .theme(App::theme)
+    .subscription(App::subscription);
+
+    if let Some(ref font_name) = config.fonts.primary {
+        info!("Setting default font from saved config to: {font_name}");
+        builder = builder.default_font(fonts::font_from_family_name(Some(font_name)));
+    }
+
+    builder.run()
+}
+
+pub fn build_window_settings(config: &AppConfig, width: f32, height: f32) -> window::Settings {
     let app_icon =
         iced::window::icon::from_file_data(include_bytes!("../../../assets/melody.png"), None).ok();
 
     let mut window_settings = window::Settings {
         icon: app_icon,
-        size: Size::new(state.window_width, state.window_height),
+        size: Size::new(width, height),
         min_size: Some(Size::new(
             config::WINDOW_MIN_WIDTH,
             config::WINDOW_MIN_HEIGHT,
         )),
         position: Position::Centered,
         decorations: !config.custom_titlebar,
+        exit_on_close_request: false,
         ..Default::default()
     };
 
@@ -91,23 +114,5 @@ fn main() -> iced::Result {
         }
     }
 
-    let app_config = config.clone();
-    let app_state = state.clone();
-
-    let mut builder = iced::application(
-        move || App::new_with(app_config.clone(), app_state.clone()),
-        App::update,
-        App::view,
-    )
-    .title(App::title)
-    .theme(App::theme)
-    .subscription(App::subscription)
-    .window(window_settings);
-
-    if let Some(ref font_name) = config.fonts.primary {
-        info!("Setting default font from saved config to: {font_name}");
-        builder = builder.font(fonts::font_from_family_name(Some(font_name)));
-    }
-
-    builder.run()
+    window_settings
 }

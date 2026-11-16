@@ -55,6 +55,7 @@ pub struct SettingsContext<'a> {
     pub layout_names: &'a [String],
     pub active_layout_name: &'a str,
     pub custom_titlebar: bool,
+    pub minimize_to_tray: bool,
     pub albums_view_mode: ViewMode,
     pub artists_view_mode: ViewMode,
     pub page_size: usize,
@@ -1164,11 +1165,32 @@ impl SettingsView {
         ]
         .align_y(Alignment::Center);
 
+        let tray_row = row![
+            column![
+                text(font, "Minimize to tray on close")
+                    .size(12)
+                    .color(theme_cfg.text_muted),
+                text(
+                    font,
+                    "Keep Melody running in the system tray when closed, freeing GPU memory",
+                )
+                .size(11)
+                .color(theme_cfg.text_muted),
+            ]
+            .spacing(FORM_FIELD_SPACING)
+            .width(Length::Fill),
+            toggler(ctx.minimize_to_tray)
+                .on_toggle(Message::ToggleMinimizeToTray)
+                .size(TOGGLER_SIZE)
+                .style(styles::toggler_style(theme_cfg)),
+        ]
+        .align_y(Alignment::Center);
+
         let behavior_card = components::settings_card(
             theme_cfg,
             font,
             "Playback behavior",
-            column![volume_row, shuffle_row, repeat_row]
+            column![volume_row, shuffle_row, repeat_row, tray_row]
                 .spacing(SECTION_SPACING)
                 .boxed(),
         );
@@ -2637,6 +2659,7 @@ mod tests {
                 layout_names: &layout_names_vec,
                 active_layout_name: "Default",
                 custom_titlebar: false,
+                minimize_to_tray: false,
                 albums_view_mode: ViewMode::Tile,
                 artists_view_mode: ViewMode::Tile,
                 page_size: 50,
@@ -2724,6 +2747,7 @@ mod tests {
             layout_names: &layout_names_vec,
             active_layout_name: "Default",
             custom_titlebar: false,
+            minimize_to_tray: false,
             albums_view_mode: ViewMode::Tile,
             artists_view_mode: ViewMode::Tile,
             page_size: 50,

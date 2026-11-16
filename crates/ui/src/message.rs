@@ -83,8 +83,12 @@ pub enum Message {
     WindowToggleMaximize,
     WindowMaximizedChanged(bool),
     WindowClose,
+    WindowOpened(iced::window::Id),
+    WindowClosed(iced::window::Id),
     WindowShowSystemMenu,
     ToggleCustomTitlebar(bool),
+    ToggleMinimizeToTray(bool),
+    TrayAction(crate::tray::TrayAction),
     CancelDuplicatePrompt,
     ConfirmDuplicatePrompt,
     EscapePressed,
@@ -395,11 +399,18 @@ impl std::fmt::Debug for Message {
                 f.debug_tuple("WindowMaximizedChanged").field(m).finish()
             }
             Self::WindowClose => write!(f, "WindowClose"),
+            Self::WindowOpened(id) => f.debug_tuple("WindowOpened").field(id).finish(),
+            Self::WindowClosed(id) => f.debug_tuple("WindowClosed").field(id).finish(),
             Self::WindowShowSystemMenu => write!(f, "WindowShowSystemMenu"),
             Self::ToggleCustomTitlebar(enabled) => f
                 .debug_tuple("ToggleCustomTitlebar")
                 .field(enabled)
                 .finish(),
+            Self::ToggleMinimizeToTray(enabled) => f
+                .debug_tuple("ToggleMinimizeToTray")
+                .field(enabled)
+                .finish(),
+            Self::TrayAction(action) => f.debug_tuple("TrayAction").field(action).finish(),
             Self::CancelDuplicatePrompt => write!(f, "CancelDuplicatePrompt"),
             Self::ConfirmDuplicatePrompt => write!(f, "ConfirmDuplicatePrompt"),
             Self::EscapePressed => write!(f, "EscapePressed"),

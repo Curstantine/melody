@@ -19,8 +19,10 @@ mod win {
             Foundation::HWND,
             System::{
                 Com::{CoInitializeEx, COINIT_MULTITHREADED},
+                LibraryLoader::GetModuleHandleW,
                 WinRT::ISystemMediaTransportControlsInterop,
             },
+            UI::WindowsAndMessaging::{CreateWindowExW, DestroyWindow, WS_POPUP},
         },
     };
 
@@ -32,6 +34,7 @@ mod win {
     #[derive(Debug)]
     enum WindowsMediaMsg {
         AttachWindow(isize),
+        DetachWindow,
         TrackChanged(TrackMetadata),
         PlaybackStatusChanged(bool),
         PlaybackEnded,
@@ -99,6 +102,56 @@ mod win {
         pub fn attach_window(&self, hwnd: isize) {
             let _ = self.worker_tx.send(WindowsMediaMsg::AttachWindow(hwnd));
         }
+
+        /// Switch SMTC to a hidden helper window so media keys continue working
+        /// while the main application window is closed to the system tray.
+        pub fn detach_window(&self) {
+            let _ = self.worker_tx.send(WindowsMediaMsg::DetachWindow);
+        }
+    }
+
+    struct HiddenWindow(HWND);
+
+    impl HiddenWindow {
+        fn create() -> Option<Self> {
+            unsafe {
+                let hinstance = GetModuleHandleW(None).ok()?;
+                let class_name = windows::core::w!("STATIC");
+                let window_name = windows::core::w!("MelodySMTC");
+                let hwnd = CreateWindowExW(
+                    Default::default(),
+                    class_name,
+                    window_name,
+                    WS_POPUP,
+                    0,
+                    0,
+                    0,
+                    0,
+                    None,
+                    None,
+                    Some(hinstance.into()),
+                    None,
+                )
+                .ok()?;
+                if hwnd.0.is_null() {
+                    None
+                } else {
+                    Some(Self(hwnd))
+                }
+            }
+        }
+
+        fn as_isize(&self) -> isize {
+            self.0 .0 as isize
+        }
+    }
+
+    impl Drop for HiddenWindow {
+        fn drop(&mut self) {
+            unsafe {
+                let _ = DestroyWindow(self.0);
+            }
+        }
     }
 
     struct SmtcState {
@@ -144,11 +197,34 @@ mod win {
         }
 
         let mut smtc_state: Option<SmtcState> = None;
+        let mut hidden_window: Option<HiddenWindow> = None;
         let mut cached_track: Option<TrackMetadata> = None;
         let mut cached_playing = false;
         let mut cached_repeat = false;
         let mut cached_shuffle = false;
         let mut cached_position_ms: u64 = 0;
+
+        let apply_cached_state = |state: &mut SmtcState,
+                                  cached_repeat: bool,
+                                  cached_shuffle: bool,
+                                  cached_track: &Option<TrackMetadata>,
+                                  cached_position_ms: u64,
+                                  cached_playing: bool| {
+            let _ = state.controls.SetAutoRepeatMode(if cached_repeat {
+                MediaPlaybackAutoRepeatMode::Track
+            } else {
+                MediaPlaybackAutoRepeatMode::None
+            });
+            let _ = state.controls.SetShuffleEnabled(cached_shuffle);
+
+            if let Some(ref track) = cached_track {
+                update_metadata_and_timeline(state, track, cached_position_ms, cached_playing);
+            } else {
+                let _ = state
+                    .controls
+                    .SetPlaybackStatus(MediaPlaybackStatus::Stopped);
+            }
+        };
 
         while let Ok(msg) = rx.recv() {
             match msg {
@@ -159,8 +235,9 @@ mod win {
                         }
                     }
 
-                    // Drop previous state if any
+                    // Drop previous state and any hidden fallback window
                     smtc_state = None;
+                    hidden_window = None;
 
                     match setup_smtc(hwnd, &action_tx, &inner) {
                         Ok(mut state) => {
@@ -168,28 +245,14 @@ mod win {
                                 "Windows SMTC successfully initialized and bound to HWND: {:#x}",
                                 hwnd
                             );
-
-                            // Apply current states
-                            let _ = state.controls.SetAutoRepeatMode(if cached_repeat {
-                                MediaPlaybackAutoRepeatMode::Track
-                            } else {
-                                MediaPlaybackAutoRepeatMode::None
-                            });
-                            let _ = state.controls.SetShuffleEnabled(cached_shuffle);
-
-                            if let Some(ref track) = cached_track {
-                                update_metadata_and_timeline(
-                                    &mut state,
-                                    track,
-                                    cached_position_ms,
-                                    cached_playing,
-                                );
-                            } else {
-                                let _ = state
-                                    .controls
-                                    .SetPlaybackStatus(MediaPlaybackStatus::Stopped);
-                            }
-
+                            apply_cached_state(
+                                &mut state,
+                                cached_repeat,
+                                cached_shuffle,
+                                &cached_track,
+                                cached_position_ms,
+                                cached_playing,
+                            );
                             smtc_state = Some(state);
                         }
                         Err(e) => {
@@ -198,6 +261,39 @@ mod win {
                                 hwnd, e
                             );
                         }
+                    }
+                }
+
+                WindowsMediaMsg::DetachWindow => {
+                    if hidden_window.is_some() {
+                        continue;
+                    }
+                    smtc_state = None;
+                    if let Some(hw) = HiddenWindow::create() {
+                        let hwnd = hw.as_isize();
+                        match setup_smtc(hwnd, &action_tx, &inner) {
+                            Ok(mut state) => {
+                                info!("Windows SMTC switched to hidden tray HWND: {:#x}", hwnd);
+                                apply_cached_state(
+                                    &mut state,
+                                    cached_repeat,
+                                    cached_shuffle,
+                                    &cached_track,
+                                    cached_position_ms,
+                                    cached_playing,
+                                );
+                                smtc_state = Some(state);
+                                hidden_window = Some(hw);
+                            }
+                            Err(e) => {
+                                error!(
+                                    "Failed to initialize Windows SMTC on hidden tray HWND: {}",
+                                    e
+                                );
+                            }
+                        }
+                    } else {
+                        error!("Failed to create hidden HWND for Windows SMTC");
                     }
                 }
 

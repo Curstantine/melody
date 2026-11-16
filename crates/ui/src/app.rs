@@ -147,8 +147,13 @@ pub struct App {
     pub(crate) context_menu: Option<ContextMenuState>,
     pub(crate) duplicate_prompt: Option<DuplicatePromptState>,
     pub(crate) window_size: iced::Size,
+    pub(crate) main_window_id: Option<iced::window::Id>,
     pub(crate) is_maximized: bool,
     pub(crate) custom_titlebar: bool,
+    pub(crate) minimize_to_tray: bool,
+    pub(crate) tray: Option<crate::tray::TrayController>,
+    #[cfg(target_os = "windows")]
+    pub(crate) windows_media_plugin: Option<std::sync::Arc<WindowsMediaPlugin>>,
     pub(crate) last_titlebar_press: Option<std::time::Instant>,
     pub(crate) pending_playlist_tracks: Vec<TrackRow>,
 }
@@ -250,6 +255,17 @@ impl App {
             }
         }
 
+        let (main_window_id, open_window_task) = iced::window::open(crate::build_window_settings(
+            &config,
+            state.window_width,
+            state.window_height,
+        ));
+        let tray = if config.minimize_to_tray {
+            crate::tray::TrayController::new()
+        } else {
+            None
+        };
+
         let mut app = Self {
             db,
             db_path,
@@ -332,8 +348,13 @@ impl App {
                 state.window_width.max(config::WINDOW_MIN_WIDTH),
                 state.window_height.max(config::WINDOW_MIN_HEIGHT),
             ),
+            main_window_id: Some(main_window_id),
             is_maximized: false,
             custom_titlebar: config.custom_titlebar,
+            minimize_to_tray: config.minimize_to_tray,
+            tray,
+            #[cfg(target_os = "windows")]
+            windows_media_plugin: Some(windows_media_plugin),
             last_titlebar_press: None,
             pending_playlist_tracks: Vec::new(),
         };
@@ -399,34 +420,7 @@ impl App {
             ));
         }
 
-        initial_tasks.push(crate::window_decorations::sync_titlebar_theme(
-            None,
-            &app.theme_manager.current_config,
-        ));
-        initial_tasks.push(
-            iced::window::oldest()
-                .and_then(iced::window::is_maximized)
-                .map(Message::WindowMaximizedChanged),
-        );
-
-        #[cfg(target_os = "windows")]
-        {
-            use iced::window::raw_window_handle::RawWindowHandle;
-            let plugin = windows_media_plugin.clone();
-            let attach_fn = move |id: iced::window::Id| {
-                let plugin = plugin.clone();
-                iced::window::run(id, move |window| {
-                    if let Ok(handle) = window.window_handle() {
-                        if let RawWindowHandle::Win32(win32) = handle.as_raw() {
-                            let hwnd = win32.hwnd.get();
-                            plugin.attach_window(hwnd);
-                        }
-                    }
-                })
-                .discard()
-            };
-            initial_tasks.push(iced::window::oldest().and_then(attach_fn));
-        }
+        initial_tasks.push(open_window_task.map(Message::WindowOpened));
 
         app.sync_status_strings();
         let initial_task = Task::batch(initial_tasks);
@@ -440,7 +434,7 @@ impl App {
         (app, initial_task)
     }
 
-    pub fn title(&self) -> String {
+    pub fn title(&self, _window: iced::window::Id) -> String {
         let base = match &self.current_track {
             Some(track) => format!("{} - {} • Melody", track.title, track.artist),
             None => "Melody".to_string(),
@@ -452,7 +446,7 @@ impl App {
         base
     }
 
-    pub fn theme(&self) -> Theme {
+    pub fn theme(&self, _window: iced::window::Id) -> Theme {
         self.theme_manager.theme()
     }
 
@@ -689,7 +683,18 @@ impl App {
                     }
                 }
 
-                if self.active_tab == ViewTab::Lyrics {
+                if self.tray.is_some() {
+                    let tray_actions = crate::tray::TrayController::poll_actions();
+                    if !tray_actions.is_empty() {
+                        let tasks: Vec<Task<Message>> = tray_actions
+                            .into_iter()
+                            .map(|action| Task::done(Message::TrayAction(action)))
+                            .collect();
+                        return Task::batch(tasks);
+                    }
+                }
+
+                if self.main_window_id.is_some() && self.active_tab == ViewTab::Lyrics {
                     if let Some(active_idx) =
                         self.now_playing.update_active_lyric_line(self.position_ms)
                     {
@@ -1068,11 +1073,11 @@ impl App {
                 }
                 PlayerAction::Raise => {
                     info!("MPRIS Raise requested");
-                    Task::none()
+                    self.open_or_focus_window_task()
                 }
                 PlayerAction::Quit => {
                     info!("MPRIS Quit requested");
-                    iced::window::latest().and_then(iced::window::close)
+                    iced::exit()
                 }
             },
 
@@ -1430,7 +1435,68 @@ impl App {
                 Task::none()
             }
 
-            Message::WindowClose => iced::window::oldest().and_then(iced::window::close),
+            Message::WindowClose => {
+                if self.minimize_to_tray {
+                    if self.tray.is_none() {
+                        self.tray = crate::tray::TrayController::new();
+                    }
+                    #[cfg(target_os = "windows")]
+                    if let Some(ref plugin) = self.windows_media_plugin {
+                        plugin.detach_window();
+                    }
+                    let id = self.main_window_id.take();
+                    let save_state = self.save_state_task();
+                    if let Some(id) = id {
+                        Task::batch([save_state, iced::window::close(id)])
+                    } else {
+                        save_state
+                    }
+                } else {
+                    iced::exit()
+                }
+            }
+
+            Message::WindowOpened(id) => {
+                self.main_window_id = Some(id);
+                let mut tasks = vec![crate::window_decorations::sync_titlebar_theme(
+                    Some(id),
+                    &self.theme_manager.current_config,
+                )];
+                if self.is_maximized {
+                    tasks.push(iced::window::maximize(id, true));
+                } else {
+                    tasks.push(iced::window::is_maximized(id).map(Message::WindowMaximizedChanged));
+                }
+
+                #[cfg(target_os = "windows")]
+                if let Some(ref plugin) = self.windows_media_plugin {
+                    use iced::window::raw_window_handle::RawWindowHandle;
+                    let plugin = plugin.clone();
+                    tasks.push(
+                        iced::window::run(id, move |window| {
+                            if let Ok(handle) = window.window_handle() {
+                                if let RawWindowHandle::Win32(win32) = handle.as_raw() {
+                                    let hwnd = win32.hwnd.get();
+                                    plugin.attach_window(hwnd);
+                                }
+                            }
+                        })
+                        .discard(),
+                    );
+                }
+
+                Task::batch(tasks)
+            }
+
+            Message::WindowClosed(id) => {
+                if self.main_window_id == Some(id) {
+                    self.main_window_id = None;
+                }
+                if !self.minimize_to_tray {
+                    return iced::exit();
+                }
+                Task::none()
+            }
 
             Message::WindowShowSystemMenu => {
                 iced::window::oldest().and_then(iced::window::show_system_menu)
@@ -1448,6 +1514,29 @@ impl App {
                     crate::window_decorations::sync_titlebar_theme(None, &theme_cfg),
                 ])
             }
+
+            Message::ToggleMinimizeToTray(enabled) => {
+                if self.minimize_to_tray == enabled {
+                    return Task::none();
+                }
+                self.minimize_to_tray = enabled;
+                if enabled {
+                    if self.tray.is_none() {
+                        self.tray = crate::tray::TrayController::new();
+                    }
+                } else {
+                    self.tray = None;
+                }
+                self.save_config_task()
+            }
+
+            Message::TrayAction(action) => match action {
+                crate::tray::TrayAction::ShowWindow => self.open_or_focus_window_task(),
+                crate::tray::TrayAction::PlayPause => self.update(Message::TogglePlayPause),
+                crate::tray::TrayAction::Next => self.update(Message::NextTrack),
+                crate::tray::TrayAction::Previous => self.update(Message::PreviousTrack),
+                crate::tray::TrayAction::Quit => iced::exit(),
+            },
 
             Message::OpenTrackContextMenu { track_id, context } => {
                 let position = self.cursor_position();
@@ -3701,6 +3790,7 @@ impl App {
             theme_name: self.theme_manager.active_theme_name.clone(),
             layout_name: self.layout_manager.active_layout_name.clone(),
             custom_titlebar: self.custom_titlebar,
+            minimize_to_tray: self.minimize_to_tray,
             page_size: self.library.page_size,
             tile_width: self.albums.tile_width,
             album_tile_width: self.albums.tile_width,
@@ -4647,7 +4737,28 @@ impl App {
         self.custom_titlebar
     }
 
-    pub fn view(&self) -> Element<'_, Message> {
+    pub(crate) fn open_or_focus_window_task(&mut self) -> Task<Message> {
+        if let Some(id) = self.main_window_id {
+            Task::batch([
+                iced::window::minimize(id, false),
+                iced::window::gain_focus(id),
+            ])
+        } else {
+            let cfg = self.to_config();
+            let (id, task) = iced::window::open(crate::build_window_settings(
+                &cfg,
+                self.window_size.width,
+                self.window_size.height,
+            ));
+            self.main_window_id = Some(id);
+            task.map(Message::WindowOpened)
+        }
+    }
+
+    pub fn view(&self, window: iced::window::Id) -> Element<'_, Message> {
+        if self.main_window_id != Some(window) {
+            return container(Space::new()).boxed();
+        }
         let theme_cfg = &self.theme_manager.current_config;
         let layout_view = self.render_layout(theme_cfg);
 
@@ -4661,7 +4772,7 @@ impl App {
             let titlebar = crate::views::TitlebarView::view(
                 theme_cfg,
                 self.fonts.primary_font(),
-                self.title(),
+                self.title(window),
                 self.is_maximized,
             );
             iced::widget::column![titlebar, layout_view]
@@ -4758,7 +4869,7 @@ static LAST_CURSOR_Y: std::sync::atomic::AtomicU32 =
 fn handle_cursor_and_window_event(
     event: iced::Event,
     _status: iced::event::Status,
-    _id: iced::window::Id,
+    id: iced::window::Id,
 ) -> Option<Message> {
     match event {
         iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
@@ -4769,6 +4880,8 @@ fn handle_cursor_and_window_event(
         iced::Event::Window(iced::window::Event::Resized(size)) => {
             Some(Message::WindowResized(size))
         }
+        iced::Event::Window(iced::window::Event::CloseRequested) => Some(Message::WindowClose),
+        iced::Event::Window(iced::window::Event::Closed) => Some(Message::WindowClosed(id)),
         _ => None,
     }
 }

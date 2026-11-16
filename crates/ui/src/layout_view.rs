@@ -554,6 +554,7 @@ impl App {
                 layout_names: self.layout_manager.layout_names(),
                 active_layout_name: &self.layout_manager.active_layout_name,
                 custom_titlebar: self.custom_titlebar,
+                minimize_to_tray: self.minimize_to_tray,
                 albums_view_mode: self.albums.view_mode,
                 artists_view_mode: self.artists.view_mode,
                 page_size: self.library.page_size,

@@ -57,6 +57,7 @@ mod tests {
             theme_name: "Nord".to_string(),
             layout_name: "Sidebar".to_string(),
             custom_titlebar: true,
+            minimize_to_tray: true,
             page_size: 100,
             tile_width: 190,
             album_tile_width: 190,
