@@ -293,13 +293,13 @@ pub enum Message {
         cover: Option<Vec<u8>>,
         now_playing_cover: Option<Vec<u8>>,
         blurred: Option<Vec<u8>>,
-        next_cover: Option<Vec<u8>>,
         tech_info: Option<AudioTechnicalInfo>,
         lyrics: Option<String>,
     },
     NowPlayingCoverLoaded {
         track_id: i64,
         cover: Option<Vec<u8>>,
+        blurred: Option<Vec<u8>>,
     },
     StorageStatsLoaded(CacheStats, u64, db::LibraryCounts),
 
@@ -727,7 +727,6 @@ impl std::fmt::Debug for Message {
                 cover,
                 now_playing_cover,
                 blurred,
-                next_cover,
                 tech_info,
                 lyrics,
             } => f
@@ -736,14 +735,18 @@ impl std::fmt::Debug for Message {
                 .field("cover_len", &bytes_len(cover))
                 .field("now_playing_cover_len", &bytes_len(now_playing_cover))
                 .field("blurred_len", &bytes_len(blurred))
-                .field("next_cover_len", &bytes_len(next_cover))
                 .field("has_tech_info", &tech_info.is_some())
                 .field("lyrics_len", &lyrics.as_ref().map(String::len))
                 .finish(),
-            Self::NowPlayingCoverLoaded { track_id, cover } => f
+            Self::NowPlayingCoverLoaded {
+                track_id,
+                cover,
+                blurred,
+            } => f
                 .debug_struct("NowPlayingCoverLoaded")
                 .field("track_id", track_id)
                 .field("cover_len", &bytes_len(cover))
+                .field("blurred_len", &bytes_len(blurred))
                 .finish(),
             Self::StorageStatsLoaded(stats, size, counts) => f
                 .debug_tuple("StorageStatsLoaded")

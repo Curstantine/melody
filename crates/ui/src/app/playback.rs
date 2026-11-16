@@ -87,7 +87,6 @@ impl App {
                         self.current_cover = None;
                         self.current_now_playing_cover = None;
                         self.current_blurred_cover = None;
-                        self.current_next_cover = None;
                         self.current_tech_info = None;
                         self.now_playing.set_lyrics(None);
 
@@ -288,7 +287,6 @@ impl App {
                     self.current_cover = None;
                     self.current_now_playing_cover = None;
                     self.current_blurred_cover = None;
-                    self.current_next_cover = None;
                     self.current_tech_info = None;
                     self.now_playing.set_lyrics(None);
                     self.sync_now_playing();
@@ -332,7 +330,6 @@ impl App {
                     self.current_cover = None;
                     self.current_now_playing_cover = None;
                     self.current_blurred_cover = None;
-                    self.current_next_cover = None;
                     self.current_tech_info = None;
                     self.now_playing.set_lyrics(None);
                     self.sync_now_playing();
@@ -360,7 +357,6 @@ impl App {
                 cover,
                 now_playing_cover,
                 blurred,
-                next_cover,
                 tech_info,
                 lyrics,
             } => {
@@ -376,16 +372,20 @@ impl App {
                     None
                 };
                 self.current_blurred_cover = blurred.map(image::Handle::from_bytes);
-                self.current_next_cover = next_cover.map(image::Handle::from_bytes);
                 self.current_tech_info = tech_info;
                 self.now_playing.set_lyrics(lyrics);
                 self.sync_now_playing();
                 Task::none()
             }
 
-            Message::NowPlayingCoverLoaded { track_id, cover } => {
+            Message::NowPlayingCoverLoaded {
+                track_id,
+                cover,
+                blurred,
+            } => {
                 if self.current_track_id == Some(track_id) && self.active_tab == ViewTab::Lyrics {
                     self.current_now_playing_cover = cover.map(image::Handle::from_bytes);
+                    self.current_blurred_cover = blurred.map(image::Handle::from_bytes);
                 }
                 Task::none()
             }
@@ -706,12 +706,22 @@ impl App {
         Task::perform(
             async move {
                 tokio::task::spawn_blocking(move || {
-                    thumbnail::get_or_create_thumbnail(&path, thumbnail::THUMB_DIM_HIGH)
+                    let cover =
+                        thumbnail::get_or_create_thumbnail(&path, thumbnail::THUMB_DIM_HIGH);
+                    let blurred =
+                        thumbnail::get_or_create_thumbnail(&path, thumbnail::THUMB_DIM_DEFAULT)
+                            .as_deref()
+                            .and_then(thumbnail::generate_blurred_cover);
+                    (cover, blurred)
                 })
                 .await
-                .unwrap_or(None)
+                .unwrap_or_default()
             },
-            move |cover| Message::NowPlayingCoverLoaded { track_id, cover },
+            move |(cover, blurred)| Message::NowPlayingCoverLoaded {
+                track_id,
+                cover,
+                blurred,
+            },
         )
     }
 
@@ -723,7 +733,6 @@ impl App {
         title: String,
         duration_ms: u64,
     ) -> Task<Message> {
-        let next_track_path = self.get_next_track().map(|nt| PathBuf::from(&nt.file_path));
         let plugin_manager = self.plugin_manager.clone();
         let load_now_playing_cover = self.active_tab == ViewTab::Lyrics;
 
@@ -745,29 +754,17 @@ impl App {
 
                     let lyrics = plugin_manager.fetch_lyrics(Some(&path), &artist, &title);
 
-                    let next_cover = next_track_path.and_then(|nt_path| {
-                        thumbnail::get_or_create_thumbnail(&nt_path, thumbnail::THUMB_DIM_DEFAULT)
-                    });
-
-                    (
-                        cover,
-                        now_playing_cover,
-                        blurred,
-                        next_cover,
-                        tech_info,
-                        lyrics,
-                    )
+                    (cover, now_playing_cover, blurred, tech_info, lyrics)
                 })
                 .await
-                .unwrap_or((None, None, None, None, None, None))
+                .unwrap_or((None, None, None, None, None))
             },
-            move |(cover, now_playing_cover, blurred, next_cover, tech_info, lyrics)| {
+            move |(cover, now_playing_cover, blurred, tech_info, lyrics)| {
                 Message::PlaybackAssetsLoaded {
                     track_id,
                     cover,
                     now_playing_cover,
                     blurred,
-                    next_cover,
                     tech_info,
                     lyrics,
                 }

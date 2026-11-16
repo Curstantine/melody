@@ -366,18 +366,27 @@ pub(super) fn render_playlist_tile_cover<'a>(
     match covers {
         Some(list) if list.len() >= 4 => {
             let half = (size / 2.0).floor();
+            let corner_radius = radius;
             let mut top_row = row![].spacing(0);
             top_row = top_row.push(
                 image(list[0].clone())
                     .width(Length::Fixed(half))
                     .height(Length::Fixed(half))
-                    .content_fit(ContentFit::Cover),
+                    .content_fit(ContentFit::Cover)
+                    .border_radius(iced::border::Radius {
+                        top_left: corner_radius.top_left,
+                        ..Default::default()
+                    }),
             );
             top_row = top_row.push(
                 image(list[1].clone())
                     .width(Length::Fixed(half))
                     .height(Length::Fixed(half))
-                    .content_fit(ContentFit::Cover),
+                    .content_fit(ContentFit::Cover)
+                    .border_radius(iced::border::Radius {
+                        top_right: corner_radius.top_right,
+                        ..Default::default()
+                    }),
             );
 
             let mut bottom_row = row![].spacing(0);
@@ -385,13 +394,21 @@ pub(super) fn render_playlist_tile_cover<'a>(
                 image(list[2].clone())
                     .width(Length::Fixed(half))
                     .height(Length::Fixed(half))
-                    .content_fit(ContentFit::Cover),
+                    .content_fit(ContentFit::Cover)
+                    .border_radius(iced::border::Radius {
+                        bottom_left: corner_radius.bottom_left,
+                        ..Default::default()
+                    }),
             );
             bottom_row = bottom_row.push(
                 image(list[3].clone())
                     .width(Length::Fixed(half))
                     .height(Length::Fixed(half))
-                    .content_fit(ContentFit::Cover),
+                    .content_fit(ContentFit::Cover)
+                    .border_radius(iced::border::Radius {
+                        bottom_right: corner_radius.bottom_right,
+                        ..Default::default()
+                    }),
             );
 
             let grid_content = column![top_row, bottom_row].spacing(0);

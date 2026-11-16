@@ -66,7 +66,6 @@ impl App {
                     self.current_cover = None;
                     self.current_now_playing_cover = None;
                     self.current_blurred_cover = None;
-                    self.current_next_cover = None;
                     self.current_tech_info = None;
                     self.now_playing.clear();
                     self.sync_now_playing();

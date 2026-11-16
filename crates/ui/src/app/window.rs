@@ -17,7 +17,6 @@ impl App {
                 if tab != ViewTab::Lyrics {
                     self.current_now_playing_cover = None;
                     self.current_blurred_cover = None;
-                    self.current_next_cover = None;
                 }
                 if tab != ViewTab::Albums {
                     self.albums.clear_covers();
@@ -29,7 +28,9 @@ impl App {
                 let scroll_task = self.restore_tab_scroll_task(tab);
                 match tab {
                     ViewTab::Lyrics => {
-                        let cover_task = if self.current_now_playing_cover.is_none() {
+                        let cover_task = if self.current_now_playing_cover.is_none()
+                            || self.current_blurred_cover.is_none()
+                        {
                             if let Some(track) = &self.current_track {
                                 self.load_now_playing_cover_task(
                                     track.id,
