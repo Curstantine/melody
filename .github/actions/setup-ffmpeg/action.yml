@@ -68,6 +68,8 @@ runs:
         # Ensure MSVC's cl.exe / link.exe / lib.exe take precedence over MSYS2's /usr/bin/link.exe
         MSVC_BIN="$(dirname "$(which cl)")"
         export PATH="$MSVC_BIN:$PATH"
+        export INCLUDE="C:\\ffmpeg-deps\\include;${INCLUDE:-}"
+        export LIB="C:\\ffmpeg-deps\\lib;${LIB:-}"
 
         WORKDIR="/tmp/ffmpeg-build"
         mkdir -p "$WORKDIR"
