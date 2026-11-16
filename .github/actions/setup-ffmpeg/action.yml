@@ -40,7 +40,9 @@ runs:
 
     - name: Set up MSVC environment (Windows)
       if: runner.os == 'Windows' && steps.cache-ffmpeg-win.outputs.cache-hit != 'true'
-      uses: ilammy/msvc-dev-cmd@v1
+      uses: TheMrMilchmann/setup-msvc-dev@v4
+      with:
+        arch: x64
 
     - name: Build static libsoxr (Windows)
       if: runner.os == 'Windows' && steps.cache-ffmpeg-win.outputs.cache-hit != 'true'
