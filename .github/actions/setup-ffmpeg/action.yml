@@ -97,7 +97,7 @@ runs:
           --enable-decoder=mp3,mp3float,flac,vorbis,opus,aac,alac,pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be,pcm_f32le,pcm_f32be,pcm_u8,pcm_alaw,pcm_mulaw \
           --enable-libsoxr \
           --extra-cflags="-IC:/ffmpeg-deps/include" \
-          --extra-ldflags="-LC:/ffmpeg-deps/lib" || { tail -n 60 ffbuild/config.log; exit 1; }
+          --extra-ldflags="-LIBPATH:C:/ffmpeg-deps/lib" || { tail -n 60 ffbuild/config.log; exit 1; }
 
         make -j"$(nproc)"
         make install
