@@ -38,6 +38,8 @@ melody/
     ├── audio/                   # Dedicated audio worker thread, CPAL playback, FFmpeg decoder & resampler, lock-free ring buffer
     ├── plugin/                  # Extensibility framework, host contracts, lyrics, scrobbling, media controls
     ├── updater/                 # Velopack integration, application lifecycle hooks, GitHub update checking, browser launching
+    ├── font/                    # Font configuration, family resolution, and lyrics font settings
+    ├── playlist/                # M3U/M3U8 playlist parsing, encoding fallback, and serialization
     ├── theme/                   # Data-driven TOML theme definitions, palette config, font resolution, theme management
     ├── layout/                  # Declarative KDL layout templates, schema AST, layout management
     ├── queue/                   # Playback queue state machine, in-memory queue store, virtualization math
@@ -58,6 +60,8 @@ melody/
 | **`audio`** | [`crates/audio`](crates/audio/src/lib.rs) | Lock-free audio worker thread (`run_audio_worker`), CPAL output stream, SPSC ring buffer (`HeapRb<f32>`), FFmpeg packet demuxing/decoding/resampling, atomic status reporting (`AudioStatus`). | `cpal`, `ffmpeg-next`, `ringbuf`, `crossbeam-channel`, `thiserror` |
 | **`plugin`** | [`crates/plugin`](crates/plugin/src/lib.rs) | Plugin contracts (`Plugin`), event dispatch (`on_track_change`, `on_playback_end`, `scrobble`), lyrics fetcher (`LyricsPlugin`), media controls (Windows SMTC / Linux MPRIS). | `serde`, `serde_json`, `tracing`, `thumbnail`, `path`, `mpris-server`, `windows` |
 | **`updater`** | [`crates/updater`](crates/updater/src/lib.rs) | Velopack runtime hooks (`init`), GitHub release update checking (`check_for_updates`), browser opening helpers (`open_in_browser`). | `velopack`, `tracing`, `tokio` |
+| **`font`** | [`crates/font`](crates/font/src/lib.rs) | Font configuration (`FontConfig`), family resolution (`font_from_family_name`), and lyrics font size preferences. | `iced`, `serde` |
+| **`playlist`** | [`crates/playlist`](crates/playlist/src/lib.rs) | M3U/M3U8 playlist parsing, relative path resolution, Windows-1252/UTF-8 fallback, and serialization. | `encoding_rs`, `model`, `path`, `thiserror` |
 | **`theme`** | [`crates/theme`](crates/theme/src/lib.rs) | TOML theme deserialization (`ThemeConfig`), hex color parsing, system font discovery (`list_font_families`), runtime theme management (`ThemeManager`). | `iced`, `serde`, `toml`, `tracing`, `walkdir`, `path` |
 | **`layout`** | [`crates/layout`](crates/layout/src/lib.rs) | Declarative KDL layout schema (`LayoutTemplate`), format configs (`LibraryFormatConfig`, `AlbumsFormatConfig`, etc.), layout discovery and manager (`LayoutManager`). | `kdl`, `model`, `path`, `tracing`, `iced` |
 | **`queue`** | [`crates/queue`](crates/queue/src/lib.rs) | In-memory playback queue management (`QueueStore`, `QueueSummary`, `QueueSource`, `Queue`), cursor navigation, queue virtualization math. | `model`, `serde`, `tracing` |
@@ -189,7 +193,7 @@ cargo test --workspace
 - [`crates/config/src/state.rs`](crates/config/src/state.rs): Persistent runtime application and player state [`AppState`](crates/config/src/state.rs) (`active_tab`, `settings_tab`, `volume`, `is_shuffle`, `is_repeat`, view modes, sort fields).
 - [`crates/ui/src/message.rs`](crates/ui/src/message.rs): [`Message`](crates/ui/src/message.rs) enum representing all UI events and user interactions.
 
-### Views Directory ([`crates/ui/src/views/`](crates/ui/src/views))
+### Views Directory ([`crates/ui/src/views.rs`](crates/ui/src/views.rs) & [`crates/ui/src/views/`](crates/ui/src/views))
 
 - [`library.rs`](crates/ui/src/views/library.rs): Virtualized track list table and grid views (`LibraryView`), search bar, sortable column headers, pagination controls.
 - [`albums.rs`](crates/ui/src/views/albums.rs): Album catalog aggregated by artist and album name (`AlbumsView`) with cover art grid/list display, sorting, and per-album Play / Shuffle All actions.
@@ -199,6 +203,7 @@ cargo test --workspace
 - [`settings.rs`](crates/ui/src/views/settings.rs): Dedicated settings tabs (`SettingsView`) for Appearance ("Appearance & interface"), Playback ("Playback preferences"), Library ("Library & storage"), and Scrobbling ("Scrobbling & social audio").
 - [`player_bar.rs`](crates/ui/src/views/player_bar.rs): Persistent bottom player bar (`PlayerBar`) with cover thumbnail, track info, seek slider, playback buttons, shuffle, repeat, favorite toggle, and volume control.
 - [`status_bar.rs`](crates/ui/src/views/status_bar.rs): Bottom status bar (`StatusBar`) displaying track and catalog counts, active filter indicators, and library scanning status.
+- [`titlebar.rs`](crates/ui/src/views/titlebar.rs): Custom window titlebar (`TitlebarView`), window controls, and resize handle overlays.
 
 ---
 
@@ -321,6 +326,7 @@ cargo test --workspace
 - ❌ **NEVER use Unicode emojis for UI controls**: Always use vector SVGs via [`crates/component/src/icons.rs`](crates/component/src/icons.rs).
 - ❌ **NEVER bypass disk thumbnail caching**: Do not load raw uncompressed audio visuals or high-res artwork directly into UI textures for list/grid items; use [`get_or_create_thumbnail`](crates/thumbnail/src/lib.rs).
 - ❌ **NEVER break cross-platform support**: Use platform-agnostic abstractions or `#[cfg(target_os = "...")]` guards. Ensure path handling uses `PathBuf`, `directories`, and centralized paths from [`path`](crates/path/src/lib.rs).
+- ❌ **NEVER use `mod.rs` for module roots**: Always use the modern Rust module layout with `<module>.rs` and `<module>/<sub>.rs` (e.g., [`crates/ui/src/views.rs`](crates/ui/src/views.rs) and [`crates/ui/src/views/library.rs`](crates/ui/src/views/library.rs)), never `<module>/mod.rs`.
 
 ---
 
