@@ -87,7 +87,6 @@ runs:
           --disable-avdevice \
           --disable-avfilter \
           --disable-swscale \
-          --disable-postproc \
           --disable-network \
           --disable-everything \
           --enable-protocol=file \
@@ -178,7 +177,6 @@ runs:
           --disable-avdevice \
           --disable-avfilter \
           --disable-swscale \
-          --disable-postproc \
           --disable-network \
           --disable-everything \
           --enable-protocol=file \
