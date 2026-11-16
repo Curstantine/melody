@@ -148,6 +148,8 @@ pub struct App {
 
     pub(crate) cache_stats: thumbnail::CacheStats,
     pub(crate) db_size_bytes: u64,
+    pub(crate) library_counts: db::LibraryCounts,
+    pub(crate) status_settings_str: String,
 
     pub(crate) media_controls_rx: Option<Receiver<PlayerAction>>,
 
@@ -355,6 +357,8 @@ impl App {
             search_seq: 0,
             cache_stats: thumbnail::CacheStats::default(),
             db_size_bytes: 0,
+            library_counts: db::LibraryCounts::default(),
+            status_settings_str: "0 tracks indexed".to_string(),
 
             media_controls_rx,
 
@@ -382,6 +386,7 @@ impl App {
 
         let mut initial_tasks = vec![
             app.reload_tracks_task(),
+            app.load_storage_stats_task(),
             {
                 let db = app.db.clone();
                 Task::perform(
@@ -569,7 +574,7 @@ impl App {
             | Message::ClearThumbnailCache
             | Message::ScanFinished(_)
             | Message::ThumbnailsGenerated
-            | Message::StorageStatsLoaded(_, _)
+            | Message::StorageStatsLoaded(_, _, _)
             | Message::SelectAlbum(_)
             | Message::SelectArtist(_)
             | Message::TracksLoaded(_, _)

@@ -301,7 +301,7 @@ pub enum Message {
         track_id: i64,
         cover: Option<Vec<u8>>,
     },
-    StorageStatsLoaded(CacheStats, u64),
+    StorageStatsLoaded(CacheStats, u64, db::LibraryCounts),
 
     // Debug playground samples
     DebugNoop,
@@ -745,10 +745,11 @@ impl std::fmt::Debug for Message {
                 .field("track_id", track_id)
                 .field("cover_len", &bytes_len(cover))
                 .finish(),
-            Self::StorageStatsLoaded(stats, size) => f
+            Self::StorageStatsLoaded(stats, size, counts) => f
                 .debug_tuple("StorageStatsLoaded")
                 .field(stats)
                 .field(size)
+                .field(counts)
                 .finish(),
             Self::DebugNoop => f.write_str("DebugNoop"),
             Self::DebugToggle(v) => f.debug_tuple("DebugToggle").field(v).finish(),

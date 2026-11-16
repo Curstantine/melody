@@ -54,7 +54,6 @@ pub struct LibraryView {
     /// Pre-rendered status strings so StatusBar rendering does not allocate per frame.
     pub status_count_str: String,
     pub status_filter_str: String,
-    pub status_settings_str: String,
 }
 
 impl LibraryView {
@@ -77,7 +76,6 @@ impl LibraryView {
             scroll_offset: ScrollOffset::default(),
             status_count_str: String::new(),
             status_filter_str: String::new(),
-            status_settings_str: String::new(),
         };
         view.update_status_strings();
         view
@@ -108,7 +106,6 @@ impl LibraryView {
             self.status_count_str = format!("{} tracks in library", self.total_tracks);
             self.status_filter_str.clear();
         }
-        self.status_settings_str = format!("{} tracks indexed", self.total_tracks);
     }
 
     /// Maximum number of rows retained in the sliding window.

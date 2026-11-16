@@ -339,6 +339,8 @@ impl App {
                 self.library.clear();
                 self.albums.clear();
                 self.artists.clear();
+                self.library_counts = db::LibraryCounts::default();
+                self.status_settings_str = "0 tracks indexed".to_string();
                 self.now_playing.clear();
                 self.current_track = None;
                 self.player_bar.update_track(None);
@@ -360,18 +362,21 @@ impl App {
                 info!("Purging thumbnail cache");
                 self.albums.clear_covers();
                 let db_path = self.db_path;
+                let db = self.db.clone();
                 Task::perform(
                     async move {
-                        tokio::task::spawn_blocking(move || {
+                        let counts = db.get_library_counts().await.unwrap_or_default();
+                        let (stats, db_size) = tokio::task::spawn_blocking(move || {
                             let _ = thumbnail::clear_thumbnail_cache();
                             let stats = thumbnail::get_thumbnail_cache_stats();
                             let db_size = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
                             (stats, db_size)
                         })
                         .await
-                        .unwrap_or_default()
+                        .unwrap_or_default();
+                        (stats, db_size, counts)
                     },
-                    |(stats, db_size)| Message::StorageStatsLoaded(stats, db_size),
+                    |(stats, db_size, counts)| Message::StorageStatsLoaded(stats, db_size, counts),
                 )
             }
 
@@ -426,9 +431,14 @@ impl App {
                 Task::batch([self.load_storage_stats_task(), covers_task])
             }
 
-            Message::StorageStatsLoaded(stats, db_size_bytes) => {
+            Message::StorageStatsLoaded(stats, db_size_bytes, counts) => {
                 self.cache_stats = stats;
                 self.db_size_bytes = db_size_bytes;
+                self.library_counts = counts;
+                self.status_settings_str = format!("{} tracks indexed", counts.tracks);
+                if !self.artists.is_empty() {
+                    self.artists.set_total_albums(counts.albums);
+                }
                 Task::none()
             }
 
@@ -464,6 +474,10 @@ impl App {
             // ── Playlists ───────────────────────────────────────────────────
             Message::TracksLoaded(rows, total) => {
                 self.library.set_window(rows, total);
+                if self.library.active_filter().is_none() {
+                    self.library_counts.tracks = total;
+                    self.status_settings_str = format!("{} tracks indexed", total);
+                }
                 self.library.recompute_rendered_rows(
                     &self.layout_manager.current_template.view_formats.library,
                 );
@@ -505,6 +519,7 @@ impl App {
 
             Message::AlbumsLoaded(albums) => {
                 self.albums.set_albums(albums);
+                self.library_counts.albums = self.albums.len();
                 self.albums.recompute_rendered_window(
                     &self.layout_manager.current_template.view_formats.albums,
                 );
@@ -544,6 +559,10 @@ impl App {
 
             Message::ArtistsLoaded(artists) => {
                 self.artists.set_artists(artists);
+                self.library_counts.artists = self.artists.len();
+                if self.library_counts.albums > 0 || self.library_counts.tracks == 0 {
+                    self.artists.set_total_albums(self.library_counts.albums);
+                }
                 self.artists.recompute_rendered_window(
                     &self.layout_manager.current_template.view_formats.artists,
                 );

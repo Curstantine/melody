@@ -713,3 +713,54 @@ async fn test_scan_directories_new_skips_existing_files() {
 
     let _ = std::fs::remove_dir_all(&base_temp);
 }
+
+#[tokio::test]
+async fn test_get_library_counts() {
+    let db = LibraryDatabase::in_memory().await.unwrap();
+    assert_eq!(
+        db.get_library_counts().await.unwrap(),
+        crate::LibraryCounts {
+            tracks: 0,
+            albums: 0,
+            artists: 0,
+        }
+    );
+
+    let tracks = vec![
+        NewTrack {
+            file_path: "/music/comp1.flac".to_string(),
+            title: "Comp 1".to_string(),
+            artist: "Artist A".to_string(),
+            album_artist: Some("Various Artists".to_string()),
+            album: "Compilation".to_string(),
+            duration_ms: 100_000,
+            ..Default::default()
+        },
+        NewTrack {
+            file_path: "/music/comp2.flac".to_string(),
+            title: "Comp 2".to_string(),
+            artist: "Artist B".to_string(),
+            album_artist: Some("Various Artists".to_string()),
+            album: "Compilation".to_string(),
+            duration_ms: 120_000,
+            ..Default::default()
+        },
+        NewTrack {
+            file_path: "/music/solo.flac".to_string(),
+            title: "Solo".to_string(),
+            artist: "Artist A".to_string(),
+            album_artist: None,
+            album: "Solo Album".to_string(),
+            duration_ms: 180_000,
+            ..Default::default()
+        },
+    ];
+    db.insert_tracks_batch(&tracks).await.unwrap();
+
+    let counts = db.get_library_counts().await.unwrap();
+    assert_eq!(counts.tracks, 3);
+    assert_eq!(counts.albums, db.get_albums().await.unwrap().len());
+    assert_eq!(counts.artists, db.get_artists().await.unwrap().len());
+    assert_eq!(counts.albums, 2);
+    assert_eq!(counts.artists, 2);
+}

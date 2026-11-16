@@ -158,21 +158,25 @@ impl App {
         )
     }
 
-    /// Refreshes thumbnail-cache and database-size telemetry off the UI thread.
-    /// Called only when the relevant screens/actions occur instead of every frame.
+    /// Refreshes thumbnail-cache, database-size, and unfiltered catalog-count
+    /// telemetry off the UI thread. Called only when the relevant screens/actions
+    /// occur instead of every frame.
     pub(super) fn load_storage_stats_task(&self) -> Task<Message> {
         let db_path = self.db_path;
+        let db = self.db.clone();
         Task::perform(
             async move {
-                tokio::task::spawn_blocking(move || {
+                let counts = db.get_library_counts().await.unwrap_or_default();
+                let (stats, db_size) = tokio::task::spawn_blocking(move || {
                     let stats = thumbnail::get_thumbnail_cache_stats();
                     let db_size = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
                     (stats, db_size)
                 })
                 .await
-                .unwrap_or_default()
+                .unwrap_or_default();
+                (stats, db_size, counts)
             },
-            |(stats, db_size)| Message::StorageStatsLoaded(stats, db_size),
+            |(stats, db_size, counts)| Message::StorageStatsLoaded(stats, db_size, counts),
         )
     }
 

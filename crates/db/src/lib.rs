@@ -64,3 +64,10 @@ pub struct ScanSummary {
     pub updated_tracks: usize,
     pub failed_files: usize,
 }
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LibraryCounts {
+    pub tracks: usize,
+    pub albums: usize,
+    pub artists: usize,
+}

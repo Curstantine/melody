@@ -157,6 +157,13 @@ impl ArtistsView {
         self.status_tracks_str = format!("{} tracks", self.total_tracks);
     }
 
+    /// Overrides the catalog-wide distinct album count so compilation and
+    /// multi-artist albums are not counted once per artist.
+    pub fn set_total_albums(&mut self, total_albums: usize) {
+        self.total_albums = total_albums;
+        self.status_albums_str = format!("{} albums", self.total_albums);
+    }
+
     pub fn recompute_rendered_window(&mut self, format_cfg: &layout::ArtistsFormatConfig) {
         let visible = self.visible_artists();
         self.rendered_window = visible

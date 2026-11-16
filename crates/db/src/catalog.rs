@@ -1,8 +1,38 @@
 use model::{format_duration, intern, AlbumSummary, ArtistSummary};
 
-use crate::{DbError, LibraryDatabase};
+use crate::{DbError, LibraryCounts, LibraryDatabase};
 
 impl LibraryDatabase {
+    /// Returns unfiltered catalog totals (`tracks`, `albums`, `artists`) directly
+    /// from SQLite so metrics stay accurate even when catalog tabs are unloaded
+    /// or a library search filter is active.
+    pub async fn get_library_counts(&self) -> Result<LibraryCounts, DbError> {
+        let mut rows = self
+            .conn
+            .query(
+                r#"
+                SELECT
+                    (SELECT COUNT(*) FROM tracks),
+                    (SELECT COUNT(*) FROM (SELECT 1 FROM tracks GROUP BY album, COALESCE(NULLIF(album_artist, ''), ''))),
+                    (SELECT COUNT(DISTINCT artist) FROM tracks)
+                "#,
+                (),
+            )
+            .await?;
+
+        if let Some(row) = rows.next().await? {
+            let tracks: i64 = row.get(0)?;
+            let albums: i64 = row.get(1)?;
+            let artists: i64 = row.get(2)?;
+            Ok(LibraryCounts {
+                tracks: tracks.max(0) as usize,
+                albums: albums.max(0) as usize,
+                artists: artists.max(0) as usize,
+            })
+        } else {
+            Ok(LibraryCounts::default())
+        }
+    }
     pub async fn get_albums(&self) -> Result<Vec<AlbumSummary>, DbError> {
         let mut rows = self
             .conn
