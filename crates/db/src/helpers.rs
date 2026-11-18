@@ -3,7 +3,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use turso::Row;
 
-use model::{format_duration_stack, intern, SortField, Track, TrackFilter, TrackPath, TrackRow};
+use model::{
+    format_duration_stack, intern, SortDirection, SortField, Track, TrackFilter, TrackPath,
+    TrackRow,
+};
 
 use crate::DbError;
 
@@ -15,15 +18,29 @@ pub(crate) fn now_secs() -> i64 {
         .unwrap_or(0)
 }
 
-/// Maps a sort field to its SQL ordering column expression.
-pub(crate) fn sort_column(sort_field: SortField) -> &'static str {
-    match sort_field {
-        SortField::Title => "title",
-        SortField::Artist => "artist",
-        SortField::Album => "album",
-        SortField::Duration => "duration_ms",
-        SortField::TrackNum => "track_num",
-        SortField::AddedDate => "added_timestamp",
+/// Maps a sort field and direction to its SQL `ORDER BY` expression.
+///
+/// `SortField::TrackNum` orders by `(COALESCE(disc_num, 1), COALESCE(track_num, 0), title)`
+/// so multi-disc albums sort in true disc-then-track order rather than interleaving
+/// Disc 1 Track 1 with Disc 2 Track 1.
+pub(crate) fn sort_order_clause(sort_field: SortField, sort_dir: SortDirection) -> &'static str {
+    match (sort_field, sort_dir) {
+        (SortField::Title, SortDirection::Ascending) => "title ASC",
+        (SortField::Title, SortDirection::Descending) => "title DESC",
+        (SortField::Artist, SortDirection::Ascending) => "artist ASC",
+        (SortField::Artist, SortDirection::Descending) => "artist DESC",
+        (SortField::Album, SortDirection::Ascending) => "album ASC",
+        (SortField::Album, SortDirection::Descending) => "album DESC",
+        (SortField::Duration, SortDirection::Ascending) => "duration_ms ASC",
+        (SortField::Duration, SortDirection::Descending) => "duration_ms DESC",
+        (SortField::TrackNum, SortDirection::Ascending) => {
+            "COALESCE(disc_num, 1) ASC, COALESCE(track_num, 0) ASC, title ASC"
+        }
+        (SortField::TrackNum, SortDirection::Descending) => {
+            "COALESCE(disc_num, 1) DESC, COALESCE(track_num, 0) DESC, title DESC"
+        }
+        (SortField::AddedDate, SortDirection::Ascending) => "added_timestamp ASC",
+        (SortField::AddedDate, SortDirection::Descending) => "added_timestamp DESC",
     }
 }
 
