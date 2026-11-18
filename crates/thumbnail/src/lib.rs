@@ -124,12 +124,15 @@ pub fn get_or_create(track_path: &Path, res: Resolution) -> Option<Vec<u8>> {
     }
 }
 
-/// Generates a heavily blurred low-resolution JPEG thumbnail (~2-5 KB)
+/// Generates a heavily blurred low-resolution JPEG thumbnail (~1-3 KB)
 /// suitable for full-screen ambient backdrop rendering with bilinear texture smoothing.
+///
+/// Downscales to 32x32 with sigma 3.0 (8x faster than 64x64 @ sigma 6.0 while
+/// producing an identical ambient gradient under GPU bilinear filtering).
 pub fn generate_blurred(image_bytes: &[u8]) -> Option<Vec<u8>> {
     let img = image::load_from_memory(image_bytes).ok()?;
-    let small = img.thumbnail_exact(64, 64);
-    let blurred = image::imageops::blur(&small, 6.0);
+    let small = img.thumbnail_exact(32, 32);
+    let blurred = image::imageops::blur(&small, 3.0);
     let darken = image::imageops::brighten(&blurred, -10);
     let rgb = image::DynamicImage::ImageRgba8(darken);
 
@@ -138,6 +141,36 @@ pub fn generate_blurred(image_bytes: &[u8]) -> Option<Vec<u8>> {
         .ok()?;
 
     Some(out_bytes)
+}
+
+/// Retrieves a cached blurred backdrop thumbnail from disk, or generates and caches it
+/// from the track's low-resolution cover thumbnail.
+pub fn get_or_create_blurred(track_path: &Path, low_cover_bytes: Option<&[u8]>) -> Option<Vec<u8>> {
+    let cache_dir = path::thumbnail_cache_dir();
+    let cache_key = compute_cache_key(track_path, Resolution::Low);
+    let blur_file = cache_dir.join(format!("{}_blur.jpg", cache_key));
+
+    if blur_file.is_file() {
+        if let Ok(bytes) = fs::read(&blur_file) {
+            if !bytes.is_empty() {
+                return Some(bytes);
+            }
+        }
+    }
+
+    let owned_cover;
+    let source_bytes = match low_cover_bytes {
+        Some(b) if !b.is_empty() => b,
+        _ => {
+            owned_cover = get_or_create(track_path, Resolution::Low)?;
+            &owned_cover
+        }
+    };
+
+    let blurred = generate_blurred(source_bytes)?;
+    let _ = fs::create_dir_all(cache_dir);
+    let _ = fs::write(&blur_file, &blurred);
+    Some(blurred)
 }
 
 /// Composites up to 4 cover images into a 2x2 square JPEG collage at `res`

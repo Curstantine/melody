@@ -426,9 +426,7 @@ impl PlaylistsView {
 }
 
 fn case_insensitive(a: &str, b: &str) -> std::cmp::Ordering {
-    let a_chars = a.chars().flat_map(|c| c.to_lowercase());
-    let b_chars = b.chars().flat_map(|c| c.to_lowercase());
-    a_chars.cmp(b_chars)
+    super::albums::cmp_case_insensitive_fast(a, b)
 }
 
 #[cfg(test)]

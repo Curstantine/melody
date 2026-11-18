@@ -707,9 +707,7 @@ impl App {
             async move {
                 tokio::task::spawn_blocking(move || {
                     let cover = thumbnail::get_or_create(&path, thumbnail::Resolution::High);
-                    let blurred = thumbnail::get_or_create(&path, thumbnail::Resolution::Low)
-                        .as_deref()
-                        .and_then(thumbnail::generate_blurred);
+                    let blurred = thumbnail::get_or_create_blurred(&path, None);
                     (cover, blurred)
                 })
                 .await
@@ -745,7 +743,7 @@ impl App {
                         None
                     };
 
-                    let blurred = cover.as_deref().and_then(thumbnail::generate_blurred);
+                    let blurred = thumbnail::get_or_create_blurred(&path, cover.as_deref());
 
                     let tech_info = metadata::extract_technical_info(&path, duration_ms);
 
