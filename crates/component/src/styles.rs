@@ -1,5 +1,5 @@
 use iced::overlay::menu;
-use iced::widget::{button, container, pick_list, scrollable, slider, text_input, toggler};
+use iced::widget::{button, container, pick_list, rule, scrollable, slider, text_input, toggler};
 use iced::{Background, Border, Color, Shadow, Theme};
 
 use theme::ThemeConfig;
@@ -889,5 +889,14 @@ pub fn window_control_button(
             shadow: Shadow::default(),
             snap: true,
         }
+    }
+}
+
+pub fn border_rule(color: Color) -> impl Fn(&Theme) -> rule::Style {
+    move |_theme| rule::Style {
+        color,
+        radius: 0.0.into(),
+        fill_mode: rule::FillMode::Full,
+        snap: true,
     }
 }

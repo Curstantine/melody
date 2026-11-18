@@ -1,4 +1,6 @@
-use iced::widget::{button, column, container, image, row, scrollable, stack, Space, Widget};
+use iced::widget::{
+    button, column, container, image, responsive, row, scrollable, stack, Space, Widget,
+};
 use iced::{Alignment, ContentFit, Element, Length};
 use metadata::AudioTechnicalInfo;
 use model::{ParsedLyrics, Track, TrackRow};
@@ -7,9 +9,13 @@ use crate::message::Message;
 use component::{self, icons, styles, text};
 use theme::ThemeConfig;
 
-use super::ScrollOffset;
+use super::{collapsible_size, ScrollOffset};
 
 pub const INFO_PANEL_WIDTH: f32 = 340.0;
+const COVER_ART_GAP: f32 = 16.0;
+const INFO_BOX_RESERVED_HEIGHT: f32 = 360.0;
+const MIN_COVER_SIZE: f32 = 120.0;
+const INFO_BOX_SCROLL_THRESHOLD: f32 = 420.0;
 
 /// Pre-rendered display strings so Now Playing rendering performs no string allocations per frame.
 #[derive(Debug, Default, Clone)]
@@ -169,7 +175,7 @@ impl NowPlayingView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        fonts: &font::FontConfig,
+        fonts: &'a font::FontConfig,
         current_track: Option<&'a Track>,
         current_cover: Option<&'a image::Handle>,
         blurred_cover: Option<&'a image::Handle>,
@@ -181,17 +187,6 @@ impl NowPlayingView {
     ) -> Element<'a, Message> {
         let content: Element<'a, Message> = match current_track {
             Some(track) => {
-                let cover_icon_size = (INFO_PANEL_WIDTH * 0.36).clamp(48.0, 100.0);
-                let cover_art = component::cover_art(
-                    theme_cfg,
-                    current_cover,
-                    INFO_PANEL_WIDTH,
-                    theme_cfg.border_radius.md,
-                    icons::ALBUM_SVG,
-                    cover_icon_size,
-                    theme_cfg.primary,
-                );
-
                 let font = fonts.primary_font();
                 let lyrics_font = fonts.lyrics_font();
                 let base_size = u32::from(fonts.lyrics_size);
@@ -288,158 +283,169 @@ impl NowPlayingView {
                     .height(Length::Fill)
                     .style(styles::scrollable_style(theme_cfg));
 
-                let title = text(fonts.primary_font(), &track.title)
-                    .size(17)
-                    .color(theme_cfg.text)
-                    .align_y(Alignment::Center);
-
-                let artist_album_str = if !self.cached.artist_album.is_empty() {
-                    self.cached.artist_album.as_str()
-                } else {
-                    track.album.as_str()
-                };
-                let artist_album_text = text(fonts.primary_font(), artist_album_str)
-                    .size(13)
-                    .color(theme_cfg.text_muted);
-
-                let details_row = text(fonts.primary_font(), self.cached.details_row.as_str())
-                    .size(11)
-                    .color(theme_cfg.text_muted);
-
-                // Optional tags (Album Artist, Composer, Label)
-                let mut extra_tags = column![].spacing(2);
-                if let Some(ref alb_artist) = self.cached.album_artist_tag {
-                    extra_tags = extra_tags.push(
-                        text(fonts.primary_font(), alb_artist.as_str())
-                            .size(11)
-                            .color(theme_cfg.text_muted),
+                let right_overlay = container(responsive(move |size| {
+                    let cover_size = collapsible_size(
+                        size.height,
+                        INFO_BOX_RESERVED_HEIGHT + COVER_ART_GAP,
+                        MIN_COVER_SIZE,
+                        INFO_PANEL_WIDTH,
                     );
-                }
-                if let Some(ref comp) = self.cached.composer_tag {
-                    extra_tags = extra_tags.push(
-                        text(fonts.primary_font(), comp.as_str())
-                            .size(11)
-                            .color(theme_cfg.text_muted),
-                    );
-                }
-
-                // Up Next Section Header (natural casing, font size 11 matching secondary headers)
-                let mut up_next_tags = row![].spacing(6).align_y(Alignment::Center);
-                if repeat_mode != model::RepeatMode::Off {
-                    let repeat_svg = if repeat_mode == model::RepeatMode::One {
-                        icons::REPEAT_ONE_SVG
-                    } else {
-                        icons::REPEAT_SVG
+                    let available_for_card = match cover_size {
+                        Some(c) => size.height - c - COVER_ART_GAP,
+                        None => size.height,
                     };
-                    up_next_tags = up_next_tags.push(
-                        row![
-                            icons::icon(repeat_svg, 10.0, theme_cfg.primary),
-                            text(fonts.primary_font(), repeat_mode.label())
-                                .size(10)
-                                .color(theme_cfg.primary),
-                        ]
-                        .spacing(3)
-                        .align_y(Alignment::Center),
-                    );
-                }
-                if is_shuffle {
-                    up_next_tags = up_next_tags.push(
-                        row![
-                            icons::icon(icons::SHUFFLE_SVG, 10.0, theme_cfg.primary),
-                            text(fonts.primary_font(), "Shuffle")
-                                .size(10)
-                                .color(theme_cfg.primary),
-                        ]
-                        .spacing(3)
-                        .align_y(Alignment::Center),
-                    );
-                }
+                    let needs_scroll = available_for_card < INFO_BOX_SCROLL_THRESHOLD;
 
-                let up_next_header = row![
-                    text(fonts.primary_font(), "Up next")
+                    let title = text(fonts.primary_font(), &track.title)
+                        .size(17)
+                        .color(theme_cfg.text)
+                        .align_y(Alignment::Center);
+
+                    let artist_album_str = if !self.cached.artist_album.is_empty() {
+                        self.cached.artist_album.as_str()
+                    } else {
+                        track.album.as_str()
+                    };
+                    let artist_album_text = text(fonts.primary_font(), artist_album_str)
+                        .size(13)
+                        .color(theme_cfg.text_muted);
+
+                    let details_row = text(fonts.primary_font(), self.cached.details_row.as_str())
                         .size(11)
-                        .color(theme_cfg.primary),
-                    Space::new().width(Length::Fill),
-                    up_next_tags,
-                ]
-                .align_y(Alignment::Center);
+                        .color(theme_cfg.text_muted);
 
-                // Up Next Content Item
-                let next_track_item: Element<'a, Message> = match next_track {
-                    Some(next) => {
-                        let next_id = next.id;
-                        let next_duration = next.duration_label.as_str();
-                        let next_title = &next.title;
-                        let next_subtitle = if !self.cached.next_subtitle.is_empty() {
-                            self.cached.next_subtitle.as_str()
-                        } else {
-                            next.album.as_ref()
-                        };
-
-                        let next_info = column![
-                            text(fonts.primary_font(), next_title)
-                                .size(12)
-                                .color(theme_cfg.text),
-                            text(fonts.primary_font(), next_subtitle)
+                    // Optional tags (Album Artist, Composer, Label)
+                    let mut extra_tags = column![].spacing(2);
+                    if let Some(ref alb_artist) = self.cached.album_artist_tag {
+                        extra_tags = extra_tags.push(
+                            text(fonts.primary_font(), alb_artist.as_str())
                                 .size(11)
                                 .color(theme_cfg.text_muted),
-                        ]
-                        .spacing(2)
-                        .width(Length::Fill);
-
-                        let duration_tag = text(fonts.primary_font(), next_duration)
-                            .size(11)
-                            .color(theme_cfg.text_muted);
-
-                        button(
-                            row![next_info, duration_tag,]
-                                .spacing(8)
-                                .align_y(Alignment::Center),
-                        )
-                        .style(styles::tile(theme_cfg))
-                        .padding(0)
-                        .on_press(Message::PlayTrack(next_id))
-                        .width(Length::Fill)
-                        .boxed()
+                        );
                     }
-                    None => text(fonts.primary_font(), "No upcoming tracks")
-                        .size(11)
-                        .color(theme_cfg.text_muted)
-                        .boxed(),
-                };
+                    if let Some(ref comp) = self.cached.composer_tag {
+                        extra_tags = extra_tags.push(
+                            text(fonts.primary_font(), comp.as_str())
+                                .size(11)
+                                .color(theme_cfg.text_muted),
+                        );
+                    }
 
-                // Technical Details Section ("Properties", size 11, without icon)
-                let tech_info_section: Element<'a, Message> =
-                    if !self.cached.tech_properties.is_empty() {
-                        let mut prop_col = column![text(fonts.primary_font(), "Properties")
+                    // Up Next Section Header (natural casing, font size 11 matching secondary headers)
+                    let mut up_next_tags = row![].spacing(6).align_y(Alignment::Center);
+                    if repeat_mode != model::RepeatMode::Off {
+                        let repeat_svg = if repeat_mode == model::RepeatMode::One {
+                            icons::REPEAT_ONE_SVG
+                        } else {
+                            icons::REPEAT_SVG
+                        };
+                        up_next_tags = up_next_tags.push(
+                            row![
+                                icons::icon(repeat_svg, 10.0, theme_cfg.primary),
+                                text(fonts.primary_font(), repeat_mode.label())
+                                    .size(10)
+                                    .color(theme_cfg.primary),
+                            ]
+                            .spacing(3)
+                            .align_y(Alignment::Center),
+                        );
+                    }
+                    if is_shuffle {
+                        up_next_tags = up_next_tags.push(
+                            row![
+                                icons::icon(icons::SHUFFLE_SVG, 10.0, theme_cfg.primary),
+                                text(fonts.primary_font(), "Shuffle")
+                                    .size(10)
+                                    .color(theme_cfg.primary),
+                            ]
+                            .spacing(3)
+                            .align_y(Alignment::Center),
+                        );
+                    }
+
+                    let up_next_header = row![
+                        text(fonts.primary_font(), "Up next")
                             .size(11)
-                            .color(theme_cfg.primary),]
-                        .spacing(4);
+                            .color(theme_cfg.primary),
+                        Space::new().width(Length::Fill),
+                        up_next_tags,
+                    ]
+                    .align_y(Alignment::Center);
 
-                        for (label, val) in &self.cached.tech_properties {
-                            prop_col = prop_col.push(
-                                row![
-                                    text(fonts.primary_font(), *label)
-                                        .size(11)
-                                        .color(theme_cfg.text_muted)
-                                        .width(80),
-                                    text(fonts.primary_font(), val.as_str())
-                                        .size(11)
-                                        .color(theme_cfg.text),
-                                ]
-                                .align_y(Alignment::Center)
-                                .boxed(),
-                            );
+                    // Up Next Content Item
+                    let next_track_item: Element<'a, Message> = match next_track {
+                        Some(next) => {
+                            let next_id = next.id;
+                            let next_duration = next.duration_label.as_str();
+                            let next_title = &next.title;
+                            let next_subtitle = if !self.cached.next_subtitle.is_empty() {
+                                self.cached.next_subtitle.as_str()
+                            } else {
+                                next.album.as_ref()
+                            };
+
+                            let next_info = column![
+                                text(fonts.primary_font(), next_title)
+                                    .size(12)
+                                    .color(theme_cfg.text),
+                                text(fonts.primary_font(), next_subtitle)
+                                    .size(11)
+                                    .color(theme_cfg.text_muted),
+                            ]
+                            .spacing(2)
+                            .width(Length::Fill);
+
+                            let duration_tag = text(fonts.primary_font(), next_duration)
+                                .size(11)
+                                .color(theme_cfg.text_muted);
+
+                            button(
+                                row![next_info, duration_tag,]
+                                    .spacing(8)
+                                    .align_y(Alignment::Center),
+                            )
+                            .style(styles::tile(theme_cfg))
+                            .padding(0)
+                            .on_press(Message::PlayTrack(next_id))
+                            .width(Length::Fill)
+                            .boxed()
                         }
-
-                        prop_col.boxed()
-                    } else {
-                        Space::new().boxed()
+                        None => text(fonts.primary_font(), "No upcoming tracks")
+                            .size(11)
+                            .color(theme_cfg.text_muted)
+                            .boxed(),
                     };
 
-                // Card container matching the general app UI with balanced bottom padding
-                let bottom_right_card = container(
-                    column![
+                    // Technical Details Section ("Properties", size 11, without icon)
+                    let tech_info_section: Element<'a, Message> =
+                        if !self.cached.tech_properties.is_empty() {
+                            let mut prop_col = column![text(fonts.primary_font(), "Properties")
+                                .size(11)
+                                .color(theme_cfg.primary),]
+                            .spacing(4);
+
+                            for (label, val) in &self.cached.tech_properties {
+                                prop_col = prop_col.push(
+                                    row![
+                                        text(fonts.primary_font(), *label)
+                                            .size(11)
+                                            .color(theme_cfg.text_muted)
+                                            .width(80),
+                                        text(fonts.primary_font(), val.as_str())
+                                            .size(11)
+                                            .color(theme_cfg.text),
+                                    ]
+                                    .align_y(Alignment::Center)
+                                    .boxed(),
+                                );
+                            }
+
+                            prop_col.boxed()
+                        } else {
+                            Space::new().boxed()
+                        };
+
+                    let card_inner = column![
                         title,
                         artist_album_text,
                         details_row,
@@ -451,41 +457,78 @@ impl NowPlayingView {
                         next_track_item,
                     ]
                     .spacing(8)
-                    .width(Length::Fill),
-                )
-                .width(INFO_PANEL_WIDTH)
-                .padding(iced::Padding {
-                    top: 14.0,
-                    right: 14.0,
-                    bottom: 18.0,
-                    left: 14.0,
-                })
-                .style(move |_| container::Style {
-                    background: Some(iced::Background::Color(theme_cfg.surface)),
-                    border: iced::Border {
-                        radius: theme_cfg.border_radius.md,
-                        color: theme_cfg.border,
-                        width: 1.0,
-                    },
-                    text_color: Some(theme_cfg.text),
-                    ..Default::default()
-                });
+                    .width(Length::Fill);
 
-                let right_section = column![
-                    Space::new().height(Length::Fill),
-                    cover_art,
-                    Space::new().height(16),
-                    bottom_right_card,
-                ]
-                .width(INFO_PANEL_WIDTH)
-                .height(Length::Fill)
-                .align_x(Alignment::Center);
+                    let padded_card_inner =
+                        container(card_inner)
+                            .width(Length::Fill)
+                            .padding(iced::Padding {
+                                top: 14.0,
+                                right: 14.0,
+                                bottom: 18.0,
+                                left: 14.0,
+                            });
 
-                let right_overlay = container(
-                    row![Space::new().width(Length::Fill), right_section]
-                        .width(Length::Fill)
-                        .height(Length::Fill),
-                )
+                    let card_body: Element<'a, Message> = if needs_scroll {
+                        scrollable(padded_card_inner)
+                            .id(iced::widget::Id::new("now_playing_info_scroll"))
+                            .direction(scrollable::Direction::Vertical(
+                                scrollable::Scrollbar::new().width(4).scroller_width(4),
+                            ))
+                            .width(Length::Fill)
+                            .height(Length::Shrink)
+                            .style(styles::scrollable_style(theme_cfg))
+                            .boxed()
+                    } else {
+                        padded_card_inner.boxed()
+                    };
+
+                    // Card container matching the general app UI with balanced bottom padding
+                    let bottom_right_card = container(card_body)
+                        .width(INFO_PANEL_WIDTH)
+                        .clip(true)
+                        .style(move |_| container::Style {
+                            background: Some(iced::Background::Color(theme_cfg.surface)),
+                            border: iced::Border {
+                                radius: theme_cfg.border_radius.md,
+                                color: theme_cfg.border,
+                                width: 1.0,
+                            },
+                            text_color: Some(theme_cfg.text),
+                            ..Default::default()
+                        });
+
+                    let mut right_section = column![Space::new().height(Length::Fill).boxed()]
+                        .width(INFO_PANEL_WIDTH)
+                        .height(Length::Fill)
+                        .align_x(Alignment::Center);
+
+                    if let Some(c_size) = cover_size {
+                        let cover_icon_size = (c_size * 0.36).clamp(16.0, 100.0);
+                        let cover_art = component::cover_art(
+                            theme_cfg,
+                            current_cover,
+                            c_size,
+                            theme_cfg.border_radius.md,
+                            icons::ALBUM_SVG,
+                            cover_icon_size,
+                            theme_cfg.primary,
+                        );
+                        right_section = right_section
+                            .push(cover_art)
+                            .push(Space::new().height(COVER_ART_GAP).boxed());
+                    }
+
+                    right_section = right_section.push(bottom_right_card.boxed());
+
+                    row![
+                        Space::new().width(Length::Fill).boxed(),
+                        right_section.boxed()
+                    ]
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .boxed()
+                }))
                 .padding(24)
                 .width(Length::Fill)
                 .height(Length::Fill);
@@ -590,11 +633,12 @@ mod tests {
     #[test]
     fn test_now_playing_empty_state_renders() {
         let theme_cfg = ThemeConfig::default();
+        let fonts = font::FontConfig::default();
         let now_playing_view = NowPlayingView::default();
 
         let _element = now_playing_view.view(
             &theme_cfg,
-            &font::FontConfig::default(),
+            &fonts,
             None,
             None,
             None,
@@ -609,6 +653,7 @@ mod tests {
     #[test]
     fn test_now_playing_with_track_and_next_track() {
         let theme_cfg = ThemeConfig::default();
+        let fonts = font::FontConfig::default();
 
         let track = Track {
             id: 1,
@@ -665,7 +710,7 @@ mod tests {
 
         let _element = now_playing_view.view(
             &theme_cfg,
-            &font::FontConfig::default(),
+            &fonts,
             Some(&track),
             None,
             None,

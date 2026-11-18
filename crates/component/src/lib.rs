@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use iced::{
     border::Radius,
-    widget::{button, column, container, image, row, Space, Widget},
+    widget::{button, column, container, image, row, rule, Space, Widget},
     Alignment, Background, Border, Color, ContentFit, Element, Length, Shadow,
 };
 
@@ -35,24 +35,14 @@ pub fn text<'a>(font: iced::Font, content: impl Into<Cow<'a, str>>) -> iced::wid
 }
 
 pub fn border_vert<'a, M: 'a>(width: f32, color: Color) -> iced::Element<'a, M> {
-    container("")
-        .width(Length::Fill)
-        .height(width)
-        .style(move |_| container::Style {
-            background: Some(Background::Color(color)),
-            ..Default::default()
-        })
+    rule::horizontal(width)
+        .style(styles::border_rule(color))
         .boxed()
 }
 
 pub fn border_hori<'a, M: 'a>(width: f32, color: Color) -> iced::Element<'a, M> {
-    container("")
-        .width(width)
-        .height(Length::Fill)
-        .style(move |_| container::Style {
-            background: Some(Background::Color(color)),
-            ..Default::default()
-        })
+    rule::vertical(width)
+        .style(styles::border_rule(color))
         .boxed()
 }
 

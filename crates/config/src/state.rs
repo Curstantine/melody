@@ -6,7 +6,7 @@ use tracing::{error, info};
 use crate::navigation::{SettingsTab, ViewTab};
 use model::{AlbumSortField, ArtistSortField, PlaylistSortField, RepeatMode, ViewMode};
 
-pub const WINDOW_MIN_WIDTH: f32 = 1000.0;
+pub const WINDOW_MIN_WIDTH: f32 = 800.0;
 pub const WINDOW_MIN_HEIGHT: f32 = 520.0;
 
 const fn default_volume() -> f32 {

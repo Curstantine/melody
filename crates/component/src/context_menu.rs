@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use iced::widget::{button, column, container, mouse_area, row, Space, Widget};
-use iced::{Alignment, Background, Color, Element, Length, Point, Size};
+use iced::{Alignment, Color, Element, Length, Point, Size};
 use model::{AlbumSummary, ArtistSummary, PlaylistSummary, TrackRow};
 
 use crate::{icons, styles, text};
@@ -136,13 +136,8 @@ fn menu_header<'a, M: 'a>(
 }
 
 fn menu_separator<'a, M: 'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, M> {
-    container("")
-        .width(Length::Fill)
-        .height(1)
-        .style(move |_| container::Style {
-            background: Some(Background::Color(theme_cfg.border)),
-            ..Default::default()
-        })
+    container(crate::border_vert(1.0, theme_cfg.border))
+        .padding([2, 0])
         .boxed()
 }
 

@@ -51,3 +51,39 @@ impl PartialEq for ScrollOffset {
         self.get() == other.get()
     }
 }
+
+/// Computes a clamped dimension for a collapsible element given `available` space,
+/// subtracting `reserved` space and returning `None` if the remainder is below `min`.
+pub fn collapsible_size(available: f32, reserved: f32, min: f32, max: f32) -> Option<f32> {
+    let remaining = available - reserved;
+    (remaining >= min).then(|| remaining.min(max))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::collapsible_size;
+
+    #[test]
+    fn test_collapsible_size_scales_and_hides() {
+        let reserved = 376.0;
+        let min = 120.0;
+        let max = 340.0;
+
+        assert_eq!(collapsible_size(800.0, reserved, min, max), Some(max));
+        assert_eq!(
+            collapsible_size(reserved + max, reserved, min, max),
+            Some(max)
+        );
+        assert_eq!(collapsible_size(600.0, reserved, min, max), Some(224.0));
+        assert_eq!(collapsible_size(500.0, reserved, min, max), Some(124.0));
+        assert_eq!(
+            collapsible_size(reserved + min, reserved, min, max),
+            Some(min)
+        );
+        assert_eq!(
+            collapsible_size(reserved + min - 1.0, reserved, min, max),
+            None
+        );
+        assert_eq!(collapsible_size(250.0, reserved, min, max), None);
+    }
+}
