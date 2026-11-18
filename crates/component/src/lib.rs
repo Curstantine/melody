@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use iced::{
     border::Radius,
     widget::{button, column, container, image, row, rule, Space, Widget},
-    Alignment, Background, Border, Color, ContentFit, Element, Length, Shadow,
+    Alignment, Border, Color, ContentFit, Element, Length,
 };
 
 use model::{SortDirection, ViewMode};
@@ -13,19 +13,21 @@ pub mod catalog;
 pub mod context_menu;
 pub mod icons;
 pub mod marquee;
+pub mod settings;
 pub mod spinner;
 pub mod styles;
 
 pub use crate::{
     catalog::{
-        CatalogRow, CatalogTile, TrackRow, CATALOG_LIST_ART_SIZE, CATALOG_LIST_ROW_HEIGHT,
-        CATALOG_ROW_SPACING, CATALOG_TILE_META_HEIGHT, TRACK_ROW_HEIGHT,
+        catalog_cover_art, CatalogRow, CatalogTile, TrackRow, CATALOG_LIST_ART_SIZE,
+        CATALOG_LIST_ROW_HEIGHT, CATALOG_ROW_SPACING, CATALOG_TILE_META_HEIGHT, TRACK_ROW_HEIGHT,
     },
     context_menu::{
         render_context_menu, ContextMenuAction, ContextMenuState, ContextMenuSubmenu,
         ContextMenuTarget, TrackMenuContext,
     },
     marquee::Marquee,
+    settings::{metric_box, settings_card, settings_danger_row, settings_header, settings_row},
     spinner::Spinner,
 };
 
@@ -285,176 +287,6 @@ pub fn cover_art<'a, M: 'a>(
         })
         .boxed(),
     }
-}
-
-/// An interactive catalog cover displaying artwork or a placeholder icon.
-///
-/// On hover:
-/// - If artwork image is present: darkens the cover with a semi-transparent overlay.
-/// - If fallback placeholder: transitions the background from `surface` to `surface_hover`.
-///
-/// Clicks trigger the provided `on_press` message.
-#[allow(clippy::too_many_arguments)]
-pub fn catalog_cover_art<'a, M: Clone + 'static>(
-    theme_cfg: &'a ThemeConfig,
-    cover: Option<&image::Handle>,
-    size: f32,
-    radius: impl Into<Radius>,
-    fallback_icon_svg: &'static str,
-    fallback_icon_size: f32,
-    fallback_icon_color: iced::Color,
-    on_press: M,
-) -> Element<'a, M> {
-    let radius: Radius = radius.into();
-    let border_color = theme_cfg.border;
-
-    match cover {
-        Some(handle) => {
-            let image_layer = container(
-                image(handle.clone())
-                    .width(Length::Fixed(size))
-                    .height(Length::Fixed(size))
-                    .content_fit(ContentFit::Cover)
-                    .border_radius(radius),
-            )
-            .width(size)
-            .height(size)
-            .center_x(size)
-            .center_y(size)
-            .clip(true)
-            .style(move |_theme| container::Style {
-                border: Border {
-                    radius,
-                    color: border_color,
-                    width: 1.0,
-                },
-                ..Default::default()
-            });
-
-            let overlay_btn = button(Space::new().width(Length::Fill).height(Length::Fill))
-                .width(size)
-                .height(size)
-                .style(move |_theme, status| {
-                    let bg = match status {
-                        button::Status::Active => Color::TRANSPARENT,
-                        button::Status::Hovered => Color::from_rgba(0.0, 0.0, 0.0, 0.5),
-                        button::Status::Pressed => Color::from_rgba(0.0, 0.0, 0.0, 0.5),
-                        button::Status::Disabled => Color::TRANSPARENT,
-                    };
-                    button::Style {
-                        background: Some(Background::Color(bg)),
-                        border: Border {
-                            radius,
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    }
-                })
-                .on_press(on_press);
-
-            iced::widget::stack([image_layer.boxed(), overlay_btn.boxed()]).boxed()
-        }
-        None => {
-            let placeholder_bg = theme_cfg.surface;
-            let placeholder_hover_bg = theme_cfg.surface_hover;
-
-            let placeholder_content = container(icons::icon(
-                fallback_icon_svg,
-                fallback_icon_size,
-                fallback_icon_color,
-            ))
-            .width(size)
-            .height(size)
-            .center_x(size)
-            .center_y(size);
-
-            button(placeholder_content)
-                .width(size)
-                .height(size)
-                .padding(0)
-                .style(move |_theme, status| {
-                    let bg = match status {
-                        button::Status::Active => placeholder_bg,
-                        button::Status::Hovered => placeholder_hover_bg,
-                        button::Status::Pressed => placeholder_hover_bg,
-                        button::Status::Disabled => placeholder_bg,
-                    };
-                    button::Style {
-                        background: Some(Background::Color(bg)),
-                        border: Border {
-                            radius,
-                            color: border_color,
-                            width: 1.0,
-                        },
-                        shadow: Shadow::default(),
-                        snap: true,
-                        text_color: Color::TRANSPARENT,
-                    }
-                })
-                .on_press(on_press)
-                .boxed()
-        }
-    }
-}
-
-pub fn settings_header<'a, M: 'a>(
-    theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
-    title: &'static str,
-    description: Option<&'static str>,
-) -> Element<'a, M> {
-    let mut header = column![text(font, title).size(20).color(theme_cfg.text),];
-
-    if let Some(x) = description {
-        header = header.push(text(font, x).size(12).color(theme_cfg.text_muted).boxed());
-    }
-
-    header.spacing(4).boxed()
-}
-
-/// A card container with a primary colored title header.
-pub fn settings_card<'a, M: 'a>(
-    theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
-    title: &'static str,
-    content: Element<'a, M>,
-) -> Element<'a, M> {
-    column![
-        text(font, title).size(11).color(theme_cfg.primary),
-        Space::new().height(4),
-        border_vert(1.0, theme_cfg.border),
-        Space::new().height(12),
-        content
-    ]
-    .boxed()
-}
-
-/// A metric card displaying a prominent value and muted label.
-pub fn metric_box<'a, M: 'a>(
-    theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
-    label: &'static str,
-    value: String,
-) -> Element<'a, M> {
-    container(
-        column![
-            text(font, value).size(16).color(theme_cfg.text),
-            text(font, label).size(11).color(theme_cfg.text_muted),
-        ]
-        .spacing(2)
-        .padding([8, 12]),
-    )
-    .style(move |_theme| container::Style {
-        background: Some(iced::Background::Color(theme_cfg.surface)),
-        border: Border {
-            radius: theme_cfg.border_radius.sm,
-            color: theme_cfg.border,
-            width: 1.0,
-        },
-        ..Default::default()
-    })
-    .width(Length::FillPortion(1))
-    .boxed()
 }
 
 /// A self-contained scanning indicator component powered by the `Spinner` widget.

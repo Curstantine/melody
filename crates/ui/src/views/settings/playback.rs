@@ -2,7 +2,7 @@ use iced::widget::{button, column, pick_list, row, slider, toggler, Space, Widge
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
-use component::{self, icons, styles, text};
+use component::{self, icons, styles};
 use theme::ThemeConfig;
 
 use super::*;
@@ -63,22 +63,15 @@ impl SettingsView {
             .style(styles::ghost_button(theme_cfg, false))
             .on_press(Message::RefreshOutputDevices);
 
-        let output_device_row = row![
-            column![
-                text(font, "Output device")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(font, "Select the audio hardware device used for playback",)
-                    .size(11)
-                    .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let output_device_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Output device",
+            "Select the audio hardware device used for playback",
             row![refresh_devices_btn, device_selector]
                 .spacing(SPACE_SM)
                 .align_y(Alignment::Center),
-        ]
-        .align_y(Alignment::Center);
+        );
 
         let output_card = component::settings_card(
             theme_cfg,
@@ -88,26 +81,16 @@ impl SettingsView {
         );
 
         // 1. Audio Transitions Card
-        let gapless_row = row![
-            column![
-                text(font, "Gapless audio playback")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(
-                    font,
-                    "Preload upcoming tracks in memory for seamless, uninterrupted transitions",
-                )
-                .size(11)
-                .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let gapless_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Gapless audio playback",
+            "Preload upcoming tracks in memory for seamless, uninterrupted transitions",
             toggler(ctx.gapless)
                 .on_toggle(Message::ToggleGapless)
                 .size(TOGGLER_SIZE)
                 .style(styles::toggler_style(theme_cfg)),
-        ]
-        .align_y(Alignment::Center);
+        );
 
         let transitions_card = component::settings_card(
             theme_cfg,
@@ -117,48 +100,28 @@ impl SettingsView {
         );
 
         // 2. Playback Behavior Card
-        let volume_row = row![
-            column![
-                text(font, "Master output volume")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(
-                    font,
-                    "Default master volume multiplier applied to audio stream playback",
-                )
-                .size(11)
-                .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let volume_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Master output volume",
+            "Default master volume multiplier applied to audio stream playback",
             slider(0.0..=1.0, ctx.volume, Message::VolumeChanged)
                 .step(0.01)
                 .on_release(Message::SaveState)
                 .style(styles::settings_slider_style(theme_cfg))
                 .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
-        ]
-        .align_y(Alignment::Center);
+        );
 
-        let shuffle_row = row![
-            column![
-                text(font, "Shuffle playback")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(
-                    font,
-                    "Randomize track selection and playback order within active queue",
-                )
-                .size(11)
-                .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let shuffle_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Shuffle playback",
+            "Randomize track selection and playback order within active queue",
             toggler(ctx.is_shuffle)
                 .on_toggle(|_| Message::ToggleShuffle)
                 .size(TOGGLER_SIZE)
                 .style(styles::toggler_style(theme_cfg)),
-        ]
-        .align_y(Alignment::Center);
+        );
 
         let repeat_selector = pick_list(
             Some(ctx.repeat_mode),
@@ -176,44 +139,24 @@ impl SettingsView {
         .style(styles::pick_list_style(theme_cfg))
         .menu_style(styles::menu_style(theme_cfg));
 
-        let repeat_row = row![
-            column![
-                text(font, "Repeat mode")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(
-                    font,
-                    "Choose whether playback stops, loops the active queue, or loops the current track",
-                )
-                .size(11)
-                .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let repeat_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Repeat mode",
+            "Choose whether playback stops, loops the active queue, or loops the current track",
             repeat_selector,
-        ]
-        .align_y(Alignment::Center);
+        );
 
-        let tray_row = row![
-            column![
-                text(font, "Minimize to tray on close")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(
-                    font,
-                    "Keep Melody running in the system tray when closed, freeing GPU memory",
-                )
-                .size(11)
-                .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let tray_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Minimize to tray on close",
+            "Keep Melody running in the system tray when closed, freeing GPU memory",
             toggler(ctx.minimize_to_tray)
                 .on_toggle(Message::ToggleMinimizeToTray)
                 .size(TOGGLER_SIZE)
                 .style(styles::toggler_style(theme_cfg)),
-        ]
-        .align_y(Alignment::Center);
+        );
 
         let behavior_card = component::settings_card(
             theme_cfg,
@@ -241,23 +184,13 @@ impl SettingsView {
         .style(styles::pick_list_style(theme_cfg))
         .menu_style(styles::menu_style(theme_cfg));
 
-        let filter_row = row![
-            column![
-                text(font, "Resampling filter algorithm")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(
-                    font,
-                    "Polyphase sinc filter or interpolation method used for sample rate conversion",
-                )
-                .size(11)
-                .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let filter_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Resampling filter algorithm",
+            "Polyphase sinc filter or interpolation method used for sample rate conversion",
             filter_selector,
-        ]
-        .align_y(Alignment::Center);
+        );
 
         let active_filter = ctx.resampling.filter;
         let quality_selector = pick_list(
@@ -284,44 +217,27 @@ impl SettingsView {
             "Length of windowed sinc filter; higher taps sharpen transition band cutoff and reduce aliasing"
         };
 
-        let quality_row = row![
-            column![
-                text(font, "Filter precision & taps")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(font, quality_desc)
-                    .size(11)
-                    .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let quality_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Filter precision & taps",
+            quality_desc,
             quality_selector,
-        ]
-        .align_y(Alignment::Center);
+        );
 
         let mut resampling_rows = vec![filter_row, quality_row];
 
         if active_filter != audio::ResamplingFilter::Soxr {
-            let linear_interp_row = row![
-                column![
-                    text(font, "Filter phase linear interpolation")
-                        .size(12)
-                        .color(theme_cfg.text_muted),
-                    text(
-                        font,
-                        "Linearly interpolate between sinc filter phases for smoother frequency response and reduced noise",
-                    )
-                    .size(11)
-                    .color(theme_cfg.text_muted),
-                ]
-                .spacing(FORM_FIELD_SPACING)
-                .width(Length::Fill),
+            let linear_interp_row = component::settings_row(
+                theme_cfg,
+                font,
+                "Filter phase linear interpolation",
+                "Linearly interpolate between sinc filter phases for smoother frequency response and reduced noise",
                 toggler(ctx.resampling.linear_interp)
                     .on_toggle(Message::ToggleResamplingLinearInterp)
                     .size(TOGGLER_SIZE)
                     .style(styles::toggler_style(theme_cfg)),
-            ]
-            .align_y(Alignment::Center);
+            );
 
             resampling_rows.push(linear_interp_row);
         }

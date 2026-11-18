@@ -17,41 +17,22 @@ impl SettingsView {
         let header = component::settings_header(theme_cfg, font, "Scrobbling & social audio", Some("Track your listening habits and broadcast live playback status to ListenBrainz and Last.fm"));
 
         // 1. General Preferences Card
-        let submit_now_playing_row = row![
-            column![
-                text(font, "Submit \"Now Playing\" status")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(
-                    font,
-                    "Broadcast current track to active scrobbler profiles in real-time",
-                )
-                .size(11)
-                .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let submit_now_playing_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Submit \"Now Playing\" status",
+            "Broadcast current track to active scrobbler profiles in real-time",
             toggler(ctx.submit_now_playing)
                 .on_toggle(Message::ToggleSubmitNowPlaying)
                 .size(TOGGLER_SIZE)
                 .style(styles::toggler_style(theme_cfg)),
-        ]
-        .align_y(Alignment::Center);
+        );
 
-        let threshold_row = row![
-            column![
-                text(font, "Scrobble threshold")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(
-                    font,
-                    "Percentage of track duration that must play before recording a scrobble",
-                )
-                .size(11)
-                .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let threshold_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Scrobble threshold",
+            "Percentage of track duration that must play before recording a scrobble",
             row![
                 text(font, format!("{}%", ctx.scrobble_percent))
                     .size(12)
@@ -66,8 +47,7 @@ impl SettingsView {
                 .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
             ]
             .align_y(Alignment::Center),
-        ]
-        .align_y(Alignment::Center);
+        );
 
         let prefs_card = component::settings_card(
             theme_cfg,

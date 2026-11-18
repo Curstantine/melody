@@ -205,23 +205,13 @@ impl SettingsView {
             font,
             "Typography & font configuration",
             column![
-                row![
-                    column![
-                        text(font, "Select font family")
-                            .size(12)
-                            .color(theme_cfg.text_muted),
-                        text(
-                            font,
-                            "System font family used for UI text rendering and catalog metadata",
-                        )
-                        .size(11)
-                        .color(theme_cfg.text_muted),
-                    ]
-                    .spacing(FORM_FIELD_SPACING)
-                    .width(Length::Fill),
+                component::settings_row(
+                    theme_cfg,
+                    font,
+                    "Select font family",
+                    "System font family used for UI text rendering and catalog metadata",
                     container(font_selector).width(Length::Fixed(SETTING_DROPDOWN_WIDTH)),
-                ]
-                .align_y(Alignment::Center),
+                ),
                 sample_text_box,
             ]
             .spacing(SECTION_SPACING)
@@ -250,49 +240,28 @@ impl SettingsView {
             theme_cfg,
             font,
             "Library tab",
-            row![
-                column![
-                    text(font, "Page limit")
-                        .size(12)
-                        .color(theme_cfg.text_muted),
-                    text(
-                        font,
-                        "Number of tracks fetched and rendered per viewport window",
-                    )
-                    .size(11)
-                    .color(theme_cfg.text_muted),
-                ]
-                .spacing(FORM_FIELD_SPACING)
-                .width(Length::Fill),
+            component::settings_row(
+                theme_cfg,
+                font,
+                "Page limit",
+                "Number of tracks fetched and rendered per viewport window",
                 page_size_buttons,
-            ]
-            .align_y(Alignment::Center)
-            .boxed(),
+            ),
         );
 
         // 2. Albums Tab Section
-        let album_view_mode_row = row![
-            column![
-                text(font, "Catalog view mode")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(
-                    font,
-                    "Switch between grid tile card presentation and compact list table",
-                )
-                .size(11)
-                .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let album_view_mode_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Catalog view mode",
+            "Switch between grid tile card presentation and compact list table",
             component::view_mode_toggle(
                 theme_cfg,
                 font,
                 ctx.albums_view_mode,
                 Message::SetAlbumsViewMode,
             ),
-        ]
-        .align_y(Alignment::Center);
+        );
 
         let album_tile_presets = [140, 170, 210, 260];
         let album_preset_buttons = {
@@ -311,17 +280,11 @@ impl SettingsView {
             r
         };
 
-        let album_tile_width_row = row![
-            column![
-                text(font, "Tile width")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(font, "Artwork card width for the album catalog grid",)
-                    .size(11)
-                    .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let album_tile_width_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Tile width",
+            "Artwork card width for the album catalog grid",
             row![
                 text(font, format!("{} px", ctx.album_tile_width))
                     .size(12)
@@ -338,8 +301,7 @@ impl SettingsView {
                 album_preset_buttons,
             ]
             .align_y(Alignment::Center),
-        ]
-        .align_y(Alignment::Center);
+        );
 
         let albums_tab_card = component::settings_card(
             theme_cfg,
@@ -351,28 +313,18 @@ impl SettingsView {
         );
 
         // 3. Artists Tab Section
-        let artist_view_mode_row = row![
-            column![
-                text(font, "Catalog view mode")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(
-                    font,
-                    "Switch between grid tile card presentation and compact list table",
-                )
-                .size(11)
-                .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let artist_view_mode_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Catalog view mode",
+            "Switch between grid tile card presentation and compact list table",
             component::view_mode_toggle(
                 theme_cfg,
                 font,
                 ctx.artists_view_mode,
                 Message::SetArtistsViewMode,
             ),
-        ]
-        .align_y(Alignment::Center);
+        );
 
         let artist_tile_presets = [140, 160, 200, 240];
         let artist_preset_buttons = {
@@ -391,17 +343,11 @@ impl SettingsView {
             r
         };
 
-        let artist_tile_width_row = row![
-            column![
-                text(font, "Tile width")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(font, "Avatar card width for the artist catalog grid",)
-                    .size(11)
-                    .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let artist_tile_width_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Tile width",
+            "Avatar card width for the artist catalog grid",
             row![
                 text(font, format!("{} px", ctx.artist_tile_width))
                     .size(12)
@@ -418,8 +364,7 @@ impl SettingsView {
                 artist_preset_buttons,
             ]
             .align_y(Alignment::Center),
-        ]
-        .align_y(Alignment::Center);
+        );
 
         let artists_tab_card = component::settings_card(
             theme_cfg,
@@ -481,37 +426,18 @@ impl SettingsView {
             font,
             "Now playing",
             column![
-                row![
-                    column![
-                        text(font, "Lyrics font family")
-                            .size(12)
-                            .color(theme_cfg.text_muted),
-                        text(
-                            font,
-                            "Font used for lyrics in Now Playing (Default follows the primary UI font)",
-                        )
-                        .size(11)
-                        .color(theme_cfg.text_muted),
-                    ]
-                    .spacing(FORM_FIELD_SPACING)
-                    .width(Length::Fill),
+                component::settings_row(
+                    theme_cfg,
+                    font,
+                    "Lyrics font family",
+                    "Font used for lyrics in Now Playing (Default follows the primary UI font)",
                     lyrics_font_selector,
-                ]
-                .align_y(Alignment::Center),
-                row![
-                    column![
-                        text(font, "Lyrics font size")
-                            .size(12)
-                            .color(theme_cfg.text_muted),
-                        text(
-                            font,
-                            "Base text size for synced and plain lyrics in Now Playing",
-                        )
-                        .size(11)
-                        .color(theme_cfg.text_muted),
-                    ]
-                    .spacing(FORM_FIELD_SPACING)
-                    .width(Length::Fill),
+                ),
+                component::settings_row(
+                    theme_cfg,
+                    font,
+                    "Lyrics font size",
+                    "Base text size for synced and plain lyrics in Now Playing",
                     row![
                         text(font, format!("{} px", ctx.lyrics_font_size))
                             .size(12)
@@ -528,8 +454,7 @@ impl SettingsView {
                         lyrics_size_preset_buttons,
                     ]
                     .align_y(Alignment::Center),
-                ]
-                .align_y(Alignment::Center),
+                ),
             ]
             .spacing(SPACE_MD)
             .boxed(),
@@ -539,20 +464,11 @@ impl SettingsView {
             theme_cfg,
             font,
             "Miscellaneous",
-            row![
-                column![
-                    text(font, "Component gallery & theme tokens")
-                        .size(12)
-                        .color(theme_cfg.text_muted),
-                    text(
-                        font,
-                        "Inspect all active palette colors, typography, and interactive controls",
-                    )
-                    .size(11)
-                    .color(theme_cfg.text_muted),
-                ]
-                .spacing(FORM_FIELD_SPACING)
-                .width(Length::Fill),
+            component::settings_row(
+                theme_cfg,
+                font,
+                "Component gallery & theme tokens",
+                "Inspect all active palette colors, typography, and interactive controls",
                 button(
                     row![
                         icons::icon(icons::OPEN_SVG, 14.0, theme_cfg.text),
@@ -564,9 +480,7 @@ impl SettingsView {
                 .padding(BUTTON_PADDING_MD)
                 .style(styles::ghost_button(theme_cfg, false))
                 .on_press(Message::SetDebugSubpage(true)),
-            ]
-            .align_y(Alignment::Center)
-            .boxed(),
+            ),
         );
 
         column![

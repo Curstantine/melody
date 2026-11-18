@@ -1,8 +1,9 @@
 use std::borrow::Cow;
 
+use iced::border::Radius;
 use iced::widget::text::{Ellipsis, Wrapping};
-use iced::widget::{button, column, container, row, Space, Widget};
-use iced::{Alignment, Element, Length, Padding};
+use iced::widget::{button, column, container, image, row, Space, Widget};
+use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length, Padding, Shadow};
 
 use theme::ThemeConfig;
 
@@ -439,5 +440,115 @@ impl<'a, M: Clone + 'static> TrackRow<'a, M> {
         .width(Length::Fill)
         .height(TRACK_ROW_HEIGHT)
         .boxed()
+    }
+}
+
+/// An interactive catalog cover displaying artwork or a placeholder icon.
+///
+/// On hover:
+/// - If artwork image is present: darkens the cover with a semi-transparent overlay.
+/// - If fallback placeholder: transitions the background from `surface` to `surface_hover`.
+///
+/// Clicks trigger the provided `on_press` message.
+#[allow(clippy::too_many_arguments)]
+pub fn catalog_cover_art<'a, M: Clone + 'static>(
+    theme_cfg: &'a ThemeConfig,
+    cover: Option<&image::Handle>,
+    size: f32,
+    radius: impl Into<Radius>,
+    fallback_icon_svg: &'static str,
+    fallback_icon_size: f32,
+    fallback_icon_color: iced::Color,
+    on_press: M,
+) -> Element<'a, M> {
+    let radius: Radius = radius.into();
+    let border_color = theme_cfg.border;
+
+    match cover {
+        Some(handle) => {
+            let image_layer = container(
+                image(handle.clone())
+                    .width(Length::Fixed(size))
+                    .height(Length::Fixed(size))
+                    .content_fit(ContentFit::Cover)
+                    .border_radius(radius),
+            )
+            .width(size)
+            .height(size)
+            .center_x(size)
+            .center_y(size)
+            .clip(true)
+            .style(move |_theme| container::Style {
+                border: Border {
+                    radius,
+                    color: border_color,
+                    width: 1.0,
+                },
+                ..Default::default()
+            });
+
+            let overlay_btn = button(Space::new().width(Length::Fill).height(Length::Fill))
+                .width(size)
+                .height(size)
+                .style(move |_theme, status| {
+                    let bg = match status {
+                        button::Status::Active => Color::TRANSPARENT,
+                        button::Status::Hovered => Color::from_rgba(0.0, 0.0, 0.0, 0.5),
+                        button::Status::Pressed => Color::from_rgba(0.0, 0.0, 0.0, 0.5),
+                        button::Status::Disabled => Color::TRANSPARENT,
+                    };
+                    button::Style {
+                        background: Some(Background::Color(bg)),
+                        border: Border {
+                            radius,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }
+                })
+                .on_press(on_press);
+
+            iced::widget::stack([image_layer.boxed(), overlay_btn.boxed()]).boxed()
+        }
+        None => {
+            let placeholder_bg = theme_cfg.surface;
+            let placeholder_hover_bg = theme_cfg.surface_hover;
+
+            let placeholder_content = container(icons::icon(
+                fallback_icon_svg,
+                fallback_icon_size,
+                fallback_icon_color,
+            ))
+            .width(size)
+            .height(size)
+            .center_x(size)
+            .center_y(size);
+
+            button(placeholder_content)
+                .width(size)
+                .height(size)
+                .padding(0)
+                .style(move |_theme, status| {
+                    let bg = match status {
+                        button::Status::Active => placeholder_bg,
+                        button::Status::Hovered => placeholder_hover_bg,
+                        button::Status::Pressed => placeholder_hover_bg,
+                        button::Status::Disabled => placeholder_bg,
+                    };
+                    button::Style {
+                        background: Some(Background::Color(bg)),
+                        border: Border {
+                            radius,
+                            color: border_color,
+                            width: 1.0,
+                        },
+                        shadow: Shadow::default(),
+                        snap: true,
+                        text_color: Color::TRANSPARENT,
+                    }
+                })
+                .on_press(on_press)
+                .boxed()
+        }
     }
 }

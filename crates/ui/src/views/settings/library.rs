@@ -175,26 +175,16 @@ impl SettingsView {
             col.boxed()
         };
 
-        let watch_dirs_row = row![
-            column![
-                text(font, "Watch library folders")
-                    .size(12)
-                    .color(theme_cfg.text_muted),
-                text(
-                    font,
-                    "Automatically monitor directories and scan for new audio files"
-                )
-                .size(11)
-                .color(theme_cfg.text_muted),
-            ]
-            .spacing(FORM_FIELD_SPACING)
-            .width(Length::Fill),
+        let watch_dirs_row = component::settings_row(
+            theme_cfg,
+            font,
+            "Watch library folders",
+            "Automatically monitor directories and scan for new audio files",
             toggler(ctx.watch_library)
                 .on_toggle(Message::ToggleWatchLibrary)
                 .size(TOGGLER_SIZE)
                 .style(styles::toggler_style(theme_cfg)),
-        ]
-        .align_y(Alignment::Center);
+        );
 
         let folders_card = component::settings_card(
             theme_cfg,
@@ -298,69 +288,41 @@ impl SettingsView {
             font,
             "Library actions & maintenance",
             column![
-                row![
-                    column![
-                        text(font, "Scan for new files")
-                            .size(12)
-                            .color(theme_cfg.text_muted),
-                        text(font, "Quickly checks library folders and indexes newly added files without rescanning unchanged tracks.")
-                            .size(11)
-                            .color(theme_cfg.text_muted),
-                    ]
-                    .spacing(FORM_FIELD_SPACING)
-                    .width(Length::Fill),
+                component::settings_row(
+                    theme_cfg,
+                    font,
+                    "Scan for new files",
+                    "Quickly checks library folders and indexes newly added files without rescanning unchanged tracks.",
                     scan_new_btn,
-                ]
-                .align_y(Alignment::Center),
+                ),
                 Space::new().height(SPACE_MD),
-                row![
-                    column![
-                        text(font, "Full reindex")
-                            .size(12)
-                            .color(theme_cfg.text_muted),
-                        text(font, "Scans all configured music folders, updates metadata tags, and repopulates the library.")
-                            .size(11)
-                            .color(theme_cfg.text_muted),
-                    ]
-                    .spacing(FORM_FIELD_SPACING)
-                    .width(Length::Fill),
+                component::settings_row(
+                    theme_cfg,
+                    font,
+                    "Full reindex",
+                    "Scans all configured music folders, updates metadata tags, and repopulates the library.",
                     reindex_all_btn,
-                ]
-                .align_y(Alignment::Center),
+                ),
                 Space::new().height(SPACE_MD),
-                row![
-                    column![
-                        text(font, "Purge thumbnail cache")
-                            .size(12)
-                            .color(theme_cfg.text_muted),
-                        text(font, format!(
-                            "Deletes all {} cached thumbnail images ({}) from disk and evicts active decoded cover textures from memory. Thumbnails will regenerate when viewed.",
-                            ctx.cache_file_count,
-                            format_file_size(ctx.cache_size_bytes),
-                        ))
-                        .size(11)
-                        .color(theme_cfg.text_muted),
-                    ]
-                    .spacing(FORM_FIELD_SPACING)
-                    .width(Length::Fill),
+                component::settings_row(
+                    theme_cfg,
+                    font,
+                    "Purge thumbnail cache",
+                    format!(
+                        "Deletes all {} cached thumbnail images ({}) from disk and evicts active decoded cover textures from memory. Thumbnails will regenerate when viewed.",
+                        ctx.cache_file_count,
+                        format_file_size(ctx.cache_size_bytes),
+                    ),
                     clear_cache_btn,
-                ]
-                .align_y(Alignment::Center),
+                ),
                 Space::new().height(SPACE_MD),
-                row![
-                    column![
-                        text(font, "Reset library database")
-                            .size(12)
-                            .color(theme_cfg.danger),
-                        text(font, "Clears all indexed tracks, albums, and artist metadata from database. Your audio files on disk remain untouched.")
-                            .size(11)
-                            .color(theme_cfg.text_muted),
-                    ]
-                    .spacing(FORM_FIELD_SPACING)
-                    .width(Length::Fill),
+                component::settings_danger_row(
+                    theme_cfg,
+                    font,
+                    "Reset library database",
+                    "Clears all indexed tracks, albums, and artist metadata from database. Your audio files on disk remain untouched.",
                     clear_db_btn,
-                ]
-                .align_y(Alignment::Center),
+                ),
             ]
             .spacing(CARD_SPACING).boxed(),
         );
