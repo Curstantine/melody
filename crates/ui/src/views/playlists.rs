@@ -248,13 +248,13 @@ impl PlaylistsView {
 
     pub fn recompute_rendered_details(&mut self, playlists_fmt: &layout::PlaylistsFormatConfig) {
         self.detail_tracks_str = format!("{} tracks", self.detail_items.len());
+        let track_map: HashMap<i64, &TrackRow> =
+            self.detail_tracks.iter().map(|t| (t.id, t)).collect();
         self.rendered_detail_items = self
             .detail_items
             .iter()
             .map(|item| {
-                let track_row = item
-                    .track_id
-                    .and_then(|tid| self.detail_tracks.iter().find(|t| t.id == tid));
+                let track_row = item.track_id.and_then(|tid| track_map.get(&tid).copied());
                 let lookup = |key: &str| -> Option<String> {
                     if let Some(t) = track_row {
                         if let Some(v) = t.lookup(key) {

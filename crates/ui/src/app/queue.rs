@@ -375,15 +375,11 @@ impl App {
 
         let target = if is_shuffle {
             let len = queue.len();
+            let current = queue.current_index().unwrap_or(0);
             if len <= 1 {
-                queue.current_index().unwrap_or(0)
+                current
             } else {
-                let current = queue.current_index().unwrap_or(0);
-                let mut pick = (position_seed as usize ^ 0x9e3779b9) % len;
-                if pick == current {
-                    pick = (pick + 1) % len;
-                }
-                pick
+                ::queue::shuffle_pick_index(current, position_seed, len)
             }
         } else if forward {
             match queue.next_index() {

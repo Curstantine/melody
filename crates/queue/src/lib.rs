@@ -509,6 +509,31 @@ impl QueueStore {
     }
 }
 
+/// Deterministic SplitMix64-based next-index selector for shuffle mode.
+///
+/// Mixes both `current_index` and `position_seed` through SplitMix64 avalanche
+/// multipliers so that rapid track skips (where `position_seed == 0`) still visit
+/// a well-distributed sequence across the queue instead of alternating between two slots,
+/// while remaining pure/deterministic for a fixed `(current_index, position_seed)` pair
+/// (so "Up next" previews and gapless preloading match the track that actually plays next).
+pub fn shuffle_pick_index(current_index: usize, position_seed: u64, len: usize) -> usize {
+    if len <= 1 {
+        return 0;
+    }
+    let mut z = (current_index as u64)
+        .wrapping_add(1)
+        .wrapping_mul(0x9e37_79b9_7f4a_7c15)
+        ^ position_seed.wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    z ^= z >> 31;
+    let mut pick = (z as usize) % len;
+    if pick == current_index {
+        pick = (pick + 1) % len;
+    }
+    pick
+}
+
 /// Fisher–Yates shuffle seeded from the system clock (no `rand` dependency).
 pub fn shuffle_tracks(tracks: &mut [TrackRow]) {
     if tracks.len() < 2 {
@@ -783,5 +808,24 @@ mod tests {
         ] {
             assert_eq!(QueueSource::from_str(source.as_str()), source);
         }
+    }
+
+    #[test]
+    fn shuffle_pick_index_avoids_two_song_cycle_at_zero_position() {
+        let len = 50;
+        let mut cur = 0;
+        let mut visited = std::collections::HashSet::new();
+        for _ in 0..20 {
+            visited.insert(cur);
+            let next = shuffle_pick_index(cur, 0, len);
+            assert_ne!(next, cur);
+            assert!(next < len);
+            cur = next;
+        }
+        assert!(
+            visited.len() > 5,
+            "shuffle at position_seed=0 should visit diverse tracks, got {:?}",
+            visited
+        );
     }
 }

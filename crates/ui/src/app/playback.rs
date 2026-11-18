@@ -647,14 +647,11 @@ impl App {
         if let Some(queue) = self.queues.active_queue() {
             if self.is_shuffle && !queue.is_empty() {
                 let len = queue.len();
-                if len <= 1 {
-                    return queue.tracks.get(queue.current_index().unwrap_or(0));
-                }
                 let current = queue.current_index().unwrap_or(0);
-                let mut pick = (self.position_ms as usize ^ 0x9e3779b9) % len;
-                if pick == current {
-                    pick = (pick + 1) % len;
+                if len <= 1 {
+                    return queue.tracks.get(current);
                 }
+                let pick = ::queue::shuffle_pick_index(current, self.position_ms, len);
                 return queue.tracks.get(pick);
             }
             if let Some(idx) = queue.next_index() {
