@@ -335,11 +335,15 @@ impl App {
                         let path = playlist::unique_playlist_path(&name);
                         let entries: Vec<PlaylistEntry> = tracks
                             .iter()
-                            .map(|t| PlaylistEntry {
-                                raw_path: t.file_path.clone(),
-                                resolved_path: PathBuf::from(&t.file_path),
-                                title: Some(t.title.clone()),
-                                duration_ms: Some(t.duration_ms),
+                            .map(|t| {
+                                let raw_path = t.file_path.to_string();
+                                let resolved_path = PathBuf::from(&raw_path);
+                                PlaylistEntry {
+                                    raw_path,
+                                    resolved_path,
+                                    title: Some(t.title.clone()),
+                                    duration_ms: Some(t.duration_ms),
+                                }
                             })
                             .collect();
                         if let Err(e) = write_m3u(&path, &entries) {

@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use turso::Row;
 
-use model::{format_duration, intern, SortField, Track, TrackFilter, TrackRow};
+use model::{format_duration_stack, intern, SortField, Track, TrackFilter, TrackPath, TrackRow};
 
 use crate::DbError;
 
@@ -129,6 +129,7 @@ pub(crate) fn map_track_row_summary(row: &Row) -> Result<TrackRow, DbError> {
     let artist: String = row.get(2)?;
     let album: String = row.get(3)?;
     let duration: i64 = row.get(4)?;
+    let file_path: String = row.get(5)?;
     let year: Option<i64> = row.get(6)?;
     let track_num: Option<i64> = row.get(7)?;
     let disc_num: Option<i64> = row.get(8)?;
@@ -140,8 +141,8 @@ pub(crate) fn map_track_row_summary(row: &Row) -> Result<TrackRow, DbError> {
         artist: intern::intern(&artist),
         album: intern::intern(&album),
         duration_ms: duration as u64,
-        file_path: row.get(5)?,
-        duration_label: format_duration(duration as u64),
+        file_path: TrackPath::new(&file_path),
+        duration_label: format_duration_stack(duration as u64),
         year: year.map(|y| y as u32),
         track_num: track_num.map(|n| n as u32),
         disc_num: disc_num.map(|n| n as u32),

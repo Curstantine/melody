@@ -612,12 +612,12 @@ mod tests {
 
         let next_track = TrackRow {
             id: 2,
-            file_path: "/music/track2.flac".to_string(),
+            file_path: "/music/track2.flac".into(),
             title: "Night Cruise".to_string(),
             artist: "Synthwave Master".into(),
             album: "Future Echoes".into(),
             duration_ms: 198_000,
-            duration_label: "3:18".to_string(),
+            duration_label: "3:18".into(),
             year: None,
             track_num: None,
             disc_num: None,

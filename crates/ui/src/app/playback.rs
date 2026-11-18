@@ -79,7 +79,7 @@ impl App {
 
                         let track_id = next_track.id;
                         let duration_ms = next_track.duration_ms;
-                        let file_path = next_track.file_path;
+                        let file_path = next_track.file_path.to_string();
                         let title = next_track.title;
                         let artist = next_track.artist.to_string();
                         let album = next_track.album.to_string();
@@ -790,7 +790,7 @@ impl App {
         }
 
         if let Some(next_track) = self.get_next_track() {
-            let path = PathBuf::from(&next_track.file_path);
+            let path = next_track.file_path.to_path_buf();
             self.audio_controller.set_next_track(Some(path));
             self.pending_gapless_next = Some(next_track.clone());
         } else {

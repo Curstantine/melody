@@ -8,31 +8,47 @@
 
 use std::{
     collections::HashSet,
-    sync::{Arc, Mutex, OnceLock},
+    sync::{Arc, OnceLock, RwLock},
 };
 
 /// Shared, interned string handle. Dereferences to `&str`.
 pub type InternedStr = Arc<str>;
 
+static EMPTY_STR: OnceLock<Arc<str>> = OnceLock::new();
+
+fn empty_arc_str() -> Arc<str> {
+    EMPTY_STR.get_or_init(|| Arc::from("")).clone()
+}
+
 struct Interner {
-    pool: Mutex<HashSet<Arc<str>>>,
+    pool: RwLock<HashSet<Arc<str>>>,
 }
 
 impl Interner {
     fn new() -> Self {
         Self {
-            pool: Mutex::new(HashSet::new()),
+            pool: RwLock::new(HashSet::new()),
         }
     }
 
     /// Returns a shared handle for `s`, allocating only the first time a value
-    /// is seen.
+    /// is seen. Read hits take a shared read lock; only misses acquire the write lock.
     fn intern(&self, s: &str) -> Arc<str> {
         if s.is_empty() {
-            return Arc::from("");
+            return empty_arc_str();
         }
 
-        let mut pool = match self.pool.lock() {
+        {
+            let pool = match self.pool.read() {
+                Ok(pool) => pool,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            if let Some(existing) = pool.get(s) {
+                return existing.clone();
+            }
+        }
+
+        let mut pool = match self.pool.write() {
             Ok(pool) => pool,
             Err(poisoned) => poisoned.into_inner(),
         };
@@ -45,7 +61,7 @@ impl Interner {
     }
 
     fn clear(&self) {
-        if let Ok(mut pool) = self.pool.lock() {
+        if let Ok(mut pool) = self.pool.write() {
             pool.clear();
             pool.shrink_to_fit();
         }
@@ -53,7 +69,7 @@ impl Interner {
 
     #[cfg(test)]
     fn len(&self) -> usize {
-        self.pool.lock().map(|pool| pool.len()).unwrap_or(0)
+        self.pool.read().map(|pool| pool.len()).unwrap_or(0)
     }
 }
 
@@ -90,6 +106,10 @@ mod tests {
         let b = intern("Pink Floyd");
         assert!(Arc::ptr_eq(&a, &b));
         assert!(distinct_count() >= 1);
+
+        let e1 = intern("");
+        let e2 = intern("");
+        assert!(Arc::ptr_eq(&e1, &e2));
     }
 
     #[test]

@@ -299,7 +299,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
                     icons::FOLDER_SVG,
                     "Reveal in file manager",
                     on_action(ContextMenuAction::RevealInFileManager(
-                        track.file_path.clone(),
+                        track.file_path.to_string(),
                     )),
                     false,
                     false,

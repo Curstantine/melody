@@ -117,6 +117,47 @@ impl model::FieldLookup for QueueSummary {
             _ => None,
         }
     }
+
+    fn write_field(&self, key: &str, out: &mut String) -> bool {
+        use std::fmt::Write;
+        match key {
+            "id" => write!(out, "{}", self.id).is_ok(),
+            "name" | "title" => {
+                let t = self.name.trim();
+                if t.is_empty() {
+                    false
+                } else {
+                    out.push_str(t);
+                    true
+                }
+            }
+            "track_count" | "tracks" => write!(out, "{}", self.track_count).is_ok(),
+            "current" => write!(out, "{}", self.current).is_ok(),
+            "source" | "source_kind" => {
+                out.push_str(self.source.as_str());
+                true
+            }
+            "source_value" => self.source_value.as_deref().is_some_and(|v| {
+                let t = v.trim();
+                if t.is_empty() {
+                    false
+                } else {
+                    out.push_str(t);
+                    true
+                }
+            }),
+            "source_playlist" => self.source_playlist.as_deref().is_some_and(|v| {
+                let t = v.trim();
+                if t.is_empty() {
+                    false
+                } else {
+                    out.push_str(t);
+                    true
+                }
+            }),
+            _ => false,
+        }
+    }
 }
 
 /// A fully loaded, ordered playback queue with a cursor.
@@ -500,8 +541,8 @@ mod tests {
             artist: Arc::from("Artist"),
             album: Arc::from("Album"),
             duration_ms: 1000,
-            file_path: format!("/music/{}.flac", id),
-            duration_label: "0:01".to_string(),
+            file_path: format!("/music/{}.flac", id).into(),
+            duration_label: "0:01".into(),
             year: None,
             track_num: None,
             disc_num: None,

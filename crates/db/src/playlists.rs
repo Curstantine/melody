@@ -199,7 +199,7 @@ impl LibraryDatabase {
                     items.push(PlaylistItem {
                         title: row.title.clone(),
                         artist: row.display_artist().to_string(),
-                        duration_label: row.duration_label.clone(),
+                        duration_label: row.duration_label.to_string(),
                         track_id: Some(id),
                     });
                     tracks.push(row.clone());
