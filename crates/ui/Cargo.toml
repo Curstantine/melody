@@ -70,6 +70,7 @@ default = ["ffmpeg"]
 ffmpeg = ["audio/ffmpeg", "metadata/ffmpeg"]
 symphonia = ["audio/symphonia", "metadata/symphonia"]
 tracy = ["dep:tracy-client", "dep:tracing-tracy"]
+hot = ["iced/hot"]
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
