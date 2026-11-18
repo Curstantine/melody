@@ -79,7 +79,7 @@ impl App {
 
                         let track_id = next_track.id;
                         let duration_ms = next_track.duration_ms;
-                        let file_path = next_track.file_path;
+                        let file_path = next_track.file_path.to_string();
                         let title = next_track.title;
                         let artist = next_track.artist.to_string();
                         let album = next_track.album.to_string();
@@ -647,14 +647,11 @@ impl App {
         if let Some(queue) = self.queues.active_queue() {
             if self.is_shuffle && !queue.is_empty() {
                 let len = queue.len();
-                if len <= 1 {
-                    return queue.tracks.get(queue.current_index().unwrap_or(0));
-                }
                 let current = queue.current_index().unwrap_or(0);
-                let mut pick = (self.position_ms as usize ^ 0x9e3779b9) % len;
-                if pick == current {
-                    pick = (pick + 1) % len;
+                if len <= 1 {
+                    return queue.tracks.get(current);
                 }
+                let pick = ::queue::shuffle_pick_index(current, self.position_ms, len);
                 return queue.tracks.get(pick);
             }
             if let Some(idx) = queue.next_index() {
@@ -707,9 +704,7 @@ impl App {
             async move {
                 tokio::task::spawn_blocking(move || {
                     let cover = thumbnail::get_or_create(&path, thumbnail::Resolution::High);
-                    let blurred = thumbnail::get_or_create(&path, thumbnail::Resolution::Low)
-                        .as_deref()
-                        .and_then(thumbnail::generate_blurred);
+                    let blurred = thumbnail::get_or_create_blurred(&path, None);
                     (cover, blurred)
                 })
                 .await
@@ -745,7 +740,7 @@ impl App {
                         None
                     };
 
-                    let blurred = cover.as_deref().and_then(thumbnail::generate_blurred);
+                    let blurred = thumbnail::get_or_create_blurred(&path, cover.as_deref());
 
                     let tech_info = metadata::extract_technical_info(&path, duration_ms);
 
@@ -790,7 +785,7 @@ impl App {
         }
 
         if let Some(next_track) = self.get_next_track() {
-            let path = PathBuf::from(&next_track.file_path);
+            let path = next_track.file_path.to_path_buf();
             self.audio_controller.set_next_track(Some(path));
             self.pending_gapless_next = Some(next_track.clone());
         } else {

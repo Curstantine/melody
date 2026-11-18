@@ -211,7 +211,12 @@ impl PlaylistsView {
         })
         .width(Length::Fill);
 
-        let mut list = column![].spacing(1).width(Length::Fill);
+        let mut list = column![].spacing(0).width(Length::Fill);
+        let total = self.detail_items.len();
+        let first_visible =
+            (self.last_detail_scroll.get().max(0.0) / QUEUE_ROW_HEIGHT).floor() as usize;
+        let cur_win_start = queue_window_start(total, first_visible);
+
         if self.detail_items.is_empty() {
             list = list.push(component::empty_state(
                 theme_cfg,
@@ -220,6 +225,12 @@ impl PlaylistsView {
                 "Add tracks from the Library or save a queue as a playlist",
             ));
         } else {
+            let (start, end) = queue_window_for_start(total, cur_win_start);
+            let top_spacer = start as f32 * QUEUE_ROW_HEIGHT;
+            if top_spacer > 0.0 {
+                list = list.push(Space::new().height(top_spacer).boxed());
+            }
+
             // While a handle-drag is held, hovering a row live-reorders;
             // otherwise hovering just reveals that row's drag handle in place
             // of the track number.
@@ -230,7 +241,8 @@ impl PlaylistsView {
                     Message::PlaylistDetailHovered(Some((playlist_id, index)))
                 }
             };
-            for (index, item) in self.detail_items.iter().enumerate() {
+            for (offset, item) in self.detail_items[start..end].iter().enumerate() {
+                let index = start + offset;
                 let available = item.track_id.is_some();
                 let on_right_press = item.track_id.map(|track_id| Message::OpenTrackContextMenu {
                     track_id,
@@ -302,15 +314,27 @@ impl PlaylistsView {
                     .view(),
                 );
             }
+            let bottom_spacer = total.saturating_sub(end) as f32 * QUEUE_ROW_HEIGHT;
+            if bottom_spacer > 0.0 {
+                list = list.push(Space::new().height(bottom_spacer).boxed());
+            }
         }
 
         let scroll_offset = &self.last_detail_scroll;
+        let hovered_row = self.hovered_detail_row;
         column![
             header_block,
             scrollable(list)
                 .id(iced::widget::Id::new("playlist_detail_scroll"))
                 .on_scroll(move |scroll| {
-                    scroll_offset.set(scroll.viewport.absolute_offset().y);
+                    let y = scroll.viewport.absolute_offset().y;
+                    scroll_offset.set(y);
+                    if total > 0 && QUEUE_ROW_HEIGHT > 0.0 {
+                        let fv = (y.max(0.0) / QUEUE_ROW_HEIGHT).floor() as usize;
+                        if queue_window_start(total, fv) != cur_win_start {
+                            return Some(Message::PlaylistDetailHovered(hovered_row));
+                        }
+                    }
                     None::<Message>
                 })
                 .height(Length::Fill)

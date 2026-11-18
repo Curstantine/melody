@@ -476,12 +476,19 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        // Poll audio playback status at 50ms intervals (~20 FPS smooth seekbar)
-        let ticker = iced::time::every(Duration::from_millis(50)).map(|_| Message::AudioTick);
+        // Poll audio playback status at 50ms (~20 FPS smooth seekbar) while playing,
+        // or drop to 250ms (4 Hz) when paused/idle to avoid redundant 20 Hz UI wakeups.
+        let tick_interval = if self.is_playing || self.audio_controller.status().is_playing() {
+            Duration::from_millis(50)
+        } else {
+            Duration::from_millis(250)
+        };
+        let ticker = iced::time::every(tick_interval).map(|_| Message::AudioTick);
         let mut subscriptions = vec![ticker];
 
-        // Periodic self-healing pass for the album cover window.
-        if self.active_tab == ViewTab::Albums && !self.albums.is_empty() {
+        // Periodic self-healing pass for the album cover window, only active
+        // while cover requests are in-flight.
+        if self.active_tab == ViewTab::Albums && !self.albums.in_flight.is_empty() {
             subscriptions.push(
                 iced::time::every(Duration::from_millis(400)).map(|_| Message::EnsureAlbumCovers),
             );

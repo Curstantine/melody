@@ -335,11 +335,15 @@ impl App {
                         let path = playlist::unique_playlist_path(&name);
                         let entries: Vec<PlaylistEntry> = tracks
                             .iter()
-                            .map(|t| PlaylistEntry {
-                                raw_path: t.file_path.clone(),
-                                resolved_path: PathBuf::from(&t.file_path),
-                                title: Some(t.title.clone()),
-                                duration_ms: Some(t.duration_ms),
+                            .map(|t| {
+                                let raw_path = t.file_path.to_string();
+                                let resolved_path = PathBuf::from(&raw_path);
+                                PlaylistEntry {
+                                    raw_path,
+                                    resolved_path,
+                                    title: Some(t.title.clone()),
+                                    duration_ms: Some(t.duration_ms),
+                                }
                             })
                             .collect();
                         if let Err(e) = write_m3u(&path, &entries) {
@@ -371,15 +375,11 @@ impl App {
 
         let target = if is_shuffle {
             let len = queue.len();
+            let current = queue.current_index().unwrap_or(0);
             if len <= 1 {
-                queue.current_index().unwrap_or(0)
+                current
             } else {
-                let current = queue.current_index().unwrap_or(0);
-                let mut pick = (position_seed as usize ^ 0x9e3779b9) % len;
-                if pick == current {
-                    pick = (pick + 1) % len;
-                }
-                pick
+                ::queue::shuffle_pick_index(current, position_seed, len)
             }
         } else if forward {
             match queue.next_index() {

@@ -262,7 +262,7 @@ fn switch_output_device(
     *selected_output_device = new_device;
     if stream_ctx.is_some() {
         *stream_ctx = None;
-        flush_audio_buffer(flush_flag);
+        flush_flag.store(false, Ordering::SeqCst);
         *written_samples = 0;
         let ctx = ensure_stream(
             stream_ctx,
@@ -879,7 +879,11 @@ fn audio_callback_u16(data: &mut [u16], scratch: &mut Vec<f32>, state: &mut Call
     }
 }
 
-fn flush_audio_buffer(flush_flag: &Arc<AtomicBool>) {
+fn flush_audio_buffer(flush_flag: &Arc<AtomicBool>, has_active_stream: bool) {
+    if !has_active_stream {
+        flush_flag.store(false, Ordering::SeqCst);
+        return;
+    }
     flush_flag.store(true, Ordering::SeqCst);
     let start = std::time::Instant::now();
     while flush_flag.load(Ordering::SeqCst) {
@@ -899,12 +903,13 @@ fn handle_command(
     loaded_track: &mut Option<LoadedTrack>,
     next_track: &mut Option<LoadedTrack>,
     flush_flag: &Arc<AtomicBool>,
-    _ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
+    ring_producer: &mut Option<ringbuf::HeapProd<f32>>,
     written_samples: &mut u64,
     device_sample_rate: u32,
     device_channels: usize,
     resampling_cfg: &mut crate::resample::ResamplingConfig,
 ) {
+    let has_active_stream = ring_producer.is_some();
     match cmd {
         AudioCommand::Load { path, autoplay } => {
             info!("Loading audio file: {:?}", path);
@@ -913,7 +918,7 @@ fn handle_command(
                 Ok(track) => {
                     // Flush any stale audio from the previous track and wait for the consumer
                     // callback to acknowledge it before loading the new track and decoding samples.
-                    flush_audio_buffer(flush_flag);
+                    flush_audio_buffer(flush_flag, has_active_stream);
                     *written_samples = 0;
 
                     let duration_ms = track.duration_ms();
@@ -974,7 +979,7 @@ fn handle_command(
             if let Some(track) = loaded_track.as_mut() {
                 track.seek_to_start();
             }
-            flush_audio_buffer(flush_flag);
+            flush_audio_buffer(flush_flag, has_active_stream);
             *written_samples = 0;
         }
         AudioCommand::Seek(duration) => {
@@ -988,7 +993,7 @@ fn handle_command(
 
                 match track.seek(target_dur) {
                     Ok(_) => {
-                        flush_audio_buffer(flush_flag);
+                        flush_audio_buffer(flush_flag, has_active_stream);
                         *written_samples = 0;
 
                         if let Some(ref mut next) = next_track {

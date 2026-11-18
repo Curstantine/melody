@@ -283,16 +283,16 @@ impl LibraryView {
         is_shuffle: bool,
         position_seed: u64,
     ) -> Option<&TrackRow> {
+        let cur_pos = current_id.and_then(|cur_id| self.rows.iter().position(|t| t.id == cur_id));
         if is_shuffle && !self.rows.is_empty() {
-            let rand_idx = (position_seed as usize ^ 0x9e3779b9) % self.rows.len();
+            let rand_idx =
+                ::queue::shuffle_pick_index(cur_pos.unwrap_or(0), position_seed, self.rows.len());
             return self.rows.get(rand_idx);
         }
 
-        if let Some(cur_id) = current_id {
-            if let Some(pos) = self.rows.iter().position(|t| t.id == cur_id) {
-                if pos + 1 < self.rows.len() {
-                    return self.rows.get(pos + 1);
-                }
+        if let Some(pos) = cur_pos {
+            if pos + 1 < self.rows.len() {
+                return self.rows.get(pos + 1);
             }
         }
 
@@ -587,8 +587,8 @@ mod tests {
                 artist: format!("Artist {:04}", i % 5_000).into(),
                 album: format!("Album {:05}", i % 12_500).into(),
                 duration_ms: 180_000,
-                file_path: format!("/music/track_{:06}.flac", i),
-                duration_label: "3:00".to_string(),
+                file_path: format!("/music/track_{:06}.flac", i).into(),
+                duration_label: "3:00".into(),
                 year: None,
                 track_num: None,
                 disc_num: None,

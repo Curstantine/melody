@@ -88,6 +88,8 @@ pub(crate) struct LoadedTrack {
     dst_channels: usize,
     resampler: Option<SincFixedIn<f32>>,
     planar_in: Vec<Vec<f32>>,
+    planar_read_pos: usize,
+    resample_out: Vec<Vec<f32>>,
     interleaved_scratch: Vec<f32>,
     sample_buf: Option<SampleBuffer<f32>>,
     sample_buf_spec: Option<SignalSpec>,
@@ -147,7 +149,11 @@ impl LoadedTrack {
 
         let resampler =
             build_rubato_resampler(src_rate, dst_sample_rate, dst_channels, resampling_cfg);
-        let planar_in = vec![Vec::new(); dst_channels];
+        let resample_out = resampler
+            .as_ref()
+            .map(|r| r.output_buffer_allocate(true))
+            .unwrap_or_default();
+        let planar_in = vec![Vec::with_capacity(RESAMPLE_CHUNK_SIZE * 2); dst_channels];
 
         Ok(Self {
             path: path.to_path_buf(),
@@ -160,6 +166,8 @@ impl LoadedTrack {
             dst_channels,
             resampler,
             planar_in,
+            planar_read_pos: 0,
+            resample_out,
             interleaved_scratch: Vec::new(),
             sample_buf: None,
             sample_buf_spec: None,
@@ -191,6 +199,7 @@ impl LoadedTrack {
         for ch in &mut self.planar_in {
             ch.clear();
         }
+        self.planar_read_pos = 0;
         if let Some(ref mut r) = self.resampler {
             r.reset();
         }
@@ -214,6 +223,7 @@ impl LoadedTrack {
         for ch in &mut self.planar_in {
             ch.clear();
         }
+        self.planar_read_pos = 0;
         if let Some(ref mut r) = self.resampler {
             r.reset();
         }
@@ -229,9 +239,15 @@ impl LoadedTrack {
         new_cfg: &ResamplingConfig,
     ) {
         self.dst_channels = dst_channels;
-        self.planar_in = vec![Vec::new(); dst_channels];
+        self.planar_in = vec![Vec::with_capacity(RESAMPLE_CHUNK_SIZE * 2); dst_channels];
+        self.planar_read_pos = 0;
         self.resampler =
             build_rubato_resampler(self.src_rate, dst_sample_rate, dst_channels, new_cfg);
+        self.resample_out = self
+            .resampler
+            .as_ref()
+            .map(|r| r.output_buffer_allocate(true))
+            .unwrap_or_default();
     }
 
     fn process_sample_buf(&mut self, frames: usize, src_ch: usize, sink: &mut RingSink<'_>) {
@@ -288,28 +304,45 @@ impl LoadedTrack {
 
         loop {
             let needed = resampler.input_frames_next();
-            if self.planar_in.first().map(|c| c.len()).unwrap_or(0) < needed {
+            let available = self
+                .planar_in
+                .first()
+                .map(|c| c.len().saturating_sub(self.planar_read_pos))
+                .unwrap_or(0);
+            if available < needed {
                 break;
             }
             if sink.is_flushing() {
                 break;
             }
 
-            let chunk: Vec<Vec<f32>> = self
-                .planar_in
-                .iter_mut()
-                .map(|c| c.drain(..needed).collect())
-                .collect();
+            let start = self.planar_read_pos;
+            let end = start + needed;
+            self.planar_read_pos = end;
 
-            match resampler.process(&chunk, None) {
-                Ok(out_planar) => {
-                    let out_frames = out_planar.first().map(|c| c.len()).unwrap_or(0);
+            let mut in_slices: [&[f32]; 8] = [&[]; 8];
+            let res = if self.dst_channels <= 8 {
+                for (i, ch) in self.planar_in.iter().enumerate() {
+                    in_slices[i] = &ch[start..end];
+                }
+                resampler.process_into_buffer(
+                    &in_slices[..self.dst_channels],
+                    &mut self.resample_out,
+                    None,
+                )
+            } else {
+                let slices: Vec<&[f32]> = self.planar_in.iter().map(|c| &c[start..end]).collect();
+                resampler.process_into_buffer(&slices, &mut self.resample_out, None)
+            };
+
+            match res {
+                Ok((_, out_frames)) => {
                     if out_frames > 0 {
                         self.interleaved_scratch.clear();
                         self.interleaved_scratch
                             .reserve(out_frames * self.dst_channels);
                         for i in 0..out_frames {
-                            for ch in &out_planar {
+                            for ch in &self.resample_out {
                                 self.interleaved_scratch.push(ch[i]);
                             }
                         }
@@ -324,18 +357,37 @@ impl LoadedTrack {
                 }
             }
         }
+
+        // Compact consumed samples once at the end of the packet drain
+        if self.planar_read_pos > 0 {
+            let consumed = self.planar_read_pos;
+            for ch in &mut self.planar_in {
+                ch.drain(..consumed);
+            }
+            self.planar_read_pos = 0;
+        }
     }
 
     fn flush_resampler(&mut self, sink: &mut RingSink<'_>) {
         let Some(ref mut resampler) = self.resampler else {
             return;
         };
-        let remaining_len = self.planar_in.first().map(|c| c.len()).unwrap_or(0);
+        let remaining_len = self
+            .planar_in
+            .first()
+            .map(|c| c.len().saturating_sub(self.planar_read_pos))
+            .unwrap_or(0);
         if remaining_len == 0 {
             return;
         }
-        let chunk: Vec<Vec<f32>> = self.planar_in.iter_mut().map(std::mem::take).collect();
-        match resampler.process_partial(Some(&chunk), None) {
+        let start = self.planar_read_pos;
+        let slices: Vec<&[f32]> = self.planar_in.iter().map(|c| &c[start..]).collect();
+        let result = resampler.process_partial(Some(&slices), None);
+        for ch in &mut self.planar_in {
+            ch.clear();
+        }
+        self.planar_read_pos = 0;
+        match result {
             Ok(out_planar) => {
                 let out_frames = out_planar.first().map(|c| c.len()).unwrap_or(0);
                 if out_frames > 0 {

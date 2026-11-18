@@ -1,10 +1,34 @@
 use std::borrow::Cow;
+use std::fmt::Write;
 
 use crate::model::{AlbumSummary, ArtistSummary, PlaylistSummary, QueueRecord, TrackRow};
+
+#[inline]
+fn push_trimmed(out: &mut String, s: &str) -> bool {
+    let trimmed = s.trim();
+    if trimmed.is_empty() {
+        false
+    } else {
+        out.push_str(trimmed);
+        true
+    }
+}
 
 /// Trait for resolving field values by string key.
 pub trait FieldLookup {
     fn lookup(&self, key: &str) -> Option<Cow<'_, str>>;
+
+    /// Appends the trimmed value of `key` directly into `out` when present and non-empty.
+    ///
+    /// Overrides avoid allocating intermediate `Cow::Owned(String)` objects for
+    /// numeric fields and segmented paths.
+    fn write_field(&self, key: &str, out: &mut String) -> bool {
+        if let Some(val) = self.lookup(key) {
+            push_trimmed(out, &val)
+        } else {
+            false
+        }
+    }
 }
 
 impl<F> FieldLookup for F
@@ -37,6 +61,29 @@ impl FieldLookup for AlbumSummary {
             _ => None,
         }
     }
+
+    fn write_field(&self, key: &str, out: &mut String) -> bool {
+        match key {
+            "album" | "title" => push_trimmed(out, &self.album),
+            "artist" | "album_artist" => push_trimmed(out, &self.artist),
+            "track_count" | "tracks_count" => write!(out, "{}", self.track_count).is_ok(),
+            "tracks_label" | "tracks" => push_trimmed(out, &self.tracks_label),
+            "year" | "year_label" => {
+                if self.year.is_some() && !self.year_label.is_empty() {
+                    push_trimmed(out, &self.year_label)
+                } else {
+                    false
+                }
+            }
+            "duration_label" | "duration" => push_trimmed(out, &self.duration_label),
+            "total_duration_ms" => write!(out, "{}", self.total_duration_ms).is_ok(),
+            "cover_track_id" => self
+                .cover_track_id
+                .is_some_and(|id| write!(out, "{}", id).is_ok()),
+            "added_timestamp" => write!(out, "{}", self.added_timestamp).is_ok(),
+            _ => false,
+        }
+    }
 }
 
 impl FieldLookup for ArtistSummary {
@@ -47,6 +94,16 @@ impl FieldLookup for ArtistSummary {
             "album_count" | "albums" => Some(Cow::Owned(self.album_count.to_string())),
             "stats_label" | "stats" => Some(Cow::Borrowed(&self.stats_label)),
             _ => None,
+        }
+    }
+
+    fn write_field(&self, key: &str, out: &mut String) -> bool {
+        match key {
+            "artist" | "name" => push_trimmed(out, &self.artist),
+            "track_count" | "tracks" => write!(out, "{}", self.track_count).is_ok(),
+            "album_count" | "albums" => write!(out, "{}", self.album_count).is_ok(),
+            "stats_label" | "stats" => push_trimmed(out, &self.stats_label),
+            _ => false,
         }
     }
 }
@@ -69,6 +126,23 @@ impl FieldLookup for PlaylistSummary {
             _ => None,
         }
     }
+
+    fn write_field(&self, key: &str, out: &mut String) -> bool {
+        match key {
+            "id" => write!(out, "{}", self.id).is_ok(),
+            "name" | "title" => push_trimmed(out, &self.name),
+            "file_path" | "path" => push_trimmed(out, &self.file_path),
+            "track_count" => write!(out, "{}", self.track_count).is_ok(),
+            "tracks_label" | "tracks" => push_trimmed(out, &self.tracks_label),
+            "managed" => {
+                out.push_str(if self.managed { "Managed" } else { "External" });
+                true
+            }
+            "created_timestamp" => write!(out, "{}", self.created_timestamp).is_ok(),
+            "modified_timestamp" => write!(out, "{}", self.modified_timestamp).is_ok(),
+            _ => false,
+        }
+    }
 }
 
 impl FieldLookup for TrackRow {
@@ -84,9 +158,44 @@ impl FieldLookup for TrackRow {
             "track_num" | "track_number" => self.track_num.map(|n| Cow::Owned(n.to_string())),
             "disc_num" | "disc_number" => self.disc_num.map(|d| Cow::Owned(d.to_string())),
             "duration_ms" => Some(Cow::Owned(self.duration_ms.to_string())),
-            "duration_label" | "duration" => Some(Cow::Borrowed(&self.duration_label)),
-            "file_path" | "path" => Some(Cow::Borrowed(&self.file_path)),
+            "duration_label" | "duration" => Some(Cow::Borrowed(self.duration_label.as_str())),
+            "file_path" | "path" => Some(self.file_path.as_cow()),
             _ => None,
+        }
+    }
+
+    fn write_field(&self, key: &str, out: &mut String) -> bool {
+        match key {
+            "id" => write!(out, "{}", self.id).is_ok(),
+            "title" => push_trimmed(out, &self.title),
+            "artist" => push_trimmed(out, self.display_artist()),
+            "album" => push_trimmed(out, &self.album),
+            "album_artist" => self
+                .album_artist
+                .as_deref()
+                .is_some_and(|v| push_trimmed(out, v)),
+            "genre" => self
+                .genre
+                .as_deref()
+                .is_some_and(|v| push_trimmed(out, &crate::model::format_multi_value(v))),
+            "year" => self.year.is_some_and(|y| write!(out, "{}", y).is_ok()),
+            "track_num" | "track_number" => {
+                self.track_num.is_some_and(|n| write!(out, "{}", n).is_ok())
+            }
+            "disc_num" | "disc_number" => {
+                self.disc_num.is_some_and(|d| write!(out, "{}", d).is_ok())
+            }
+            "duration_ms" => write!(out, "{}", self.duration_ms).is_ok(),
+            "duration_label" | "duration" => push_trimmed(out, self.duration_label.as_str()),
+            "file_path" | "path" => {
+                if self.file_path.is_empty() {
+                    false
+                } else {
+                    self.file_path.write_into(out);
+                    true
+                }
+            }
+            _ => false,
         }
     }
 }
@@ -104,13 +213,33 @@ impl FieldLookup for QueueRecord {
             _ => None,
         }
     }
+
+    fn write_field(&self, key: &str, out: &mut String) -> bool {
+        match key {
+            "id" => write!(out, "{}", self.id).is_ok(),
+            "name" | "title" => push_trimmed(out, &self.name),
+            "current" => write!(out, "{}", self.current).is_ok(),
+            "source_kind" | "source" => push_trimmed(out, &self.source_kind),
+            "source_value" => self
+                .source_value
+                .as_deref()
+                .is_some_and(|v| push_trimmed(out, v)),
+            "source_playlist" => self
+                .source_playlist
+                .as_deref()
+                .is_some_and(|v| push_trimmed(out, v)),
+            "track_count" | "tracks" => write!(out, "{}", self.track_count).is_ok(),
+            _ => false,
+        }
+    }
 }
 
 /// Formats a template string by substituting `{field}` placeholders using the provided lookup.
 ///
 /// Supported syntax:
 /// - `{field}`: Replaced with the value of `field`. If empty or not found, replaced with `""`.
-/// - `[...{field}...]`: Conditional group. Evaluated only if all placeholders inside resolve to non-empty values.
+/// - `[...{field}...]`: Conditional group. Evaluated in a single pass using buffer checkpoint
+///   rollback so placeholders are never looked up or formatted twice.
 /// - `{{` and `}}`: Escaped literal `{` and `}`.
 ///
 /// Post-processing cleans up consecutive spaces, extra whitespace, and dangling separators (`•`, `-`, `,`, `|`, `/`).
@@ -143,8 +272,9 @@ pub fn format_template(template: &str, lookup: &impl FieldLookup) -> String {
 
             if depth == 0 {
                 let inner_slice = &template[start..end];
-                if all_placeholders_satisfied(inner_slice, lookup) {
-                    format_template_direct_into(&mut result, inner_slice, lookup);
+                let checkpoint = result.len();
+                if !try_format_conditional_into(&mut result, inner_slice, lookup) {
+                    result.truncate(checkpoint);
                 }
                 i = end + 1;
             } else {
@@ -159,9 +289,7 @@ pub fn format_template(template: &str, lookup: &impl FieldLookup) -> String {
             }
             if end < bytes.len() {
                 let key = &template[start..end];
-                if let Some(val) = lookup.lookup(key) {
-                    result.push_str(val.trim());
-                }
+                lookup.write_field(key, &mut result);
                 i = end + 1;
             } else {
                 result.push('{');
@@ -185,42 +313,18 @@ pub fn format_template(template: &str, lookup: &impl FieldLookup) -> String {
     result
 }
 
-/// Checks whether all `{placeholders}` within a conditional section have non-empty values.
-fn all_placeholders_satisfied(sub_template: &str, lookup: &impl FieldLookup) -> bool {
-    let bytes = sub_template.as_bytes();
-    let mut i = 0;
-    let mut has_at_least_one = false;
-
-    while i < bytes.len() {
-        if bytes[i] == b'{' && (i + 1 >= bytes.len() || bytes[i + 1] != b'{') {
-            let start = i + 1;
-            let mut end = start;
-            while end < bytes.len() && bytes[end] != b'}' {
-                end += 1;
-            }
-            if end < bytes.len() {
-                let key = &sub_template[start..end];
-                has_at_least_one = true;
-                match lookup.lookup(key) {
-                    Some(val) if !val.trim().is_empty() => {}
-                    _ => return false,
-                }
-                i = end + 1;
-            } else {
-                i += 1;
-            }
-        } else {
-            i += 1;
-        }
-    }
-
-    has_at_least_one
-}
-
-/// Direct placeholder replacement without bracket recursion into an existing buffer.
-fn format_template_direct_into(result: &mut String, template: &str, lookup: &impl FieldLookup) {
+/// Evaluates a conditional `[...]` section in a single pass directly into `result`.
+/// Returns `true` if at least one placeholder was encountered and every placeholder
+/// resolved to a non-empty value. If `false` is returned, the caller truncates
+/// `result` back to its pre-conditional checkpoint.
+fn try_format_conditional_into(
+    result: &mut String,
+    template: &str,
+    lookup: &impl FieldLookup,
+) -> bool {
     let bytes = template.as_bytes();
     let mut i = 0;
+    let mut has_at_least_one = false;
 
     while i < bytes.len() {
         if bytes[i] == b'{' && i + 1 < bytes.len() && bytes[i + 1] == b'{' {
@@ -237,8 +341,9 @@ fn format_template_direct_into(result: &mut String, template: &str, lookup: &imp
             }
             if end < bytes.len() {
                 let key = &template[start..end];
-                if let Some(val) = lookup.lookup(key) {
-                    result.push_str(val.trim());
+                has_at_least_one = true;
+                if !lookup.write_field(key, result) {
+                    return false;
                 }
                 i = end + 1;
             } else {
@@ -254,6 +359,8 @@ fn format_template_direct_into(result: &mut String, template: &str, lookup: &imp
             i = next;
         }
     }
+
+    has_at_least_one
 }
 
 /// Normalizes whitespace and strips dangling separators like `•`, `-`, `,`, `|`, `/` in place.
@@ -440,8 +547,8 @@ mod tests {
             artist: "Imperial Circus Dead Decadence".into(),
             album: "Yūaku no Inori - Anima immortalis est.".into(),
             duration_ms: 472_000,
-            file_path: "/music/ICDD - Anima.flac".to_string(),
-            duration_label: "7:52".to_string(),
+            file_path: "/music/ICDD - Anima.flac".into(),
+            duration_label: "7:52".into(),
             year: Some(2025),
             track_num: Some(1),
             disc_num: Some(1),
@@ -475,8 +582,8 @@ mod tests {
             artist: "Unknown Artist".into(),
             album: "Unknown Album".into(),
             duration_ms: 120_000,
-            file_path: "/music/track.mp3".to_string(),
-            duration_label: "2:00".to_string(),
+            file_path: "/music/track.mp3".into(),
+            duration_label: "2:00".into(),
             year: None,
             track_num: None,
             disc_num: None,

@@ -760,3 +760,52 @@ async fn test_get_library_counts() {
     assert_eq!(counts.albums, 2);
     assert_eq!(counts.artists, 2);
 }
+
+#[tokio::test]
+async fn test_multi_disc_track_num_sorting() {
+    let db = LibraryDatabase::in_memory().await.unwrap();
+    let tracks = vec![
+        NewTrack {
+            file_path: "/music/d2_t1.flac".to_string(),
+            title: "Disc 2 Track 1".to_string(),
+            artist: "Artist".to_string(),
+            album: "Double Album".to_string(),
+            duration_ms: 100_000,
+            disc_num: Some(2),
+            track_num: Some(1),
+            ..Default::default()
+        },
+        NewTrack {
+            file_path: "/music/d1_t2.flac".to_string(),
+            title: "Disc 1 Track 2".to_string(),
+            artist: "Artist".to_string(),
+            album: "Double Album".to_string(),
+            duration_ms: 100_000,
+            disc_num: Some(1),
+            track_num: Some(2),
+            ..Default::default()
+        },
+        NewTrack {
+            file_path: "/music/d1_t1.flac".to_string(),
+            title: "Disc 1 Track 1".to_string(),
+            artist: "Artist".to_string(),
+            album: "Double Album".to_string(),
+            duration_ms: 100_000,
+            disc_num: Some(1),
+            track_num: Some(1),
+            ..Default::default()
+        },
+    ];
+    db.insert_tracks_batch(&tracks).await.unwrap();
+
+    let filter = TrackFilter::album("Double Album");
+    let ordered = db
+        .get_all_track_rows_filtered(Some(&filter), SortField::TrackNum, SortDirection::Ascending)
+        .await
+        .unwrap();
+    let titles: Vec<&str> = ordered.iter().map(|t| t.title.as_str()).collect();
+    assert_eq!(
+        titles,
+        vec!["Disc 1 Track 1", "Disc 1 Track 2", "Disc 2 Track 1"]
+    );
+}

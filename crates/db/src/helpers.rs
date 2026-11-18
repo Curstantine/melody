@@ -3,7 +3,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use turso::Row;
 
-use model::{format_duration, intern, SortField, Track, TrackFilter, TrackRow};
+use model::{
+    format_duration_stack, intern, SortDirection, SortField, Track, TrackFilter, TrackPath,
+    TrackRow,
+};
 
 use crate::DbError;
 
@@ -15,15 +18,29 @@ pub(crate) fn now_secs() -> i64 {
         .unwrap_or(0)
 }
 
-/// Maps a sort field to its SQL ordering column expression.
-pub(crate) fn sort_column(sort_field: SortField) -> &'static str {
-    match sort_field {
-        SortField::Title => "title",
-        SortField::Artist => "artist",
-        SortField::Album => "album",
-        SortField::Duration => "duration_ms",
-        SortField::TrackNum => "track_num",
-        SortField::AddedDate => "added_timestamp",
+/// Maps a sort field and direction to its SQL `ORDER BY` expression.
+///
+/// `SortField::TrackNum` orders by `(COALESCE(disc_num, 1), COALESCE(track_num, 0), title)`
+/// so multi-disc albums sort in true disc-then-track order rather than interleaving
+/// Disc 1 Track 1 with Disc 2 Track 1.
+pub(crate) fn sort_order_clause(sort_field: SortField, sort_dir: SortDirection) -> &'static str {
+    match (sort_field, sort_dir) {
+        (SortField::Title, SortDirection::Ascending) => "title ASC",
+        (SortField::Title, SortDirection::Descending) => "title DESC",
+        (SortField::Artist, SortDirection::Ascending) => "artist ASC",
+        (SortField::Artist, SortDirection::Descending) => "artist DESC",
+        (SortField::Album, SortDirection::Ascending) => "album ASC",
+        (SortField::Album, SortDirection::Descending) => "album DESC",
+        (SortField::Duration, SortDirection::Ascending) => "duration_ms ASC",
+        (SortField::Duration, SortDirection::Descending) => "duration_ms DESC",
+        (SortField::TrackNum, SortDirection::Ascending) => {
+            "COALESCE(disc_num, 1) ASC, COALESCE(track_num, 0) ASC, title ASC"
+        }
+        (SortField::TrackNum, SortDirection::Descending) => {
+            "COALESCE(disc_num, 1) DESC, COALESCE(track_num, 0) DESC, title DESC"
+        }
+        (SortField::AddedDate, SortDirection::Ascending) => "added_timestamp ASC",
+        (SortField::AddedDate, SortDirection::Descending) => "added_timestamp DESC",
     }
 }
 
@@ -129,6 +146,7 @@ pub(crate) fn map_track_row_summary(row: &Row) -> Result<TrackRow, DbError> {
     let artist: String = row.get(2)?;
     let album: String = row.get(3)?;
     let duration: i64 = row.get(4)?;
+    let file_path: String = row.get(5)?;
     let year: Option<i64> = row.get(6)?;
     let track_num: Option<i64> = row.get(7)?;
     let disc_num: Option<i64> = row.get(8)?;
@@ -140,8 +158,8 @@ pub(crate) fn map_track_row_summary(row: &Row) -> Result<TrackRow, DbError> {
         artist: intern::intern(&artist),
         album: intern::intern(&album),
         duration_ms: duration as u64,
-        file_path: row.get(5)?,
-        duration_label: format_duration(duration as u64),
+        file_path: TrackPath::new(&file_path),
+        duration_label: format_duration_stack(duration as u64),
         year: year.map(|y| y as u32),
         track_num: track_num.map(|n| n as u32),
         disc_num: disc_num.map(|n| n as u32),

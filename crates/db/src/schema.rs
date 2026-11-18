@@ -29,7 +29,7 @@ impl LibraryDatabase {
         Ok(library_db)
     }
 
-    const SCHEMA_VERSION: i32 = 1;
+    const SCHEMA_VERSION: i32 = 2;
 
     async fn init_schema(&self) -> Result<(), DbError> {
         let current_version: i32 = {
@@ -71,8 +71,14 @@ impl LibraryDatabase {
             CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
             CREATE INDEX IF NOT EXISTS idx_tracks_album_artist ON tracks(album_artist);
             CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album);
+            CREATE INDEX IF NOT EXISTS idx_tracks_album_group ON tracks(album, album_artist, artist);
+            CREATE INDEX IF NOT EXISTS idx_tracks_disc_track ON tracks(album, disc_num, track_num, title);
             CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);
             CREATE INDEX IF NOT EXISTS idx_tracks_path ON tracks(file_path);
+            CREATE INDEX IF NOT EXISTS idx_tracks_duration ON tracks(duration_ms);
+            CREATE INDEX IF NOT EXISTS idx_tracks_added ON tracks(added_timestamp);
+            CREATE INDEX IF NOT EXISTS idx_tracks_year ON tracks(year);
+            CREATE INDEX IF NOT EXISTS idx_tracks_genre ON tracks(genre);
 
             CREATE TABLE IF NOT EXISTS library_folders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

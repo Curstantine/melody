@@ -1,5 +1,6 @@
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet},
+    sync::{Arc, RwLock},
     time::{Duration, Instant},
 };
 
@@ -33,6 +34,58 @@ fn cover_key(album: &AlbumSummary) -> String {
     format!("{}\u{1f}{}", album.artist, album.album)
 }
 
+/// Evaluates `f` with a stack-formatted cover key (`<= 1024` bytes) to avoid heap
+/// allocations on hot lookup and LRU touch paths.
+#[inline]
+fn with_cover_key<R>(album: &AlbumSummary, f: impl FnOnce(&str) -> R) -> R {
+    let artist = album.artist.as_bytes();
+    let album_name = album.album.as_bytes();
+    let total_len = artist.len() + 1 + album_name.len();
+    if total_len <= 1024 {
+        let mut buf = [0u8; 1024];
+        buf[..artist.len()].copy_from_slice(artist);
+        buf[artist.len()] = 0x1f;
+        buf[artist.len() + 1..total_len].copy_from_slice(album_name);
+        if let Ok(key) = std::str::from_utf8(&buf[..total_len]) {
+            return f(key);
+        }
+    }
+    let key = cover_key(album);
+    f(&key)
+}
+
+/// Fast ASCII prefix case-insensitive comparison with Unicode fallback on non-ASCII bytes.
+#[inline]
+pub(crate) fn cmp_case_insensitive_fast(a: &str, b: &str) -> std::cmp::Ordering {
+    let a_bytes = a.as_bytes();
+    let b_bytes = b.as_bytes();
+    let min_len = a_bytes.len().min(b_bytes.len());
+    let mut i = 0;
+    while i < min_len {
+        let ba = a_bytes[i];
+        let bb = b_bytes[i];
+        if ba >= 0x80 || bb >= 0x80 {
+            return a[i..]
+                .chars()
+                .flat_map(char::to_lowercase)
+                .cmp(b[i..].chars().flat_map(char::to_lowercase));
+        }
+        let ca = ba.to_ascii_lowercase();
+        let cb = bb.to_ascii_lowercase();
+        if ca != cb {
+            return ca.cmp(&cb);
+        }
+        i += 1;
+    }
+    if i < a_bytes.len() && a_bytes[i] >= 0x80 || i < b_bytes.len() && b_bytes[i] >= 0x80 {
+        return a[i..]
+            .chars()
+            .flat_map(char::to_lowercase)
+            .cmp(b[i..].chars().flat_map(char::to_lowercase));
+    }
+    a_bytes.len().cmp(&b_bytes.len())
+}
+
 /// Computes how many tiles fit in a viewport of `width` pixels.
 fn columns_for_width(width: f32, tile_width: u32) -> usize {
     let usable = (width - HORIZONTAL_PADDING).max(tile_width as f32);
@@ -58,19 +111,14 @@ pub struct RenderedAlbumStrings {
 /// visible window of tiles/rows is materialized. Spacer widgets above and below
 /// the window keep the scrollbar proportional to the whole catalog, so there is
 /// no incremental "load more" pagination.
-///
-/// TODO(virtualization): the virtualized album list is still finicky about
-/// album covers. Fast scrolling can leave a subset of tiles on the placeholder
-/// until the periodic self-heal pass catches up, and the cover pipeline relies
-/// on request-id ownership plus in-flight expiry rather than real cancellation.
-/// This needs a proper per-request cancellation/priority scheme to be solid.
 pub struct AlbumsView {
     pub view_mode: ViewMode,
     pub tile_width: u32,
     pub albums: Vec<AlbumSummary>,
     pub album_covers: HashMap<String, image::Handle>,
-    /// Recency order of cached covers: front = least recently used, back = most recently used.
-    pub cover_order: VecDeque<String>,
+    /// Monotonic recency timestamp per cached cover key (higher = more recently used).
+    pub cover_lru: HashMap<String, u64>,
+    lru_clock: u64,
     pub sort_field: AlbumSortField,
     pub sort_dir: SortDirection,
     /// Inclusive start index of the materialized window.
@@ -87,6 +135,9 @@ pub struct AlbumsView {
     /// from an abandoned request from corrupting a newer request for the same
     /// album; the timestamp lets error/abandoned requests expire.
     pub in_flight: HashMap<String, (u64, Instant)>,
+    /// Shared mirror of `in_flight` keys checked by background worker threads
+    /// so abandoned cover extractions abort before hitting disk/FFmpeg.
+    pub active_in_flight: Arc<RwLock<HashSet<String>>>,
     pub failed: HashSet<String>,
     next_request_id: u64,
     /// Precomputed catalog totals so the status bar never folds over the whole
@@ -117,7 +168,8 @@ impl AlbumsView {
             tile_width,
             albums: Vec::new(),
             album_covers: HashMap::new(),
-            cover_order: VecDeque::new(),
+            cover_lru: HashMap::new(),
+            lru_clock: 0,
             sort_field,
             sort_dir: SortDirection::Ascending,
             window_start: 0,
@@ -127,6 +179,7 @@ impl AlbumsView {
             last_viewport_width: 0.0,
             scroll_offset: ScrollOffset::default(),
             in_flight: HashMap::new(),
+            active_in_flight: Arc::new(RwLock::new(HashSet::new())),
             failed: HashSet::new(),
             next_request_id: 0,
             total_tracks: 0,
@@ -140,6 +193,13 @@ impl AlbumsView {
         view
     }
 
+    fn sync_active_in_flight(&self) {
+        if let Ok(mut guard) = self.active_in_flight.write() {
+            guard.clear();
+            guard.extend(self.in_flight.keys().cloned());
+        }
+    }
+
     pub fn set_tile_width(&mut self, width: u32) -> bool {
         if self.tile_width == width {
             return false;
@@ -149,33 +209,27 @@ impl AlbumsView {
     }
 
     pub fn sort_albums(albums: &mut [AlbumSummary], field: AlbumSortField, dir: SortDirection) {
-        fn cmp_case_insensitive(a: &str, b: &str) -> std::cmp::Ordering {
-            let a_chars = a.chars().flat_map(|c| c.to_lowercase());
-            let b_chars = b.chars().flat_map(|c| c.to_lowercase());
-            a_chars.cmp(b_chars)
-        }
-
         albums.sort_by(|a, b| {
             let ord = match field {
-                AlbumSortField::Title => cmp_case_insensitive(&a.album, &b.album),
-                AlbumSortField::Artist => cmp_case_insensitive(&a.artist, &b.artist)
-                    .then_with(|| cmp_case_insensitive(&a.album, &b.album)),
+                AlbumSortField::Title => cmp_case_insensitive_fast(&a.album, &b.album),
+                AlbumSortField::Artist => cmp_case_insensitive_fast(&a.artist, &b.artist)
+                    .then_with(|| cmp_case_insensitive_fast(&a.album, &b.album)),
                 AlbumSortField::Year => a
                     .year
                     .cmp(&b.year)
-                    .then_with(|| cmp_case_insensitive(&a.album, &b.album)),
+                    .then_with(|| cmp_case_insensitive_fast(&a.album, &b.album)),
                 AlbumSortField::TrackCount => a
                     .track_count
                     .cmp(&b.track_count)
-                    .then_with(|| cmp_case_insensitive(&a.album, &b.album)),
+                    .then_with(|| cmp_case_insensitive_fast(&a.album, &b.album)),
                 AlbumSortField::Duration => a
                     .total_duration_ms
                     .cmp(&b.total_duration_ms)
-                    .then_with(|| cmp_case_insensitive(&a.album, &b.album)),
+                    .then_with(|| cmp_case_insensitive_fast(&a.album, &b.album)),
                 AlbumSortField::DateAdded => a
                     .added_timestamp
                     .cmp(&b.added_timestamp)
-                    .then_with(|| cmp_case_insensitive(&a.album, &b.album)),
+                    .then_with(|| cmp_case_insensitive_fast(&a.album, &b.album)),
             };
             match dir {
                 SortDirection::Ascending => ord,
@@ -194,6 +248,7 @@ impl AlbumsView {
         self.recompute_totals();
         self.failed.clear();
         self.in_flight.clear();
+        self.sync_active_in_flight();
         self.scroll_offset.set(0.0);
         self.window_start = 0;
         self.window_end = self.default_window_end();
@@ -245,6 +300,7 @@ impl AlbumsView {
         self.window_start = self.window_start.min(self.albums.len());
         self.window_end = self.window_start;
         self.in_flight.clear();
+        self.sync_active_in_flight();
         self.failed.clear();
         self.refresh_window();
     }
@@ -344,6 +400,7 @@ impl AlbumsView {
             let window_keys: HashSet<String> =
                 self.visible_albums().iter().map(cover_key).collect();
             self.in_flight.retain(|k, _| window_keys.contains(k));
+            self.sync_active_in_flight();
             self.failed.retain(|k| window_keys.contains(k));
 
             // Keep the recency of the newly visible covers current.
@@ -453,20 +510,47 @@ impl AlbumsView {
         self.window_end.saturating_sub(self.window_start)
     }
 
+    /// Returns missing covers in the materialized window, prioritized so the
+    /// on-screen viewport rows load first, followed by the lower buffer rows
+    /// and then the upper buffer rows.
     pub fn get_missing_covers_to_load(&self) -> Vec<(String, i64)> {
-        self.visible_albums()
+        let visible = self.visible_albums();
+        if visible.is_empty() {
+            return Vec::new();
+        }
+
+        let per_row = self.items_per_row();
+        let row_h = self.row_height().max(1.0);
+        let first_row = (self.scroll_offset.get().max(0.0) / row_h).floor() as usize;
+        let visible_rows = ((self.viewport_height / row_h).ceil() as usize + 1).max(1);
+
+        let abs_vp_start = (first_row * per_row).clamp(self.window_start, self.window_end);
+        let abs_vp_end =
+            ((first_row + visible_rows) * per_row).clamp(abs_vp_start, self.window_end);
+
+        let rel_vp_start = abs_vp_start - self.window_start;
+        let rel_vp_end = abs_vp_end - self.window_start;
+
+        let ordered_iter = visible[rel_vp_start..rel_vp_end]
             .iter()
-            .filter_map(|alb| {
-                let key = cover_key(alb);
-                if self.album_covers.contains_key(&key)
-                    || self.in_flight.contains_key(&key)
-                    || self.failed.contains(&key)
-                {
-                    return None;
-                }
-                alb.cover_track_id.map(|id| (key, id))
-            })
-            .collect()
+            .chain(visible[rel_vp_end..].iter())
+            .chain(visible[..rel_vp_start].iter());
+
+        let mut out = Vec::new();
+        for alb in ordered_iter {
+            let Some(id) = alb.cover_track_id else {
+                continue;
+            };
+            let is_known = with_cover_key(alb, |key| {
+                self.album_covers.contains_key(key)
+                    || self.in_flight.contains_key(key)
+                    || self.failed.contains(key)
+            });
+            if !is_known {
+                out.push((cover_key(alb), id));
+            }
+        }
+        out
     }
 
     /// Marks `keys` as in-flight under a fresh request id, which is returned so
@@ -478,6 +562,7 @@ impl AlbumsView {
         for key in keys {
             self.in_flight.insert(key, (id, now));
         }
+        self.sync_active_in_flight();
         id
     }
 
@@ -493,31 +578,30 @@ impl AlbumsView {
         let before = self.in_flight.len();
         self.in_flight
             .retain(|_, (_, started)| now.saturating_duration_since(*started) < max_age);
-        self.in_flight.len() != before
+        let changed = self.in_flight.len() != before;
+        if changed {
+            self.sync_active_in_flight();
+        }
+        changed
     }
 
-    /// Marks every currently visible, cached cover as most recently used.
-    ///
-    /// Rendering only has `&self`, so recency can't be bumped during `view`.
-    /// Call this whenever the visible set changes (e.g. scroll, sort change, view-mode change).
+    /// Marks every currently visible, cached cover as most recently used using a
+    /// zero-allocation stack key lookup and monotonic generation counter.
     pub fn touch_visible(&mut self) {
-        let mut seen: HashSet<String> = HashSet::new();
-        let visible: Vec<String> = self
-            .visible_albums()
-            .iter()
-            .map(cover_key)
-            .filter(|k| self.album_covers.contains_key(k) && seen.insert(k.clone()))
-            .collect();
-
-        if visible.is_empty() {
+        if self.album_covers.is_empty() {
             return;
         }
-
-        let visible_set: HashSet<&str> = visible.iter().map(String::as_str).collect();
-        self.cover_order
-            .retain(|k| !visible_set.contains(k.as_str()));
-
-        self.cover_order.extend(visible);
+        let start = self.window_start.min(self.albums.len());
+        let end = self.window_end.min(self.albums.len()).max(start);
+        for alb in &self.albums[start..end] {
+            self.lru_clock = self.lru_clock.wrapping_add(1);
+            let stamp = self.lru_clock;
+            with_cover_key(alb, |key| {
+                if let Some(entry) = self.cover_lru.get_mut(key) {
+                    *entry = stamp;
+                }
+            });
+        }
     }
 
     pub fn insert_covers(&mut self, request_id: u64, loaded: Vec<(String, Vec<u8>)>) {
@@ -541,23 +625,28 @@ impl AlbumsView {
             self.in_flight.remove(&key);
 
             let handle = image::Handle::from_bytes(bytes);
-            if let Some(pos) = self.cover_order.iter().position(|k| k == &key) {
-                self.cover_order.remove(pos);
-            }
-
-            self.cover_order.push_back(key.clone());
+            self.lru_clock = self.lru_clock.wrapping_add(1);
+            self.cover_lru.insert(key.clone(), self.lru_clock);
             self.album_covers.insert(key, handle);
         }
 
+        self.sync_active_in_flight();
         self.touch_visible();
 
         // Windowed virtualization bounds `window_len`, so this cap only evicts
         // covers that have scrolled out of the window.
         let cap = MAX_ALBUM_COVERS.max(self.window_len());
-        if self.cover_order.len() > cap {
-            let excess = self.cover_order.len() - cap;
-            for key in self.cover_order.drain(0..excess) {
+        if self.album_covers.len() > cap {
+            let excess = self.album_covers.len() - cap;
+            let mut entries: Vec<(u64, String)> = self
+                .cover_lru
+                .iter()
+                .map(|(k, &ts)| (ts, k.clone()))
+                .collect();
+            entries.sort_unstable_by_key(|(ts, _)| *ts);
+            for (_, key) in entries.into_iter().take(excess) {
                 self.album_covers.remove(&key);
+                self.cover_lru.remove(&key);
             }
         }
     }
@@ -580,8 +669,9 @@ impl AlbumsView {
     pub fn clear_covers(&mut self) {
         // Same reasoning: replace rather than clear so capacity is freed.
         self.album_covers = HashMap::new();
-        self.cover_order = VecDeque::new();
+        self.cover_lru = HashMap::new();
         self.in_flight = HashMap::new();
+        self.sync_active_in_flight();
     }
 
     pub fn visible_albums(&self) -> &[AlbumSummary] {
@@ -1261,7 +1351,7 @@ mod tests {
         assert!(albums_view.is_empty());
         assert_eq!(albums_view.len(), 0);
         assert!(albums_view.album_covers.is_empty());
-        assert!(albums_view.cover_order.is_empty());
+        assert!(albums_view.cover_lru.is_empty());
 
         let theme_cfg = ThemeConfig::default();
         let albums_fmt = AlbumsFormatConfig::default();

@@ -248,13 +248,13 @@ impl PlaylistsView {
 
     pub fn recompute_rendered_details(&mut self, playlists_fmt: &layout::PlaylistsFormatConfig) {
         self.detail_tracks_str = format!("{} tracks", self.detail_items.len());
+        let track_map: HashMap<i64, &TrackRow> =
+            self.detail_tracks.iter().map(|t| (t.id, t)).collect();
         self.rendered_detail_items = self
             .detail_items
             .iter()
             .map(|item| {
-                let track_row = item
-                    .track_id
-                    .and_then(|tid| self.detail_tracks.iter().find(|t| t.id == tid));
+                let track_row = item.track_id.and_then(|tid| track_map.get(&tid).copied());
                 let lookup = |key: &str| -> Option<String> {
                     if let Some(t) = track_row {
                         if let Some(v) = t.lookup(key) {
@@ -426,9 +426,7 @@ impl PlaylistsView {
 }
 
 fn case_insensitive(a: &str, b: &str) -> std::cmp::Ordering {
-    let a_chars = a.chars().flat_map(|c| c.to_lowercase());
-    let b_chars = b.chars().flat_map(|c| c.to_lowercase());
-    a_chars.cmp(b_chars)
+    super::albums::cmp_case_insensitive_fast(a, b)
 }
 
 #[cfg(test)]

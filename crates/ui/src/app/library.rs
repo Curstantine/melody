@@ -625,15 +625,28 @@ impl App {
         };
 
         let db = self.db.clone();
+        let active_in_flight = Arc::clone(&self.albums.active_in_flight);
         Task::perform(
             async move {
+                // Filter out keys already cancelled before hitting SQLite.
+                let active_chunk: Vec<(String, i64)> = {
+                    let guard = active_in_flight.read().ok();
+                    chunk
+                        .into_iter()
+                        .filter(|(k, _)| guard.as_ref().is_none_or(|s| s.contains(k)))
+                        .collect()
+                };
+                if active_chunk.is_empty() {
+                    return (Vec::new(), remaining);
+                }
+
                 // Resolve representative track paths for the whole chunk in a
                 // single `IN (...)` query, then downscale/cache covers off the
                 // async runtime.
-                let ids: Vec<i64> = chunk.iter().map(|(_, id)| *id).collect();
+                let ids: Vec<i64> = active_chunk.iter().map(|(_, id)| *id).collect();
                 let paths = db.get_track_paths_by_ids(&ids).await.unwrap_or_default();
 
-                let resolved: Vec<(String, Option<PathBuf>)> = chunk
+                let resolved: Vec<(String, Option<PathBuf>)> = active_chunk
                     .into_iter()
                     .map(|(key, id)| {
                         let path = paths.get(&id).map(PathBuf::from);
@@ -644,6 +657,14 @@ impl App {
                 tokio::task::spawn_blocking(move || {
                     let mut results = Vec::with_capacity(resolved.len());
                     for (key, path) in resolved {
+                        // Skip expensive FFmpeg/JPEG work if the user scrolled past this album.
+                        let still_needed = active_in_flight
+                            .read()
+                            .map(|s| s.contains(&key))
+                            .unwrap_or(true);
+                        if !still_needed {
+                            continue;
+                        }
                         let bytes = path
                             .and_then(|p| thumbnail::get_or_create(&p, thumbnail::Resolution::Low))
                             .unwrap_or_default();

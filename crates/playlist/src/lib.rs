@@ -346,9 +346,11 @@ pub fn append_tracks_to_m3u<P: AsRef<Path>>(
     };
 
     for track in tracks {
+        let raw_path = track.file_path.to_string();
+        let resolved_path = PathBuf::from(&raw_path);
         entries.push(PlaylistEntry {
-            raw_path: track.file_path.clone(),
-            resolved_path: PathBuf::from(&track.file_path),
+            raw_path,
+            resolved_path,
             title: Some(track.title.clone()),
             duration_ms: Some(track.duration_ms),
         });
@@ -510,8 +512,8 @@ mod tests {
             artist: "Artist 1".into(),
             album: "Album 1".into(),
             duration_ms: 180000,
-            file_path: "/music/song1.mp3".to_string(),
-            duration_label: "3:00".to_string(),
+            file_path: "/music/song1.mp3".into(),
+            duration_label: "3:00".into(),
             year: None,
             track_num: None,
             disc_num: None,
@@ -524,8 +526,8 @@ mod tests {
             artist: "Artist 2".into(),
             album: "Album 2".into(),
             duration_ms: 240000,
-            file_path: "/music/song2.mp3".to_string(),
-            duration_label: "4:00".to_string(),
+            file_path: "/music/song2.mp3".into(),
+            duration_label: "4:00".into(),
             year: None,
             track_num: None,
             disc_num: None,

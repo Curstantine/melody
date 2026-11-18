@@ -7,7 +7,7 @@ use model::{intern, NewTrack, SortDirection, SortField, Track, TrackFilter, Trac
 
 use crate::helpers::{
     filter_clause, map_track_row, map_track_row_summary, sanitize_db_opt, sanitize_db_text,
-    sort_column,
+    sort_order_clause,
 };
 use crate::{DbError, LibraryDatabase, SQL_IN_CLAUSE_CHUNK_SIZE};
 
@@ -208,12 +208,7 @@ impl LibraryDatabase {
         sort_field: SortField,
         sort_dir: SortDirection,
     ) -> Result<Vec<TrackRow>, DbError> {
-        let sort_col = sort_column(sort_field);
-
-        let dir_str = match sort_dir {
-            SortDirection::Ascending => "ASC",
-            SortDirection::Descending => "DESC",
-        };
+        let order_clause = sort_order_clause(sort_field, sort_dir);
 
         let mut rows_out = Vec::with_capacity(limit);
         let mut binds: Vec<turso::Value> = Vec::new();
@@ -225,10 +220,10 @@ impl LibraryDatabase {
             r#"
             SELECT id, title, artist, album, duration_ms, file_path, year, track_num, disc_num, album_artist, genre
             FROM tracks{}
-            ORDER BY {} {}
+            ORDER BY {}
             LIMIT ? OFFSET ?
             "#,
-            clause, sort_col, dir_str
+            clause, order_clause
         );
 
         let mut rows = self
@@ -254,11 +249,7 @@ impl LibraryDatabase {
         sort_field: SortField,
         sort_dir: SortDirection,
     ) -> Result<Vec<TrackRow>, DbError> {
-        let sort_col = sort_column(sort_field);
-        let dir_str = match sort_dir {
-            SortDirection::Ascending => "ASC",
-            SortDirection::Descending => "DESC",
-        };
+        let order_clause = sort_order_clause(sort_field, sort_dir);
 
         let mut binds: Vec<turso::Value> = Vec::new();
         let clause = filter_clause(filter, &mut binds);
@@ -266,9 +257,9 @@ impl LibraryDatabase {
             r#"
             SELECT id, title, artist, album, duration_ms, file_path, year, track_num, disc_num, album_artist, genre
             FROM tracks{}
-            ORDER BY {} {}
+            ORDER BY {}
             "#,
-            clause, sort_col, dir_str
+            clause, order_clause
         );
 
         let mut rows = self
