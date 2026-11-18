@@ -456,7 +456,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "audio"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "cpal",
  "crossbeam-channel",
@@ -924,7 +924,7 @@ dependencies = [
 
 [[package]]
 name = "component"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "iced",
  "model",
@@ -942,7 +942,7 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "audio",
  "font",
@@ -1259,7 +1259,7 @@ checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
 
 [[package]]
 name = "db"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "metadata",
  "model",
@@ -1666,7 +1666,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "font"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "iced",
  "serde",
@@ -2871,7 +2871,7 @@ dependencies = [
 
 [[package]]
 name = "layout"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "iced",
  "kdl 6.7.1",
@@ -3115,7 +3115,7 @@ dependencies = [
 
 [[package]]
 name = "metadata"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "crossbeam-channel",
  "encoding_rs",
@@ -3212,7 +3212,7 @@ dependencies = [
 
 [[package]]
 name = "model"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "serde",
 ]
@@ -3979,7 +3979,7 @@ checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
 
 [[package]]
 name = "path"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "directories",
 ]
@@ -4058,7 +4058,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "playlist"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "encoding_rs",
  "model",
@@ -4068,7 +4068,7 @@ dependencies = [
 
 [[package]]
 name = "plugin"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "async-io",
  "crossbeam-channel",
@@ -4284,7 +4284,7 @@ dependencies = [
 
 [[package]]
 name = "queue"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "model",
 ]
@@ -5606,7 +5606,7 @@ dependencies = [
 
 [[package]]
 name = "theme"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "iced",
  "path",
@@ -5667,7 +5667,7 @@ dependencies = [
 
 [[package]]
 name = "thumbnail"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "image",
  "md-5",
@@ -6257,7 +6257,7 @@ dependencies = [
 
 [[package]]
 name = "ui"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "audio",
  "component",
@@ -6364,7 +6364,7 @@ checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
 
 [[package]]
 name = "updater"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "tokio",
  "tracing",
