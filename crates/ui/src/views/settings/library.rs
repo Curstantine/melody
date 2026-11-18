@@ -180,7 +180,6 @@ impl SettingsView {
                 text(font, "Watch library folders")
                     .size(12)
                     .color(theme_cfg.text_muted),
-                Space::new().height(SPACE_SM),
                 text(
                     font,
                     "Automatically monitor directories and scan for new audio files"
@@ -188,6 +187,7 @@ impl SettingsView {
                 .size(11)
                 .color(theme_cfg.text_muted),
             ]
+            .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
             toggler(ctx.watch_library)
                 .on_toggle(Message::ToggleWatchLibrary)
@@ -200,9 +200,14 @@ impl SettingsView {
             theme_cfg,
             font,
             "Scanned directories",
-            column![watch_dirs_row, folders_content, add_folder_btn]
-                .spacing(CARD_SPACING)
-                .boxed(),
+            column![
+                watch_dirs_row,
+                Space::new().height(SPACE_LG),
+                folders_content,
+                Space::new().height(CARD_SPACING),
+                add_folder_btn
+            ]
+            .boxed(),
         );
 
         // Maintenance & Actions Card
@@ -293,7 +298,6 @@ impl SettingsView {
             font,
             "Library actions & maintenance",
             column![
-                // Action 1: Scan for new files
                 row![
                     column![
                         text(font, "Scan for new files")
@@ -303,12 +307,12 @@ impl SettingsView {
                             .size(11)
                             .color(theme_cfg.text_muted),
                     ]
+                    .spacing(FORM_FIELD_SPACING)
                     .width(Length::Fill),
                     scan_new_btn,
                 ]
                 .align_y(Alignment::Center),
                 Space::new().height(SPACE_MD),
-                // Action 2: Reindex
                 row![
                     column![
                         text(font, "Full reindex")
@@ -318,12 +322,12 @@ impl SettingsView {
                             .size(11)
                             .color(theme_cfg.text_muted),
                     ]
+                    .spacing(FORM_FIELD_SPACING)
                     .width(Length::Fill),
                     reindex_all_btn,
                 ]
                 .align_y(Alignment::Center),
                 Space::new().height(SPACE_MD),
-                // Action 2: Clear Thumbnail Cache
                 row![
                     column![
                         text(font, "Purge thumbnail cache")
@@ -337,12 +341,12 @@ impl SettingsView {
                         .size(11)
                         .color(theme_cfg.text_muted),
                     ]
+                    .spacing(FORM_FIELD_SPACING)
                     .width(Length::Fill),
                     clear_cache_btn,
                 ]
                 .align_y(Alignment::Center),
                 Space::new().height(SPACE_MD),
-                // Action 3: Clear / Reset Database
                 row![
                     column![
                         text(font, "Reset library database")
@@ -352,6 +356,7 @@ impl SettingsView {
                             .size(11)
                             .color(theme_cfg.text_muted),
                     ]
+                    .spacing(FORM_FIELD_SPACING)
                     .width(Length::Fill),
                     clear_db_btn,
                 ]

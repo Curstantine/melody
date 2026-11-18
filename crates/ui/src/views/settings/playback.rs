@@ -74,8 +74,8 @@ impl SettingsView {
             ]
             .spacing(FORM_FIELD_SPACING)
             .width(Length::Fill),
-            row![device_selector, refresh_devices_btn]
-                .spacing(8)
+            row![refresh_devices_btn, device_selector]
+                .spacing(SPACE_SM)
                 .align_y(Alignment::Center),
         ]
         .align_y(Alignment::Center);

@@ -17,9 +17,6 @@ mod playback;
 mod scrobbling;
 mod sidebar;
 mod updates;
-// ─────────────────────────────────────────────────────────────────────────────
-// Spacing & Padding Constants
-// ─────────────────────────────────────────────────────────────────────────────
 
 pub const PAGE_SPACING: f32 = 18.0;
 pub const PAGE_PADDING: [f32; 2] = [18.0, 24.0];
