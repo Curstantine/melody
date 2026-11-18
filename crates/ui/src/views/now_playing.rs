@@ -267,8 +267,18 @@ impl NowPlayingView {
                     }
                 };
 
+                let padded_lyrics =
+                    container(lyrics_body)
+                        .width(Length::Fill)
+                        .padding(iced::Padding {
+                            top: 24.0,
+                            right: INFO_PANEL_WIDTH + 44.0,
+                            bottom: 24.0,
+                            left: 24.0,
+                        });
+
                 let scroll_offset = &self.scroll_offset;
-                let lyrics_panel = scrollable(lyrics_body)
+                let lyrics_panel = scrollable(padded_lyrics)
                     .id(iced::widget::Id::new("lyrics_scroll"))
                     .on_scroll(move |scroll| {
                         scroll_offset.set(scroll.viewport.absolute_offset().y);
@@ -471,24 +481,34 @@ impl NowPlayingView {
                 .height(Length::Fill)
                 .align_x(Alignment::Center);
 
-                row![lyrics_panel, Space::new().width(20), right_section,]
+                let right_overlay = container(
+                    row![Space::new().width(Length::Fill), right_section]
+                        .width(Length::Fill)
+                        .height(Length::Fill),
+                )
+                .padding(24)
+                .width(Length::Fill)
+                .height(Length::Fill);
+
+                stack![lyrics_panel, right_overlay]
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .boxed()
             }
-            None => component::empty_state(
+            None => container(component::empty_state(
                 theme_cfg,
                 fonts.primary_font(),
                 "No track playing",
                 "Select a song from the library to view track details and lyrics",
-            ),
+            ))
+            .padding(24)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .boxed(),
         };
 
         // Very blurry version of the cover as the background
-        let foreground = container(content)
-            .padding(24)
-            .width(Length::Fill)
-            .height(Length::Fill);
+        let foreground = container(content).width(Length::Fill).height(Length::Fill);
 
         match blurred_cover {
             Some(handle) => {
