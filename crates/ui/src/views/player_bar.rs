@@ -90,7 +90,6 @@ impl PlayerBar {
         font: iced::Font,
         current_track: Option<&'a Track>,
         current_cover: Option<&'a image::Handle>,
-        is_playing: bool,
     ) -> Element<'a, Message> {
         let bar_fg = theme_cfg.player_bar_text_color();
         let bar_muted = iced::Color { a: 0.6, ..bar_fg };
@@ -110,13 +109,11 @@ impl PlayerBar {
                 component::Marquee::new(&track.title)
                     .size(13.0)
                     .color(bar_fg)
-                    .font(font)
-                    .animating(is_playing),
+                    .font(font),
                 component::Marquee::new(&self.artist_album)
                     .size(11.0)
                     .color(bar_muted)
-                    .font(font)
-                    .animating(is_playing),
+                    .font(font),
             ],
             None => column![
                 text(font, "No track playing").size(13).color(bar_fg),
@@ -348,8 +345,7 @@ impl PlayerBar {
         let bar_muted = iced::Color { a: 0.6, ..bar_fg };
 
         // 1. Left: Track Info & Cover Thumbnail
-        let track_section =
-            self.view_track_info(theme_cfg, font, current_track, current_cover, is_playing);
+        let track_section = self.view_track_info(theme_cfg, font, current_track, current_cover);
 
         // 2. Center: Controls
         let buttons = self.view_controls(theme_cfg, is_playing);

@@ -259,7 +259,6 @@ impl App {
                 self.fonts.primary_font(),
                 self.current_track.as_ref(),
                 self.current_cover.as_ref(),
-                self.is_playing,
             ))
             .padding([4, 8])
             .boxed(),
