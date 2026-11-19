@@ -7,8 +7,9 @@ use crate::message::Message;
 use component::{icons, styles, text};
 use theme::ThemeConfig;
 
-/// Height of the custom window titlebar in logical pixels.
-pub const TITLEBAR_HEIGHT: f32 = 30.0;
+/// Height of the standalone custom window titlebar in logical pixels
+/// (the merged navbar titlebar in `layout_view.rs` uses 32 px).
+const STANDALONE_TITLEBAR_HEIGHT: f32 = 30.0;
 
 /// Thickness of the invisible edge resize grab strips in logical pixels.
 const RESIZE_EDGE_PX: f32 = 5.0;
@@ -37,7 +38,7 @@ impl TitlebarView {
             )
             .padding([0, 12])
             .width(Length::Fill)
-            .height(Length::Fixed(TITLEBAR_HEIGHT))
+            .height(Length::Fixed(STANDALONE_TITLEBAR_HEIGHT))
             .align_y(Alignment::Center),
         )
         .on_press(Message::TitlebarPressed)
@@ -48,12 +49,12 @@ impl TitlebarView {
         let bar = row![drag_region, controls]
             .align_y(Alignment::Center)
             .width(Length::Fill)
-            .height(Length::Fixed(TITLEBAR_HEIGHT));
+            .height(Length::Fixed(STANDALONE_TITLEBAR_HEIGHT));
 
         container(bar)
             .style(styles::titlebar_container(theme_cfg))
             .width(Length::Fill)
-            .height(Length::Fixed(TITLEBAR_HEIGHT))
+            .height(Length::Fixed(STANDALONE_TITLEBAR_HEIGHT))
             .boxed()
     }
 }
@@ -100,7 +101,7 @@ pub fn window_controls_row<'a>(
 
     row![min_btn, max_btn, close_btn]
         .align_y(Alignment::Center)
-        .height(Length::Fixed(TITLEBAR_HEIGHT))
+        .height(Length::Fill)
         .boxed()
 }
 
@@ -138,10 +139,11 @@ fn window_control_btn<'a>(
     button(
         container(content)
             .width(Length::Fixed(BTN_WIDTH))
-            .height(Length::Fixed(TITLEBAR_HEIGHT))
+            .height(Length::Fill)
             .align_x(Alignment::Center)
             .align_y(Alignment::Center),
     )
+    .height(Length::Fill)
     .padding(0)
     .style(styles::window_control_button(
         theme_cfg, is_close, is_focused,
