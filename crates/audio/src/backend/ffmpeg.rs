@@ -36,7 +36,10 @@ fn target_channel_layout(channels: usize) -> ChannelLayout {
 
 fn get_decoder_channel_layout(decoder: &ffmpeg_next::codec::decoder::Audio) -> ChannelLayout {
     if decoder.channel_layout().is_empty() {
-        let ch = if decoder.channels() > 0 {
+        let nb_channels = unsafe { (*decoder.as_ptr()).ch_layout.nb_channels };
+        let ch = if nb_channels > 0 {
+            nb_channels as usize
+        } else if decoder.channels() > 0 {
             decoder.channels() as usize
         } else {
             2
@@ -255,6 +258,16 @@ impl LoadedTrack {
                 break;
             }
 
+            if self.decoded_frame.channel_layout().is_empty() {
+                let nb_channels = unsafe { (*self.decoded_frame.as_ptr()).ch_layout.nb_channels };
+                let layout = if nb_channels > 0 {
+                    target_channel_layout(nb_channels as usize)
+                } else {
+                    get_decoder_channel_layout(&self.decoder)
+                };
+                self.decoded_frame.set_channel_layout(layout);
+            }
+
             match self
                 .resampler
                 .run(&self.decoded_frame, &mut self.resampled_frame)
@@ -314,6 +327,84 @@ impl LoadedTrack {
                 self.flush_resampler(sink);
                 true
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ringbuf::traits::Split;
+    use ringbuf::HeapRb;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
+
+    /// Builds a minimal valid RIFF WAVE (PCM 16-bit, 44100 Hz) file using
+    /// `WAVE_FORMAT_PCM` (tag 1), which leaves channel layout unspecified
+    /// (`AV_CHANNEL_ORDER_UNSPEC`), matching real-world `.wav` files.
+    fn write_test_pcm_wav(path: &Path, channels: u16, num_frames: u32) {
+        let sample_rate: u32 = 44100;
+        let bits_per_sample: u16 = 16;
+        let block_align = channels * (bits_per_sample / 8);
+        let byte_rate = sample_rate * u32::from(block_align);
+        let data_size = num_frames * u32::from(block_align);
+        let riff_size = 36 + data_size;
+
+        let mut buf = Vec::with_capacity((44 + data_size) as usize);
+        buf.extend_from_slice(b"RIFF");
+        buf.extend_from_slice(&riff_size.to_le_bytes());
+        buf.extend_from_slice(b"WAVE");
+        buf.extend_from_slice(b"fmt ");
+        buf.extend_from_slice(&16u32.to_le_bytes());
+        buf.extend_from_slice(&1u16.to_le_bytes()); // WAVE_FORMAT_PCM
+        buf.extend_from_slice(&channels.to_le_bytes());
+        buf.extend_from_slice(&sample_rate.to_le_bytes());
+        buf.extend_from_slice(&byte_rate.to_le_bytes());
+        buf.extend_from_slice(&block_align.to_le_bytes());
+        buf.extend_from_slice(&bits_per_sample.to_le_bytes());
+        buf.extend_from_slice(b"data");
+        buf.extend_from_slice(&data_size.to_le_bytes());
+        for i in 0..num_frames {
+            let sample = ((i as f32 * 440.0 * std::f32::consts::TAU / sample_rate as f32).sin()
+                * 16000.0) as i16;
+            for _ in 0..channels {
+                buf.extend_from_slice(&sample.to_le_bytes());
+            }
+        }
+        std::fs::write(path, buf).expect("write test wav");
+    }
+
+    #[test]
+    fn decodes_pcm_wav_with_unspecified_channel_layout() {
+        for channels in [1u16, 2u16] {
+            let wav_path = std::env::temp_dir().join(format!(
+                "melody-test-unspecified-layout-{}ch-{}.wav",
+                channels,
+                std::process::id()
+            ));
+            write_test_pcm_wav(&wav_path, channels, 4410);
+
+            let mut track = LoadedTrack::load(&wav_path, 48000, 2, &ResamplingConfig::default())
+                .expect("load wav track");
+
+            let rb = HeapRb::<f32>::new(65536);
+            let (prod, _cons) = rb.split();
+            let mut ring_producer = Some(prod);
+            let flush_flag = Arc::new(AtomicBool::new(false));
+            let mut written_samples = 0u64;
+            let mut sink = RingSink {
+                ring_producer: &mut ring_producer,
+                flush_flag: &flush_flag,
+                written_samples: &mut written_samples,
+            };
+
+            while !track.decode_step(&mut sink) {}
+            let _ = std::fs::remove_file(&wav_path);
+
+            assert!(
+                written_samples > 0,
+                "expected decoded samples from {channels}-ch PCM WAV with unspecified channel layout, got 0"
+            );
         }
     }
 }
