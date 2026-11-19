@@ -1,14 +1,12 @@
 use std::collections::VecDeque;
 
 use super::ScrollOffset;
-use iced::widget::{
-    button, column, container, mouse_area, row, scrollable, text_input, Space, Widget,
-};
+use iced::widget::{column, container, mouse_area, row, scrollable, text_input, Space, Widget};
 use iced::{Alignment, Element, Length};
 use model::{format_template, SortDirection, SortField, TrackFilter, TrackRow};
 
 use crate::message::Message;
-use component::{self, icons, styles, text, TrackMenuContext};
+use component::{self, button, icons, styles, text, TrackMenuContext};
 use theme::ThemeConfig;
 
 /// Fixed pixel height of a single track row. The virtualization math depends on

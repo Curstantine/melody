@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 
-use iced::widget::{button, column, container, mouse_area, row, Space, Widget};
+use iced::widget::{column, container, mouse_area, row, Space, Widget};
 use iced::{Alignment, Color, Element, Length, Task};
 use model::{SortDirection, SortField, TrackFilter, TrackRow};
 
 use crate::message::{Message, PlaylistOpenIntent};
 use ::queue::DEFAULT_QUEUE_NAME;
 use component::{
-    icons, styles, ContextMenuAction, ContextMenuState, ContextMenuTarget, TrackMenuContext,
+    button, icons, styles, ContextMenuAction, ContextMenuState, ContextMenuTarget, TrackMenuContext,
 };
 use config::{PlaylistSection, ViewTab};
 use theme::ThemeConfig;

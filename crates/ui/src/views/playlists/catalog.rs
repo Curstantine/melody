@@ -1,11 +1,11 @@
 use std::borrow::Cow;
 
 use iced::widget::{
-    button, column, container, image, mouse_area, row, scrollable, text_input, Space, Widget,
+    column, container, image, mouse_area, row, scrollable, text_input, Space, Widget,
 };
 use iced::{Alignment, Element, Length};
 
-use component::{self, icons, styles, text};
+use component::{self, button, icons, styles, text};
 use model::{format_template, PlaylistSortField, ViewMode};
 use theme::ThemeConfig;
 
@@ -243,11 +243,13 @@ impl PlaylistsView {
             let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text))
                 .style(styles::icon_control_button(theme_cfg))
                 .padding(4)
+                .interaction(iced::mouse::Interaction::Pointer)
                 .on_press(Message::PlayPlaylist(playlist.id));
 
             let delete_btn = button(icons::icon(icons::TRASH_SVG, 14.0, theme_cfg.text))
                 .style(styles::icon_control_button(theme_cfg))
                 .padding(4)
+                .interaction(iced::mouse::Interaction::Pointer)
                 .on_press(Message::DeletePlaylist(playlist.id));
 
             // Action buttons overlay the cover's bottom-right corner, just

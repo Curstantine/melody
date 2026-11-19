@@ -1,10 +1,8 @@
-use iced::widget::{
-    button, column, container, mouse_area, row, scrollable, text_input, Space, Widget,
-};
+use iced::widget::{column, container, mouse_area, row, scrollable, text_input, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use ::queue::{queue_window_for_start, queue_window_start, QueueStore, QUEUE_ROW_HEIGHT};
-use component::{self, icons, styles, text, TrackMenuContext};
+use component::{self, button, icons, styles, text, TrackMenuContext};
 use model::{format_template, FieldLookup};
 use theme::ThemeConfig;
 

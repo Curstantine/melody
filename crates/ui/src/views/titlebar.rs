@@ -1,10 +1,10 @@
 use iced::mouse::Interaction;
-use iced::widget::{button, column, container, mouse_area, row, Space, Widget};
+use iced::widget::{column, container, mouse_area, row, Space, Widget};
 use iced::window::Direction;
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
-use component::{icons, styles, text};
+use component::{button, icons, styles, text};
 use theme::ThemeConfig;
 
 /// Height of the standalone custom window titlebar in logical pixels

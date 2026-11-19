@@ -1,12 +1,10 @@
-use iced::widget::{
-    button, column, container, image, responsive, row, scrollable, stack, Space, Widget,
-};
+use iced::widget::{column, container, image, responsive, row, scrollable, stack, Space, Widget};
 use iced::{Alignment, ContentFit, Element, Length};
 use metadata::AudioTechnicalInfo;
 use model::{ParsedLyrics, Track, TrackRow};
 
 use crate::message::Message;
-use component::{self, icons, styles, text};
+use component::{self, button, icons, styles, text};
 use theme::ThemeConfig;
 
 use super::{collapsible_size, ScrollOffset};

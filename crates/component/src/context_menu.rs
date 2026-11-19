@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use iced::widget::{button, column, container, mouse_area, row, Space, Widget};
+use iced::widget::{column, container, mouse_area, row, Space, Widget};
 use iced::{Alignment, Color, Element, Length, Point, Size};
 use model::{AlbumSummary, ArtistSummary, PlaylistSummary, TrackRow};
 
-use crate::{icons, styles, text};
+use crate::{button, icons, styles, text};
 use theme::ThemeConfig;
 
 const CONTEXT_MENU_WIDTH: f32 = 220.0;

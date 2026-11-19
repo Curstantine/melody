@@ -1,11 +1,9 @@
-use iced::widget::{
-    button, column, container, image, mouse_area, row, slider, stack, Space, Widget,
-};
+use iced::widget::{column, container, image, mouse_area, row, slider, stack, Space, Widget};
 use iced::{Alignment, Element, Length};
 use model::{format_duration, Track};
 
 use crate::message::Message;
-use component::{self, icons, styles, text};
+use component::{self, button, icons, styles, text};
 use theme::ThemeConfig;
 
 /// Self-contained state and view component for the bottom persistent player bar widget.

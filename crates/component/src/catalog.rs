@@ -1,13 +1,14 @@
 use std::borrow::Cow;
 
 use iced::border::Radius;
+use iced::widget::button::{Status as ButtonStatus, Style as ButtonStyle};
 use iced::widget::text::{Ellipsis, Wrapping};
-use iced::widget::{button, column, container, image, row, Space, Widget};
+use iced::widget::{column, container, image, row, Space, Widget};
 use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length, Padding, Shadow};
 
 use theme::ThemeConfig;
 
-use crate::{icons, styles, text};
+use crate::{button, icons, styles, text};
 
 /// Fixed pixel height of a single catalog list row, shared by Albums and Artists.
 pub const CATALOG_LIST_ROW_HEIGHT: f32 = 56.0;
@@ -238,11 +239,13 @@ impl<'a, M: Clone + 'static> CatalogTile<'a, M> {
         let play_btn = button(icons::icon(icons::PLAY_SVG, 14.0, theme_cfg.text))
             .style(styles::icon_control_button(theme_cfg))
             .padding(4)
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_press(on_play);
 
         let shuffle_btn = button(icons::icon(icons::SHUFFLE_SVG, 14.0, theme_cfg.text))
             .style(styles::icon_control_button(theme_cfg))
             .padding(4)
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_press(on_shuffle);
 
         let actions = container(row![play_btn, shuffle_btn].spacing(4))
@@ -407,9 +410,7 @@ impl<'a, M: Clone + 'static> TrackRow<'a, M> {
             .on_enter(hover_enter)
             .on_exit(hover_exit);
         if let Some(message) = on_press {
-            area = area
-                .on_press(message)
-                .interaction(iced::mouse::Interaction::Pointer);
+            area = area.on_press(message);
         }
         if let Some(message) = on_right_press {
             area = area.on_right_press(message);
@@ -492,12 +493,12 @@ pub fn catalog_cover_art<'a, M: Clone + 'static>(
                 .height(size)
                 .style(move |_theme, status| {
                     let bg = match status {
-                        button::Status::Active => Color::TRANSPARENT,
-                        button::Status::Hovered => Color::from_rgba(0.0, 0.0, 0.0, 0.5),
-                        button::Status::Pressed => Color::from_rgba(0.0, 0.0, 0.0, 0.5),
-                        button::Status::Disabled => Color::TRANSPARENT,
+                        ButtonStatus::Active => Color::TRANSPARENT,
+                        ButtonStatus::Hovered => Color::from_rgba(0.0, 0.0, 0.0, 0.5),
+                        ButtonStatus::Pressed => Color::from_rgba(0.0, 0.0, 0.0, 0.5),
+                        ButtonStatus::Disabled => Color::TRANSPARENT,
                     };
-                    button::Style {
+                    ButtonStyle {
                         background: Some(Background::Color(bg)),
                         border: Border {
                             radius,
@@ -530,12 +531,12 @@ pub fn catalog_cover_art<'a, M: Clone + 'static>(
                 .padding(0)
                 .style(move |_theme, status| {
                     let bg = match status {
-                        button::Status::Active => placeholder_bg,
-                        button::Status::Hovered => placeholder_hover_bg,
-                        button::Status::Pressed => placeholder_hover_bg,
-                        button::Status::Disabled => placeholder_bg,
+                        ButtonStatus::Active => placeholder_bg,
+                        ButtonStatus::Hovered => placeholder_hover_bg,
+                        ButtonStatus::Pressed => placeholder_hover_bg,
+                        ButtonStatus::Disabled => placeholder_bg,
                     };
-                    button::Style {
+                    ButtonStyle {
                         background: Some(Background::Color(bg)),
                         border: Border {
                             radius,

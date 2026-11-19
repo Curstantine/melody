@@ -1,10 +1,10 @@
-use iced::widget::{button, column, container, mouse_area, row, stack, Space, Widget};
+use iced::widget::{column, container, mouse_area, row, stack, Space, Widget};
 use iced::{Element, Length};
 
 use crate::app::App;
 use crate::message::Message;
 use crate::views::{self, StatusBar, StatusBarContext};
-use component::{icons, styles, text};
+use component::{button, icons, styles, text};
 use config::ViewTab;
 use layout::schema::{ContainerStyle, LayoutComponent, LayoutNode, Orientation};
 use theme::ThemeConfig;
@@ -362,7 +362,6 @@ impl App {
                     Message::TabHovered(Some(tab))
                 })
                 .on_exit(Message::TabHovered(None))
-                .interaction(iced::mouse::Interaction::Pointer)
                 .boxed()
         });
 
@@ -479,8 +478,7 @@ impl App {
                                 false,
                             )),
                     )
-                    .on_press(Message::SelectTab(ViewTab::Settings))
-                    .interaction(iced::mouse::Interaction::Pointer);
+                    .on_press(Message::SelectTab(ViewTab::Settings));
 
                     nav_col = nav_col.push(settings_container.boxed());
                 }

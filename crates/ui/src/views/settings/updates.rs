@@ -1,8 +1,8 @@
-use iced::widget::{button, column, container, row, Space, Widget};
+use iced::widget::{column, container, row, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
-use component::{self, icons, styles, text};
+use component::{self, button, icons, styles, text};
 use theme::ThemeConfig;
 
 use super::*;
@@ -53,6 +53,7 @@ impl SettingsView {
                 )
                 .padding([2, 0])
                 .style(styles::ghost_button(theme_cfg, false))
+                .interaction(iced::mouse::Interaction::Pointer)
                 .on_press(Message::OpenUrl(info.release_url.clone()));
 
                 let ver_label = text(font, format!("v{current_version}"))
@@ -130,6 +131,7 @@ impl SettingsView {
                 )
                 .padding([2, 0])
                 .style(styles::ghost_button(theme_cfg, false))
+                .interaction(iced::mouse::Interaction::Pointer)
                 .on_press(Message::OpenUrl(info.release_url.clone()));
 
                 let ver_label = text(font, format!("v{current_version}"))

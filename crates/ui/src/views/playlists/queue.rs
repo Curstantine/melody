@@ -1,8 +1,8 @@
-use iced::widget::{button, column, row, text_input, Space, Widget};
+use iced::widget::{column, row, text_input, Space, Widget};
 use iced::{Alignment, Element, Length};
 
 use ::queue::{queue_window_for_start, queue_window_start, QueueStore, QUEUE_ROW_HEIGHT};
-use component::{self, icons, styles, text};
+use component::{self, button, icons, styles, text};
 use model::format_template;
 use theme::ThemeConfig;
 

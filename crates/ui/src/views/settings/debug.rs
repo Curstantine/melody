@@ -1,12 +1,10 @@
 use iced::border::Radius;
-use iced::widget::{
-    button, column, container, pick_list, row, slider, text_input, toggler, Space, Widget,
-};
+use iced::widget::{column, container, pick_list, row, slider, text_input, toggler, Space, Widget};
 use iced::{Alignment, Border, Color, Element, Length};
 
 use crate::message::Message;
 use component::Marquee;
-use component::{self, icons, styles, text};
+use component::{self, button, icons, styles, text};
 use model::SortField;
 use theme::ThemeConfig;
 

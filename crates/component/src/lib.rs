@@ -2,13 +2,14 @@ use std::borrow::Cow;
 
 use iced::{
     border::Radius,
-    widget::{button, column, container, image, row, rule, Space, Widget},
+    widget::{column, container, image, row, rule, Space, Widget},
     Alignment, Border, Color, ContentFit, Element, Length,
 };
 
 use model::{SortDirection, ViewMode};
 use theme::ThemeConfig;
 
+pub mod button;
 pub mod catalog;
 pub mod context_menu;
 pub mod icons;
@@ -18,6 +19,7 @@ pub mod spinner;
 pub mod styles;
 
 pub use crate::{
+    button::{button, Button},
     catalog::{
         catalog_cover_art, CatalogRow, CatalogTile, TrackRow, CATALOG_LIST_ART_SIZE,
         CATALOG_LIST_ROW_HEIGHT, CATALOG_ROW_SPACING, CATALOG_TILE_META_HEIGHT, TRACK_ROW_HEIGHT,

@@ -1,8 +1,8 @@
-use iced::widget::{button, column, container, row, toggler, Space, Widget};
+use iced::widget::{column, container, row, toggler, Space, Widget};
 use iced::{Alignment, Border, Element, Length};
 
 use crate::message::Message;
-use component::{self, icons, styles, text};
+use component::{self, button, icons, styles, text};
 use theme::ThemeConfig;
 
 use super::*;
