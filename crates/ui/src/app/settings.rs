@@ -95,15 +95,14 @@ impl App {
 
             Message::SelectTheme(name) => {
                 self.theme_manager.set_theme(&name);
-                let mut tasks = vec![self.save_config_task()];
-
-                #[cfg(target_os = "windows")]
-                tasks.push(crate::window_decorations::sync_titlebar_theme(
-                    None,
-                    &self.theme_manager.current_config,
-                ));
-
-                Task::batch(tasks)
+                Task::batch([
+                    self.save_config_task(),
+                    #[cfg(target_os = "windows")]
+                    crate::window_decorations::sync_titlebar_theme(
+                        None,
+                        &self.theme_manager.current_config,
+                    ),
+                ])
             }
 
             Message::SelectLayout(name) => {

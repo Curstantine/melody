@@ -315,24 +315,21 @@ impl App {
                 }
                 self.custom_titlebar = enabled;
 
-                let mut tasks = vec![
+                #[cfg(target_os = "windows")]
+                crate::window_decorations::snap_layouts::sync_state(
+                    self.use_custom_titlebar(),
+                    self.current_titlebar_height(),
+                );
+
+                Task::batch([
                     self.save_config_task(),
                     iced::window::oldest().and_then(iced::window::toggle_decorations),
-                ];
-
-                #[cfg(target_os = "windows")]
-                {
-                    crate::window_decorations::snap_layouts::sync_state(
-                        self.use_custom_titlebar(),
-                        self.current_titlebar_height(),
-                    );
-                    tasks.push(crate::window_decorations::sync_titlebar_theme(
+                    #[cfg(target_os = "windows")]
+                    crate::window_decorations::sync_titlebar_theme(
                         None,
                         &self.theme_manager.current_config,
-                    ));
-                }
-
-                Task::batch(tasks)
+                    ),
+                ])
             }
 
             Message::ToggleMinimizeToTray(enabled) => {
