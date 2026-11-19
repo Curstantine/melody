@@ -858,12 +858,14 @@ pub fn window_control_button(
     cfg: &ThemeConfig,
     is_close: bool,
     is_focused: bool,
+    override_status: Option<button::Status>,
 ) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
         let close_red = Color::from_rgb8(0xE8, 0x11, 0x23);
         let close_pressed = Color::from_rgb8(0xC5, 0x0F, 0x1F);
 
-        let (bg, text_color) = match status {
+        let effective_status = override_status.unwrap_or(status);
+        let (bg, text_color) = match effective_status {
             button::Status::Hovered => {
                 if is_close {
                     (close_red, Color::WHITE)

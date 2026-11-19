@@ -72,8 +72,14 @@ pub fn window_controls_row<'a>(
         theme_cfg,
         false,
         is_focused,
+        None,
         Message::WindowMinimize,
     );
+
+    #[cfg(target_os = "windows")]
+    let max_override = crate::window_decorations::snap_layouts::maximize_button_status();
+    #[cfg(not(target_os = "windows"))]
+    let max_override = None;
 
     let max_btn = window_control_btn(
         if is_maximized {
@@ -86,6 +92,7 @@ pub fn window_controls_row<'a>(
         theme_cfg,
         false,
         is_focused,
+        max_override,
         Message::WindowToggleMaximize,
     );
 
@@ -96,6 +103,7 @@ pub fn window_controls_row<'a>(
         theme_cfg,
         true,
         is_focused,
+        None,
         Message::WindowClose,
     );
 
@@ -111,6 +119,7 @@ fn window_control_btn<'a>(
     theme_cfg: &'a ThemeConfig,
     is_close: bool,
     is_focused: bool,
+    override_status: Option<iced::widget::button::Status>,
     on_press: Message,
 ) -> Element<'a, Message> {
     const ICON_SIZE: f32 = 14.0;
@@ -146,7 +155,10 @@ fn window_control_btn<'a>(
     .height(Length::Fill)
     .padding(0)
     .style(styles::window_control_button(
-        theme_cfg, is_close, is_focused,
+        theme_cfg,
+        is_close,
+        is_focused,
+        override_status,
     ))
     .on_press(on_press)
     .boxed()

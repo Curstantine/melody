@@ -116,6 +116,11 @@ impl App {
                         .recompute_rendered_details(&formats.playlists);
                     self.playlists
                         .recompute_rendered_queue(&formats.queue, &self.queues);
+                    #[cfg(target_os = "windows")]
+                    crate::window_decorations::snap_layouts::sync_state(
+                        self.use_custom_titlebar(),
+                        self.current_titlebar_height(),
+                    );
                     self.save_config_task()
                 } else {
                     Task::none()
@@ -135,6 +140,11 @@ impl App {
                     .recompute_rendered_details(&formats.playlists);
                 self.playlists
                     .recompute_rendered_queue(&formats.queue, &self.queues);
+                #[cfg(target_os = "windows")]
+                crate::window_decorations::snap_layouts::sync_state(
+                    self.use_custom_titlebar(),
+                    self.current_titlebar_height(),
+                );
                 crate::window_decorations::sync_titlebar_theme(
                     None,
                     &self.theme_manager.current_config,

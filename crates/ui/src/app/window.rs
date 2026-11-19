@@ -259,6 +259,12 @@ impl App {
                     Some(id),
                     &self.theme_manager.current_config,
                 )];
+                #[cfg(target_os = "windows")]
+                tasks.push(crate::window_decorations::snap_layouts::install_hook(
+                    id,
+                    self.use_custom_titlebar(),
+                    self.current_titlebar_height(),
+                ));
                 if self.is_maximized {
                     tasks.push(iced::window::maximize(id, true));
                 } else {
@@ -304,6 +310,11 @@ impl App {
                     return Task::none();
                 }
                 self.custom_titlebar = enabled;
+                #[cfg(target_os = "windows")]
+                crate::window_decorations::snap_layouts::sync_state(
+                    self.use_custom_titlebar(),
+                    self.current_titlebar_height(),
+                );
                 let theme_cfg = self.theme_manager.current_config.clone();
                 Task::batch([
                     self.save_config_task(),
@@ -434,6 +445,20 @@ impl App {
 
     pub(crate) fn use_custom_titlebar(&self) -> bool {
         self.custom_titlebar
+    }
+
+    #[cfg(target_os = "windows")]
+    pub(crate) fn current_titlebar_height(&self) -> f32 {
+        if self
+            .layout_manager
+            .current_template
+            .root
+            .has_top_horizontal_navbar()
+        {
+            32.0
+        } else {
+            30.0
+        }
     }
 
     pub(crate) fn open_or_focus_window_task(&mut self) -> Task<Message> {
