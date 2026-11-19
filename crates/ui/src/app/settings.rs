@@ -95,13 +95,15 @@ impl App {
 
             Message::SelectTheme(name) => {
                 self.theme_manager.set_theme(&name);
-                Task::batch([
-                    self.save_config_task(),
-                    crate::window_decorations::sync_titlebar_theme(
-                        None,
-                        &self.theme_manager.current_config,
-                    ),
-                ])
+                let mut tasks = vec![self.save_config_task()];
+
+                #[cfg(target_os = "windows")]
+                tasks.push(crate::window_decorations::sync_titlebar_theme(
+                    None,
+                    &self.theme_manager.current_config,
+                ));
+
+                Task::batch(tasks)
             }
 
             Message::SelectLayout(name) => {
@@ -141,14 +143,18 @@ impl App {
                 self.playlists
                     .recompute_rendered_queue(&formats.queue, &self.queues);
                 #[cfg(target_os = "windows")]
-                crate::window_decorations::snap_layouts::sync_state(
-                    self.use_custom_titlebar(),
-                    self.current_titlebar_height(),
-                );
-                crate::window_decorations::sync_titlebar_theme(
-                    None,
-                    &self.theme_manager.current_config,
-                )
+                {
+                    crate::window_decorations::snap_layouts::sync_state(
+                        self.use_custom_titlebar(),
+                        self.current_titlebar_height(),
+                    );
+                    crate::window_decorations::sync_titlebar_theme(
+                        None,
+                        &self.theme_manager.current_config,
+                    )
+                }
+                #[cfg(not(target_os = "windows"))]
+                Task::none()
             }
 
             Message::SelectFont(font_name) => {

@@ -255,16 +255,20 @@ impl App {
             Message::WindowOpened(id) => {
                 self.main_window_id = Some(id);
                 self.is_window_focused = true;
-                let mut tasks = vec![crate::window_decorations::sync_titlebar_theme(
+                let mut tasks = vec![];
+
+                #[cfg(target_os = "windows")]
+                tasks.push(crate::window_decorations::sync_titlebar_theme(
                     Some(id),
                     &self.theme_manager.current_config,
-                )];
+                ));
                 #[cfg(target_os = "windows")]
                 tasks.push(crate::window_decorations::snap_layouts::install_hook(
                     id,
                     self.use_custom_titlebar(),
                     self.current_titlebar_height(),
                 ));
+
                 if self.is_maximized {
                     tasks.push(iced::window::maximize(id, true));
                 } else {
@@ -310,17 +314,25 @@ impl App {
                     return Task::none();
                 }
                 self.custom_titlebar = enabled;
-                #[cfg(target_os = "windows")]
-                crate::window_decorations::snap_layouts::sync_state(
-                    self.use_custom_titlebar(),
-                    self.current_titlebar_height(),
-                );
-                let theme_cfg = self.theme_manager.current_config.clone();
-                Task::batch([
+
+                let mut tasks = vec![
                     self.save_config_task(),
                     iced::window::oldest().and_then(iced::window::toggle_decorations),
-                    crate::window_decorations::sync_titlebar_theme(None, &theme_cfg),
-                ])
+                ];
+
+                #[cfg(target_os = "windows")]
+                {
+                    crate::window_decorations::snap_layouts::sync_state(
+                        self.use_custom_titlebar(),
+                        self.current_titlebar_height(),
+                    );
+                    tasks.push(crate::window_decorations::sync_titlebar_theme(
+                        None,
+                        &self.theme_manager.current_config,
+                    ));
+                }
+
+                Task::batch(tasks)
             }
 
             Message::ToggleMinimizeToTray(enabled) => {

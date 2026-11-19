@@ -5,42 +5,34 @@ use crate::message::Message;
 use theme::ThemeConfig;
 
 /// Asynchronously applies the theme colors to the native titlebar for supported platforms.
+#[cfg(target_os = "windows")]
 pub fn sync_titlebar_theme(window_id: Option<Id>, theme: &ThemeConfig) -> Task<Message> {
-    #[cfg(target_os = "windows")]
-    {
-        use iced::window::raw_window_handle::RawWindowHandle;
+    use iced::window::raw_window_handle::RawWindowHandle;
 
-        // Match the topbar/navbar background color token (theme.surface) and border
-        let bg = theme.surface;
-        let text = theme.text;
-        let border = theme.border;
-        // Relative luminance to pick dark vs light caption button styling
-        let luminance = 0.2126 * bg.r + 0.7152 * bg.g + 0.0722 * bg.b;
-        let is_dark = luminance < 0.5;
+    // Match the topbar/navbar background color token (theme.surface) and border
+    let bg = theme.surface;
+    let text = theme.text;
+    let border = theme.border;
+    // Relative luminance to pick dark vs light caption button styling
+    let luminance = 0.2126 * bg.r + 0.7152 * bg.g + 0.0722 * bg.b;
+    let is_dark = luminance < 0.5;
 
-        let apply_fn = move |id: Id| {
-            iced::window::run(id, move |window| {
-                if let Ok(handle) = window.window_handle() {
-                    if let RawWindowHandle::Win32(win32) = handle.as_raw() {
-                        let hwnd = win32.hwnd.get() as windows_sys::Win32::Foundation::HWND;
-                        apply_windows_titlebar_theme(hwnd, bg, text, border, is_dark);
-                    }
+    let apply_fn = move |id: Id| {
+        iced::window::run(id, move |window| {
+            if let Ok(handle) = window.window_handle() {
+                if let RawWindowHandle::Win32(win32) = handle.as_raw() {
+                    let hwnd = win32.hwnd.get() as windows_sys::Win32::Foundation::HWND;
+                    apply_windows_titlebar_theme(hwnd, bg, text, border, is_dark);
                 }
-            })
-            .discard()
-        };
+            }
+        })
+        .discard()
+    };
 
-        if let Some(id) = window_id {
-            apply_fn(id)
-        } else {
-            iced::window::oldest().and_then(apply_fn)
-        }
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = (window_id, theme);
-        Task::none()
+    if let Some(id) = window_id {
+        apply_fn(id)
+    } else {
+        iced::window::oldest().and_then(apply_fn)
     }
 }
 

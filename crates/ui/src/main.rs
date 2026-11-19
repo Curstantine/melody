@@ -13,6 +13,7 @@ mod layout_view;
 mod message;
 mod tray;
 mod views;
+#[cfg(target_os = "windows")]
 mod window_decorations;
 
 #[cfg(feature = "tracy")]
