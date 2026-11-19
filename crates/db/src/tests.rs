@@ -557,6 +557,32 @@ async fn test_playback_queue_persistence() {
     db.set_active_queue_id(None).await.unwrap();
     assert!(db.list_queues().await.unwrap().is_empty());
     assert_eq!(db.get_active_queue_id().await.unwrap(), None);
+
+    // Deleting all other queues retains only the kept queue and its tracks.
+    for qid in 1..=3 {
+        let rec = QueueRecord {
+            id: qid,
+            name: format!("Queue {qid}"),
+            current: 0,
+            source_kind: "manual".to_string(),
+            source_value: None,
+            source_playlist: None,
+            track_count: 1,
+        };
+        db.upsert_queue(&rec).await.unwrap();
+        db.replace_queue_tracks(qid, &[ids[(qid - 1) as usize]])
+            .await
+            .unwrap();
+    }
+    db.delete_other_queues(2).await.unwrap();
+    let remaining = db.list_queues().await.unwrap();
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0].id, 2);
+    let remaining_tracks = db.load_queue_tracks(2).await.unwrap();
+    assert_eq!(remaining_tracks.len(), 1);
+    assert_eq!(remaining_tracks[0].id, ids[1]);
+    assert!(db.load_queue_tracks(1).await.unwrap().is_empty());
+    assert!(db.load_queue_tracks(3).await.unwrap().is_empty());
 }
 
 #[tokio::test]

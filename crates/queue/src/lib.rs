@@ -475,6 +475,26 @@ impl QueueStore {
         Some(fallback)
     }
 
+    /// Removes every queue other than the currently active queue.
+    ///
+    /// Returns the ids of the removed queues (empty if no queue is active or
+    /// there are no other queues).
+    pub fn remove_others(&mut self) -> Vec<u64> {
+        let Some(active_id) = self.active else {
+            return Vec::new();
+        };
+        let mut removed = Vec::new();
+        self.summaries.retain(|q| {
+            if q.id == active_id {
+                true
+            } else {
+                removed.push(q.id);
+                false
+            }
+        });
+        removed
+    }
+
     /// Marks a queue as active without loading its tracks. Clears the stale
     /// materialized queue when switching so callers never observe a mismatch.
     pub fn set_active(&mut self, id: u64) {
@@ -727,6 +747,29 @@ mod tests {
         // Deleting an unknown id is a no-op with no fallback.
         assert_eq!(store.remove(999), None);
         assert_eq!(store.active, Some(a));
+    }
+
+    #[test]
+    fn queue_store_remove_others_keeps_only_active() {
+        let mut store = QueueStore::default();
+        // No active queue -> no-op.
+        assert!(store.remove_others().is_empty());
+
+        let a = store.create("A");
+        let b = store.create("B");
+        let c = store.create("C");
+        assert_eq!(store.active, Some(c));
+
+        let removed = store.remove_others();
+        assert_eq!(removed, vec![a, b]);
+        assert_eq!(store.summaries.len(), 1);
+        assert_eq!(store.summaries[0].id, c);
+        assert_eq!(store.active, Some(c));
+        assert_eq!(store.active_queue().map(|q| q.id), Some(c));
+
+        // Calling again when only the active queue remains is a no-op.
+        assert!(store.remove_others().is_empty());
+        assert_eq!(store.summaries.len(), 1);
     }
 
     #[test]

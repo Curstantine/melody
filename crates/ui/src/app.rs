@@ -642,6 +642,7 @@ impl App {
             Message::QueueNew
             | Message::QueueSelect(_)
             | Message::QueueDelete(_)
+            | Message::QueueDeleteOthers
             | Message::QueueActivated { .. }
             | Message::QueueScrolled(_)
             | Message::LibraryQueueBuilt { .. }

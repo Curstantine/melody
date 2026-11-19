@@ -185,6 +185,7 @@ pub enum Message {
     QueueNew,
     QueueSelect(u64),
     QueueDelete(u64),
+    QueueDeleteOthers,
     QueueActivated {
         id: u64,
         tracks: Vec<TrackRow>,
@@ -556,6 +557,7 @@ impl std::fmt::Debug for Message {
             Self::QueueNew => write!(f, "QueueNew"),
             Self::QueueSelect(id) => f.debug_tuple("QueueSelect").field(id).finish(),
             Self::QueueDelete(id) => f.debug_tuple("QueueDelete").field(id).finish(),
+            Self::QueueDeleteOthers => write!(f, "QueueDeleteOthers"),
             Self::QueueActivated { id, tracks } => f
                 .debug_struct("QueueActivated")
                 .field("id", id)

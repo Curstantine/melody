@@ -162,6 +162,23 @@ impl LibraryDatabase {
         Ok(())
     }
 
+    /// Removes every queue and its tracks except `keep_queue_id`.
+    pub async fn delete_other_queues(&self, keep_queue_id: i64) -> Result<(), DbError> {
+        let tx = self.conn.unchecked_transaction().await?;
+        tx.execute(
+            "DELETE FROM playback_queue_tracks WHERE queue_id != ?1",
+            params![keep_queue_id],
+        )
+        .await?;
+        tx.execute(
+            "DELETE FROM playback_queues WHERE id != ?1",
+            params![keep_queue_id],
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
     pub async fn get_active_queue_id(&self) -> Result<Option<i64>, DbError> {
         let mut rows = self
             .conn

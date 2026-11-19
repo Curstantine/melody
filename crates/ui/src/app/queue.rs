@@ -98,6 +98,29 @@ impl App {
                     Task::batch([persist, snap_queue_scroll_top(), save_state])
                 }
             }
+            Message::QueueDeleteOthers => {
+                let Some(active_id) = self.queues.active else {
+                    return Task::none();
+                };
+                let removed = self.queues.remove_others();
+                if removed.is_empty() {
+                    return Task::none();
+                }
+                self.sync_status_strings();
+                self.playlists.recompute_rendered_queue(
+                    &self.layout_manager.current_template.view_formats.queue,
+                    &self.queues,
+                );
+                let db = self.db.clone();
+                let persist = Task::perform(
+                    async move {
+                        let _ = db.delete_other_queues(active_id as i64).await;
+                    },
+                    |_| Message::QueuesPersisted,
+                );
+                let save_state = self.save_state_debounced();
+                Task::batch([persist, save_state])
+            }
             Message::QueueActivated { id, tracks } => {
                 self.queues.activate_with_tracks(id, tracks);
                 self.sync_status_strings();

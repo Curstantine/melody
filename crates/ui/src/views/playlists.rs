@@ -319,7 +319,7 @@ impl PlaylistsView {
         playlists_fmt: &'a layout::PlaylistsFormatConfig,
         queue_fmt: &'a layout::QueueFormatConfig,
     ) -> Element<'a, Message> {
-        let toolbar = self.view_toolbar(theme_cfg, font);
+        let toolbar = self.view_toolbar(theme_cfg, font, store);
         let content: Element<'a, Message> = match self.section {
             PlaylistSection::Playlists => {
                 if self.selected_id.is_some() {
@@ -350,6 +350,7 @@ impl PlaylistsView {
         &'a self,
         theme_cfg: &'a ThemeConfig,
         font: iced::Font,
+        store: &'a QueueStore,
     ) -> Element<'a, Message> {
         let section_chip = |label: &'static str, section: PlaylistSection, icon: &'static str| {
             component::chip_with_icon(
@@ -402,6 +403,16 @@ impl PlaylistsView {
                 }
             }
             PlaylistSection::Queues => {
+                if store.active.is_some() {
+                    bar = bar.push(component::chip_with_icon(
+                        theme_cfg,
+                        font,
+                        icons::TRASH_SVG,
+                        "Remove all other queues",
+                        false,
+                        Message::QueueDeleteOthers,
+                    ));
+                }
                 bar = bar.push(component::chip_with_icon(
                     theme_cfg,
                     font,
