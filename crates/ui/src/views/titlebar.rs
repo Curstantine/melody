@@ -26,6 +26,7 @@ impl TitlebarView {
         font: iced::Font,
         title: String,
         is_maximized: bool,
+        is_focused: bool,
     ) -> Element<'a, Message> {
         let drag_region = mouse_area(
             container(
@@ -42,7 +43,7 @@ impl TitlebarView {
         .on_press(Message::TitlebarPressed)
         .on_right_press(Message::WindowShowSystemMenu);
 
-        let controls = window_controls_row(theme_cfg, is_maximized, TITLEBAR_HEIGHT);
+        let controls = window_controls_row(theme_cfg, is_maximized, is_focused);
 
         let bar = row![drag_region, controls]
             .align_y(Alignment::Center)
@@ -61,16 +62,15 @@ impl TitlebarView {
 pub fn window_controls_row<'a>(
     theme_cfg: &'a ThemeConfig,
     is_maximized: bool,
-    height: f32,
+    is_focused: bool,
 ) -> Element<'a, Message> {
     let min_btn = window_control_btn(
         icons::WINDOW_MINIMIZE_SVG,
-        10.0,
-        42.0,
-        theme_cfg.text,
+        #[cfg(windows)]
+        "\u{E921}",
         theme_cfg,
         false,
-        height,
+        is_focused,
         Message::WindowMinimize,
     );
 
@@ -80,52 +80,72 @@ pub fn window_controls_row<'a>(
         } else {
             icons::WINDOW_MAXIMIZE_SVG
         },
-        10.0,
-        42.0,
-        theme_cfg.text,
+        #[cfg(windows)]
+        if is_maximized { "\u{E923}" } else { "\u{E922}" },
         theme_cfg,
         false,
-        height,
+        is_focused,
         Message::WindowToggleMaximize,
     );
 
     let close_btn = window_control_btn(
         icons::WINDOW_CLOSE_SVG,
-        10.0,
-        42.0,
-        theme_cfg.text,
+        #[cfg(windows)]
+        "\u{E8BB}",
         theme_cfg,
         true,
-        height,
+        is_focused,
         Message::WindowClose,
     );
 
     row![min_btn, max_btn, close_btn]
         .align_y(Alignment::Center)
-        .height(Length::Fixed(height))
+        .height(Length::Fixed(TITLEBAR_HEIGHT))
         .boxed()
 }
 
-#[allow(clippy::too_many_arguments)]
 fn window_control_btn<'a>(
     svg_str: &'static str,
-    icon_size: f32,
-    btn_width: f32,
-    icon_color: iced::Color,
+    #[cfg(windows)] win_glyph: &'static str,
     theme_cfg: &'a ThemeConfig,
     is_close: bool,
-    height: f32,
+    is_focused: bool,
     on_press: Message,
 ) -> Element<'a, Message> {
+    const ICON_SIZE: f32 = 14.0;
+    const BTN_WIDTH: f32 = if cfg!(windows) { 46.0 } else { 42.0 };
+
+    let icon_color = if is_focused {
+        theme_cfg.text
+    } else {
+        theme_cfg.text_muted
+    };
+
+    #[cfg(windows)]
+    let content: Element<'a, Message> = font::windows_caption_font()
+        .map(|font| {
+            iced::widget::text(win_glyph)
+                .font(font)
+                .size(10)
+                .line_height(1.0)
+                .boxed()
+        })
+        .unwrap_or_else(|| icons::icon(svg_str, ICON_SIZE, icon_color).boxed());
+
+    #[cfg(not(windows))]
+    let content: Element<'a, Message> = icons::icon(svg_str, ICON_SIZE, icon_color).boxed();
+
     button(
-        container(icons::icon(svg_str, icon_size, icon_color))
-            .width(Length::Fixed(btn_width))
-            .height(Length::Fixed(height))
+        container(content)
+            .width(Length::Fixed(BTN_WIDTH))
+            .height(Length::Fixed(TITLEBAR_HEIGHT))
             .align_x(Alignment::Center)
             .align_y(Alignment::Center),
     )
     .padding(0)
-    .style(styles::window_control_button(theme_cfg, is_close))
+    .style(styles::window_control_button(
+        theme_cfg, is_close, is_focused,
+    ))
     .on_press(on_press)
     .boxed()
 }

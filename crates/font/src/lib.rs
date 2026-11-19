@@ -50,6 +50,29 @@ pub fn list_font_families() -> Vec<String> {
     families.into_iter().collect()
 }
 
+/// Resolves the native Windows caption icon font (`Segoe Fluent Icons` on Windows 11,
+/// falling back to `Segoe MDL2 Assets` on Windows 10), cached after the first lookup.
+/// Returns `None` on non-Windows platforms or if neither font is installed.
+#[cfg(windows)]
+pub fn windows_caption_font() -> Option<iced::Font> {
+    use std::sync::OnceLock;
+    static FONT: OnceLock<Option<iced::Font>> = OnceLock::new();
+    *FONT.get_or_init(|| {
+        use iced::advanced::graphics::text::cosmic_text::fontdb;
+        let mut db = fontdb::Database::new();
+        db.load_system_fonts();
+        for name in ["Segoe Fluent Icons", "Segoe MDL2 Assets"] {
+            if db
+                .faces()
+                .any(|f| f.families.iter().any(|(fam, _)| fam == name))
+            {
+                return Some(iced::Font::new(name));
+            }
+        }
+        None
+    })
+}
+
 /// Single source of truth for persisted font preferences and their cached [`iced::Font`] handles.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct FontConfig {

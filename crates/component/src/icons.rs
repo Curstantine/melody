@@ -142,21 +142,21 @@ pub const WINDOW_RESTORE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" 
 #[cfg(not(windows))]
 pub const WINDOW_CLOSE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/></svg>"#;
 
-/// Windows 10/11 native-style caption icon: minimize (1px hairline on 10x10 grid).
+/// Fluent UI `subtract-16-regular` (window minimize).
 #[cfg(windows)]
-pub const WINDOW_MINIMIZE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path fill="currentColor" d="M0 4.5h10v1H0z"/></svg>"#;
+pub const WINDOW_MINIMIZE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M3 8a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9A.5.5 0 0 1 3 8"/></svg>"#;
 
-/// Windows 10/11 native-style caption icon: maximize (1px hairline on 10x10 grid).
+/// Fluent UI `maximize-16-regular` (window maximize).
 #[cfg(windows)]
-pub const WINDOW_MAXIMIZE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path fill="currentColor" d="M0 0v10h10V0H0zm9 9H1V1h8v8z"/></svg>"#;
+pub const WINDOW_MAXIMIZE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M4.5 3A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 11.5 3zm0 1h7a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-7a.5.5 0 0 1 .5-.5"/></svg>"#;
 
-/// Windows 10/11 native-style caption icon: restore down (1px hairline on 10x10 grid).
+/// Fluent UI `square-multiple-16-regular` (window restore down).
 #[cfg(windows)]
-pub const WINDOW_RESTORE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path fill="currentColor" d="M2 0v2H0v8h8V8h2V0H2zm7 7H8V2H3V1h6v6zM7 9H1V3h6v6z"/></svg>"#;
+pub const WINDOW_RESTORE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M5.085 4A1.5 1.5 0 0 1 6.5 3H10a3 3 0 0 1 3 3v3.5a1.5 1.5 0 0 1-1 1.415V6a2 2 0 0 0-2-2zM4.5 5h5A1.5 1.5 0 0 1 11 6.5v5A1.5 1.5 0 0 1 9.5 13h-5A1.5 1.5 0 0 1 3 11.5v-5A1.5 1.5 0 0 1 4.5 5m0 1a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 .5.5h5a.5.5 0 0 0 .5-.5v-5a.5.5 0 0 0-.5-.5z"/></svg>"#;
 
-/// Windows 10/11 native-style caption icon: close (1px hairline on 10x10 grid).
+/// Fluent UI `dismiss-16-regular` (window close).
 #[cfg(windows)]
-pub const WINDOW_CLOSE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path fill="currentColor" d="M10 .7L9.3 0 5 4.3.7 0 0 .7 4.3 5 0 9.3l.7.7L5 5.7 9.3 10l.7-.7L5.7 5z"/></svg>"#;
+pub const WINDOW_CLOSE_SVG: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="m2.589 2.716l.057-.07a.5.5 0 0 1 .638-.057l.07.057L8 7.293l4.646-4.647a.5.5 0 0 1 .708.708L8.707 8l4.647 4.646a.5.5 0 0 1 .057.638l-.057.07a.5.5 0 0 1-.638.057l-.07-.057L8 8.707l-4.646 4.647a.5.5 0 0 1-.708-.708L7.293 8L2.646 3.354a.5.5 0 0 1-.057-.638l.057-.07z"/></svg>"#;
 
 static SVG_CACHE: OnceLock<Mutex<HashMap<&'static str, Handle>>> = OnceLock::new();
 

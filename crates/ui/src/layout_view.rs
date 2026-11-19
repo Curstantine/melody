@@ -405,7 +405,7 @@ impl App {
                     nav_row = nav_row.push(views::window_controls_row(
                         theme_cfg,
                         self.is_maximized,
-                        32.0,
+                        self.is_window_focused,
                     ));
 
                     let pad = iced::Padding {

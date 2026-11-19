@@ -226,6 +226,11 @@ impl App {
                 Task::none()
             }
 
+            Message::WindowFocusedChanged(focused) => {
+                self.is_window_focused = focused;
+                Task::none()
+            }
+
             Message::WindowClose => {
                 if self.minimize_to_tray {
                     if self.tray.is_none() {
@@ -249,6 +254,7 @@ impl App {
 
             Message::WindowOpened(id) => {
                 self.main_window_id = Some(id);
+                self.is_window_focused = true;
                 let mut tasks = vec![crate::window_decorations::sync_titlebar_theme(
                     Some(id),
                     &self.theme_manager.current_config,

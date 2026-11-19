@@ -87,6 +87,7 @@ pub enum Message {
     WindowMinimize,
     WindowToggleMaximize,
     WindowMaximizedChanged(bool),
+    WindowFocusedChanged(bool),
     WindowClose,
     WindowOpened(iced::window::Id),
     WindowClosed(iced::window::Id),
@@ -408,6 +409,10 @@ impl std::fmt::Debug for Message {
             Self::WindowMaximizedChanged(m) => {
                 f.debug_tuple("WindowMaximizedChanged").field(m).finish()
             }
+            Self::WindowFocusedChanged(focused) => f
+                .debug_tuple("WindowFocusedChanged")
+                .field(focused)
+                .finish(),
             Self::WindowClose => write!(f, "WindowClose"),
             Self::WindowOpened(id) => f.debug_tuple("WindowOpened").field(id).finish(),
             Self::WindowClosed(id) => f.debug_tuple("WindowClosed").field(id).finish(),

@@ -857,6 +857,7 @@ pub fn titlebar_container(cfg: &ThemeConfig) -> impl Fn(&Theme) -> container::St
 pub fn window_control_button(
     cfg: &ThemeConfig,
     is_close: bool,
+    is_focused: bool,
 ) -> impl Fn(&Theme, button::Status) -> button::Style + '_ {
     move |_theme, status| {
         let close_red = Color::from_rgb8(0xE8, 0x11, 0x23);
@@ -877,9 +878,10 @@ pub fn window_control_button(
                     (blend_color(cfg.surface_hover, cfg.border, 0.35), cfg.text)
                 }
             }
-            button::Status::Active | button::Status::Disabled => {
-                (Color::TRANSPARENT, cfg.text_muted)
-            }
+            button::Status::Active | button::Status::Disabled => (
+                Color::TRANSPARENT,
+                if is_focused { cfg.text } else { cfg.text_muted },
+            ),
         };
 
         button::Style {

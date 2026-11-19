@@ -157,6 +157,7 @@ pub struct App {
     pub(crate) window_size: iced::Size,
     pub(crate) main_window_id: Option<iced::window::Id>,
     pub(crate) is_maximized: bool,
+    pub(crate) is_window_focused: bool,
     pub(crate) custom_titlebar: bool,
     pub(crate) minimize_to_tray: bool,
     pub(crate) tray: Option<crate::tray::TrayController>,
@@ -368,6 +369,7 @@ impl App {
             ),
             main_window_id: Some(main_window_id),
             is_maximized: false,
+            is_window_focused: true,
             custom_titlebar: config.custom_titlebar,
             minimize_to_tray: config.minimize_to_tray,
             tray,
@@ -549,6 +551,7 @@ impl App {
             | Message::WindowMinimize
             | Message::WindowToggleMaximize
             | Message::WindowMaximizedChanged(_)
+            | Message::WindowFocusedChanged(_)
             | Message::WindowClose
             | Message::WindowOpened(_)
             | Message::WindowClosed(_)
@@ -724,6 +727,7 @@ impl App {
                 self.fonts.primary_font(),
                 self.title(window),
                 self.is_maximized,
+                self.is_window_focused,
             );
             iced::widget::column![titlebar, layout_view]
                 .width(iced::Length::Fill)
@@ -807,6 +811,12 @@ fn handle_cursor_and_window_event(
         }
         iced::Event::Window(iced::window::Event::Resized(size)) => {
             Some(Message::WindowResized(size))
+        }
+        iced::Event::Window(iced::window::Event::Focused) => {
+            Some(Message::WindowFocusedChanged(true))
+        }
+        iced::Event::Window(iced::window::Event::Unfocused) => {
+            Some(Message::WindowFocusedChanged(false))
         }
         iced::Event::Window(iced::window::Event::CloseRequested) => Some(Message::WindowClose),
         iced::Event::Window(iced::window::Event::Closed) => Some(Message::WindowClosed(id)),
