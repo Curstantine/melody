@@ -54,52 +54,27 @@ pub fn header_tab_container(
     is_dragging: bool,
 ) -> impl Fn(&Theme) -> container::Style + '_ {
     move |_theme| {
-        let (bg, text, border) = if is_dragging {
+        let (bg, text) = if is_dragging {
             (
                 blend_color(cfg.surface_hover, cfg.primary, 0.15),
                 cfg.primary,
-                Border {
-                    color: cfg.primary,
-                    width: 1.0,
-                    radius: cfg.border_radius.sm,
-                },
             )
         } else if is_active {
-            (
-                cfg.surface_hover,
-                cfg.primary,
-                Border {
-                    color: Color::TRANSPARENT,
-                    width: 1.0,
-                    radius: cfg.border_radius.sm,
-                },
-            )
+            (cfg.surface_hover, cfg.primary)
         } else if is_hovered {
-            (
-                cfg.surface_hover,
-                cfg.text,
-                Border {
-                    color: Color::TRANSPARENT,
-                    width: 1.0,
-                    radius: cfg.border_radius.sm,
-                },
-            )
+            (cfg.surface_hover, cfg.text)
         } else {
-            (
-                Color::TRANSPARENT,
-                cfg.text_muted,
-                Border {
-                    color: Color::TRANSPARENT,
-                    width: 1.0,
-                    radius: cfg.border_radius.sm,
-                },
-            )
+            (Color::TRANSPARENT, cfg.text_muted)
         };
 
         container::Style {
             background: Some(Background::Color(bg)),
             text_color: Some(text),
-            border,
+            border: Border {
+                color: Color::TRANSPARENT,
+                width: 0.0,
+                radius: cfg.border_radius.sm,
+            },
             shadow: Shadow::default(),
             snap: true,
         }
