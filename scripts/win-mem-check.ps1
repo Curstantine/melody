@@ -14,15 +14,34 @@ if (-not $ProcessId) {
     $ProcessId = $proc.Id
 }
 
-Write-Host "=== Process Memory (PID $ProcessId) ===" -ForegroundColor Cyan
-Get-Process -Id $ProcessId | Select-Object Id, ProcessName,
-    @{N='WS_MB';E={[math]::Round($_.WorkingSet64/1MB,2)}},
-    @{N='Private_MB';E={[math]::Round($_.PrivateMemorySize64/1MB,2)}},
-    @{N='Virtual_MB';E={[math]::Round($_.VirtualMemorySize64/1MB,2)}} | Format-Table -AutoSize
+$p = Get-Process -Id $ProcessId
 
-Write-Host "=== Loaded Modules (PID $ProcessId) ===" -ForegroundColor Cyan
-$modules = (Get-Process -Id $ProcessId).Modules |
-    Sort-Object ModuleMemorySize -Descending
+# Query Private Working Set (unshared RAM: heap, stacks, modified data pages) via Performance Counters
+$instName = (Get-CimInstance Win32_PerfFormattedData_PerfProc_Process -Filter "IDProcess = $ProcessId" -ErrorAction SilentlyContinue | Select-Object -First 1)
+$privWS_MB = if ($instName) { [math]::Round($instName.WorkingSetPrivate / 1MB, 2) } else { $null }
+$totalWS_MB = [math]::Round($p.WorkingSet64 / 1MB, 2)
+$sharedWS_MB = if ($null -ne $privWS_MB) { [math]::Round($totalWS_MB - $privWS_MB, 2) } else { $null }
+$commit_MB = [math]::Round($p.PrivateMemorySize64 / 1MB, 2)
+$virtual_MB = [math]::Round($p.VirtualMemorySize64 / 1MB, 2)
+
+Write-Host "=== Process Memory (PID $ProcessId) ===" -ForegroundColor Cyan
+[PSCustomObject]@{
+    Id          = $p.Id
+    ProcessName = $p.ProcessName
+    Total_WS_MB = $totalWS_MB
+    Priv_WS_MB  = $privWS_MB    # Actual unshared physical RAM (your heap, stacks, GPU buffers)
+    Shared_MB   = $sharedWS_MB  # Shared read-only DLL/EXE code pages
+    Commit_MB   = $commit_MB    # Total reserved/committed private virtual memory
+    Virtual_MB  = $virtual_MB
+} | Format-Table -AutoSize
+
+# Sum static virtual footprint of all loaded modules (.exe + all .dlls)
+$allModules = $p.Modules
+$totalModuleFootprint_MB = [math]::Round(($allModules | Measure-Object -Property ModuleMemorySize -Sum).Sum / 1MB, 2)
+Write-Host "Total Loaded Modules Footprint: $totalModuleFootprint_MB MB ($($allModules.Count) modules)" -ForegroundColor DarkGray
+
+Write-Host "`n=== Loaded Modules (PID $ProcessId) ===" -ForegroundColor Cyan
+$modules = $allModules | Sort-Object ModuleMemorySize -Descending
 if ($Top -gt 0) {
     $modules = $modules | Select-Object -First $Top
 }
