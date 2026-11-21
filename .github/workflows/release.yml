@@ -84,6 +84,9 @@ jobs:
 
       - name: Build bundled WASM extensions
         shell: bash
+        env:
+          MELODY_LASTFM_API_KEY: ${{ secrets.MELODY_LASTFM_API_KEY }}
+          MELODY_LASTFM_API_SECRET: ${{ secrets.MELODY_LASTFM_API_SECRET }}
         run: bash scripts/build-extensions.sh
 
       # --- Package Linux Artifacts (AppImage installer + portable tar.gz) ---
