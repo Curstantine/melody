@@ -1,4 +1,4 @@
-use iced::widget::{column, pick_list, row, slider, toggler, Space, Widget};
+use iced::widget::{column, pick_list, row, slider, toggler, Widget};
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
@@ -255,7 +255,6 @@ impl SettingsView {
             transitions_card,
             behavior_card,
             resampling_card,
-            Space::new().height(PAGE_BOTTOM_SPACER),
         ]
         .spacing(PAGE_SPACING)
         .padding(PAGE_PADDING)

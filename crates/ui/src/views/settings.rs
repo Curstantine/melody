@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
 use iced::widget::{row, scrollable, Widget};
-use iced::{Element, Length};
+use iced::{Element, Length, Padding};
 
 use crate::message::Message;
 use component::{self, styles};
@@ -21,8 +21,12 @@ mod sidebar;
 mod updates;
 
 pub const PAGE_SPACING: f32 = 18.0;
-pub const PAGE_PADDING: [f32; 2] = [18.0, 24.0];
-pub const PAGE_BOTTOM_SPACER: f32 = 20.0;
+pub const PAGE_PADDING: Padding = Padding {
+    top: 18.0,
+    right: 24.0,
+    bottom: 38.0,
+    left: 24.0,
+};
 
 pub const SIDEBAR_WIDTH: f32 = 220.0;
 pub const SIDEBAR_PADDING: [f32; 2] = [8.0, 12.0];

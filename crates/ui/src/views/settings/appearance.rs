@@ -492,7 +492,6 @@ impl SettingsView {
             artists_tab_card,
             now_playing_card,
             debug_gallery_card,
-            Space::new().height(PAGE_BOTTOM_SPACER),
         ]
         .spacing(PAGE_SPACING)
         .padding(PAGE_PADDING)

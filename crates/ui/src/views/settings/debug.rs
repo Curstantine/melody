@@ -46,7 +46,6 @@ impl SettingsView {
             controls_card,
             feedback_card,
             icons_card,
-            Space::new().height(PAGE_BOTTOM_SPACER),
         ]
         .spacing(PAGE_SPACING)
         .padding(PAGE_PADDING)

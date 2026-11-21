@@ -22,7 +22,7 @@ impl SettingsView {
             theme_cfg,
             font,
             "Extensions",
-            Some("Install, manage, and configure sandboxed WebAssembly extensions"),
+            Some("Install, manage, and configure extensions"),
         );
 
         let install_archive_btn = action_button(
@@ -125,8 +125,6 @@ impl SettingsView {
                 page = page.push(self.view_extension_card(theme_cfg, font, ext, ctx));
             }
         }
-
-        page = page.push(Space::new().height(PAGE_BOTTOM_SPACER).boxed());
 
         page.boxed()
     }
