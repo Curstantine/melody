@@ -80,34 +80,7 @@ impl SettingsView {
         let management_card =
             component::settings_card(theme_cfg, font, "Extension management", mgmt_col.boxed());
 
-        let media_controls_name = if cfg!(target_os = "windows") {
-            "Windows Media Controls (SMTC)"
-        } else {
-            "MPRIS Media Controls"
-        };
-        let builtins_card = component::settings_card(
-            theme_cfg,
-            font,
-            "Built-in integrations",
-            column![
-                builtin_integration_row(
-                    theme_cfg,
-                    font,
-                    "Local Lyrics Provider",
-                    "Reads .lrc / .txt sidecar files and embedded audio lyrics tags",
-                ),
-                builtin_integration_row(
-                    theme_cfg,
-                    font,
-                    media_controls_name,
-                    "Exposes native OS media transport controls and lockscreen metadata",
-                ),
-            ]
-            .spacing(SPACE_LG)
-            .boxed(),
-        );
-
-        let mut page = column![header, builtins_card, management_card]
+        let mut page = column![header, management_card]
             .spacing(PAGE_SPACING)
             .padding(PAGE_PADDING)
             .width(Length::Fill);
@@ -633,19 +606,4 @@ fn status_banner<'a>(
             ..Default::default()
         })
         .boxed()
-}
-
-fn builtin_integration_row<'a>(
-    theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
-    name: &'static str,
-    desc: &'static str,
-) -> Element<'a, Message> {
-    component::settings_row(
-        theme_cfg,
-        font,
-        name,
-        desc,
-        pill_badge(theme_cfg, font, "Built-in", theme_cfg.primary),
-    )
 }
