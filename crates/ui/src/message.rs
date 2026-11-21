@@ -237,6 +237,7 @@ pub enum Message {
     SelectTheme(String),
     SelectLayout(String),
     ReloadThemesAndLayouts,
+    OpenConfigFolder,
     SelectFont(String),
     FontsLoaded(Vec<String>),
     SaveConfig,
@@ -257,19 +258,32 @@ pub enum Message {
     DebouncedStateSave(u64),
     StateSaved,
 
-    // Scrobbling
-    ToggleListenBrainz(bool),
-    ListenBrainzTokenChanged(String),
-    ListenBrainzUrlChanged(String),
-    ToggleLastFm(bool),
-    LastFmApiKeyChanged(String),
-    LastFmApiSecretChanged(String),
-    LastFmSessionKeyChanged(String),
-    LastFmUrlChanged(String),
-    ToggleSubmitNowPlaying(bool),
-    SetScrobblePercent(u32),
-    TestScrobble(plugin::scrobbler::ScrobbleService),
-    ScrobbleTestFinished(plugin::scrobbler::ScrobbleService, Result<String, String>),
+    // Extensions
+    ToggleExtension(String, bool),
+    ExtensionSettingChanged {
+        extension_id: String,
+        key: String,
+        value: plugin::SettingValue,
+        save_immediately: bool,
+    },
+    TriggerExtensionAction {
+        extension_id: String,
+        action_id: String,
+    },
+    ExtensionActionFinished {
+        extension_id: String,
+        action_id: String,
+        result: Result<plugin::ExtensionActionOutcome, String>,
+    },
+    InstallExtensionArchiveClicked,
+    InstallExtensionFolderClicked,
+    ExtensionInstallPathSelected(Option<PathBuf>),
+    ExtensionInstalled(Result<(String, Vec<plugin::ExtensionSnapshot>), String>),
+    UninstallExtension(String),
+    ExtensionUninstalled(Result<(String, Vec<plugin::ExtensionSnapshot>), String>),
+    ReloadExtensions,
+    ExtensionsSynced(Vec<plugin::ExtensionSnapshot>),
+    OpenExtensionsFolder,
 
     // Library Maintenance
     AddLibraryFolderClicked,
@@ -633,6 +647,7 @@ impl std::fmt::Debug for Message {
             Self::SelectTheme(s) => f.debug_tuple("SelectTheme").field(s).finish(),
             Self::SelectLayout(s) => f.debug_tuple("SelectLayout").field(s).finish(),
             Self::ReloadThemesAndLayouts => write!(f, "ReloadThemesAndLayouts"),
+            Self::OpenConfigFolder => write!(f, "OpenConfigFolder"),
             Self::SelectFont(s) => f.debug_tuple("SelectFont").field(s).finish(),
             Self::FontsLoaded(fonts) => f
                 .debug_struct("FontsLoaded")
@@ -659,38 +674,74 @@ impl std::fmt::Debug for Message {
                 f.debug_tuple("DebouncedStateSave").field(seq).finish()
             }
             Self::StateSaved => write!(f, "StateSaved"),
-            Self::ToggleListenBrainz(b) => f.debug_tuple("ToggleListenBrainz").field(b).finish(),
-            Self::ListenBrainzTokenChanged(s) => f
-                .debug_struct("ListenBrainzTokenChanged")
-                .field("len", &s.len())
+            Self::ToggleExtension(id, enabled) => f
+                .debug_tuple("ToggleExtension")
+                .field(id)
+                .field(enabled)
                 .finish(),
-            Self::ListenBrainzUrlChanged(s) => {
-                f.debug_tuple("ListenBrainzUrlChanged").field(s).finish()
-            }
-            Self::ToggleLastFm(b) => f.debug_tuple("ToggleLastFm").field(b).finish(),
-            Self::LastFmApiKeyChanged(s) => f
-                .debug_struct("LastFmApiKeyChanged")
-                .field("len", &s.len())
+            Self::ExtensionSettingChanged {
+                extension_id,
+                key,
+                save_immediately,
+                ..
+            } => f
+                .debug_struct("ExtensionSettingChanged")
+                .field("extension_id", extension_id)
+                .field("key", key)
+                .field("value", &"<redacted>")
+                .field("save_immediately", save_immediately)
                 .finish(),
-            Self::LastFmApiSecretChanged(s) => f
-                .debug_struct("LastFmApiSecretChanged")
-                .field("len", &s.len())
+            Self::TriggerExtensionAction {
+                extension_id,
+                action_id,
+            } => f
+                .debug_struct("TriggerExtensionAction")
+                .field("extension_id", extension_id)
+                .field("action_id", action_id)
                 .finish(),
-            Self::LastFmSessionKeyChanged(s) => f
-                .debug_struct("LastFmSessionKeyChanged")
-                .field("len", &s.len())
+            Self::ExtensionActionFinished {
+                extension_id,
+                action_id,
+                result,
+            } => f
+                .debug_struct("ExtensionActionFinished")
+                .field("extension_id", extension_id)
+                .field("action_id", action_id)
+                .field("result", result)
                 .finish(),
-            Self::LastFmUrlChanged(s) => f.debug_tuple("LastFmUrlChanged").field(s).finish(),
-            Self::ToggleSubmitNowPlaying(b) => {
-                f.debug_tuple("ToggleSubmitNowPlaying").field(b).finish()
-            }
-            Self::SetScrobblePercent(p) => f.debug_tuple("SetScrobblePercent").field(p).finish(),
-            Self::TestScrobble(s) => f.debug_tuple("TestScrobble").field(s).finish(),
-            Self::ScrobbleTestFinished(s, r) => f
-                .debug_tuple("ScrobbleTestFinished")
-                .field(s)
-                .field(r)
+            Self::InstallExtensionArchiveClicked => write!(f, "InstallExtensionArchiveClicked"),
+            Self::InstallExtensionFolderClicked => write!(f, "InstallExtensionFolderClicked"),
+            Self::ExtensionInstallPathSelected(p) => f
+                .debug_tuple("ExtensionInstallPathSelected")
+                .field(p)
                 .finish(),
+            Self::ExtensionInstalled(res) => match res {
+                Ok((name, list)) => f
+                    .debug_tuple("ExtensionInstalled")
+                    .field(&Ok::<(&String, usize), &String>((name, list.len())))
+                    .finish(),
+                Err(e) => f
+                    .debug_tuple("ExtensionInstalled")
+                    .field(&Err::<(), &String>(e))
+                    .finish(),
+            },
+            Self::UninstallExtension(id) => f.debug_tuple("UninstallExtension").field(id).finish(),
+            Self::ExtensionUninstalled(res) => match res {
+                Ok((id, list)) => f
+                    .debug_tuple("ExtensionUninstalled")
+                    .field(&Ok::<(&String, usize), &String>((id, list.len())))
+                    .finish(),
+                Err(e) => f
+                    .debug_tuple("ExtensionUninstalled")
+                    .field(&Err::<(), &String>(e))
+                    .finish(),
+            },
+            Self::ReloadExtensions => write!(f, "ReloadExtensions"),
+            Self::ExtensionsSynced(list) => f
+                .debug_struct("ExtensionsSynced")
+                .field("len", &list.len())
+                .finish(),
+            Self::OpenExtensionsFolder => write!(f, "OpenExtensionsFolder"),
             Self::AddLibraryFolderClicked => write!(f, "AddLibraryFolderClicked"),
             Self::LibraryFolderAdded(p) => f.debug_tuple("LibraryFolderAdded").field(p).finish(),
             Self::RemoveLibraryFolder(s) => f.debug_tuple("RemoveLibraryFolder").field(s).finish(),

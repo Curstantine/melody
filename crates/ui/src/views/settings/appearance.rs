@@ -95,6 +95,20 @@ impl SettingsView {
         .style(styles::ghost_button(theme_cfg, false))
         .on_press(Message::ReloadThemesAndLayouts);
 
+        let open_config_folder_btn = button(
+            row![
+                icons::icon(icons::OPEN_SVG, 13.0, theme_cfg.text),
+                Space::new().width(SPACE_MD),
+                text(font, "Open config folder")
+                    .size(12)
+                    .color(theme_cfg.text),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .padding(BUTTON_PADDING_MD)
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press(Message::OpenConfigFolder);
+
         let theme_layout_card = component::settings_card(
             theme_cfg,
             font,
@@ -115,7 +129,9 @@ impl SettingsView {
                 ]
                 .spacing(CARD_SPACING),
                 titlebar_toggle,
-                reload_appearance_btn,
+                row![reload_appearance_btn, open_config_folder_btn]
+                    .spacing(SPACE_MD)
+                    .wrap(),
             ]
             .spacing(SECTION_SPACING)
             .boxed(),
@@ -492,7 +508,6 @@ impl SettingsView {
             artists_tab_card,
             now_playing_card,
             debug_gallery_card,
-            Space::new().height(PAGE_BOTTOM_SPACER),
         ]
         .spacing(PAGE_SPACING)
         .padding(PAGE_PADDING)

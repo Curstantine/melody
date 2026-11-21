@@ -1,0 +1,47 @@
+id = "melody.lastfm"
+name = "Last.fm Scrobbler"
+version = "0.1.0"
+description = "Scrobble tracks and broadcast Now Playing updates to Last.fm."
+authors = ["Melody"]
+entry = "extension.wasm"
+api_version = 1
+permissions = ["playback-events", "network", "settings"]
+
+[[settings]]
+key = "authorize"
+label = "Last.fm account"
+description = "Sign in with Last.fm in your browser to connect your account"
+type = "action"
+button_label = "Connect Last.fm"
+
+[[settings]]
+key = "api_url"
+label = "API endpoint URL"
+type = "text"
+default = "https://ws.audioscrobbler.com/2.0/"
+placeholder = "https://ws.audioscrobbler.com/2.0/"
+
+[[settings]]
+key = "submit_now_playing"
+label = "Submit \"Now Playing\" status"
+description = "Broadcast current track to your Last.fm profile in real-time"
+type = "toggle"
+default = true
+
+[[settings]]
+key = "scrobble_percent"
+label = "Scrobble threshold"
+description = "Percentage of track duration that must play before recording a scrobble"
+type = "number"
+default = 50
+min = 25
+max = 100
+step = 1
+unit = "%"
+
+[[settings]]
+key = "test_connection"
+label = "Connection"
+description = "Verify your connected Last.fm account"
+type = "action"
+button_label = "Test connection"

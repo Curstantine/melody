@@ -1,7 +1,6 @@
 use iced::widget::operation::scrollable::{snap_to, RelativeOffset};
 use iced::widget::operation::Animation;
 use iced::Task;
-use plugin::scrobbler::ScrobbleService;
 use tracing::info;
 
 use crate::message::Message;
@@ -156,6 +155,13 @@ impl App {
                 Task::none()
             }
 
+            Message::OpenConfigFolder => {
+                if let Err(err) = path::open_directory(path::config_dir()) {
+                    tracing::warn!("Failed to open config folder: {err}");
+                }
+                Task::none()
+            }
+
             Message::SelectFont(font_name) => {
                 info!("Selected font: {}", font_name);
                 let font_opt = if font_name == "Default" || font_name.trim().is_empty() {
@@ -172,86 +178,226 @@ impl App {
                 Task::none()
             }
 
-            Message::ToggleListenBrainz(enabled) => {
-                self.scrobble_config.listenbrainz_enabled = enabled;
-                self.listenbrainz_plugin.set_enabled(enabled);
-                self.save_config_task()
-            }
-
-            Message::ListenBrainzTokenChanged(token) => {
-                self.scrobble_config.listenbrainz_token = token.clone();
-                self.listenbrainz_plugin.set_user_token(token);
-                self.save_config_task()
-            }
-
-            Message::ListenBrainzUrlChanged(url) => {
-                self.scrobble_config.listenbrainz_api_url = url.clone();
-                self.listenbrainz_plugin.set_api_url(url);
-                self.save_config_task()
-            }
-
-            Message::ToggleLastFm(enabled) => {
-                self.scrobble_config.lastfm_enabled = enabled;
-                self.lastfm_plugin.set_enabled(enabled);
-                self.save_config_task()
-            }
-
-            Message::LastFmApiKeyChanged(key) => {
-                self.scrobble_config.lastfm_api_key = key.clone();
-                self.lastfm_plugin.set_api_key(key);
-                self.save_config_task()
-            }
-
-            Message::LastFmApiSecretChanged(secret) => {
-                self.scrobble_config.lastfm_api_secret = secret.clone();
-                self.lastfm_plugin.set_api_secret(secret);
-                self.save_config_task()
-            }
-
-            Message::LastFmSessionKeyChanged(sk) => {
-                self.scrobble_config.lastfm_session_key = sk.clone();
-                self.lastfm_plugin.set_session_key(sk);
-                self.save_config_task()
-            }
-
-            Message::LastFmUrlChanged(url) => {
-                self.scrobble_config.lastfm_api_url = url.clone();
-                self.lastfm_plugin.set_api_url(url);
-                self.save_config_task()
-            }
-
-            Message::ToggleSubmitNowPlaying(submit) => {
-                self.scrobble_config.submit_now_playing = submit;
-                self.listenbrainz_plugin.set_submit_now_playing(submit);
-                self.lastfm_plugin.set_submit_now_playing(submit);
-                self.save_config_task()
-            }
-
-            Message::SetScrobblePercent(pct) => {
-                self.scrobble_config.scrobble_percent = pct;
-                self.listenbrainz_plugin.set_scrobble_percent(pct);
-                self.lastfm_plugin.set_scrobble_percent(pct);
-                Task::none()
-            }
-
-            Message::TestScrobble(service) => {
-                let plugin_lb = self.listenbrainz_plugin.clone();
-                let plugin_lfm = self.lastfm_plugin.clone();
-                Task::perform(
+            Message::ToggleExtension(id, enabled) => {
+                let saved = {
+                    let entry = self.extensions_config.entry(id.clone()).or_default();
+                    entry.enabled = enabled;
+                    entry.settings.clone()
+                };
+                self.settings.extension_action_status.remove(&id);
+                let pm = self.plugin_manager.clone();
+                let sync_task = Task::perform(
                     async move {
-                        tokio::task::spawn_blocking(move || match service {
-                            ScrobbleService::ListenBrainz => (service, plugin_lb.test_connection()),
-                            ScrobbleService::LastFm => (service, plugin_lfm.test_connection()),
+                        tokio::task::spawn_blocking(move || {
+                            pm.set_extension_enabled(&id, enabled, &saved)
+                                .unwrap_or_else(|_| pm.snapshots())
                         })
                         .await
-                        .unwrap_or_else(|e| (service, Err(format!("Task execution error: {}", e))))
+                        .unwrap_or_default()
                     },
-                    |(service, res)| Message::ScrobbleTestFinished(service, res),
+                    Message::ExtensionsSynced,
+                );
+                Task::batch([sync_task, self.save_config_task()])
+            }
+
+            Message::ExtensionSettingChanged {
+                extension_id,
+                key,
+                value,
+                save_immediately,
+            } => {
+                let entry = self
+                    .extensions_config
+                    .entry(extension_id.clone())
+                    .or_default();
+                entry.settings.insert(key, value);
+                self.plugin_manager
+                    .update_extension_settings(&extension_id, &entry.settings);
+                if save_immediately {
+                    self.save_config_task()
+                } else {
+                    self.save_config_debounced()
+                }
+            }
+
+            Message::TriggerExtensionAction {
+                extension_id,
+                action_id,
+            } => {
+                self.settings
+                    .extension_action_busy
+                    .insert((extension_id.clone(), action_id.clone()));
+                let saved = self
+                    .extensions_config
+                    .get(&extension_id)
+                    .map(|e| e.settings.clone())
+                    .unwrap_or_default();
+                let pm = self.plugin_manager.clone();
+                Task::perform(
+                    async move {
+                        let ext_id = extension_id.clone();
+                        let act_id = action_id.clone();
+                        let result = tokio::task::spawn_blocking(move || {
+                            pm.trigger_extension_action(&ext_id, &act_id, &saved)
+                        })
+                        .await
+                        .unwrap_or_else(|e| Err(format!("Task execution error: {e}")));
+                        (extension_id, action_id, result)
+                    },
+                    |(extension_id, action_id, result)| Message::ExtensionActionFinished {
+                        extension_id,
+                        action_id,
+                        result,
+                    },
                 )
             }
 
-            Message::ScrobbleTestFinished(service, res) => {
-                self.settings.scrobble_test_status = Some((service, res));
+            Message::ExtensionActionFinished {
+                extension_id,
+                action_id,
+                result,
+            } => {
+                self.settings
+                    .extension_action_busy
+                    .remove(&(extension_id.clone(), action_id));
+                match result {
+                    Ok(outcome) => {
+                        let has_updates = !outcome.updated_settings.is_empty();
+                        if has_updates {
+                            let entry = self
+                                .extensions_config
+                                .entry(extension_id.clone())
+                                .or_default();
+                            for (key, value) in outcome.updated_settings {
+                                entry.settings.insert(key, value);
+                            }
+                            self.plugin_manager
+                                .update_extension_settings(&extension_id, &entry.settings);
+                        }
+                        self.settings
+                            .extension_action_status
+                            .insert(extension_id, Ok(outcome.message));
+                        if has_updates {
+                            return self.save_config_task();
+                        }
+                        Task::none()
+                    }
+                    Err(err) => {
+                        self.settings
+                            .extension_action_status
+                            .insert(extension_id, Err(err));
+                        Task::none()
+                    }
+                }
+            }
+
+            Message::InstallExtensionArchiveClicked => Task::perform(
+                async {
+                    let file = rfd::AsyncFileDialog::new()
+                        .set_title("Install Melody extension archive")
+                        .add_filter("Melody extension", &["zip", "mext"])
+                        .pick_file()
+                        .await;
+                    file.map(|f| f.path().to_path_buf())
+                },
+                Message::ExtensionInstallPathSelected,
+            ),
+
+            Message::InstallExtensionFolderClicked => Task::perform(
+                async {
+                    let folder = rfd::AsyncFileDialog::new()
+                        .set_title("Install Melody extension folder")
+                        .pick_folder()
+                        .await;
+                    folder.map(|f| f.path().to_path_buf())
+                },
+                Message::ExtensionInstallPathSelected,
+            ),
+
+            Message::ExtensionInstallPathSelected(Some(source)) => {
+                let pm = self.plugin_manager.clone();
+                let ext_cfg = self.extensions_config.clone();
+                Task::perform(
+                    async move {
+                        tokio::task::spawn_blocking(move || {
+                            pm.install_from_path(&source, &ext_cfg)
+                                .map(|(manifest, snaps)| (manifest.name, snaps))
+                        })
+                        .await
+                        .unwrap_or_else(|e| Err(format!("Install task failed: {e}")))
+                    },
+                    Message::ExtensionInstalled,
+                )
+            }
+
+            Message::ExtensionInstallPathSelected(None) => Task::none(),
+
+            Message::ExtensionInstalled(Ok((_name, snapshots))) => {
+                self.extensions_snapshots = snapshots;
+                self.settings.extension_banner = None;
+                Task::none()
+            }
+
+            Message::ExtensionInstalled(Err(err)) => {
+                self.settings.extension_banner =
+                    Some((false, format!("Extension installation failed: {err}")));
+                Task::none()
+            }
+
+            Message::UninstallExtension(id) => {
+                let pm = self.plugin_manager.clone();
+                Task::perform(
+                    async move {
+                        let id_clone = id.clone();
+                        tokio::task::spawn_blocking(move || {
+                            pm.uninstall_extension(&id_clone)
+                                .map(|snaps| (id_clone, snaps))
+                        })
+                        .await
+                        .unwrap_or_else(|e| Err(format!("Uninstall task failed: {e}")))
+                    },
+                    Message::ExtensionUninstalled,
+                )
+            }
+
+            Message::ExtensionUninstalled(Ok((id, snapshots))) => {
+                self.extensions_snapshots = snapshots;
+                self.extensions_config.remove(&id);
+                self.settings.extension_action_status.remove(&id);
+                self.settings.extension_banner = None;
+                self.save_config_task()
+            }
+
+            Message::ExtensionUninstalled(Err(err)) => {
+                self.settings.extension_banner =
+                    Some((false, format!("Failed to uninstall extension: {err}")));
+                Task::none()
+            }
+
+            Message::ReloadExtensions => {
+                let pm = self.plugin_manager.clone();
+                let ext_cfg = self.extensions_config.clone();
+                self.settings.extension_banner = None;
+                Task::perform(
+                    async move {
+                        tokio::task::spawn_blocking(move || pm.discover_and_sync(&ext_cfg))
+                            .await
+                            .unwrap_or_default()
+                    },
+                    Message::ExtensionsSynced,
+                )
+            }
+
+            Message::ExtensionsSynced(snapshots) => {
+                self.extensions_snapshots = snapshots;
+                Task::none()
+            }
+
+            Message::OpenExtensionsFolder => {
+                if let Err(err) = path::open_directory(path::user_extensions_dir()) {
+                    self.settings.extension_banner =
+                        Some((false, format!("Failed to open extensions folder: {err}")));
+                }
                 Task::none()
             }
 

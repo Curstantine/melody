@@ -1,0 +1,48 @@
+id = "melody.listenbrainz"
+name = "ListenBrainz Scrobbler"
+version = "0.1.0"
+description = "Scrobble tracks and broadcast real-time Now Playing updates to ListenBrainz."
+authors = ["Melody"]
+entry = "extension.wasm"
+api_version = 1
+permissions = ["playback-events", "network", "settings"]
+
+[[settings]]
+key = "user_token"
+label = "User token"
+description = "Obtain your user token from your profile at https://listenbrainz.org/profile/"
+type = "secret"
+default = ""
+placeholder = "Enter ListenBrainz user token..."
+
+[[settings]]
+key = "api_url"
+label = "API endpoint URL"
+type = "text"
+default = "https://api.listenbrainz.org/1/submit-listens"
+placeholder = "https://api.listenbrainz.org/1/submit-listens"
+
+[[settings]]
+key = "submit_now_playing"
+label = "Submit \"Now Playing\" status"
+description = "Broadcast current track to your ListenBrainz profile in real-time"
+type = "toggle"
+default = true
+
+[[settings]]
+key = "scrobble_percent"
+label = "Scrobble threshold"
+description = "Percentage of track duration that must play before recording a scrobble"
+type = "number"
+default = 50
+min = 25
+max = 100
+step = 1
+unit = "%"
+
+[[settings]]
+key = "test_connection"
+label = "Connection"
+description = "Verify your ListenBrainz user token against the configured API endpoint"
+type = "action"
+button_label = "Test connection"

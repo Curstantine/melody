@@ -46,7 +46,6 @@ impl SettingsView {
             controls_card,
             feedback_card,
             icons_card,
-            Space::new().height(PAGE_BOTTOM_SPACER),
         ]
         .spacing(PAGE_SPACING)
         .padding(PAGE_PADDING)
@@ -474,7 +473,7 @@ impl SettingsView {
         font: iced::Font,
     ) -> Element<'a, Message> {
         const COLS: usize = 8;
-        let all_icons: [(&'static str, &'static str); 43] = [
+        let all_icons: [(&'static str, &'static str); 44] = [
             ("Play", icons::PLAY_SVG),
             ("Play circle", icons::PLAY_CIRCLE_SVG),
             ("Pause", icons::PAUSE_SVG),
@@ -514,6 +513,7 @@ impl SettingsView {
             ("External", icons::EXTERNAL_LINK_SVG),
             ("Open", icons::OPEN_SVG),
             ("Bug", icons::BUG_SVG),
+            ("Extension", icons::EXTENSION_SVG),
             ("Win min", icons::WINDOW_MINIMIZE_SVG),
             ("Win max", icons::WINDOW_MAXIMIZE_SVG),
             ("Win restore", icons::WINDOW_RESTORE_SVG),

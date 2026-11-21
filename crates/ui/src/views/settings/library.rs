@@ -327,16 +327,10 @@ impl SettingsView {
             .spacing(CARD_SPACING).boxed(),
         );
 
-        column![
-            header,
-            stats_card,
-            folders_card,
-            actions_card,
-            Space::new().height(PAGE_BOTTOM_SPACER),
-        ]
-        .spacing(PAGE_SPACING)
-        .padding(PAGE_PADDING)
-        .width(Length::Fill)
-        .boxed()
+        column![header, stats_card, folders_card, actions_card,]
+            .spacing(PAGE_SPACING)
+            .padding(PAGE_PADDING)
+            .width(Length::Fill)
+            .boxed()
     }
 }

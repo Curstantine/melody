@@ -26,6 +26,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
 
       - name: Enable Rust caching
         uses: Swatinem/rust-cache@v2
@@ -59,6 +60,13 @@ jobs:
 
       - name: Run clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Build bundled WASM extensions
+        run: |
+          cargo build -p melody-ext-lastfm -p melody-ext-listenbrainz --target wasm32-unknown-unknown --release
+          cp target/wasm32-unknown-unknown/release/melody_ext_lastfm.wasm extensions/lastfm/extension.wasm
+          cp target/wasm32-unknown-unknown/release/melody_ext_listenbrainz.wasm extensions/listenbrainz/extension.wasm
+        shell: bash
 
       - name: Build workspace
         run: cargo build --workspace --verbose

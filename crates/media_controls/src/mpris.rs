@@ -16,10 +16,7 @@ mod linux {
     use tracing::{error, info};
     use url::Url;
 
-    use crate::{
-        manager::Plugin,
-        types::{PlayerAction, PluginMetadata, TrackMetadata},
-    };
+    use plugin::{PlayerAction, TrackMetadata};
 
     #[derive(Clone)]
     struct MprisInner {
@@ -338,19 +335,13 @@ mod linux {
         Seeked(Time),
     }
 
-    pub struct MprisPlugin {
-        meta: PluginMetadata,
+    pub struct MprisControls {
         inner: MprisInner,
         server_tx: Mutex<Option<Sender<MprisServerMsg>>>,
     }
 
-    impl MprisPlugin {
+    impl MprisControls {
         pub fn new(action_tx: Sender<PlayerAction>) -> Self {
-            let meta = PluginMetadata {
-                id: "builtin.mpris".to_string(),
-                name: "MPRIS D-Bus Interface".to_string(),
-            };
-
             let inner = MprisInner::new(action_tx);
             let (msg_tx, msg_rx) = crossbeam_channel::unbounded::<MprisServerMsg>();
 
@@ -397,7 +388,6 @@ mod linux {
                 .ok();
 
             Self {
-                meta,
                 inner,
                 server_tx: Mutex::new(Some(msg_tx)),
             }
@@ -410,14 +400,8 @@ mod linux {
                 }
             }
         }
-    }
 
-    impl Plugin for MprisPlugin {
-        fn metadata(&self) -> &PluginMetadata {
-            &self.meta
-        }
-
-        fn on_track_change(&self, track: &TrackMetadata) -> Result<(), String> {
+        pub fn on_track_change(&self, track: &TrackMetadata) {
             if let Ok(mut g) = self.inner.current_track.write() {
                 *g = Some(track.clone());
             }
@@ -465,18 +449,16 @@ mod linux {
                 Property::Metadata(builder.build()),
                 Property::PlaybackStatus(PlaybackStatus::Playing),
             ]));
-            Ok(())
         }
 
-        fn on_playback_end(&self) -> Result<(), String> {
+        pub fn on_playback_end(&self) {
             self.inner.is_playing.store(false, Ordering::Relaxed);
             self.send_msg(MprisServerMsg::PropertiesChanged(vec![
                 Property::PlaybackStatus(PlaybackStatus::Stopped),
             ]));
-            Ok(())
         }
 
-        fn on_playback_status_change(&self, is_playing: bool) -> Result<(), String> {
+        pub fn on_playback_status_change(&self, is_playing: bool) {
             self.inner.is_playing.store(is_playing, Ordering::Relaxed);
             let status = if is_playing {
                 PlaybackStatus::Playing
@@ -494,31 +476,27 @@ mod linux {
             self.send_msg(MprisServerMsg::PropertiesChanged(vec![
                 Property::PlaybackStatus(status),
             ]));
-            Ok(())
         }
 
-        fn on_position_change(&self, position_ms: u64) -> Result<(), String> {
+        pub fn on_position_change(&self, position_ms: u64) {
             self.inner.position_ms.store(position_ms, Ordering::Relaxed);
-            Ok(())
         }
 
-        fn on_seeked(&self, position_ms: u64) -> Result<(), String> {
+        pub fn on_seeked(&self, position_ms: u64) {
             self.inner.position_ms.store(position_ms, Ordering::Relaxed);
             self.send_msg(MprisServerMsg::Seeked(Time::from_millis(
                 position_ms as i64,
             )));
-            Ok(())
         }
 
-        fn on_volume_change(&self, volume: f32) -> Result<(), String> {
+        pub fn on_volume_change(&self, volume: f32) {
             self.inner.set_volume_ratio(volume as f64);
             self.send_msg(MprisServerMsg::PropertiesChanged(vec![Property::Volume(
                 volume as f64,
             )]));
-            Ok(())
         }
 
-        fn on_repeat_change(&self, mode: model::RepeatMode) -> Result<(), String> {
+        pub fn on_repeat_change(&self, mode: model::RepeatMode) {
             self.inner
                 .repeat_mode
                 .store(encode_repeat_mode(mode), Ordering::Relaxed);
@@ -530,33 +508,29 @@ mod linux {
             self.send_msg(MprisServerMsg::PropertiesChanged(vec![
                 Property::LoopStatus(loop_status),
             ]));
-            Ok(())
         }
 
-        fn on_shuffle_change(&self, is_shuffle: bool) -> Result<(), String> {
+        pub fn on_shuffle_change(&self, is_shuffle: bool) {
             self.inner.is_shuffle.store(is_shuffle, Ordering::Relaxed);
             self.send_msg(MprisServerMsg::PropertiesChanged(vec![Property::Shuffle(
                 is_shuffle,
             )]));
-            Ok(())
         }
     }
 }
 
 #[cfg(target_os = "linux")]
-pub use linux::MprisPlugin;
+pub use linux::MprisControls;
 
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
-    use crate::manager::Plugin;
-    use crate::types::TrackMetadata;
+    use plugin::TrackMetadata;
 
     #[test]
-    fn test_mpris_plugin_instantiation_and_metadata() {
+    fn test_mpris_controls_lifecycle() {
         let (tx, _rx) = crossbeam_channel::unbounded();
-        let mpris = MprisPlugin::new(tx);
-        assert_eq!(mpris.metadata().id, "builtin.mpris");
+        let mpris = MprisControls::new(tx);
 
         let meta = TrackMetadata {
             title: "Test Track".to_string(),
@@ -566,13 +540,13 @@ mod tests {
             file_path: "/music/test.mp3".to_string(),
         };
 
-        assert!(mpris.on_track_change(&meta).is_ok());
-        assert!(mpris.on_playback_status_change(true).is_ok());
-        assert!(mpris.on_position_change(5000).is_ok());
-        assert!(mpris.on_seeked(6000).is_ok());
-        assert!(mpris.on_volume_change(0.8).is_ok());
-        assert!(mpris.on_repeat_change(model::RepeatMode::All).is_ok());
-        assert!(mpris.on_shuffle_change(true).is_ok());
-        assert!(mpris.on_playback_end().is_ok());
+        mpris.on_track_change(&meta);
+        mpris.on_playback_status_change(true);
+        mpris.on_position_change(5000);
+        mpris.on_seeked(6000);
+        mpris.on_volume_change(0.8);
+        mpris.on_repeat_change(model::RepeatMode::All);
+        mpris.on_shuffle_change(true);
+        mpris.on_playback_end();
     }
 }
