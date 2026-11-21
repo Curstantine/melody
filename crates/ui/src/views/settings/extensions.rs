@@ -137,10 +137,6 @@ impl SettingsView {
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
         let ext_id = &ext.manifest.id;
-        let origin_label = match ext.origin {
-            ExtensionOrigin::Bundled => "Bundled",
-            ExtensionOrigin::User => "Installed",
-        };
         let (status_label, status_color) = match &ext.status {
             ExtensionStatus::Running => ("Active", theme_cfg.success),
             ExtensionStatus::Disabled => ("Disabled", theme_cfg.text_muted),
@@ -155,14 +151,20 @@ impl SettingsView {
         meta_parts.push_str(" • ");
         meta_parts.push_str(ext_id);
 
-        let left_meta = row![
-            text(font, meta_parts).size(11).color(theme_cfg.text_muted),
-            pill_badge(theme_cfg, font, origin_label, theme_cfg.text_muted),
-            pill_badge(theme_cfg, font, status_label, status_color),
-        ]
-        .spacing(SPACE_MD)
-        .align_y(Alignment::Center)
-        .wrap();
+        let mut left_meta = row![text(font, meta_parts).size(11).color(theme_cfg.text_muted)];
+        if ext.origin == ExtensionOrigin::User {
+            left_meta = left_meta.push(pill_badge(
+                theme_cfg,
+                font,
+                "Installed",
+                theme_cfg.text_muted,
+            ));
+        }
+        let left_meta = left_meta
+            .push(pill_badge(theme_cfg, font, status_label, status_color))
+            .spacing(SPACE_MD)
+            .align_y(Alignment::Center)
+            .wrap();
 
         let toggle_id = ext_id.clone();
         let mut right_controls = row![].spacing(SPACE_MD).align_y(Alignment::Center);
