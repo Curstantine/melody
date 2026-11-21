@@ -300,14 +300,9 @@ impl App {
 
             Message::ExtensionInstallPathSelected(None) => Task::none(),
 
-            Message::ExtensionInstalled(Ok((name, snapshots))) => {
+            Message::ExtensionInstalled(Ok((_name, snapshots))) => {
                 self.extensions_snapshots = snapshots;
-                self.settings.extension_banner = Some((
-                    true,
-                    format!(
-                        "Installed '{name}'. Review its permissions below and toggle it on to enable."
-                    ),
-                ));
+                self.settings.extension_banner = None;
                 Task::none()
             }
 
@@ -337,8 +332,7 @@ impl App {
                 self.extensions_snapshots = snapshots;
                 self.extensions_config.remove(&id);
                 self.settings.extension_action_status.remove(&id);
-                self.settings.extension_banner =
-                    Some((true, format!("Uninstalled extension '{id}'.")));
+                self.settings.extension_banner = None;
                 self.save_config_task()
             }
 
@@ -351,8 +345,7 @@ impl App {
             Message::ReloadExtensions => {
                 let pm = self.plugin_manager.clone();
                 let ext_cfg = self.extensions_config.clone();
-                self.settings.extension_banner =
-                    Some((true, "Reloaded extensions from disk.".to_string()));
+                self.settings.extension_banner = None;
                 Task::perform(
                     async move {
                         tokio::task::spawn_blocking(move || pm.discover_and_sync(&ext_cfg))
