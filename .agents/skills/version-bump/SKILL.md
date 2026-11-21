@@ -53,17 +53,19 @@ Follow these steps in order. Stop and ask at each approval gate — never skip t
 ### 3. Bump the workspace version
 
 1. Edit the root `Cargo.toml` `[workspace.package] version` to the new version (without the `v` prefix).
-2. Regenerate `Cargo.lock`:
+2. **Bundled extensions (`extensions/*/`)**: Each extension in `extensions/` manages its own independent version in both `extensions/<name>/Cargo.toml` and `extensions/<name>/extension.toml` (not `version.workspace = true`). Check `git log <LAST_TAG>..HEAD -- extensions/<name>` and **only** bump an extension's `Cargo.toml` + `extension.toml` (keeping both files in sync) if there were changes to that extension since the last tag.
+3. Regenerate `Cargo.lock`:
    ```bash
    cargo check --workspace
    ```
-3. Verify with `git diff --stat` — expect `Cargo.toml` plus `Cargo.lock` version lines for `audio`, `core`, `plugins`, `ui`.
-4. Commit (GPG-signed, matching repo history):
+4. Verify with `git diff --stat` — expect `Cargo.toml`, `Cargo.lock`, plus any modified `extensions/<name>/{Cargo.toml,extension.toml}`.
+5. Commit (GPG-signed, matching repo history):
    ```bash
    git add Cargo.toml Cargo.lock
+   # plus any bumped extensions/<name>/Cargo.toml and extensions/<name>/extension.toml
    git commit -S -m "chore: bump version to <NEW_VERSION>"
    ```
-5. If the commit fails (e.g. signing or hooks), stop and report — do not continue to tagging.
+6. If the commit fails (e.g. signing or hooks), stop and report — do not continue to tagging.
 
 ### 4. Generate the tag body
 

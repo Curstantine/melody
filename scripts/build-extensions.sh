@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# Load environment variables from .env file
 if [[ -f "$REPO_ROOT/.env" ]]; then
     while IFS='=' read -r key val; do
         key="${key#"${key%%[![:space:]]*}"}"

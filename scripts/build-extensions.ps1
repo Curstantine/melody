@@ -4,6 +4,8 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 try {
     $envFile = Join-Path $repoRoot ".env"
+
+    # Load environment variables from .env file
     if (Test-Path $envFile) {
         foreach ($line in Get-Content $envFile) {
             $trimmed = $line.Trim()
