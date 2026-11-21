@@ -26,10 +26,7 @@ mod win {
         },
     };
 
-    use crate::{
-        manager::Plugin,
-        types::{PlayerAction, PluginMetadata, TrackMetadata},
-    };
+    use plugin::{PlayerAction, TrackMetadata};
 
     #[derive(Debug)]
     enum WindowsMediaMsg {
@@ -71,19 +68,13 @@ mod win {
         }
     }
 
-    pub struct WindowsMediaPlugin {
-        meta: PluginMetadata,
+    pub struct WindowsMediaControls {
         inner: Arc<WindowsMediaInner>,
         worker_tx: Sender<WindowsMediaMsg>,
     }
 
-    impl WindowsMediaPlugin {
+    impl WindowsMediaControls {
         pub fn new(action_tx: Sender<PlayerAction>) -> Self {
-            let meta = PluginMetadata {
-                id: "builtin.windows_media".to_string(),
-                name: "Windows Media Controls (SMTC)".to_string(),
-            };
-
             let inner = Arc::new(WindowsMediaInner::new());
             let (msg_tx, msg_rx) = crossbeam_channel::unbounded::<WindowsMediaMsg>();
 
@@ -96,7 +87,6 @@ mod win {
                 .ok();
 
             Self {
-                meta,
                 inner,
                 worker_tx: msg_tx,
             }
@@ -547,12 +537,8 @@ mod win {
         let _ = state.controls.SetPlaybackStatus(status);
     }
 
-    impl Plugin for WindowsMediaPlugin {
-        fn metadata(&self) -> &PluginMetadata {
-            &self.meta
-        }
-
-        fn on_track_change(&self, track: &TrackMetadata) -> Result<(), String> {
+    impl WindowsMediaControls {
+        pub fn on_track_change(&self, track: &TrackMetadata) {
             if let Ok(mut g) = self.inner.current_track.write() {
                 *g = Some(track.clone());
             }
@@ -560,35 +546,30 @@ mod win {
             let _ = self
                 .worker_tx
                 .send(WindowsMediaMsg::TrackChanged(track.clone()));
-            Ok(())
         }
 
-        fn on_playback_end(&self) -> Result<(), String> {
+        pub fn on_playback_end(&self) {
             self.inner.is_playing.store(false, Ordering::Relaxed);
             let _ = self.worker_tx.send(WindowsMediaMsg::PlaybackEnded);
-            Ok(())
         }
 
-        fn on_playback_status_change(&self, is_playing: bool) -> Result<(), String> {
+        pub fn on_playback_status_change(&self, is_playing: bool) {
             self.inner.is_playing.store(is_playing, Ordering::Relaxed);
             let _ = self
                 .worker_tx
                 .send(WindowsMediaMsg::PlaybackStatusChanged(is_playing));
-            Ok(())
         }
 
-        fn on_position_change(&self, position_ms: u64) -> Result<(), String> {
+        pub fn on_position_change(&self, position_ms: u64) {
             self.inner.position_ms.store(position_ms, Ordering::Relaxed);
-            Ok(())
         }
 
-        fn on_seeked(&self, position_ms: u64) -> Result<(), String> {
+        pub fn on_seeked(&self, position_ms: u64) {
             self.inner.position_ms.store(position_ms, Ordering::Relaxed);
             let _ = self.worker_tx.send(WindowsMediaMsg::Seeked(position_ms));
-            Ok(())
         }
 
-        fn on_repeat_change(&self, mode: model::RepeatMode) -> Result<(), String> {
+        pub fn on_repeat_change(&self, mode: model::RepeatMode) {
             let code = match mode {
                 model::RepeatMode::Off => 0,
                 model::RepeatMode::All => 1,
@@ -596,33 +577,29 @@ mod win {
             };
             self.inner.repeat_mode.store(code, Ordering::Relaxed);
             let _ = self.worker_tx.send(WindowsMediaMsg::RepeatChanged(mode));
-            Ok(())
         }
 
-        fn on_shuffle_change(&self, is_shuffle: bool) -> Result<(), String> {
+        pub fn on_shuffle_change(&self, is_shuffle: bool) {
             self.inner.is_shuffle.store(is_shuffle, Ordering::Relaxed);
             let _ = self
                 .worker_tx
                 .send(WindowsMediaMsg::ShuffleChanged(is_shuffle));
-            Ok(())
         }
     }
 }
 
 #[cfg(target_os = "windows")]
-pub use win::WindowsMediaPlugin;
+pub use win::WindowsMediaControls;
 
 #[cfg(all(test, target_os = "windows"))]
 mod tests {
     use super::*;
-    use crate::manager::Plugin;
-    use crate::types::TrackMetadata;
+    use plugin::TrackMetadata;
 
     #[test]
-    fn test_windows_media_plugin_instantiation_and_metadata() {
+    fn test_windows_media_controls_lifecycle() {
         let (tx, _rx) = crossbeam_channel::unbounded();
-        let plugin = WindowsMediaPlugin::new(tx);
-        assert_eq!(plugin.metadata().id, "builtin.windows_media");
+        let controls = WindowsMediaControls::new(tx);
 
         let meta = TrackMetadata {
             title: "Test Track".to_string(),
@@ -632,13 +609,12 @@ mod tests {
             file_path: "C:\\music\\test.mp3".to_string(),
         };
 
-        assert!(plugin.on_track_change(&meta).is_ok());
-        assert!(plugin.on_playback_status_change(true).is_ok());
-        assert!(plugin.on_position_change(5000).is_ok());
-        assert!(plugin.on_seeked(6000).is_ok());
-        assert!(plugin.on_volume_change(0.8).is_ok());
-        assert!(plugin.on_repeat_change(model::RepeatMode::One).is_ok());
-        assert!(plugin.on_shuffle_change(true).is_ok());
-        assert!(plugin.on_playback_end().is_ok());
+        controls.on_track_change(&meta);
+        controls.on_playback_status_change(true);
+        controls.on_position_change(5000);
+        controls.on_seeked(6000);
+        controls.on_repeat_change(model::RepeatMode::One);
+        controls.on_shuffle_change(true);
+        controls.on_playback_end();
     }
 }

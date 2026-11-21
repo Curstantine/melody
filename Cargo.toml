@@ -17,6 +17,11 @@ members = [
     "crates/config",
     "crates/component",
     "crates/ui",
+    "crates/lyrics",
+    "crates/media_controls",
+    "crates/extension-sdk",
+    "extensions/lastfm",
+    "extensions/listenbrainz",
 ]
 
 [workspace.package]
@@ -42,6 +47,9 @@ layout = { path = "crates/layout" }
 queue = { path = "crates/queue" }
 config = { path = "crates/config" }
 component = { path = "crates/component" }
+lyrics = { path = "crates/lyrics" }
+media_controls = { path = "crates/media_controls" }
+melody-extension-sdk = { path = "crates/extension-sdk" }
 
 async-io = "2.6"
 cpal = "0.18"
@@ -86,7 +94,9 @@ ureq = "3.5"
 url = "2.5"
 velopack = "1.2"
 walkdir = "2.5"
+wasmi = "2.0"
 windows = "0.62"
+zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
 
 [profile.release]
 opt-level = 3

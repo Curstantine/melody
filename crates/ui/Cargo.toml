@@ -33,6 +33,8 @@ layout.workspace = true
 queue.workspace = true
 config.workspace = true
 component.workspace = true
+lyrics.workspace = true
+media_controls.workspace = true
 
 # NOTE: `web-colors` (an iced default feature) is deliberately disabled: it
 # switches the wgpu text pipeline to non-gamma-corrected ("Web") blending,

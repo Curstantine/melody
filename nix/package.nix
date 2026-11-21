@@ -61,13 +61,22 @@ rustPlatform.buildRustPackage {
   ] ++ runtimeLibs;
 
   postInstall = ''
-    # Install built-in themes and layouts
-    mkdir -p $out/share/melody/themes $out/share/melody/layouts
+    # Install built-in themes, layouts, and extensions
+    mkdir -p $out/share/melody/themes $out/share/melody/layouts $out/share/melody/extensions
     if [ -d themes ]; then
       cp -r themes/* $out/share/melody/themes/
     fi
     if [ -d layouts ]; then
       cp -r layouts/* $out/share/melody/layouts/
+    fi
+    if [ -d extensions ]; then
+      for ext in extensions/*; do
+        if [ -f "$ext/extension.toml" ] && [ -f "$ext/extension.wasm" ]; then
+          name=$(basename "$ext")
+          mkdir -p "$out/share/melody/extensions/$name"
+          cp "$ext/extension.toml" "$ext/extension.wasm" "$out/share/melody/extensions/$name/"
+        fi
+      done
     fi
 
     # Install desktop file and icons

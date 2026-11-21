@@ -11,6 +11,7 @@ path.workspace = true
 model.workspace = true
 audio.workspace = true
 plugin.workspace = true
+melody-extension-sdk.workspace = true
 theme.workspace = true
 font.workspace = true
 layout.workspace = true

@@ -21,6 +21,8 @@ impl App {
                 self.is_playing = status.is_playing();
 
                 if was_playing != self.is_playing {
+                    self.media_controls
+                        .on_playback_status_change(self.is_playing);
                     self.plugin_manager
                         .on_playback_status_change(self.is_playing);
                 }
@@ -38,6 +40,7 @@ impl App {
                         raw_pos
                     };
                     if self.is_playing && self.position_ms != old_pos {
+                        self.media_controls.on_position_change(self.position_ms);
                         self.plugin_manager.on_position_change(self.position_ms);
                     }
                 }
@@ -51,17 +54,21 @@ impl App {
                     if status.duration_ms() > 0 {
                         self.duration_ms = status.duration_ms();
                     }
+                    self.media_controls.on_playback_end();
+                    self.media_controls.on_playback_end();
                     self.plugin_manager.on_playback_end();
 
                     if self.repeat_mode == model::RepeatMode::One {
                         if let Some(track) = &self.current_track {
-                            self.plugin_manager.on_track_change(&TrackMetadata {
+                            let meta = TrackMetadata {
                                 title: track.title.clone(),
                                 artist: track.artist.clone(),
                                 album: track.album.clone(),
                                 duration_ms: track.duration_ms,
                                 file_path: track.file_path.clone(),
-                            });
+                            };
+                            self.media_controls.on_track_change(&meta);
+                            self.plugin_manager.on_track_change(&meta);
                         }
                         self.queue_next_gapless_track();
                         return Task::none();
@@ -90,13 +97,15 @@ impl App {
                         self.current_tech_info = None;
                         self.now_playing.set_lyrics(None);
 
-                        self.plugin_manager.on_track_change(&TrackMetadata {
+                        let meta = TrackMetadata {
                             title: title.clone(),
                             artist: artist.clone(),
                             album: album.clone(),
                             duration_ms,
                             file_path: file_path.clone(),
-                        });
+                        };
+                        self.media_controls.on_track_change(&meta);
+                        self.plugin_manager.on_track_change(&meta);
 
                         let path = PathBuf::from(&file_path);
                         let load_assets = self.load_track_assets_task(
@@ -104,6 +113,7 @@ impl App {
                             path,
                             artist.clone(),
                             title.clone(),
+                            album.clone(),
                             duration_ms,
                         );
 
@@ -162,6 +172,7 @@ impl App {
                     if self.duration_ms > 0 {
                         self.position_ms = self.duration_ms;
                     }
+                    self.media_controls.on_playback_end();
                     self.plugin_manager.on_playback_end();
                     if self.repeat_mode == model::RepeatMode::One {
                         self.audio_controller.seek(Duration::from_millis(0));
@@ -173,15 +184,19 @@ impl App {
                     return self.update(Message::NextTrack);
                 }
 
-                // Drain any incoming media control actions (MPRIS on Linux, SMTC on Windows)
-                let mut media_action = None;
+                // Drain any incoming media control or extension player actions
+                let mut media_actions = Vec::new();
                 if let Some(ref rx) = self.media_controls_rx {
                     while let Ok(action) = rx.try_recv() {
-                        media_action = Some(action);
+                        media_actions.push(action);
                     }
                 }
-                if let Some(action) = media_action {
-                    return self.update(Message::MediaControlAction(action));
+                if !media_actions.is_empty() {
+                    let tasks: Vec<Task<Message>> = media_actions
+                        .into_iter()
+                        .map(|action| self.update(Message::MediaControlAction(action)))
+                        .collect();
+                    return Task::batch(tasks);
                 }
 
                 // Drain any incoming library watcher events
@@ -291,18 +306,26 @@ impl App {
                     self.now_playing.set_lyrics(None);
                     self.sync_now_playing();
 
-                    // Notify plugins synchronously (cheap state updates).
-                    self.plugin_manager.on_track_change(&TrackMetadata {
+                    // Notify media controls and extensions synchronously (cheap state updates).
+                    let meta = TrackMetadata {
                         title: title.clone(),
                         artist: artist.clone(),
-                        album,
+                        album: album.clone(),
                         duration_ms,
                         file_path,
-                    });
+                    };
+                    self.media_controls.on_track_change(&meta);
+                    self.plugin_manager.on_track_change(&meta);
 
                     self.queue_next_gapless_track();
-                    let load_assets =
-                        self.load_track_assets_task(track_id, path, artist, title, duration_ms);
+                    let load_assets = self.load_track_assets_task(
+                        track_id,
+                        path,
+                        artist,
+                        title,
+                        album,
+                        duration_ms,
+                    );
                     let save_state = self.save_state_debounced();
                     Task::batch([load_assets, save_state])
                 } else {
@@ -320,6 +343,7 @@ impl App {
                     let duration_ms = track.duration_ms;
                     let title = track.title.clone();
                     let artist = track.artist.clone();
+                    let album = track.album.clone();
 
                     self.current_track = Some(track);
                     self.player_bar.update_track(self.current_track.as_ref());
@@ -335,7 +359,7 @@ impl App {
                     self.sync_now_playing();
 
                     self.queue_next_gapless_track();
-                    self.load_track_assets_task(track_id, path, artist, title, duration_ms)
+                    self.load_track_assets_task(track_id, path, artist, title, album, duration_ms)
                 } else {
                     Task::none()
                 }
@@ -424,6 +448,7 @@ impl App {
             Message::ToggleShuffle => {
                 self.is_shuffle = !self.is_shuffle;
                 info!("Shuffle toggled: {}", self.is_shuffle);
+                self.media_controls.on_shuffle_change(self.is_shuffle);
                 self.plugin_manager.on_shuffle_change(self.is_shuffle);
                 self.queue_next_gapless_track();
                 self.save_state_task()
@@ -438,6 +463,7 @@ impl App {
                 if self.repeat_mode != mode {
                     self.repeat_mode = mode;
                     info!("Repeat mode set: {:?}", self.repeat_mode);
+                    self.media_controls.on_repeat_change(self.repeat_mode);
                     self.plugin_manager.on_repeat_change(self.repeat_mode);
                     self.queue_next_gapless_track();
                     return self.save_state_task();
@@ -539,6 +565,7 @@ impl App {
                 self.audio_controller
                     .seek(Duration::from_millis(clamped_pos));
                 self.position_ms = clamped_pos;
+                self.media_controls.on_seeked(self.position_ms);
                 self.plugin_manager.on_seeked(self.position_ms);
                 Task::none()
             }
@@ -553,6 +580,7 @@ impl App {
                 self.position_ms = clamped;
                 self.player_bar
                     .update_position(self.position_ms, self.duration_ms);
+                self.media_controls.on_seeked(self.position_ms);
                 self.plugin_manager.on_seeked(self.position_ms);
                 Task::none()
             }
@@ -595,6 +623,7 @@ impl App {
                     let target_ms = target.as_millis().min(self.duration_ms as u128) as u64;
                     self.audio_controller.seek(Duration::from_millis(target_ms));
                     self.position_ms = target_ms;
+                    self.media_controls.on_seeked(target_ms);
                     self.plugin_manager.on_seeked(target_ms);
                     Task::none()
                 }
@@ -602,6 +631,7 @@ impl App {
                     let target_ms = pos.as_millis().min(self.duration_ms as u128) as u64;
                     self.audio_controller.seek(Duration::from_millis(target_ms));
                     self.position_ms = target_ms;
+                    self.media_controls.on_seeked(target_ms);
                     self.plugin_manager.on_seeked(target_ms);
                     Task::none()
                 }
@@ -635,6 +665,7 @@ impl App {
                 }
                 PlayerAction::Quit => {
                     info!("MPRIS Quit requested");
+                    self.plugin_manager.shutdown_all();
                     iced::exit()
                 }
             },
@@ -724,6 +755,7 @@ impl App {
         path: PathBuf,
         artist: String,
         title: String,
+        album: String,
         duration_ms: u64,
     ) -> Task<Message> {
         let plugin_manager = self.plugin_manager.clone();
@@ -744,7 +776,9 @@ impl App {
 
                     let tech_info = metadata::extract_technical_info(&path, duration_ms);
 
-                    let lyrics = plugin_manager.fetch_lyrics(Some(&path), &artist, &title);
+                    let lyrics = lyrics::fetch_local_lyrics(&path, &artist, &title).or_else(|| {
+                        plugin_manager.fetch_lyrics(&artist, &title, &album, duration_ms)
+                    });
 
                     (cover, now_playing_cover, blurred, tech_info, lyrics)
                 })
@@ -794,12 +828,13 @@ impl App {
         }
     }
 
-    /// Updates the active volume across UI, audio engine, and plugins, then schedules a state save.
+    /// Updates the active volume across UI, audio engine, media controls, and extensions, then schedules a state save.
     fn apply_volume(&mut self, vol: f32) -> Task<Message> {
         let clamped = vol.clamp(0.0, 1.0);
         self.volume = clamped;
         self.player_bar.update_volume(clamped);
         self.audio_controller.set_volume(clamped);
+        self.media_controls.on_volume_change(clamped);
         self.plugin_manager.on_volume_change(clamped);
         self.save_state_debounced()
     }

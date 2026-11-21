@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
 use iced::widget::{row, scrollable, Widget};
@@ -8,13 +9,14 @@ use component::{self, styles};
 use config::SettingsTab;
 use model::ViewMode;
 use model::{SortDirection, SortField};
+use plugin::{ExtensionConfigEntry, ExtensionSnapshot};
 use theme::ThemeConfig;
 
 mod appearance;
 mod debug;
+mod extensions;
 mod library;
 mod playback;
-mod scrobbling;
 mod sidebar;
 mod updates;
 
@@ -71,18 +73,9 @@ pub struct SettingsContext<'a> {
     pub cache_size_bytes: u64,
     pub is_scanning: bool,
 
-    pub listenbrainz_enabled: bool,
-    pub listenbrainz_token: &'a str,
-    pub listenbrainz_api_url: &'a str,
+    pub extensions: &'a [ExtensionSnapshot],
+    pub extensions_config: &'a BTreeMap<String, ExtensionConfigEntry>,
 
-    pub lastfm_enabled: bool,
-    pub lastfm_api_key: &'a str,
-    pub lastfm_api_secret: &'a str,
-    pub lastfm_session_key: &'a str,
-    pub lastfm_api_url: &'a str,
-
-    pub submit_now_playing: bool,
-    pub scrobble_percent: u32,
     pub gapless: bool,
     pub resampling: audio::ResamplingConfig,
     pub output_device: Option<&'a str>,
@@ -126,7 +119,9 @@ pub struct SettingsView {
     pub active_tab: SettingsTab,
     pub available_fonts: Vec<String>,
     pub library_folders: Vec<String>,
-    pub scrobble_test_status: Option<(plugin::scrobbler::ScrobbleService, Result<String, String>)>,
+    pub extension_action_status: HashMap<String, Result<String, String>>,
+    pub extension_action_busy: HashSet<(String, String)>,
+    pub extension_banner: Option<(bool, String)>,
     pub fonts_loaded: bool,
     pub update_status: updater::UpdateStatus,
     pub show_debug_subpage: bool,
@@ -143,7 +138,9 @@ impl SettingsView {
             active_tab,
             available_fonts,
             library_folders: Vec::new(),
-            scrobble_test_status: None,
+            extension_action_status: HashMap::new(),
+            extension_action_busy: HashSet::new(),
+            extension_banner: None,
             fonts_loaded,
             update_status: updater::UpdateStatus::Idle,
             show_debug_subpage: false,
@@ -172,7 +169,7 @@ impl SettingsView {
             SettingsTab::Appearance => self.view_appearance(theme_cfg, font, &ctx),
             SettingsTab::Playback => self.view_playback(theme_cfg, font, &ctx),
             SettingsTab::Library => self.view_library(theme_cfg, font, &ctx),
-            SettingsTab::Scrobbling => self.view_scrobbling(theme_cfg, font, &ctx),
+            SettingsTab::Extensions => self.view_extensions(theme_cfg, font, &ctx),
         };
 
         let main_panel = scrollable(content)
@@ -204,7 +201,103 @@ fn format_file_size(bytes: u64) -> String {
 mod tests {
     use super::*;
     use model::ViewMode;
+    use plugin::{
+        ExtensionManifest, ExtensionOrigin, ExtensionPermission, ExtensionStatus, SelectChoice,
+        SettingKind, SettingOption, SettingValue,
+    };
     use theme::{ThemeConfig, DEFAULT_THEME_NAME};
+
+    fn sample_extension_snapshot() -> ExtensionSnapshot {
+        let schema = vec![
+            SettingOption {
+                key: "enabled_extra".to_string(),
+                label: "Submit Now Playing".to_string(),
+                description: Some("Broadcast currently playing track".to_string()),
+                kind: SettingKind::Toggle { default: true },
+            },
+            SettingOption {
+                key: "endpoint".to_string(),
+                label: "Endpoint URL".to_string(),
+                description: None,
+                kind: SettingKind::Text {
+                    default: "https://example.org".to_string(),
+                    placeholder: Some("https://...".to_string()),
+                },
+            },
+            SettingOption {
+                key: "api_secret".to_string(),
+                label: "Secret token".to_string(),
+                description: Some("API secret".to_string()),
+                kind: SettingKind::Secret {
+                    default: String::new(),
+                    placeholder: Some("Enter token...".to_string()),
+                },
+            },
+            SettingOption {
+                key: "threshold".to_string(),
+                label: "Scrobble threshold".to_string(),
+                description: None,
+                kind: SettingKind::Number {
+                    default: 50.0,
+                    min: 25.0,
+                    max: 100.0,
+                    step: 1.0,
+                    unit: Some("%".to_string()),
+                },
+            },
+            SettingOption {
+                key: "mode".to_string(),
+                label: "Mode".to_string(),
+                description: None,
+                kind: SettingKind::Select {
+                    default: "auto".to_string(),
+                    options: vec![
+                        SelectChoice {
+                            value: "auto".to_string(),
+                            label: "Auto".to_string(),
+                        },
+                        SelectChoice {
+                            value: "manual".to_string(),
+                            label: "Manual".to_string(),
+                        },
+                    ],
+                },
+            },
+            SettingOption {
+                key: "test".to_string(),
+                label: "Connection".to_string(),
+                description: None,
+                kind: SettingKind::Action {
+                    button_label: "Test connection".to_string(),
+                },
+            },
+        ];
+
+        ExtensionSnapshot {
+            manifest: ExtensionManifest {
+                id: "com.example.sample".to_string(),
+                name: "Sample Extension".to_string(),
+                version: "0.1.0".to_string(),
+                description: "Sample extension with all controls".to_string(),
+                authors: vec!["Melody".to_string()],
+                repository: None,
+                entry: "extension.wasm".to_string(),
+                api_version: plugin::ABI_VERSION,
+                permissions: vec![
+                    ExtensionPermission::PlaybackEvents,
+                    ExtensionPermission::Network,
+                    ExtensionPermission::Settings,
+                ],
+                allowed_hosts: vec!["example.org".to_string()],
+                settings: schema.clone(),
+            },
+            origin: ExtensionOrigin::User,
+            dir: PathBuf::from("/tmp/sample"),
+            enabled: true,
+            status: ExtensionStatus::Running,
+            settings_schema: schema,
+        }
+    }
 
     #[test]
     fn test_settings_tab_variants_and_defaults() {
@@ -215,7 +308,7 @@ mod tests {
             SettingsTab::Appearance,
             SettingsTab::Playback,
             SettingsTab::Library,
-            SettingsTab::Scrobbling,
+            SettingsTab::Extensions,
         ];
         assert_ne!(tabs[0], tabs[1]);
         assert_ne!(tabs[1], tabs[2]);
@@ -227,26 +320,56 @@ mod tests {
         let theme_cfg = ThemeConfig::default();
         let folders = vec!["/music/ambient".to_string(), "/music/jazz".to_string()];
         let available_fonts = vec!["Default".to_string(), "Noto Sans CJK JP".to_string()];
+        let sample_ext = sample_extension_snapshot();
+        let extensions = vec![
+            sample_ext.clone(),
+            ExtensionSnapshot {
+                manifest: ExtensionManifest {
+                    id: "com.example.broken".to_string(),
+                    name: "Broken Extension".to_string(),
+                    version: "0.2.0".to_string(),
+                    description: String::new(),
+                    authors: Vec::new(),
+                    repository: None,
+                    entry: "extension.wasm".to_string(),
+                    api_version: plugin::ABI_VERSION,
+                    permissions: Vec::new(),
+                    allowed_hosts: Vec::new(),
+                    settings: Vec::new(),
+                },
+                origin: ExtensionOrigin::Bundled,
+                dir: PathBuf::from("/tmp/broken"),
+                enabled: true,
+                status: ExtensionStatus::Error("Missing host permission".to_string()),
+                settings_schema: Vec::new(),
+            },
+        ];
+        let mut extensions_config = BTreeMap::new();
+        extensions_config.insert(
+            "com.example.sample".to_string(),
+            ExtensionConfigEntry {
+                enabled: true,
+                settings: BTreeMap::from([("threshold".to_string(), SettingValue::Integer(60))]),
+            },
+        );
 
         let tabs = vec![
             (SettingsTab::Appearance, false),
             (SettingsTab::Appearance, true),
             (SettingsTab::Playback, false),
             (SettingsTab::Library, false),
-            (SettingsTab::Scrobbling, false),
+            (SettingsTab::Extensions, false),
         ];
 
         for (tab, show_debug_subpage) in tabs {
-            let settings_view = SettingsView {
-                active_tab: tab,
-                available_fonts: available_fonts.clone(),
-                library_folders: folders.clone(),
-                scrobble_test_status: None,
-                fonts_loaded: true,
-                update_status: updater::UpdateStatus::Idle,
-                show_debug_subpage,
-                debug_state: DebugSampleState::default(),
-            };
+            let mut settings_view = SettingsView::new(tab, available_fonts.clone());
+            settings_view.library_folders = folders.clone();
+            settings_view.show_debug_subpage = show_debug_subpage;
+            settings_view.extension_banner = Some((true, "Installed Sample Extension".to_string()));
+            settings_view.extension_action_status.insert(
+                "com.example.sample".to_string(),
+                Ok("Connected".to_string()),
+            );
 
             let theme_names_vec = vec![DEFAULT_THEME_NAME.to_string(), "Nord".to_string()];
             let layout_names_vec = vec!["Default".to_string(), "Sidebar".to_string()];
@@ -273,18 +396,9 @@ mod tests {
                 cache_size_bytes: 524288,
                 is_scanning: false,
 
-                listenbrainz_enabled: true,
-                listenbrainz_token: "test_token",
-                listenbrainz_api_url: "https://api.listenbrainz.org/1/submit-listens",
+                extensions: &extensions,
+                extensions_config: &extensions_config,
 
-                lastfm_enabled: true,
-                lastfm_api_key: "test_api_key",
-                lastfm_api_secret: "test_secret",
-                lastfm_session_key: "test_sk",
-                lastfm_api_url: "https://ws.audioscrobbler.com/2.0/",
-
-                submit_now_playing: true,
-                scrobble_percent: 50,
                 gapless: true,
                 resampling: audio::ResamplingConfig::default(),
                 output_device: None,
@@ -295,7 +409,6 @@ mod tests {
                 repeat_mode: model::RepeatMode::Off,
             };
 
-            // Render each view and verify it builds valid Iced elements without panic
             let _element = settings_view.view(&theme_cfg, iced::Font::DEFAULT, ctx);
         }
     }
@@ -321,18 +434,10 @@ mod tests {
     #[test]
     fn test_playback_settings_with_custom_resampling() {
         let theme_cfg = ThemeConfig::default();
-        let settings_view = SettingsView {
-            active_tab: SettingsTab::Playback,
-            available_fonts: vec!["Default".to_string()],
-            library_folders: Vec::new(),
-            scrobble_test_status: None,
-            fonts_loaded: true,
-            update_status: updater::UpdateStatus::Idle,
-            show_debug_subpage: false,
-            debug_state: DebugSampleState::default(),
-        };
+        let settings_view = SettingsView::new(SettingsTab::Playback, vec!["Default".to_string()]);
         let theme_names_vec = vec![DEFAULT_THEME_NAME.to_string()];
         let layout_names_vec = vec!["Default".to_string()];
+        let extensions_config = BTreeMap::new();
 
         let custom_resampling = audio::ResamplingConfig {
             filter: audio::ResamplingFilter::BlackmanNuttall,
@@ -362,16 +467,8 @@ mod tests {
             cache_file_count: 0,
             cache_size_bytes: 0,
             is_scanning: false,
-            listenbrainz_enabled: false,
-            listenbrainz_token: "",
-            listenbrainz_api_url: "",
-            lastfm_enabled: false,
-            lastfm_api_key: "",
-            lastfm_api_secret: "",
-            lastfm_session_key: "",
-            lastfm_api_url: "",
-            submit_now_playing: false,
-            scrobble_percent: 50,
+            extensions: &[],
+            extensions_config: &extensions_config,
             gapless: true,
             resampling: custom_resampling,
             output_device: Some("Test DAC"),
@@ -390,7 +487,6 @@ mod tests {
         let theme_cfg = ThemeConfig::default();
         let mut settings_view = SettingsView::new(SettingsTab::Appearance, Vec::new());
 
-        // Test Available status
         let update_info = updater::UpdateInfo {
             version: "v9.9.9".to_string(),
             release_url: env!("CARGO_PKG_REPOSITORY").to_string(),
@@ -398,26 +494,21 @@ mod tests {
         settings_view.update_status = updater::UpdateStatus::Available(update_info.clone());
         drop(settings_view.view_sidebar(&theme_cfg, iced::Font::DEFAULT));
 
-        // Test Downloading status
         settings_view.update_status = updater::UpdateStatus::Downloading {
             info: update_info.clone(),
             percent: 45,
         };
         drop(settings_view.view_sidebar(&theme_cfg, iced::Font::DEFAULT));
 
-        // Test ReadyToRestart status
         settings_view.update_status = updater::UpdateStatus::ReadyToRestart { info: update_info };
         drop(settings_view.view_sidebar(&theme_cfg, iced::Font::DEFAULT));
 
-        // Test Checking status
         settings_view.update_status = updater::UpdateStatus::Checking;
         drop(settings_view.view_sidebar(&theme_cfg, iced::Font::DEFAULT));
 
-        // Test UpToDate status
         settings_view.update_status = updater::UpdateStatus::UpToDate;
         drop(settings_view.view_sidebar(&theme_cfg, iced::Font::DEFAULT));
 
-        // Test Failed status
         settings_view.update_status = updater::UpdateStatus::Failed("Network error".to_string());
         drop(settings_view.view_sidebar(&theme_cfg, iced::Font::DEFAULT));
     }

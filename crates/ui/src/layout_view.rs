@@ -566,18 +566,8 @@ impl App {
                 cache_size_bytes: cache_stats.total_bytes,
                 is_scanning: self.is_scanning,
 
-                listenbrainz_enabled: self.scrobble_config.listenbrainz_enabled,
-                listenbrainz_token: &self.scrobble_config.listenbrainz_token,
-                listenbrainz_api_url: &self.scrobble_config.listenbrainz_api_url,
-
-                lastfm_enabled: self.scrobble_config.lastfm_enabled,
-                lastfm_api_key: &self.scrobble_config.lastfm_api_key,
-                lastfm_api_secret: &self.scrobble_config.lastfm_api_secret,
-                lastfm_session_key: &self.scrobble_config.lastfm_session_key,
-                lastfm_api_url: &self.scrobble_config.lastfm_api_url,
-
-                submit_now_playing: self.scrobble_config.submit_now_playing,
-                scrobble_percent: self.scrobble_config.scrobble_percent,
+                extensions: &self.extensions_snapshots,
+                extensions_config: &self.extensions_config,
                 gapless: self.gapless,
                 resampling: self.resampling_config.clone(),
                 output_device: self.output_device.as_deref(),

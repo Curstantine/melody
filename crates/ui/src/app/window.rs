@@ -236,10 +236,7 @@ impl App {
                     if self.tray.is_none() {
                         self.tray = crate::tray::TrayController::new();
                     }
-                    #[cfg(target_os = "windows")]
-                    if let Some(ref plugin) = self.windows_media_plugin {
-                        plugin.detach_window();
-                    }
+                    self.media_controls.detach_window();
                     let id = self.main_window_id.take();
                     let save_state = self.save_state_task();
                     if let Some(id) = id {
@@ -248,6 +245,7 @@ impl App {
                         save_state
                     }
                 } else {
+                    self.plugin_manager.shutdown_all();
                     iced::exit()
                 }
             }
@@ -276,15 +274,15 @@ impl App {
                 }
 
                 #[cfg(target_os = "windows")]
-                if let Some(ref plugin) = self.windows_media_plugin {
+                {
                     use iced::window::raw_window_handle::RawWindowHandle;
-                    let plugin = plugin.clone();
+                    let media_controls = self.media_controls.clone();
                     tasks.push(
                         iced::window::run(id, move |window| {
                             if let Ok(handle) = window.window_handle() {
                                 if let RawWindowHandle::Win32(win32) = handle.as_raw() {
                                     let hwnd = win32.hwnd.get();
-                                    plugin.attach_window(hwnd);
+                                    media_controls.attach_window(hwnd);
                                 }
                             }
                         })
@@ -300,6 +298,7 @@ impl App {
                     self.main_window_id = None;
                 }
                 if !self.minimize_to_tray {
+                    self.plugin_manager.shutdown_all();
                     return iced::exit();
                 }
                 Task::none()
@@ -352,7 +351,10 @@ impl App {
                 crate::tray::TrayAction::PlayPause => self.update(Message::TogglePlayPause),
                 crate::tray::TrayAction::Next => self.update(Message::NextTrack),
                 crate::tray::TrayAction::Previous => self.update(Message::PreviousTrack),
-                crate::tray::TrayAction::Quit => iced::exit(),
+                crate::tray::TrayAction::Quit => {
+                    self.plugin_manager.shutdown_all();
+                    iced::exit()
+                }
             },
 
             _ => unreachable!("routed in App::update"),

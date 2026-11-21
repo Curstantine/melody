@@ -1,16 +1,13 @@
-pub mod lyrics;
+pub mod installer;
 pub mod manager;
-pub mod media_controls;
-pub mod scrobbler;
+pub mod manifest;
+pub mod runtime;
 pub mod types;
 
-pub use lyrics::LyricsPlugin;
-pub use manager::{Plugin, PluginManager};
-#[cfg(target_os = "linux")]
-pub use media_controls::MprisPlugin;
-#[cfg(target_os = "windows")]
-pub use media_controls::WindowsMediaPlugin;
-pub use scrobbler::{
-    LastFmConfig, LastFmPlugin, ListenBrainzConfig, ListenBrainzPlugin, ScrobbleService,
+pub use manager::PluginManager;
+pub use manifest::{ExtensionManifest, ExtensionOrigin, ExtensionSnapshot, ExtensionStatus};
+pub use melody_extension_sdk::{
+    ExtensionConfigEntry, ExtensionPermission, SelectChoice, SettingKind, SettingOption,
+    SettingValue, SettingsMap, ABI_VERSION,
 };
-pub use types::{PlayerAction, PluginMetadata, TrackMetadata};
+pub use types::{PlayerAction, TrackMetadata};
