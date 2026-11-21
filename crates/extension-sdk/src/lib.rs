@@ -17,8 +17,9 @@ pub use settings::{
     ExtensionConfigEntry, SelectChoice, SettingKind, SettingOption, SettingValue, SettingsMap,
 };
 pub use types::{
-    ExtensionPlayerAction, ExtensionRequest, ExtensionResponse, HttpMethod, HttpRequest,
-    HttpResponse, LogLevel, LyricsRequest, RepeatMode, TrackInfo,
+    BrowserAuthRequest, BrowserAuthResponse, ExtensionPlayerAction, ExtensionRequest,
+    ExtensionResponse, HttpMethod, HttpRequest, HttpResponse, LogLevel, LyricsRequest, RepeatMode,
+    SettingUpdate, TrackInfo,
 };
 
 #[cfg(test)]

@@ -273,7 +273,7 @@ pub enum Message {
     ExtensionActionFinished {
         extension_id: String,
         action_id: String,
-        result: Result<String, String>,
+        result: Result<plugin::ExtensionActionOutcome, String>,
     },
     InstallExtensionArchiveClicked,
     InstallExtensionFolderClicked,

@@ -260,10 +260,35 @@ impl App {
                 self.settings
                     .extension_action_busy
                     .remove(&(extension_id.clone(), action_id));
-                self.settings
-                    .extension_action_status
-                    .insert(extension_id, result);
-                Task::none()
+                match result {
+                    Ok(outcome) => {
+                        let has_updates = !outcome.updated_settings.is_empty();
+                        if has_updates {
+                            let entry = self
+                                .extensions_config
+                                .entry(extension_id.clone())
+                                .or_default();
+                            for (key, value) in outcome.updated_settings {
+                                entry.settings.insert(key, value);
+                            }
+                            self.plugin_manager
+                                .update_extension_settings(&extension_id, &entry.settings);
+                        }
+                        self.settings
+                            .extension_action_status
+                            .insert(extension_id, Ok(outcome.message));
+                        if has_updates {
+                            return self.save_config_task();
+                        }
+                        Task::none()
+                    }
+                    Err(err) => {
+                        self.settings
+                            .extension_action_status
+                            .insert(extension_id, Err(err));
+                        Task::none()
+                    }
+                }
             }
 
             Message::InstallExtensionArchiveClicked => Task::perform(

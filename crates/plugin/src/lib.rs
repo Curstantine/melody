@@ -10,4 +10,5 @@ pub use melody_extension_sdk::{
     ExtensionConfigEntry, ExtensionPermission, SelectChoice, SettingKind, SettingOption,
     SettingValue, SettingsMap, ABI_VERSION,
 };
+pub use runtime::ExtensionActionOutcome;
 pub use types::{PlayerAction, TrackMetadata};

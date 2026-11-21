@@ -8,26 +8,11 @@ api_version = 1
 permissions = ["playback-events", "network", "settings"]
 
 [[settings]]
-key = "api_key"
-label = "API key"
-type = "text"
-default = ""
-placeholder = "Enter Last.fm API key..."
-
-[[settings]]
-key = "api_secret"
-label = "Shared secret"
-type = "secret"
-default = ""
-placeholder = "Enter Last.fm shared secret..."
-
-[[settings]]
-key = "session_key"
-label = "Session key (sk)"
-description = "Obtain your API key and session key from your Last.fm API account settings"
-type = "secret"
-default = ""
-placeholder = "Enter Last.fm session key (sk)..."
+key = "authorize"
+label = "Last.fm account"
+description = "Sign in with Last.fm in your browser to connect your account"
+type = "action"
+button_label = "Connect Last.fm"
 
 [[settings]]
 key = "api_url"
@@ -57,6 +42,6 @@ unit = "%"
 [[settings]]
 key = "test_connection"
 label = "Connection"
-description = "Verify your Last.fm API credentials and session key"
+description = "Verify your connected Last.fm account"
 type = "action"
 button_label = "Test connection"

@@ -5,3 +5,6 @@ target/
 *.db-shm
 .DS_Store
 *.wasm
+.env
+.env.*
+!.env.example

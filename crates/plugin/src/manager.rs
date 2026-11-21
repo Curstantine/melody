@@ -18,7 +18,7 @@ use crate::manifest::{
     merge_settings_with_schema, ExtensionManifest, ExtensionOrigin, ExtensionSnapshot,
     ExtensionStatus,
 };
-use crate::runtime::{create_engine, WasmExtensionHandle};
+use crate::runtime::{create_engine, ExtensionActionOutcome, WasmExtensionHandle};
 use crate::types::{PlayerAction, TrackMetadata};
 
 struct ManagedExtension {
@@ -334,7 +334,7 @@ impl PluginManager {
         id: &str,
         action_id: &str,
         saved_settings: &BTreeMap<String, SettingValue>,
-    ) -> Result<String, String> {
+    ) -> Result<ExtensionActionOutcome, String> {
         let (handle, merged) = {
             let reg = self.extensions.read().map_err(|e| e.to_string())?;
             let entry = reg
@@ -939,7 +939,10 @@ version = "0.2.0"
         let lfm_err = manager
             .trigger_extension_action("melody.lastfm", "test_connection", &BTreeMap::new())
             .unwrap_err();
-        assert!(lfm_err.contains("API Key"));
+        assert!(
+            lfm_err.contains("not connected") || lfm_err.contains("not bundled"),
+            "unexpected lastfm validation error: {lfm_err}"
+        );
 
         // Send playback hooks cleanly
         manager.on_track_change(&TrackMetadata {

@@ -1,6 +1,8 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
-use crate::settings::{SettingOption, SettingsMap};
+use crate::settings::{SettingOption, SettingValue, SettingsMap};
 
 /// Track metadata exposed to sandboxed extensions (deliberately excludes local file paths).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -154,4 +156,28 @@ pub enum ExtensionResponse {
     SettingsSchema { options: Vec<SettingOption> },
     ActionResult { ok: bool, message: String },
     Lyrics { lyrics: Option<String> },
+}
+
+/// Request to launch a browser-based authorization flow with a localhost callback.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrowserAuthRequest {
+    /// Authorization URL containing `{callback_url}` placeholder, which the host replaces
+    /// with the URL-encoded local `http://127.0.0.1:<port>/callback` address.
+    pub auth_url_template: String,
+    /// Optional timeout in seconds to wait for the browser redirect (default 120s).
+    #[serde(default)]
+    pub timeout_secs: Option<u64>,
+}
+
+/// Query parameters captured from the localhost browser authorization callback.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrowserAuthResponse {
+    pub query_params: BTreeMap<String, String>,
+}
+
+/// Persisted setting update emitted by an extension via `host::set_setting`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SettingUpdate {
+    pub key: String,
+    pub value: SettingValue,
 }

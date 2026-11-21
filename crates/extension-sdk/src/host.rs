@@ -1,4 +1,8 @@
-use crate::types::{ExtensionPlayerAction, HttpRequest, HttpResponse, LogLevel};
+use crate::settings::SettingValue;
+use crate::types::{
+    BrowserAuthRequest, BrowserAuthResponse, ExtensionPlayerAction, HttpRequest, HttpResponse,
+    LogLevel, SettingUpdate,
+};
 
 #[cfg(target_arch = "wasm32")]
 mod imp {
@@ -17,6 +21,14 @@ mod imp {
         #[link(wasm_import_module = "melody")]
         extern "C" {
             pub(super) fn host_http_request(req_ptr: u32, req_len: u32) -> u32;
+            pub(super) fn host_browser_auth(req_ptr: u32, req_len: u32) -> u32;
+        }
+    }
+
+    mod ffi_settings {
+        #[link(wasm_import_module = "melody")]
+        extern "C" {
+            pub(super) fn host_set_setting(ptr: u32, len: u32) -> i32;
         }
     }
 
@@ -55,6 +67,37 @@ mod imp {
             .map_err(|e| format!("deserialize host response: {e}"))?
     }
 
+    pub fn browser_auth(req: &BrowserAuthRequest) -> Result<BrowserAuthResponse, String> {
+        let payload =
+            serde_json::to_vec(req).map_err(|e| format!("serialize auth request: {e}"))?;
+        let resp_len = unsafe {
+            ffi_network::host_browser_auth(payload.as_ptr() as u32, payload.len() as u32)
+        };
+        if resp_len == 0 {
+            return Err("Host browser auth response buffer was empty".to_string());
+        }
+        let mut buf = vec![0u8; resp_len as usize];
+        let rc = unsafe { ffi_core::host_take_response(buf.as_mut_ptr() as u32, resp_len) };
+        if rc != 0 {
+            return Err(format!("Failed to take host response (code {rc})"));
+        }
+        serde_json::from_slice::<Result<BrowserAuthResponse, String>>(&buf)
+            .map_err(|e| format!("deserialize host auth response: {e}"))?
+    }
+
+    pub fn set_setting(key: String, value: SettingValue) -> Result<(), String> {
+        let payload = serde_json::to_vec(&SettingUpdate { key, value })
+            .map_err(|e| format!("serialize setting update: {e}"))?;
+        let rc = unsafe {
+            ffi_settings::host_set_setting(payload.as_ptr() as u32, payload.len() as u32)
+        };
+        if rc == 0 {
+            Ok(())
+        } else {
+            Err("Host rejected setting update".to_string())
+        }
+    }
+
     pub fn dispatch_player_action(action: &ExtensionPlayerAction) -> Result<(), String> {
         let payload = serde_json::to_vec(action).map_err(|e| format!("serialize action: {e}"))?;
         let rc = unsafe {
@@ -79,11 +122,15 @@ mod imp {
     use super::*;
 
     type MockHttpFn = Box<dyn FnMut(&HttpRequest) -> Result<HttpResponse, String>>;
+    type MockBrowserAuthFn =
+        Box<dyn FnMut(&BrowserAuthRequest) -> Result<BrowserAuthResponse, String>>;
 
     std::thread_local! {
         static MOCK_HTTP: RefCell<Option<MockHttpFn>> = RefCell::new(None);
+        static MOCK_BROWSER_AUTH: RefCell<Option<MockBrowserAuthFn>> = RefCell::new(None);
         static MOCK_NOW_MS: Cell<Option<u64>> = const { Cell::new(None) };
         static MOCK_ACTIONS: RefCell<Vec<ExtensionPlayerAction>> = const { RefCell::new(Vec::new()) };
+        static MOCK_SETTING_UPDATES: RefCell<Vec<SettingUpdate>> = const { RefCell::new(Vec::new()) };
     }
 
     /// Registers a thread-local HTTP mock handler for native unit testing.
@@ -91,6 +138,15 @@ mod imp {
         handler: impl FnMut(&HttpRequest) -> Result<HttpResponse, String> + 'static,
     ) {
         MOCK_HTTP.with(|cell| {
+            *cell.borrow_mut() = Some(Box::new(handler));
+        });
+    }
+
+    /// Registers a thread-local browser auth mock handler for native unit testing.
+    pub fn set_mock_browser_auth_handler(
+        handler: impl FnMut(&BrowserAuthRequest) -> Result<BrowserAuthResponse, String> + 'static,
+    ) {
+        MOCK_BROWSER_AUTH.with(|cell| {
             *cell.borrow_mut() = Some(Box::new(handler));
         });
     }
@@ -105,11 +161,18 @@ mod imp {
         MOCK_ACTIONS.with(|cell| std::mem::take(&mut *cell.borrow_mut()))
     }
 
+    /// Drains recorded [`SettingUpdate`] calls on the current thread.
+    pub fn take_mock_setting_updates() -> Vec<SettingUpdate> {
+        MOCK_SETTING_UPDATES.with(|cell| std::mem::take(&mut *cell.borrow_mut()))
+    }
+
     /// Clears all thread-local test mocks.
     pub fn clear_mocks() {
         MOCK_HTTP.with(|cell| *cell.borrow_mut() = None);
+        MOCK_BROWSER_AUTH.with(|cell| *cell.borrow_mut() = None);
         MOCK_NOW_MS.with(|cell| cell.set(None));
         MOCK_ACTIONS.with(|cell| cell.borrow_mut().clear());
+        MOCK_SETTING_UPDATES.with(|cell| cell.borrow_mut().clear());
     }
 
     pub fn log(_level: LogLevel, _message: &str) {}
@@ -134,6 +197,21 @@ mod imp {
         })
     }
 
+    pub fn browser_auth(req: &BrowserAuthRequest) -> Result<BrowserAuthResponse, String> {
+        MOCK_BROWSER_AUTH.with(|cell| {
+            if let Some(handler) = cell.borrow_mut().as_mut() {
+                handler(req)
+            } else {
+                Err("No mock browser auth handler registered on host target".to_string())
+            }
+        })
+    }
+
+    pub fn set_setting(key: String, value: SettingValue) -> Result<(), String> {
+        MOCK_SETTING_UPDATES.with(|cell| cell.borrow_mut().push(SettingUpdate { key, value }));
+        Ok(())
+    }
+
     pub fn dispatch_player_action(action: &ExtensionPlayerAction) -> Result<(), String> {
         MOCK_ACTIONS.with(|cell| cell.borrow_mut().push(action.clone()));
         Ok(())
@@ -141,7 +219,10 @@ mod imp {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use imp::{clear_mocks, set_mock_http_handler, set_mock_now_unix_ms, take_mock_player_actions};
+pub use imp::{
+    clear_mocks, set_mock_browser_auth_handler, set_mock_http_handler, set_mock_now_unix_ms,
+    take_mock_player_actions, take_mock_setting_updates,
+};
 
 /// Emits a structured log message to Melody's host logger.
 pub fn log(level: LogLevel, message: impl AsRef<str>) {
@@ -177,6 +258,17 @@ pub fn now_unix_secs() -> u64 {
 /// Sends an outbound HTTP request through the host (requires `network` permission).
 pub fn http_request(req: &HttpRequest) -> Result<HttpResponse, String> {
     imp::http_request(req)
+}
+
+/// Opens a browser authorization URL with a local callback listener and returns query parameters
+/// from the redirect (requires `network` permission).
+pub fn browser_auth(req: &BrowserAuthRequest) -> Result<BrowserAuthResponse, String> {
+    imp::browser_auth(req)
+}
+
+/// Persists a setting update back to the host configuration (requires `settings` permission).
+pub fn set_setting(key: impl Into<String>, value: SettingValue) -> Result<(), String> {
+    imp::set_setting(key.into(), value)
 }
 
 /// Dispatches a player control command to Melody (requires `player-control` permission).

@@ -1,13 +1,16 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
+use std::io::{Read, Write};
+use std::net::TcpListener;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crossbeam_channel::Sender;
 use melody_extension_sdk::{
-    ExtensionPermission, ExtensionPlayerAction, ExtensionRequest, ExtensionResponse, HttpMethod,
-    HttpRequest, HttpResponse, LogLevel, LyricsRequest, RepeatMode, SettingOption, SettingsMap,
+    BrowserAuthRequest, BrowserAuthResponse, ExtensionPermission, ExtensionPlayerAction,
+    ExtensionRequest, ExtensionResponse, HttpMethod, HttpRequest, HttpResponse, LogLevel,
+    LyricsRequest, RepeatMode, SettingOption, SettingUpdate, SettingValue, SettingsMap,
     ABI_VERSION,
 };
 use tracing::{debug, error, info, trace, warn};
@@ -59,10 +62,17 @@ pub fn audit_module_imports(
 
         match field_name {
             "host_log" | "host_now_unix_ms" | "host_take_response" => {}
-            "host_http_request" => {
+            "host_http_request" | "host_browser_auth" => {
                 if !granted.contains(&ExtensionPermission::Network) {
+                    return Err(format!(
+                        "Module imports 'melody::{field_name}' without declaring the 'network' permission"
+                    ));
+                }
+            }
+            "host_set_setting" => {
+                if !granted.contains(&ExtensionPermission::Settings) {
                     return Err(
-                        "Module imports 'melody::host_http_request' without declaring the 'network' permission"
+                        "Module imports 'melody::host_set_setting' without declaring the 'settings' permission"
                             .to_string(),
                     );
                 }
@@ -83,12 +93,20 @@ pub fn audit_module_imports(
     Ok(())
 }
 
+/// Result of invoking a declarative extension action, including any settings persisted via `host::set_setting`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExtensionActionOutcome {
+    pub message: String,
+    pub updated_settings: BTreeMap<String, SettingValue>,
+}
+
 struct HostState {
     extension_id: String,
     permissions: HashSet<ExtensionPermission>,
     allowed_hosts: Vec<String>,
     action_tx: Sender<PlayerAction>,
     response_buf: Vec<u8>,
+    pending_setting_updates: BTreeMap<String, SettingValue>,
     limiter: StoreLimits,
 }
 
@@ -106,6 +124,7 @@ impl HostState {
             allowed_hosts: manifest.allowed_hosts.clone(),
             action_tx,
             response_buf: Vec::new(),
+            pending_setting_updates: BTreeMap::new(),
             limiter,
         }
     }
@@ -247,6 +266,142 @@ fn perform_http_request(
     })
 }
 
+fn open_auth_url_in_browser(url: &str) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", url])
+            .spawn()
+            .map_err(|e| format!("Failed to open browser: {e}"))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url)
+            .spawn()
+            .map_err(|e| format!("Failed to open browser: {e}"))?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()
+            .map_err(|e| format!("Failed to open browser: {e}"))?;
+    }
+    Ok(())
+}
+
+fn perform_browser_auth(
+    req: &BrowserAuthRequest,
+    allowed_hosts: &[String],
+) -> Result<BrowserAuthResponse, String> {
+    if !req.auth_url_template.contains("{callback_url}") {
+        return Err("Authorization URL template must include '{callback_url}'".to_string());
+    }
+    if req.auth_url_template.chars().any(char::is_whitespace) {
+        return Err("Authorization URL template must not contain whitespace".to_string());
+    }
+
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .map_err(|e| format!("Failed to bind local auth callback listener: {e}"))?;
+    let port = listener
+        .local_addr()
+        .map_err(|e| format!("Failed to read local auth listener address: {e}"))?
+        .port();
+    listener
+        .set_nonblocking(true)
+        .map_err(|e| format!("Failed to configure local auth listener: {e}"))?;
+
+    let callback_url = format!("http://127.0.0.1:{port}/callback");
+    let encoded_callback: String =
+        url::form_urlencoded::byte_serialize(callback_url.as_bytes()).collect();
+    let final_url = req
+        .auth_url_template
+        .replace("{callback_url}", &encoded_callback);
+
+    let parsed =
+        url::Url::parse(&final_url).map_err(|e| format!("Invalid authorization URL: {e}"))?;
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| "Authorization URL is missing a host".to_string())?;
+    let is_local = matches!(host, "127.0.0.1" | "localhost");
+    match parsed.scheme() {
+        "https" => {}
+        "http" if is_local => {}
+        other => {
+            return Err(format!(
+                "Disallowed authorization URL scheme '{other}' (only https is permitted)"
+            ));
+        }
+    }
+    if !allowed_hosts.is_empty() && !allowed_hosts.iter().any(|h| h.eq_ignore_ascii_case(host)) {
+        return Err(format!(
+            "Authorization host '{host}' is not listed in extension allowed_hosts"
+        ));
+    }
+
+    open_auth_url_in_browser(parsed.as_str())?;
+
+    let timeout_secs = req.timeout_secs.unwrap_or(120).clamp(10, 170);
+    let deadline = Instant::now() + Duration::from_secs(timeout_secs);
+
+    loop {
+        match listener.accept() {
+            Ok((mut stream, _)) => {
+                let _ = stream.set_nonblocking(false);
+                let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+                let mut buf = [0u8; 8192];
+                let n = stream.read(&mut buf).unwrap_or(0);
+                let request_text = String::from_utf8_lossy(&buf[..n]);
+                let first_line = request_text.lines().next().unwrap_or("");
+                let target = first_line.split_whitespace().nth(1).unwrap_or("/");
+
+                if !target.starts_with("/callback") {
+                    let _ = stream.write_all(
+                        b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                    );
+                    continue;
+                }
+
+                let callback_full = format!("http://127.0.0.1{target}");
+                let query_params = url::Url::parse(&callback_full)
+                    .map(|u| {
+                        u.query_pairs()
+                            .map(|(k, v)| (k.into_owned(), v.into_owned()))
+                            .collect::<BTreeMap<String, String>>()
+                    })
+                    .unwrap_or_default();
+
+                let html = concat!(
+                    "HTTP/1.1 200 OK\r\n",
+                    "Content-Type: text/html; charset=utf-8\r\n",
+                    "Connection: close\r\n\r\n",
+                    "<!doctype html><html><body style=\"font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:48px;background:#111;color:#f5f5f5\">",
+                    "<h2>Authorization complete</h2>",
+                    "<p>You can close this tab and return to Melody.</p>",
+                    "</body></html>"
+                );
+                let _ = stream.write_all(html.as_bytes());
+                let _ = stream.flush();
+
+                return Ok(BrowserAuthResponse { query_params });
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                if Instant::now() >= deadline {
+                    return Err(
+                        "Timed out waiting for authorization in browser. Please try again."
+                            .to_string(),
+                    );
+                }
+                thread::sleep(Duration::from_millis(50));
+            }
+            Err(err) => {
+                return Err(format!("Local auth callback error: {err}"));
+            }
+        }
+    }
+}
+
 fn map_player_action(action: ExtensionPlayerAction) -> PlayerAction {
     match action {
         ExtensionPlayerAction::Play => PlayerAction::Play,
@@ -370,6 +525,70 @@ fn build_linker(
                 },
             )
             .map_err(|e| format!("Failed to link host_http_request: {e}"))?;
+
+        linker
+            .func_wrap(
+                "melody",
+                "host_browser_auth",
+                |mut caller: Caller<'_, HostState>, req_ptr: u32, req_len: u32| -> u32 {
+                    let result: Result<BrowserAuthResponse, String> = if !caller
+                        .data()
+                        .permissions
+                        .contains(&ExtensionPermission::Network)
+                    {
+                        Err("Permission 'network' denied".to_string())
+                    } else {
+                        match read_guest_bytes(&caller, req_ptr, req_len, 16 * 1024) {
+                            Ok(bytes) => match serde_json::from_slice::<BrowserAuthRequest>(&bytes)
+                            {
+                                Ok(req) => {
+                                    let allowed = caller.data().allowed_hosts.clone();
+                                    perform_browser_auth(&req, &allowed)
+                                }
+                                Err(e) => Err(format!("Invalid browser auth request JSON: {e}")),
+                            },
+                            Err(e) => Err(e),
+                        }
+                    };
+
+                    let encoded = serde_json::to_vec(&result).unwrap_or_else(|_| {
+                        br#"{"Err":"Failed to serialize browser auth result"}"#.to_vec()
+                    });
+                    let len = encoded.len() as u32;
+                    caller.data_mut().response_buf = encoded;
+                    len
+                },
+            )
+            .map_err(|e| format!("Failed to link host_browser_auth: {e}"))?;
+    }
+
+    if granted.contains(&ExtensionPermission::Settings) {
+        linker
+            .func_wrap(
+                "melody",
+                "host_set_setting",
+                |mut caller: Caller<'_, HostState>, ptr: u32, len: u32| -> i32 {
+                    if !caller
+                        .data()
+                        .permissions
+                        .contains(&ExtensionPermission::Settings)
+                    {
+                        return -1;
+                    }
+                    let Ok(bytes) = read_guest_bytes(&caller, ptr, len, 64 * 1024) else {
+                        return -1;
+                    };
+                    let Ok(update) = serde_json::from_slice::<SettingUpdate>(&bytes) else {
+                        return -1;
+                    };
+                    caller
+                        .data_mut()
+                        .pending_setting_updates
+                        .insert(update.key, update.value);
+                    0
+                },
+            )
+            .map_err(|e| format!("Failed to link host_set_setting: {e}"))?;
     }
 
     if granted.contains(&ExtensionPermission::PlayerControl) {
@@ -516,7 +735,7 @@ enum WorkerCommand {
     Action {
         action_id: String,
         settings: SettingsMap,
-        reply: mpsc::Sender<Result<String, String>>,
+        reply: mpsc::Sender<Result<ExtensionActionOutcome, String>>,
     },
     FetchLyrics {
         request: LyricsRequest,
@@ -700,7 +919,7 @@ impl WasmExtensionHandle {
         &self,
         action_id: String,
         settings: SettingsMap,
-    ) -> Result<String, String> {
+    ) -> Result<ExtensionActionOutcome, String> {
         let (reply_tx, reply_rx) = mpsc::channel();
         self.tx
             .send(WorkerCommand::Action {
@@ -710,7 +929,7 @@ impl WasmExtensionHandle {
             })
             .map_err(|_| format!("Extension '{}' worker is not running", self.id))?;
         reply_rx
-            .recv_timeout(Duration::from_secs(20))
+            .recv_timeout(Duration::from_secs(180))
             .map_err(|_| format!("Extension '{}' action timed out", self.id))?
     }
 
@@ -805,6 +1024,7 @@ fn handle_worker_command(
             settings,
             reply,
         } => {
+            store.data_mut().pending_setting_updates.clear();
             let res = match bindings.invoke(
                 store,
                 &ExtensionRequest::OnAction {
@@ -812,9 +1032,23 @@ fn handle_worker_command(
                     settings,
                 },
             ) {
-                Ok(ExtensionResponse::ActionResult { ok: true, message }) => Ok(message),
+                Ok(ExtensionResponse::ActionResult { ok: true, message }) => {
+                    let updated_settings =
+                        std::mem::take(&mut store.data_mut().pending_setting_updates);
+                    Ok(ExtensionActionOutcome {
+                        message,
+                        updated_settings,
+                    })
+                }
                 Ok(ExtensionResponse::ActionResult { ok: false, message }) => Err(message),
-                Ok(ExtensionResponse::Ok) => Ok("Action completed".to_string()),
+                Ok(ExtensionResponse::Ok) => {
+                    let updated_settings =
+                        std::mem::take(&mut store.data_mut().pending_setting_updates);
+                    Ok(ExtensionActionOutcome {
+                        message: "Action completed".to_string(),
+                        updated_settings,
+                    })
+                }
                 Ok(ExtensionResponse::Err { message }) => Err(message),
                 Ok(other) => Err(format!("Unexpected action response: {other:?}")),
                 Err(e) => Err(e),
