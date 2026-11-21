@@ -17,6 +17,8 @@ members = [
     "crates/config",
     "crates/component",
     "crates/ui",
+    "crates/lyrics",
+    "crates/media_controls",
     "crates/extension-sdk",
     "extensions/lastfm",
     "extensions/listenbrainz",
@@ -45,6 +47,8 @@ layout = { path = "crates/layout" }
 queue = { path = "crates/queue" }
 config = { path = "crates/config" }
 component = { path = "crates/component" }
+lyrics = { path = "crates/lyrics" }
+media_controls = { path = "crates/media_controls" }
 melody-extension-sdk = { path = "crates/extension-sdk" }
 
 async-io = "2.6"

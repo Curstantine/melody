@@ -12,10 +12,6 @@ use iced::futures::SinkExt;
 use iced::widget::{container, image, Space, Widget};
 use iced::{Background, Element, Subscription, Task, Theme};
 use model::{Track, TrackRow};
-#[cfg(target_os = "linux")]
-use plugin::media_controls::MprisPlugin;
-#[cfg(target_os = "windows")]
-use plugin::media_controls::WindowsMediaPlugin;
 use plugin::{ExtensionConfigEntry, ExtensionSnapshot, PlayerAction, PluginManager};
 use tracing::{error, info};
 
@@ -158,8 +154,7 @@ pub struct App {
     pub(crate) custom_titlebar: bool,
     pub(crate) minimize_to_tray: bool,
     pub(crate) tray: Option<crate::tray::TrayController>,
-    #[cfg(target_os = "windows")]
-    pub(crate) windows_media_plugin: Option<std::sync::Arc<WindowsMediaPlugin>>,
+    pub(crate) media_controls: media_controls::MediaControls,
     pub(crate) last_titlebar_press: Option<std::time::Instant>,
     pub(crate) pending_playlist_tracks: Vec<TrackRow>,
 }
@@ -190,18 +185,7 @@ impl App {
 
         let (player_action_tx, player_action_rx) = crossbeam_channel::unbounded();
         let plugin_manager = PluginManager::new_with_action_sender(player_action_tx.clone());
-
-        #[cfg(target_os = "linux")]
-        {
-            let media_plugin = std::sync::Arc::new(MprisPlugin::new(player_action_tx.clone()));
-            plugin_manager.register_plugin(media_plugin);
-        }
-
-        #[cfg(target_os = "windows")]
-        let windows_media_plugin =
-            std::sync::Arc::new(WindowsMediaPlugin::new(player_action_tx.clone()));
-        #[cfg(target_os = "windows")]
-        plugin_manager.register_plugin(windows_media_plugin.clone());
+        let media_controls = media_controls::MediaControls::new(player_action_tx);
 
         let media_controls_rx = Some(player_action_rx);
 
@@ -358,8 +342,7 @@ impl App {
             custom_titlebar: config.custom_titlebar,
             minimize_to_tray: config.minimize_to_tray,
             tray,
-            #[cfg(target_os = "windows")]
-            windows_media_plugin: Some(windows_media_plugin),
+            media_controls,
             last_titlebar_press: None,
             pending_playlist_tracks: Vec::new(),
         };

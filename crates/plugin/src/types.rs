@@ -1,12 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PluginMetadata {
-    pub id: String,
-    pub name: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TrackMetadata {
     pub title: String,
     pub artist: String,

@@ -3053,6 +3053,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef9ac18847474e638e3702b76c65d4eb93428471a74778ef0f1be711717f89b5"
 
 [[package]]
+name = "lyrics"
+version = "0.5.4"
+dependencies = [
+ "encoding_rs",
+ "metadata",
+ "tracing",
+]
+
+[[package]]
 name = "mach2"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3085,6 +3094,22 @@ checksum = "69b6441f590336821bb897fb28fc622898ccceb1d6cea3fde5ea86b090c4de98"
 dependencies = [
  "cfg-if",
  "digest",
+]
+
+[[package]]
+name = "media_controls"
+version = "0.5.4"
+dependencies = [
+ "async-io",
+ "crossbeam-channel",
+ "model",
+ "mpris-server",
+ "path",
+ "plugin",
+ "thumbnail",
+ "tracing",
+ "url",
+ "windows",
 ]
 
 [[package]]
@@ -4104,24 +4129,18 @@ dependencies = [
 name = "plugin"
 version = "0.5.4"
 dependencies = [
- "async-io",
  "crossbeam-channel",
- "encoding_rs",
  "melody-extension-sdk",
- "metadata",
  "model",
- "mpris-server",
  "path",
  "serde",
  "serde_json",
- "thumbnail",
  "toml 1.2.1+spec-1.1.0",
  "tracing",
  "ureq",
  "url",
  "walkdir",
  "wasmi",
- "windows",
  "zip",
 ]
 
@@ -6322,6 +6341,8 @@ dependencies = [
  "iced",
  "image",
  "layout",
+ "lyrics",
+ "media_controls",
  "metadata",
  "model",
  "path",

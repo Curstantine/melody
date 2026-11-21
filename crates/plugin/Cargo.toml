@@ -9,10 +9,7 @@ repository.workspace = true
 [dependencies]
 model.workspace = true
 path.workspace = true
-thumbnail.workspace = true
-metadata.workspace = true
 melody-extension-sdk.workspace = true
-encoding_rs.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
@@ -23,20 +20,3 @@ zip.workspace = true
 walkdir.workspace = true
 crossbeam-channel.workspace = true
 url.workspace = true
-
-[target.'cfg(target_os = "linux")'.dependencies]
-mpris-server.workspace = true
-async-io.workspace = true
-
-[target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true, features = [
-    "Foundation",
-    "Media",
-    "Win32_Foundation",
-    "Win32_System_WinRT",
-    "Win32_System_Com",
-    "Win32_System_LibraryLoader",
-    "Win32_UI_WindowsAndMessaging",
-    "Storage",
-    "Storage_Streams",
-] }

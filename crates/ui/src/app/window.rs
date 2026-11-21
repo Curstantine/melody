@@ -236,10 +236,7 @@ impl App {
                     if self.tray.is_none() {
                         self.tray = crate::tray::TrayController::new();
                     }
-                    #[cfg(target_os = "windows")]
-                    if let Some(ref plugin) = self.windows_media_plugin {
-                        plugin.detach_window();
-                    }
+                    self.media_controls.detach_window();
                     let id = self.main_window_id.take();
                     let save_state = self.save_state_task();
                     if let Some(id) = id {
@@ -277,15 +274,15 @@ impl App {
                 }
 
                 #[cfg(target_os = "windows")]
-                if let Some(ref plugin) = self.windows_media_plugin {
+                {
                     use iced::window::raw_window_handle::RawWindowHandle;
-                    let plugin = plugin.clone();
+                    let media_controls = self.media_controls.clone();
                     tasks.push(
                         iced::window::run(id, move |window| {
                             if let Ok(handle) = window.window_handle() {
                                 if let RawWindowHandle::Win32(win32) = handle.as_raw() {
                                     let hwnd = win32.hwnd.get();
-                                    plugin.attach_window(hwnd);
+                                    media_controls.attach_window(hwnd);
                                 }
                             }
                         })
