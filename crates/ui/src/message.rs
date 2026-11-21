@@ -237,6 +237,7 @@ pub enum Message {
     SelectTheme(String),
     SelectLayout(String),
     ReloadThemesAndLayouts,
+    OpenConfigFolder,
     SelectFont(String),
     FontsLoaded(Vec<String>),
     SaveConfig,
@@ -646,6 +647,7 @@ impl std::fmt::Debug for Message {
             Self::SelectTheme(s) => f.debug_tuple("SelectTheme").field(s).finish(),
             Self::SelectLayout(s) => f.debug_tuple("SelectLayout").field(s).finish(),
             Self::ReloadThemesAndLayouts => write!(f, "ReloadThemesAndLayouts"),
+            Self::OpenConfigFolder => write!(f, "OpenConfigFolder"),
             Self::SelectFont(s) => f.debug_tuple("SelectFont").field(s).finish(),
             Self::FontsLoaded(fonts) => f
                 .debug_struct("FontsLoaded")

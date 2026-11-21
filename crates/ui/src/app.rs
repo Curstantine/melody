@@ -657,6 +657,7 @@ impl App {
             | Message::SelectTheme(_)
             | Message::SelectLayout(_)
             | Message::ReloadThemesAndLayouts
+            | Message::OpenConfigFolder
             | Message::SelectFont(_)
             | Message::FontsLoaded(_)
             | Message::ToggleExtension(_, _)

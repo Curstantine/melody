@@ -95,6 +95,14 @@ pub fn config_file() -> &'static Path {
     &app_paths().config_file
 }
 
+/// Directory containing user configuration (`config.toml`, `themes/`, `layouts/`).
+pub fn config_dir() -> &'static Path {
+    app_paths()
+        .config_file
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+}
+
 /// Path to the application runtime state file (`state.toml`).
 pub fn state_file() -> &'static Path {
     &app_paths().state_file

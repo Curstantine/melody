@@ -155,6 +155,13 @@ impl App {
                 Task::none()
             }
 
+            Message::OpenConfigFolder => {
+                if let Err(err) = path::open_directory(path::config_dir()) {
+                    tracing::warn!("Failed to open config folder: {err}");
+                }
+                Task::none()
+            }
+
             Message::SelectFont(font_name) => {
                 info!("Selected font: {}", font_name);
                 let font_opt = if font_name == "Default" || font_name.trim().is_empty() {
