@@ -104,6 +104,7 @@ impl App {
                             path,
                             artist.clone(),
                             title.clone(),
+                            album.clone(),
                             duration_ms,
                         );
 
@@ -173,15 +174,19 @@ impl App {
                     return self.update(Message::NextTrack);
                 }
 
-                // Drain any incoming media control actions (MPRIS on Linux, SMTC on Windows)
-                let mut media_action = None;
+                // Drain any incoming media control or extension player actions
+                let mut media_actions = Vec::new();
                 if let Some(ref rx) = self.media_controls_rx {
                     while let Ok(action) = rx.try_recv() {
-                        media_action = Some(action);
+                        media_actions.push(action);
                     }
                 }
-                if let Some(action) = media_action {
-                    return self.update(Message::MediaControlAction(action));
+                if !media_actions.is_empty() {
+                    let tasks: Vec<Task<Message>> = media_actions
+                        .into_iter()
+                        .map(|action| self.update(Message::MediaControlAction(action)))
+                        .collect();
+                    return Task::batch(tasks);
                 }
 
                 // Drain any incoming library watcher events
@@ -295,14 +300,20 @@ impl App {
                     self.plugin_manager.on_track_change(&TrackMetadata {
                         title: title.clone(),
                         artist: artist.clone(),
-                        album,
+                        album: album.clone(),
                         duration_ms,
                         file_path,
                     });
 
                     self.queue_next_gapless_track();
-                    let load_assets =
-                        self.load_track_assets_task(track_id, path, artist, title, duration_ms);
+                    let load_assets = self.load_track_assets_task(
+                        track_id,
+                        path,
+                        artist,
+                        title,
+                        album,
+                        duration_ms,
+                    );
                     let save_state = self.save_state_debounced();
                     Task::batch([load_assets, save_state])
                 } else {
@@ -320,6 +331,7 @@ impl App {
                     let duration_ms = track.duration_ms;
                     let title = track.title.clone();
                     let artist = track.artist.clone();
+                    let album = track.album.clone();
 
                     self.current_track = Some(track);
                     self.player_bar.update_track(self.current_track.as_ref());
@@ -335,7 +347,7 @@ impl App {
                     self.sync_now_playing();
 
                     self.queue_next_gapless_track();
-                    self.load_track_assets_task(track_id, path, artist, title, duration_ms)
+                    self.load_track_assets_task(track_id, path, artist, title, album, duration_ms)
                 } else {
                     Task::none()
                 }
@@ -635,6 +647,7 @@ impl App {
                 }
                 PlayerAction::Quit => {
                     info!("MPRIS Quit requested");
+                    self.plugin_manager.shutdown_all();
                     iced::exit()
                 }
             },
@@ -724,6 +737,7 @@ impl App {
         path: PathBuf,
         artist: String,
         title: String,
+        album: String,
         duration_ms: u64,
     ) -> Task<Message> {
         let plugin_manager = self.plugin_manager.clone();
@@ -744,7 +758,13 @@ impl App {
 
                     let tech_info = metadata::extract_technical_info(&path, duration_ms);
 
-                    let lyrics = plugin_manager.fetch_lyrics(Some(&path), &artist, &title);
+                    let lyrics = plugin_manager.fetch_lyrics(
+                        Some(&path),
+                        &artist,
+                        &title,
+                        &album,
+                        duration_ms,
+                    );
 
                     (cover, now_playing_cover, blurred, tech_info, lyrics)
                 })

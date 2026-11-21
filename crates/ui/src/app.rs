@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -15,10 +16,7 @@ use model::{Track, TrackRow};
 use plugin::media_controls::MprisPlugin;
 #[cfg(target_os = "windows")]
 use plugin::media_controls::WindowsMediaPlugin;
-use plugin::{
-    scrobbler::{LastFmPlugin, ListenBrainzPlugin},
-    PlayerAction, PluginManager,
-};
+use plugin::{ExtensionConfigEntry, ExtensionSnapshot, PlayerAction, PluginManager};
 use tracing::{error, info};
 
 use crate::message::Message;
@@ -27,7 +25,7 @@ use crate::views::{
 };
 use ::queue::QueueStore;
 use component::ContextMenuState;
-use config::{AppConfig, AppState, ScrobbleConfig, SettingsTab, ViewTab};
+use config::{AppConfig, AppState, SettingsTab, ViewTab};
 use layout::LayoutManager;
 use theme::ThemeManager;
 
@@ -136,10 +134,9 @@ pub struct App {
     pub(crate) watcher_rx: Option<crossbeam_channel::Receiver<Vec<PathBuf>>>,
     pub(crate) pending_watcher_paths: Vec<PathBuf>,
 
-    // Scrobbling Plugins
-    pub(crate) listenbrainz_plugin: Arc<ListenBrainzPlugin>,
-    pub(crate) lastfm_plugin: Arc<LastFmPlugin>,
-    pub(crate) scrobble_config: ScrobbleConfig,
+    // Extensions
+    pub(crate) extensions_config: BTreeMap<String, ExtensionConfigEntry>,
+    pub(crate) extensions_snapshots: Vec<ExtensionSnapshot>,
 
     pub(crate) config_save_seq: u64,
     pub(crate) state_save_seq: u64,
@@ -191,33 +188,22 @@ impl App {
         audio_controller.set_output_device(config.output_device.clone());
         let available_output_devices = audio::list_output_devices();
 
-        let plugin_manager = PluginManager::new();
-
-        let listenbrainz_plugin = Arc::new(ListenBrainzPlugin::new(
-            config.scrobble.to_listenbrainz_config(),
-        ));
-        let lastfm_plugin = Arc::new(LastFmPlugin::new(config.scrobble.to_lastfm_config()));
-        plugin_manager.register_plugin(listenbrainz_plugin.clone());
-        plugin_manager.register_plugin(lastfm_plugin.clone());
+        let (player_action_tx, player_action_rx) = crossbeam_channel::unbounded();
+        let plugin_manager = PluginManager::new_with_action_sender(player_action_tx.clone());
 
         #[cfg(target_os = "linux")]
-        let (media_plugin, media_controls_rx) = {
-            let (tx, rx) = crossbeam_channel::unbounded();
-            (std::sync::Arc::new(MprisPlugin::new(tx)), Some(rx))
-        };
-        #[cfg(target_os = "linux")]
-        plugin_manager.register_plugin(media_plugin.clone());
+        {
+            let media_plugin = std::sync::Arc::new(MprisPlugin::new(player_action_tx.clone()));
+            plugin_manager.register_plugin(media_plugin);
+        }
 
         #[cfg(target_os = "windows")]
-        let (windows_media_plugin, media_controls_rx) = {
-            let (tx, rx) = crossbeam_channel::unbounded();
-            (std::sync::Arc::new(WindowsMediaPlugin::new(tx)), Some(rx))
-        };
+        let windows_media_plugin =
+            std::sync::Arc::new(WindowsMediaPlugin::new(player_action_tx.clone()));
         #[cfg(target_os = "windows")]
         plugin_manager.register_plugin(windows_media_plugin.clone());
 
-        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-        let media_controls_rx = None;
+        let media_controls_rx = Some(player_action_rx);
 
         let mut theme_manager = ThemeManager::new();
         theme_manager.set_theme(&config.theme_name);
@@ -348,9 +334,8 @@ impl App {
             watcher_rx: None,
             pending_watcher_paths: Vec::new(),
 
-            listenbrainz_plugin,
-            lastfm_plugin,
-            scrobble_config: config.scrobble,
+            extensions_config: config.extensions,
+            extensions_snapshots: Vec::new(),
             config_save_seq: 0,
             state_save_seq: 0,
             search_seq: 0,
@@ -402,6 +387,18 @@ impl App {
                 )
             },
             Task::perform(updater::check_for_updates(), Message::UpdateCheckFinished),
+            {
+                let pm = app.plugin_manager.clone();
+                let ext_cfg = app.extensions_config.clone();
+                Task::perform(
+                    async move {
+                        tokio::task::spawn_blocking(move || pm.discover_and_sync(&ext_cfg))
+                            .await
+                            .unwrap_or_default()
+                    },
+                    Message::ExtensionsSynced,
+                )
+            },
         ];
 
         if app.active_tab == ViewTab::Albums {
@@ -679,18 +676,19 @@ impl App {
             | Message::ReloadThemesAndLayouts
             | Message::SelectFont(_)
             | Message::FontsLoaded(_)
-            | Message::ToggleListenBrainz(_)
-            | Message::ListenBrainzTokenChanged(_)
-            | Message::ListenBrainzUrlChanged(_)
-            | Message::ToggleLastFm(_)
-            | Message::LastFmApiKeyChanged(_)
-            | Message::LastFmApiSecretChanged(_)
-            | Message::LastFmSessionKeyChanged(_)
-            | Message::LastFmUrlChanged(_)
-            | Message::ToggleSubmitNowPlaying(_)
-            | Message::SetScrobblePercent(_)
-            | Message::TestScrobble(_)
-            | Message::ScrobbleTestFinished(_, _)
+            | Message::ToggleExtension(_, _)
+            | Message::ExtensionSettingChanged { .. }
+            | Message::TriggerExtensionAction { .. }
+            | Message::ExtensionActionFinished { .. }
+            | Message::InstallExtensionArchiveClicked
+            | Message::InstallExtensionFolderClicked
+            | Message::ExtensionInstallPathSelected(_)
+            | Message::ExtensionInstalled(_)
+            | Message::UninstallExtension(_)
+            | Message::ExtensionUninstalled(_)
+            | Message::ReloadExtensions
+            | Message::ExtensionsSynced(_)
+            | Message::OpenExtensionsFolder
             | Message::CheckForUpdates
             | Message::UpdateCheckFinished(_)
             | Message::StartUpdateDownload(_)

@@ -60,7 +60,7 @@ impl App {
             resampling: self.resampling_config.clone(),
             output_device: self.output_device.clone(),
             watch_library: self.watch_library,
-            scrobble: self.scrobble_config.clone(),
+            extensions: self.extensions_config.clone(),
         }
     }
 

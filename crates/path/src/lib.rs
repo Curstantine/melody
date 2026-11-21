@@ -24,6 +24,7 @@ struct AppPaths {
     thumbnail_cache_dir: PathBuf,
     user_themes_dir: PathBuf,
     user_layouts_dir: PathBuf,
+    user_extensions_dir: PathBuf,
     playlists_dir: PathBuf,
 }
 
@@ -55,6 +56,7 @@ impl AppPaths {
         let thumbnail_cache_dir = cache_dir.join("thumbnails");
         let user_themes_dir = config_dir.join("themes");
         let user_layouts_dir = config_dir.join("layouts");
+        let user_extensions_dir = data_dir.join("extensions");
         let playlists_dir = data_dir.join("playlists");
 
         // Ensure directories exist
@@ -65,6 +67,7 @@ impl AppPaths {
         let _ = std::fs::create_dir_all(&thumbnail_cache_dir);
         let _ = std::fs::create_dir_all(&user_themes_dir);
         let _ = std::fs::create_dir_all(&user_layouts_dir);
+        let _ = std::fs::create_dir_all(&user_extensions_dir);
         let _ = std::fs::create_dir_all(&playlists_dir);
 
         Self {
@@ -74,6 +77,7 @@ impl AppPaths {
             thumbnail_cache_dir,
             user_themes_dir,
             user_layouts_dir,
+            user_extensions_dir,
             playlists_dir,
         }
     }
@@ -114,6 +118,11 @@ pub fn user_themes_dir() -> &'static Path {
 /// User directory where custom runtime KDL layouts are placed.
 pub fn user_layouts_dir() -> &'static Path {
     &app_paths().user_layouts_dir
+}
+
+/// User directory where runtime WebAssembly extensions are installed.
+pub fn user_extensions_dir() -> &'static Path {
+    &app_paths().user_extensions_dir
 }
 
 /// Returns the bundled themes directory if found.
@@ -222,6 +231,64 @@ pub fn bundled_layouts_dir() -> Option<PathBuf> {
             Path::new("layouts"),
             Path::new("../layouts"),
             Path::new("../../layouts"),
+        ] {
+            if rel.is_dir() {
+                return Some(rel.to_path_buf());
+            }
+        }
+    }
+
+    None
+}
+
+/// Returns the bundled extensions directory if found.
+pub fn bundled_extensions_dir() -> Option<PathBuf> {
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            #[cfg(windows)]
+            {
+                let candidate = exe_dir.join("./extensions");
+                if candidate.is_dir() {
+                    return Some(candidate);
+                }
+            }
+
+            #[cfg(target_os = "macos")]
+            {
+                let candidate = exe_dir.join("../Resources/extensions");
+                if candidate.is_dir() {
+                    return Some(candidate);
+                }
+            }
+
+            #[cfg(not(any(windows, target_os = "macos")))]
+            {
+                let candidate = exe_dir.join("../share/melody/extensions");
+                if candidate.is_dir() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        let xdg_dirs = std::env::var("XDG_DATA_DIRS")
+            .unwrap_or_else(|_| "/usr/local/share:/usr/share".to_string());
+        for dir in xdg_dirs.split(':') {
+            let path = Path::new(dir).join("melody").join("extensions");
+            if path.is_dir() {
+                return Some(path);
+            }
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    {
+        for rel in &[
+            Path::new("extensions"),
+            Path::new("../extensions"),
+            Path::new("../../extensions"),
         ] {
             if rel.is_dir() {
                 return Some(rel.to_path_buf());
@@ -347,6 +414,41 @@ pub fn reveal_in_file_manager(path: &Path) -> std::io::Result<()> {
     }
 }
 
+/// Opens a directory directly in the platform's native file manager.
+pub fn open_directory(dir: &Path) -> std::io::Result<()> {
+    if dir.as_os_str().is_empty() {
+        return Ok(());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let raw = dir.to_string_lossy().replace('/', "\\");
+        let stripped = raw.strip_prefix(r"\\?\").unwrap_or(&raw).to_string();
+        std::process::Command::new("explorer")
+            .arg(stripped)
+            .spawn()?;
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open").arg(dir).spawn()?;
+        Ok(())
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let owned = dir.to_path_buf();
+        std::thread::spawn(move || {
+            let abs_path = std::fs::canonicalize(&owned).unwrap_or(owned);
+            let _ = std::process::Command::new("xdg-open")
+                .arg(&abs_path)
+                .spawn();
+        });
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -371,6 +473,7 @@ mod tests {
     fn test_bundled_paths_discovery() {
         assert!(bundled_themes_dir().is_some());
         assert!(bundled_layouts_dir().is_some());
+        assert!(bundled_extensions_dir().is_some());
     }
 
     #[test]

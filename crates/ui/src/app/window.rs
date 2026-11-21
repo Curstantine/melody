@@ -248,6 +248,7 @@ impl App {
                         save_state
                     }
                 } else {
+                    self.plugin_manager.shutdown_all();
                     iced::exit()
                 }
             }
@@ -300,6 +301,7 @@ impl App {
                     self.main_window_id = None;
                 }
                 if !self.minimize_to_tray {
+                    self.plugin_manager.shutdown_all();
                     return iced::exit();
                 }
                 Task::none()
@@ -352,7 +354,10 @@ impl App {
                 crate::tray::TrayAction::PlayPause => self.update(Message::TogglePlayPause),
                 crate::tray::TrayAction::Next => self.update(Message::NextTrack),
                 crate::tray::TrayAction::Previous => self.update(Message::PreviousTrack),
-                crate::tray::TrayAction::Quit => iced::exit(),
+                crate::tray::TrayAction::Quit => {
+                    self.plugin_manager.shutdown_all();
+                    iced::exit()
+                }
             },
 
             _ => unreachable!("routed in App::update"),

@@ -29,7 +29,7 @@ pub fn settings_header<'a, M: 'a>(
 pub fn settings_card<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
     font: iced::Font,
-    title: &'static str,
+    title: impl Into<Cow<'a, str>>,
     content: Element<'a, M>,
 ) -> Element<'a, M> {
     column![

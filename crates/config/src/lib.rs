@@ -2,7 +2,8 @@ pub mod config;
 pub mod navigation;
 pub mod state;
 
-pub use config::{AppConfig, ScrobbleConfig, DEFAULT_ALBUM_TILE_WIDTH, DEFAULT_ARTIST_TILE_WIDTH};
+pub use config::{AppConfig, DEFAULT_ALBUM_TILE_WIDTH, DEFAULT_ARTIST_TILE_WIDTH};
+pub use melody_extension_sdk::ExtensionConfigEntry;
 pub use navigation::{PlaylistSection, SettingsTab, ViewTab};
 pub use state::{AppState, WINDOW_MIN_HEIGHT, WINDOW_MIN_WIDTH};
 
@@ -10,7 +11,9 @@ pub use state::{AppState, WINDOW_MIN_HEIGHT, WINDOW_MIN_WIDTH};
 mod tests {
     use super::*;
     use crate::config::sanitize_tab_order;
+    use melody_extension_sdk::SettingValue;
     use model::{AlbumSortField, ArtistSortField, PlaylistSortField, ViewMode};
+    use std::collections::BTreeMap;
     use std::path::PathBuf;
 
     #[test]
@@ -36,13 +39,31 @@ mod tests {
         assert_eq!(cfg.fonts.lyrics_size, 15);
         assert!(cfg.gapless);
         assert!(cfg.watch_library);
-        assert!(!cfg.scrobble.listenbrainz_enabled);
-        assert!(!cfg.scrobble.lastfm_enabled);
-        assert_eq!(cfg.scrobble.scrobble_percent, 50);
+        assert!(cfg.extensions.is_empty());
     }
 
     #[test]
     fn test_config_toml_roundtrip() {
+        let mut extensions = BTreeMap::new();
+        extensions.insert(
+            "melody.listenbrainz".to_string(),
+            ExtensionConfigEntry {
+                enabled: true,
+                settings: BTreeMap::from([
+                    (
+                        "user_token".to_string(),
+                        SettingValue::String("test_token".to_string()),
+                    ),
+                    (
+                        "api_url".to_string(),
+                        SettingValue::String("https://custom.listenbrainz/api".to_string()),
+                    ),
+                    ("submit_now_playing".to_string(), SettingValue::Bool(false)),
+                    ("scrobble_percent".to_string(), SettingValue::Integer(75)),
+                ]),
+            },
+        );
+
         let custom = AppConfig {
             tab_order: vec![
                 ViewTab::Albums,
@@ -67,18 +88,7 @@ mod tests {
             resampling: audio::ResamplingConfig::default(),
             output_device: Some("USB DAC".to_string()),
             watch_library: false,
-            scrobble: ScrobbleConfig {
-                listenbrainz_enabled: true,
-                listenbrainz_token: "test_token".to_string(),
-                listenbrainz_api_url: "https://custom.listenbrainz/api".to_string(),
-                lastfm_enabled: true,
-                lastfm_api_key: "api_key".to_string(),
-                lastfm_api_secret: "secret".to_string(),
-                lastfm_session_key: "sk".to_string(),
-                lastfm_api_url: "https://custom.lastfm/api".to_string(),
-                submit_now_playing: false,
-                scrobble_percent: 75,
-            },
+            extensions,
         };
 
         let temp_dir = std::env::temp_dir();
@@ -91,6 +101,64 @@ mod tests {
         assert_eq!(custom, loaded);
 
         let _ = std::fs::remove_file(temp_file);
+    }
+
+    #[test]
+    fn test_legacy_scrobble_migrates_to_extensions() {
+        let temp_dir = std::env::temp_dir();
+        let temp_file = temp_dir.join(format!(
+            "melody_test_legacy_scrobble_{}.toml",
+            std::process::id()
+        ));
+        let legacy_toml = r#"
+[scrobble]
+listenbrainz_enabled = true
+listenbrainz_token = "lb_tok"
+listenbrainz_api_url = "https://lb.example/1/submit-listens"
+lastfm_enabled = true
+lastfm_api_key = "lfm_key"
+lastfm_api_secret = "lfm_sec"
+lastfm_session_key = "lfm_sk"
+submit_now_playing = false
+scrobble_percent = 80
+"#;
+        std::fs::write(&temp_file, legacy_toml).unwrap();
+        let loaded = AppConfig::load_from_path(&temp_file);
+        let _ = std::fs::remove_file(temp_file);
+
+        let lb = loaded
+            .extensions
+            .get("melody.listenbrainz")
+            .expect("migrated listenbrainz");
+        assert!(lb.enabled);
+        assert_eq!(
+            lb.settings.get("user_token"),
+            Some(&SettingValue::String("lb_tok".to_string()))
+        );
+        assert_eq!(
+            lb.settings.get("scrobble_percent"),
+            Some(&SettingValue::Integer(80))
+        );
+
+        let lfm = loaded
+            .extensions
+            .get("melody.lastfm")
+            .expect("migrated lastfm");
+        assert!(lfm.enabled);
+        assert_eq!(
+            lfm.settings.get("api_key"),
+            Some(&SettingValue::String("lfm_key".to_string()))
+        );
+        assert_eq!(
+            lfm.settings.get("submit_now_playing"),
+            Some(&SettingValue::Bool(false))
+        );
+    }
+
+    #[test]
+    fn test_legacy_settings_tab_scrobbling_deserializes_to_extensions() {
+        let state: AppState = toml::from_str("settings_tab = \"Scrobbling\"\n").unwrap();
+        assert_eq!(state.settings_tab, SettingsTab::Extensions);
     }
 
     #[test]

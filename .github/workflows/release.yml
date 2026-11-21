@@ -38,7 +38,7 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.target }}, wasm32-unknown-unknown
 
       - name: Enable Rust caching
         uses: Swatinem/rust-cache@v2
@@ -82,6 +82,10 @@ jobs:
         if: runner.os == 'Windows'
         run: cargo build --release --target ${{ matrix.target }} -p ui --bin melody
 
+      - name: Build bundled WASM extensions
+        shell: bash
+        run: bash scripts/build-extensions.sh
+
       # --- Package Linux Artifacts (AppImage installer + portable tar.gz) ---
       - name: Package Linux release artifacts
         if: runner.os == 'Linux'
@@ -106,6 +110,13 @@ jobs:
           cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$STAGING_DIR/"
           cp -r themes "$STAGING_DIR/"
           cp -r layouts "$STAGING_DIR/"
+          for ext in extensions/*; do
+            if [ -f "$ext/extension.toml" ] && [ -f "$ext/extension.wasm" ]; then
+              name=$(basename "$ext")
+              mkdir -p "$STAGING_DIR/extensions/$name"
+              cp "$ext/extension.toml" "$ext/extension.wasm" "$STAGING_DIR/extensions/$name/"
+            fi
+          done
           FFMPEG_LIB="${{ steps.setup-ffmpeg.outputs.linux }}"
           cp -a "$FFMPEG_LIB"/lib{avcodec,avformat,avutil,swresample}.so* "$STAGING_DIR/"
 
@@ -135,6 +146,13 @@ jobs:
           cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$PORTABLE_DIR/"
           cp -r themes "$PORTABLE_DIR/"
           cp -r layouts "$PORTABLE_DIR/"
+          for ext in extensions/*; do
+            if [ -f "$ext/extension.toml" ] && [ -f "$ext/extension.wasm" ]; then
+              name=$(basename "$ext")
+              mkdir -p "$PORTABLE_DIR/extensions/$name"
+              cp "$ext/extension.toml" "$ext/extension.wasm" "$PORTABLE_DIR/extensions/$name/"
+            fi
+          done
           cp -a "$FFMPEG_LIB"/lib{avcodec,avformat,avutil,swresample}.so* "$PORTABLE_DIR/"
           tar -czvf "dist-pkg/melody-${RELEASE_TAG}-portable.tar.gz" "$PORTABLE_DIR"
           rm -rf "$PORTABLE_DIR"
@@ -168,6 +186,15 @@ jobs:
           Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" -Destination $stagingDir
           Copy-Item -Recurse "themes" -Destination $stagingDir
           Copy-Item -Recurse "layouts" -Destination $stagingDir
+          Get-ChildItem -Path "extensions" -Directory | ForEach-Object {
+            $toml = Join-Path $_.FullName "extension.toml"
+            $wasm = Join-Path $_.FullName "extension.wasm"
+            if ((Test-Path $toml) -and (Test-Path $wasm)) {
+              $extOut = Join-Path $stagingDir (Join-Path "extensions" $_.Name)
+              New-Item -ItemType Directory -Path $extOut -Force | Out-Null
+              Copy-Item $toml, $wasm -Destination $extOut
+            }
+          }
           $binDir = "${{ steps.setup-ffmpeg.outputs.win }}"
           $dlls = Get-ChildItem -Path $binDir -Filter "*.dll" | Where-Object { $_.Name -match '^(avcodec|avformat|avutil|swresample)' }
           $dlls | ForEach-Object {
