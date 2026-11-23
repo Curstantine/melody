@@ -3,7 +3,14 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
+pub const DEFAULT_UI_FONT_SIZE: u16 = 12;
+pub const MIN_UI_FONT_SIZE: u16 = 10;
+pub const MAX_UI_FONT_SIZE: u16 = 18;
 const DEFAULT_LYRICS_FONT_SIZE: u16 = 15;
+
+fn default_ui_font_size() -> u16 {
+    DEFAULT_UI_FONT_SIZE
+}
 
 fn default_lyrics_font_size() -> u16 {
     DEFAULT_LYRICS_FONT_SIZE
@@ -73,6 +80,52 @@ pub fn windows_caption_font() -> Option<iced::Font> {
     })
 }
 
+/// Bundled UI font family and base UI font size.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Font {
+    pub family: iced::Font,
+    pub size: u16,
+}
+
+impl Font {
+    pub const DEFAULT: Self = Self {
+        family: iced::Font::DEFAULT,
+        size: DEFAULT_UI_FONT_SIZE,
+    };
+
+    pub const fn new(family: iced::Font, size: u16) -> Self {
+        Self { family, size }
+    }
+
+    /// Multiplier relative to [`DEFAULT_UI_FONT_SIZE`] (`12` px).
+    pub fn scale(self) -> f32 {
+        f32::from(self.size) / f32::from(DEFAULT_UI_FONT_SIZE)
+    }
+
+    /// Scales a base point size (designed for 12 px UI) by the active UI font size.
+    pub fn px(self, base: f32) -> f32 {
+        (base * self.scale()).round()
+    }
+}
+
+impl Default for Font {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl From<iced::Font> for Font {
+    fn from(family: iced::Font) -> Self {
+        Self::new(family, DEFAULT_UI_FONT_SIZE)
+    }
+}
+
+impl From<Font> for iced::Font {
+    fn from(ui: Font) -> Self {
+        ui.family
+    }
+}
+
 /// Single source of truth for persisted font preferences and their cached [`iced::Font`] handles.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct FontConfig {
@@ -80,6 +133,8 @@ pub struct FontConfig {
     pub primary: Option<String>,
     #[serde(default, rename = "lyrics_font")]
     pub lyrics: Option<String>,
+    #[serde(default = "default_ui_font_size", rename = "ui_font_size")]
+    pub ui_size: u16,
     #[serde(default = "default_lyrics_font_size", rename = "lyrics_font_size")]
     pub lyrics_size: u16,
 
@@ -95,6 +150,8 @@ struct RawFontConfig {
     primary: Option<String>,
     #[serde(default, rename = "lyrics_font")]
     lyrics: Option<String>,
+    #[serde(default = "default_ui_font_size", rename = "ui_font_size")]
+    ui_size: u16,
     #[serde(default = "default_lyrics_font_size", rename = "lyrics_font_size")]
     lyrics_size: u16,
 }
@@ -105,18 +162,28 @@ impl<'de> Deserialize<'de> for FontConfig {
         D: Deserializer<'de>,
     {
         let raw = RawFontConfig::deserialize(deserializer)?;
-        Ok(Self::new(raw.primary, raw.lyrics, raw.lyrics_size))
+        Ok(Self::new(
+            raw.primary,
+            raw.lyrics,
+            raw.ui_size,
+            raw.lyrics_size,
+        ))
     }
 }
 
 impl Default for FontConfig {
     fn default() -> Self {
-        Self::new(None, None, DEFAULT_LYRICS_FONT_SIZE)
+        Self::new(None, None, DEFAULT_UI_FONT_SIZE, DEFAULT_LYRICS_FONT_SIZE)
     }
 }
 
 impl FontConfig {
-    pub fn new(primary: Option<String>, lyrics: Option<String>, lyrics_size: u16) -> Self {
+    pub fn new(
+        primary: Option<String>,
+        lyrics: Option<String>,
+        ui_size: u16,
+        lyrics_size: u16,
+    ) -> Self {
         let primary_iced = font_from_family_name(primary.as_deref());
         let lyrics_iced = lyrics
             .as_deref()
@@ -124,7 +191,8 @@ impl FontConfig {
         Self {
             primary,
             lyrics,
-            lyrics_size,
+            ui_size: ui_size.clamp(MIN_UI_FONT_SIZE, MAX_UI_FONT_SIZE),
+            lyrics_size: lyrics_size.clamp(11, 28),
             primary_iced,
             lyrics_iced,
         }
@@ -142,6 +210,10 @@ impl FontConfig {
         self.lyrics = font;
     }
 
+    pub fn set_ui_size(&mut self, size: u16) {
+        self.ui_size = size.clamp(MIN_UI_FONT_SIZE, MAX_UI_FONT_SIZE);
+    }
+
     pub fn set_lyrics_size(&mut self, size: u16) {
         self.lyrics_size = size.clamp(11, 28);
     }
@@ -149,6 +221,11 @@ impl FontConfig {
     /// Cached [`iced::Font`] for general UI text.
     pub fn primary_font(&self) -> iced::Font {
         self.primary_iced
+    }
+
+    /// Bundled UI font family and base UI font size.
+    pub fn ui_font(&self) -> Font {
+        Font::new(self.primary_iced, self.ui_size)
     }
 
     /// Cached [`iced::Font`] for lyrics, falling back to `primary_font()`.
@@ -166,8 +243,10 @@ mod tests {
         let mut cfg = FontConfig::default();
         assert_eq!(cfg.primary, None);
         assert_eq!(cfg.lyrics, None);
+        assert_eq!(cfg.ui_size, DEFAULT_UI_FONT_SIZE);
         assert_eq!(cfg.lyrics_size, DEFAULT_LYRICS_FONT_SIZE);
         assert_eq!(cfg.primary_font(), iced::Font::DEFAULT);
+        assert_eq!(cfg.ui_font(), Font::DEFAULT);
         assert_eq!(cfg.lyrics_font(), iced::Font::DEFAULT);
 
         cfg.set_primary(Some("Inter".to_string()));
@@ -178,6 +257,14 @@ mod tests {
         cfg.set_lyrics(Some("Noto Serif".to_string()));
         assert_eq!(cfg.lyrics.as_deref(), Some("Noto Serif"));
         assert_eq!(cfg.lyrics_font(), font_from_family_name(Some("Noto Serif")));
+
+        cfg.set_ui_size(50);
+        assert_eq!(cfg.ui_size, MAX_UI_FONT_SIZE);
+        cfg.set_ui_size(4);
+        assert_eq!(cfg.ui_size, MIN_UI_FONT_SIZE);
+        cfg.set_ui_size(14);
+        assert_eq!(cfg.ui_font().size, 14);
+        assert_eq!(cfg.ui_font().px(12.0), 14.0);
 
         cfg.set_lyrics_size(50);
         assert_eq!(cfg.lyrics_size, 28);

@@ -69,6 +69,7 @@ pub struct SettingsContext<'a> {
     pub lyrics_font: Option<&'a str>,
     pub lyrics_font_size: u16,
     pub primary_font: Option<&'a str>,
+    pub ui_font_size: u16,
     pub total_tracks: usize,
     pub total_albums: usize,
     pub total_artists: usize,
@@ -163,9 +164,10 @@ impl SettingsView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: impl Into<font::Font>,
         ctx: SettingsContext<'a>,
     ) -> Element<'a, Message> {
+        let font = font.into();
         let sidebar = self.view_sidebar(theme_cfg, font);
 
         let content = match self.active_tab {
@@ -384,6 +386,7 @@ mod tests {
                 lyrics_font: Some("Noto Serif"),
                 lyrics_font_size: 16,
                 primary_font: Some("Noto Sans CJK JP"),
+                ui_font_size: 12,
                 total_tracks: 120,
                 total_albums: 15,
                 total_artists: 8,
@@ -456,6 +459,7 @@ mod tests {
             lyrics_font: None,
             lyrics_font_size: 15,
             primary_font: None,
+            ui_font_size: 12,
             total_tracks: 10,
             total_albums: 2,
             total_artists: 1,

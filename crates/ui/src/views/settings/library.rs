@@ -11,7 +11,7 @@ impl SettingsView {
     pub(super) fn view_library<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
         let header = component::settings_header(theme_cfg, font, "Library & storage", Some("Manage indexed audio directories, rescan metadata, monitor disk caches, or reset storage"));
@@ -80,7 +80,7 @@ impl SettingsView {
                         "Add music folder"
                     }
                 )
-                .size(12)
+                .size(font.px(12.0))
                 .color(theme_cfg.text),
             ]
             .align_y(Alignment::Center),
@@ -97,13 +97,13 @@ impl SettingsView {
             container(
                 column![
                     text(font, "No music directories configured yet.")
-                        .size(13)
+                        .size(font.px(13.0))
                         .color(theme_cfg.text_muted),
                     text(
                         font,
                         "Click 'Add music folder' to choose a directory containing audio files."
                     )
-                    .size(11)
+                    .size(font.px(11.0))
                     .color(theme_cfg.text_muted),
                 ]
                 .spacing(FORM_FIELD_SPACING)
@@ -149,7 +149,7 @@ impl SettingsView {
                 let item_row = container(
                     row![
                         text(font, folder_path.as_str())
-                            .size(12)
+                            .size(font.px(12.0))
                             .color(theme_cfg.text)
                             .width(Length::Fill),
                         rescan_btn,
@@ -213,7 +213,7 @@ impl SettingsView {
                         "Scan for new files"
                     }
                 )
-                .size(12)
+                .size(font.px(12.0))
                 .color(theme_cfg.primary),
             ]
             .align_y(Alignment::Center),
@@ -238,7 +238,7 @@ impl SettingsView {
                         "Reindex entire library"
                     }
                 )
-                .size(12)
+                .size(font.px(12.0))
                 .color(theme_cfg.primary),
             ]
             .align_y(Alignment::Center),
@@ -256,7 +256,7 @@ impl SettingsView {
                 icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.text),
                 Space::new().width(SPACE_MD),
                 text(font, "Clear thumbnail cache")
-                    .size(12)
+                    .size(font.px(12.0))
                     .color(theme_cfg.text),
             ]
             .align_y(Alignment::Center),
@@ -270,7 +270,7 @@ impl SettingsView {
                 icons::icon(icons::TRASH_SVG, 13.0, theme_cfg.danger),
                 Space::new().width(SPACE_MD),
                 text(font, "Delete library database")
-                    .size(12)
+                    .size(font.px(12.0))
                     .color(theme_cfg.danger),
             ]
             .align_y(Alignment::Center),

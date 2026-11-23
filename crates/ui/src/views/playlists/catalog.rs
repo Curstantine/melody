@@ -19,7 +19,7 @@ impl PlaylistsView {
     pub(super) fn view_catalog<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         playlists_fmt: &'a layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
         if self.creating {
@@ -80,7 +80,7 @@ impl PlaylistsView {
     pub(super) fn view_catalog_list<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         playlists_fmt: &'a layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
         let mut list = column![].spacing(2).width(Length::Fill);
@@ -104,15 +104,20 @@ impl PlaylistsView {
                     )
                 };
 
-            let subtitle = text(font, line2).size(11).color(theme_cfg.text_muted);
+            let subtitle = text(font, line2)
+                .size(font.px(11.0))
+                .color(theme_cfg.text_muted);
 
-            let title_block = column![text(font, line1).size(13).color(theme_cfg.text), subtitle,]
-                .spacing(2)
-                .width(Length::Fill);
+            let title_block = column![
+                text(font, line1).size(font.px(13.0)).color(theme_cfg.text),
+                subtitle,
+            ]
+            .spacing(2)
+            .width(Length::Fill);
 
             let details = column![
                 text(font, details_label)
-                    .size(12)
+                    .size(font.px(12.0))
                     .color(theme_cfg.text_muted),
                 text(
                     font,
@@ -122,7 +127,7 @@ impl PlaylistsView {
                         "External"
                     },
                 )
-                .size(10)
+                .size(font.px(10.0))
                 .color(theme_cfg.text_muted),
             ]
             .spacing(2)
@@ -194,7 +199,7 @@ impl PlaylistsView {
     pub(super) fn view_catalog_tiles<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         playlists_fmt: &'a layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
         let mut grid = column![].spacing(12).width(Length::Fill);
@@ -226,8 +231,10 @@ impl PlaylistsView {
 
             let meta = container(
                 column![
-                    text(font, line1).size(12),
-                    text(font, line2).size(10).color(theme_cfg.text_muted),
+                    text(font, line1).size(font.px(12.0)),
+                    text(font, line2)
+                        .size(font.px(10.0))
+                        .color(theme_cfg.text_muted),
                 ]
                 .spacing(3)
                 .padding(6),
@@ -300,10 +307,10 @@ impl PlaylistsView {
     pub(super) fn view_new_playlist_form<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
     ) -> Element<'a, Message> {
         let input = text_input("New playlist name...", &self.new_name_input)
-            .size(13)
+            .size(font.px(13.0))
             .padding([7, 10])
             .style(styles::search_input_style(theme_cfg))
             .on_input(Message::NewPlaylistNameChanged)
@@ -312,28 +319,36 @@ impl PlaylistsView {
             ))
             .width(Length::Fill);
 
-        let create = button(text(font, "Create").size(12).color(theme_cfg.text))
-            .padding([7, 16])
-            .style(styles::ghost_button(theme_cfg, false))
-            .on_press(Message::NewPlaylistNameSubmitted(
-                self.new_name_input.clone(),
-            ));
+        let create = button(
+            text(font, "Create")
+                .size(font.px(12.0))
+                .color(theme_cfg.text),
+        )
+        .padding([7, 16])
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press(Message::NewPlaylistNameSubmitted(
+            self.new_name_input.clone(),
+        ));
 
-        let cancel = button(text(font, "Cancel").size(12).color(theme_cfg.text_muted))
-            .padding([7, 16])
-            .style(styles::ghost_button(theme_cfg, false))
-            .on_press(Message::NewPlaylistCancelled);
+        let cancel = button(
+            text(font, "Cancel")
+                .size(font.px(12.0))
+                .color(theme_cfg.text_muted),
+        )
+        .padding([7, 16])
+        .style(styles::ghost_button(theme_cfg, false))
+        .on_press(Message::NewPlaylistCancelled);
 
         container(
             column![
                 text(font, "Create a new playlist")
-                    .size(16)
+                    .size(font.px(16.0))
                     .color(theme_cfg.text),
                 text(
                     font,
                     "A new .m3u8 file will be created in the Melody playlists directory."
                 )
-                .size(11)
+                .size(font.px(11.0))
                 .color(theme_cfg.text_muted),
                 Space::new().height(8),
                 row![

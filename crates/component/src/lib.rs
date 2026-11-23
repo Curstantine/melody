@@ -33,9 +33,14 @@ pub use crate::{
     spinner::Spinner,
 };
 
-/// A text widget configured with the given font.
-pub fn text<'a>(font: iced::Font, content: impl Into<Cow<'a, str>>) -> iced::widget::Text<'a> {
-    iced::widget::text(content.into()).font(font)
+pub use font::Font;
+
+/// A text widget configured with the given font and default UI size.
+pub fn text<'a>(font: impl Into<Font>, content: impl Into<Cow<'a, str>>) -> iced::widget::Text<'a> {
+    let ui_font = font.into();
+    iced::widget::text(content.into())
+        .font(ui_font.family)
+        .size(f32::from(ui_font.size))
 }
 
 pub fn border_vert<'a, M: 'a>(width: f32, color: Color) -> iced::Element<'a, M> {
@@ -53,16 +58,21 @@ pub fn border_hori<'a, M: 'a>(width: f32, color: Color) -> iced::Element<'a, M> 
 /// A reusable chip button with active state styling.
 pub fn chip<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<Font>,
     label: impl Into<String>,
     is_active: bool,
     on_press: M,
 ) -> Element<'a, M> {
-    button(text(font, label.into()).size(11).color(if is_active {
-        theme_cfg.primary
-    } else {
-        theme_cfg.text_muted
-    }))
+    let font = font.into();
+    button(
+        text(font, label.into())
+            .size(font.px(11.0))
+            .color(if is_active {
+                theme_cfg.primary
+            } else {
+                theme_cfg.text_muted
+            }),
+    )
     .padding([3, 6])
     .style(styles::ghost_button(theme_cfg, is_active))
     .on_press(on_press)
@@ -72,12 +82,13 @@ pub fn chip<'a, M: Clone + 'static>(
 /// A reusable chip button with an icon and label.
 pub fn chip_with_icon<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<Font>,
     icon_svg: &'static str,
     label: impl Into<String>,
     is_active: bool,
     on_press: M,
 ) -> Element<'a, M> {
+    let font = font.into();
     let color = if is_active {
         theme_cfg.primary
     } else {
@@ -88,7 +99,7 @@ pub fn chip_with_icon<'a, M: Clone + 'static>(
         row![
             icons::icon(icon_svg, 13.0, color),
             Space::new().width(4),
-            text(font, label.into()).size(11).color(color),
+            text(font, label.into()).size(font.px(11.0)).color(color),
         ]
         .align_y(Alignment::Center),
     )
@@ -101,7 +112,7 @@ pub fn chip_with_icon<'a, M: Clone + 'static>(
 /// A chip button representing a view mode (List or Tiles).
 fn view_mode_chip<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: Font,
     mode: ViewMode,
     is_active: bool,
     on_press: M,
@@ -116,10 +127,11 @@ fn view_mode_chip<'a, M: Clone + 'static>(
 /// A unified view mode toggle row containing List and Tiles mode chips.
 pub fn view_mode_toggle<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<Font>,
     active_mode: ViewMode,
     on_change: impl Fn(ViewMode) -> M,
 ) -> Element<'a, M> {
+    let font = font.into();
     row![
         view_mode_chip(
             theme_cfg,
@@ -144,7 +156,7 @@ pub fn view_mode_toggle<'a, M: Clone + 'static>(
 /// A sort chip displaying the field label and an active sort direction indicator arrow.
 fn sort_chip<'a, T: Copy + PartialEq, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: Font,
     label: &'a str,
     field: T,
     active_field: T,
@@ -164,14 +176,17 @@ fn sort_chip<'a, T: Copy + PartialEq, M: Clone + 'static>(
             SortDirection::Descending => icons::CHEVRON_DOWN_SVG,
         };
         row![
-            text(font, label).size(11).color(text_color),
+            text(font, label).size(font.px(11.0)).color(text_color),
             Space::new().width(3),
             icons::icon(sort_icon_svg, 11.0, text_color),
         ]
         .align_y(Alignment::Center)
         .boxed()
     } else {
-        text(font, label).size(11).color(text_color).boxed()
+        text(font, label)
+            .size(font.px(11.0))
+            .color(text_color)
+            .boxed()
     };
 
     button(content)
@@ -184,14 +199,17 @@ fn sort_chip<'a, T: Copy + PartialEq, M: Clone + 'static>(
 /// A unified sort chip list with a "Sort:" label and multiple sort chips.
 pub fn sort_chip_list<'a, T: Copy + PartialEq, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<Font>,
     options: &[(&'a str, T)],
     active_field: T,
     sort_dir: SortDirection,
     on_press: impl Fn(T) -> M,
 ) -> Element<'a, M> {
+    let font = font.into();
     let mut sort_row = row![
-        text(font, "Sort:").size(11).color(theme_cfg.text_muted),
+        text(font, "Sort:")
+            .size(font.px(11.0))
+            .color(theme_cfg.text_muted),
         Space::new().width(4),
     ]
     .spacing(4)
@@ -215,14 +233,17 @@ pub fn sort_chip_list<'a, T: Copy + PartialEq, M: Clone + 'static>(
 /// A centered empty state view with a title and muted description.
 pub fn empty_state<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<Font>,
     title: &'a str,
     subtitle: &'a str,
 ) -> Element<'a, M> {
+    let font = font.into();
     container(
         column![
-            text(font, title).size(16).color(theme_cfg.text),
-            text(font, subtitle).size(13).color(theme_cfg.text_muted),
+            text(font, title).size(font.px(16.0)).color(theme_cfg.text),
+            text(font, subtitle)
+                .size(font.px(13.0))
+                .color(theme_cfg.text_muted),
         ]
         .spacing(8)
         .align_x(Alignment::Center),
@@ -294,9 +315,10 @@ pub fn cover_art<'a, M: 'a>(
 /// A self-contained scanning indicator component powered by the `Spinner` widget.
 pub fn scanning_indicator<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<Font>,
     progress: Option<(usize, usize)>,
 ) -> Element<'a, M> {
+    let font = font.into();
     let handle = iced::widget::svg::Handle::from_memory(icons::REFRESH_SVG.as_bytes());
     let spinner = Spinner::new(handle).size(11.0).color(theme_cfg.text_muted);
 
@@ -308,7 +330,7 @@ pub fn scanning_indicator<'a, M: 'a>(
     row![
         spinner,
         text(font, label)
-            .size(11)
+            .size(font.px(11.0))
             .line_height(1.0)
             .color(theme_cfg.text_muted),
     ]
@@ -320,15 +342,16 @@ pub fn scanning_indicator<'a, M: 'a>(
 /// A rotating indicator shown while background album thumbnails are being cached to disk.
 pub fn thumbnail_caching_indicator<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<Font>,
 ) -> Element<'a, M> {
+    let font = font.into();
     let handle = iced::widget::svg::Handle::from_memory(icons::REFRESH_SVG.as_bytes());
     let spinner = Spinner::new(handle).size(11.0).color(theme_cfg.text_muted);
 
     row![
         spinner,
         text(font, "Caching album artwork...")
-            .size(11)
+            .size(font.px(11.0))
             .line_height(1.0)
             .color(theme_cfg.text_muted),
     ]
@@ -361,7 +384,7 @@ mod tests {
         let theme_cfg = ThemeConfig::default();
         let tile = CatalogTile {
             theme: &theme_cfg,
-            font: iced::Font::DEFAULT,
+            font: Font::DEFAULT,
             tile_width: 180.0,
             leading: iced::widget::Space::new().boxed(),
             title:
@@ -382,7 +405,7 @@ mod tests {
 
         let row = CatalogRow {
             theme: &theme_cfg,
-            font: iced::Font::DEFAULT,
+            font: Font::DEFAULT,
             leading: iced::widget::Space::new().boxed(),
             title: "Very Long Album Title That Exceeds The Normal Row Width".into(),
             subtitle_left: "Very Long Artist Name".into(),
@@ -428,7 +451,7 @@ mod tests {
         );
         let tile = CatalogTile {
             theme: &theme_cfg,
-            font: iced::Font::DEFAULT,
+            font: Font::DEFAULT,
             tile_width: 140.0,
             leading,
             title: "Artist Name".into(),

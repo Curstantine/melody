@@ -155,7 +155,7 @@ impl App {
 
             LayoutComponent::Tracks => container(self.library.view(
                 theme_cfg,
-                self.fonts.primary_font(),
+                self.fonts.ui_font(),
                 self.current_track_id,
                 self.is_playing,
                 &self.layout_manager.current_template.view_formats.library,
@@ -167,7 +167,7 @@ impl App {
 
             LayoutComponent::Albums => container(self.albums.view(
                 theme_cfg,
-                self.fonts.primary_font(),
+                self.fonts.ui_font(),
                 &self.layout_manager.current_template.view_formats.albums,
             ))
             .width(Length::Fill)
@@ -177,7 +177,7 @@ impl App {
 
             LayoutComponent::Artists => container(self.artists.view(
                 theme_cfg,
-                self.fonts.primary_font(),
+                self.fonts.ui_font(),
                 &self.layout_manager.current_template.view_formats.artists,
             ))
             .width(Length::Fill)
@@ -187,7 +187,7 @@ impl App {
 
             LayoutComponent::Playlists => container(self.playlists.view(
                 theme_cfg,
-                self.fonts.primary_font(),
+                self.fonts.ui_font(),
                 &self.queues,
                 self.dragging_queue_track,
                 self.dragging_detail,
@@ -201,7 +201,7 @@ impl App {
 
             LayoutComponent::Queue => container(self.playlists.view_queues(
                 theme_cfg,
-                self.fonts.primary_font(),
+                self.fonts.ui_font(),
                 &self.queues,
                 self.dragging_queue_track,
                 &self.layout_manager.current_template.view_formats.queue,
@@ -243,7 +243,7 @@ impl App {
 
             LayoutComponent::PlayerBar => self.player_bar.view(
                 theme_cfg,
-                self.fonts.primary_font(),
+                self.fonts.ui_font(),
                 self.current_track.as_ref(),
                 self.current_cover.as_ref(),
                 self.is_playing,
@@ -256,7 +256,7 @@ impl App {
 
             LayoutComponent::TrackInfo => container(self.player_bar.view_track_info(
                 theme_cfg,
-                self.fonts.primary_font(),
+                self.fonts.ui_font(),
                 self.current_track.as_ref(),
                 self.current_cover.as_ref(),
             ))
@@ -271,7 +271,7 @@ impl App {
 
             LayoutComponent::SeekBar => container(self.player_bar.view_seek_bar(
                 theme_cfg,
-                self.fonts.primary_font(),
+                self.fonts.ui_font(),
                 self.position_ms,
                 self.duration_ms,
             ))
@@ -280,7 +280,7 @@ impl App {
 
             LayoutComponent::VolumeControl => container(self.player_bar.view_volume(
                 theme_cfg,
-                self.fonts.primary_font(),
+                self.fonts.ui_font(),
                 self.volume,
             ))
             .padding([4, 8])
@@ -296,7 +296,7 @@ impl App {
 
             LayoutComponent::StatusBar => StatusBar::view(
                 theme_cfg,
-                self.fonts.primary_font(),
+                self.fonts.ui_font(),
                 self.create_status_bar_context(),
             ),
         }
@@ -323,10 +323,11 @@ impl App {
                 theme_cfg.text_muted
             };
 
+            let ui_font = self.fonts.ui_font();
             let tab_inner = row![
                 icons::icon(view_tab_icon_svg(tab), 12.0, tab_icon_color),
-                text(self.fonts.primary_font(), tab.label())
-                    .size(11)
+                text(ui_font, tab.label())
+                    .size(ui_font.px(11.0))
                     .line_height(1.0)
                     .color(if is_selected || is_dragging {
                         theme_cfg.primary
@@ -455,8 +456,8 @@ impl App {
                                 theme_cfg.text_muted
                             },
                         ),
-                        text(self.fonts.primary_font(), "Settings")
-                            .size(11)
+                        text(self.fonts.ui_font(), "Settings")
+                            .size(self.fonts.ui_font().px(11.0))
                             .line_height(1.0)
                             .color(if settings_is_selected {
                                 theme_cfg.primary
@@ -494,7 +495,7 @@ impl App {
 
     pub fn render_main_view<'a>(&'a self, theme_cfg: &'a ThemeConfig) -> Element<'a, Message> {
         let view_formats = &self.layout_manager.current_template.view_formats;
-        let font = self.fonts.primary_font();
+        let font = self.fonts.ui_font();
         match self.active_tab {
             ViewTab::Tracks => self.library.view(
                 theme_cfg,
@@ -542,7 +543,7 @@ impl App {
 
         self.settings.view(
             theme_cfg,
-            self.fonts.primary_font(),
+            self.fonts.ui_font(),
             views::settings::SettingsContext {
                 theme_names: self.theme_manager.theme_names(),
                 active_theme_name: &self.theme_manager.active_theme_name,
@@ -558,6 +559,7 @@ impl App {
                 lyrics_font: self.fonts.lyrics.as_deref(),
                 lyrics_font_size: self.fonts.lyrics_size,
                 primary_font: self.fonts.primary.as_deref(),
+                ui_font_size: self.fonts.ui_size,
                 total_tracks: self.library_counts.tracks,
                 total_albums: self.library_counts.albums,
                 total_artists: self.library_counts.artists,

@@ -57,6 +57,7 @@ pub enum Message {
     SetAlbumTileWidth(u32),
     SetArtistTileWidth(u32),
     SelectLyricsFont(String),
+    SetUiFontSize(u16),
     SetLyricsFontSize(u16),
 
     // Track interactions
@@ -383,6 +384,7 @@ impl std::fmt::Debug for Message {
             Self::SetAlbumTileWidth(w) => f.debug_tuple("SetAlbumTileWidth").field(w).finish(),
             Self::SetArtistTileWidth(w) => f.debug_tuple("SetArtistTileWidth").field(w).finish(),
             Self::SelectLyricsFont(s) => f.debug_tuple("SelectLyricsFont").field(s).finish(),
+            Self::SetUiFontSize(s) => f.debug_tuple("SetUiFontSize").field(s).finish(),
             Self::SetLyricsFontSize(s) => f.debug_tuple("SetLyricsFontSize").field(s).finish(),
             Self::TrackClicked(id) => f.debug_tuple("TrackClicked").field(id).finish(),
             Self::OpenTrackContextMenu { track_id, context } => f

@@ -36,6 +36,7 @@ mod tests {
         assert_eq!(cfg.album_tile_width, 140);
         assert_eq!(cfg.artist_tile_width, 140);
         assert_eq!(cfg.fonts.lyrics, None);
+        assert_eq!(cfg.fonts.ui_size, 12);
         assert_eq!(cfg.fonts.lyrics_size, 15);
         assert!(cfg.gapless);
         assert!(cfg.watch_library);
@@ -82,6 +83,7 @@ mod tests {
             fonts: font::FontConfig::new(
                 Some("Inter".to_string()),
                 Some("Noto Serif".to_string()),
+                14,
                 18,
             ),
             gapless: false,

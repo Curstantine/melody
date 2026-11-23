@@ -21,6 +21,11 @@ impl App {
                 self.save_config_task()
             }
 
+            Message::SetUiFontSize(size) => {
+                self.fonts.set_ui_size(size);
+                self.save_config_debounced()
+            }
+
             Message::SetLyricsFontSize(size) => {
                 self.fonts.set_lyrics_size(size);
                 self.save_config_debounced()

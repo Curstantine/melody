@@ -46,9 +46,11 @@ pub struct StatusBar;
 impl StatusBar {
     pub fn view<'a>(
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: impl Into<font::Font>,
         ctx: StatusBarContext<'a>,
     ) -> Element<'a, Message> {
+        let font = font.into();
+        let sz = font.px(11.0);
         let muted = theme_cfg.text_muted;
 
         let left_items: Element<'a, Message> = match ctx.active_tab {
@@ -56,7 +58,7 @@ impl StatusBar {
                 let filter_indicator: Element<'a, Message> =
                     if !ctx.filter_indicator_label.is_empty() {
                         text(font, ctx.filter_indicator_label)
-                            .size(11)
+                            .size(sz)
                             .color(muted)
                             .boxed()
                     } else {
@@ -65,7 +67,7 @@ impl StatusBar {
 
                 row![
                     icons::icon(icons::MUSIC_NOTE_SVG, 11.0, muted),
-                    text(font, ctx.tracks_count_label).size(11).color(muted),
+                    text(font, ctx.tracks_count_label).size(sz).color(muted),
                     filter_indicator,
                 ]
                 .spacing(6)
@@ -75,11 +77,11 @@ impl StatusBar {
 
             ViewTab::Albums => row![
                 icons::icon(icons::ALBUM_SVG, 11.0, muted),
-                text(font, ctx.album_count_label).size(11).color(muted),
-                text(font, "·").size(11).color(muted),
-                text(font, ctx.album_tracks_label).size(11).color(muted),
-                text(font, "·").size(11).color(muted),
-                text(font, ctx.album_duration_label).size(11).color(muted),
+                text(font, ctx.album_count_label).size(sz).color(muted),
+                text(font, "·").size(sz).color(muted),
+                text(font, ctx.album_tracks_label).size(sz).color(muted),
+                text(font, "·").size(sz).color(muted),
+                text(font, ctx.album_duration_label).size(sz).color(muted),
             ]
             .spacing(6)
             .align_y(Alignment::Center)
@@ -87,11 +89,11 @@ impl StatusBar {
 
             ViewTab::Artists => row![
                 icons::icon(icons::USER_AVATAR_SVG, 11.0, muted),
-                text(font, ctx.artist_count_label).size(11).color(muted),
-                text(font, "·").size(11).color(muted),
-                text(font, ctx.artist_albums_label).size(11).color(muted),
-                text(font, "·").size(11).color(muted),
-                text(font, ctx.artist_tracks_label).size(11).color(muted),
+                text(font, ctx.artist_count_label).size(sz).color(muted),
+                text(font, "·").size(sz).color(muted),
+                text(font, ctx.artist_albums_label).size(sz).color(muted),
+                text(font, "·").size(sz).color(muted),
+                text(font, ctx.artist_tracks_label).size(sz).color(muted),
             ]
             .spacing(6)
             .align_y(Alignment::Center)
@@ -109,14 +111,14 @@ impl StatusBar {
                             11.0,
                             muted,
                         ),
-                        text(font, now_playing).size(11).color(muted),
-                        text(font, "·").size(11).color(muted),
+                        text(font, now_playing).size(sz).color(muted),
+                        text(font, "·").size(sz).color(muted),
                         text(font, ctx.now_playing_album.unwrap_or(""))
-                            .size(11)
+                            .size(sz)
                             .color(muted),
-                        text(font, "·").size(11).color(muted),
+                        text(font, "·").size(sz).color(muted),
                         text(font, ctx.now_playing_duration.unwrap_or(""))
-                            .size(11)
+                            .size(sz)
                             .color(muted),
                     ]
                     .spacing(6)
@@ -125,7 +127,7 @@ impl StatusBar {
                 } else {
                     row![
                         icons::icon(icons::DISC_SVG, 11.0, muted),
-                        text(font, "Playback idle").size(11).color(muted),
+                        text(font, "Playback idle").size(sz).color(muted),
                     ]
                     .spacing(6)
                     .align_y(Alignment::Center)
@@ -139,11 +141,11 @@ impl StatusBar {
                 {
                     row![
                         icons::icon(icons::QUEUE_SVG, 11.0, muted),
-                        text(font, queue_name).size(11).color(muted),
-                        text(font, "·").size(11).color(muted),
-                        text(font, queue_len).size(11).color(muted),
-                        text(font, "·").size(11).color(muted),
-                        text(font, ctx.playlist_count_label).size(11).color(muted),
+                        text(font, queue_name).size(sz).color(muted),
+                        text(font, "·").size(sz).color(muted),
+                        text(font, queue_len).size(sz).color(muted),
+                        text(font, "·").size(sz).color(muted),
+                        text(font, ctx.playlist_count_label).size(sz).color(muted),
                     ]
                     .spacing(6)
                     .align_y(Alignment::Center)
@@ -151,9 +153,9 @@ impl StatusBar {
                 } else {
                     row![
                         icons::icon(icons::PLAYLIST_SVG, 11.0, muted),
-                        text(font, ctx.playlist_count_label).size(11).color(muted),
-                        text(font, "·").size(11).color(muted),
-                        text(font, ctx.queue_count_label).size(11).color(muted),
+                        text(font, ctx.playlist_count_label).size(sz).color(muted),
+                        text(font, "·").size(sz).color(muted),
+                        text(font, ctx.queue_count_label).size(sz).color(muted),
                     ]
                     .spacing(6)
                     .align_y(Alignment::Center)
@@ -163,9 +165,9 @@ impl StatusBar {
 
             ViewTab::Settings => row![
                 icons::icon(icons::SETTINGS_SVG, 11.0, muted),
-                text(font, "Preferences").size(11).color(muted),
-                text(font, "·").size(11).color(muted),
-                text(font, ctx.settings_indexed_label).size(11).color(muted),
+                text(font, "Preferences").size(sz).color(muted),
+                text(font, "·").size(sz).color(muted),
+                text(font, ctx.settings_indexed_label).size(sz).color(muted),
             ]
             .spacing(6)
             .align_y(Alignment::Center)

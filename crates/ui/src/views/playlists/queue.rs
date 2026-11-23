@@ -97,16 +97,16 @@ impl PlaylistsView {
     /// (playback should start).
     pub(super) fn queue_header<'a>(
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         name: &'a str,
         track_count_str: &'a str,
         active_id: u64,
     ) -> Element<'a, Message> {
         row![
             column![
-                text(font, name).size(15).color(theme_cfg.text),
+                text(font, name).size(font.px(15.0)).color(theme_cfg.text),
                 text(font, track_count_str)
-                    .size(11)
+                    .size(font.px(11.0))
                     .color(theme_cfg.text_muted),
             ]
             .spacing(2)
@@ -143,27 +143,31 @@ impl PlaylistsView {
     pub(super) fn queue_save_form<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
     ) -> Element<'a, Message> {
         if self.saving_queue {
             row![
                 text_input("Save queue as playlist...", &self.queue_save_input)
-                    .size(12)
+                    .size(font.px(12.0))
                     .padding([6, 10])
                     .style(styles::search_input_style(theme_cfg))
                     .on_input(Message::QueueSaveNameChanged)
                     .on_submit(Message::QueueSaveSubmitted(self.queue_save_input.clone()))
                     .width(Length::Fixed(280.0)),
                 Space::new().width(8),
-                button(text(font, "Save").size(12).color(theme_cfg.text))
+                button(text(font, "Save").size(font.px(12.0)).color(theme_cfg.text))
                     .padding([6, 12])
                     .style(styles::ghost_button(theme_cfg, false))
                     .on_press(Message::QueueSaveSubmitted(self.queue_save_input.clone())),
                 Space::new().width(4),
-                button(text(font, "Cancel").size(12).color(theme_cfg.text_muted))
-                    .padding([6, 12])
-                    .style(styles::ghost_button(theme_cfg, false))
-                    .on_press(Message::QueueSaveCancelled),
+                button(
+                    text(font, "Cancel")
+                        .size(font.px(12.0))
+                        .color(theme_cfg.text_muted)
+                )
+                .padding([6, 12])
+                .style(styles::ghost_button(theme_cfg, false))
+                .on_press(Message::QueueSaveCancelled),
             ]
             .align_y(Alignment::Center)
             .padding(iced::Padding {

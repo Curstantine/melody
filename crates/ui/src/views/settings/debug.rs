@@ -13,7 +13,7 @@ impl SettingsView {
     pub(super) fn view_debug<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
     ) -> Element<'a, Message> {
         let back_btn = component::chip_with_icon(
             theme_cfg,
@@ -55,7 +55,7 @@ impl SettingsView {
     pub(super) fn view_debug_colors<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
     ) -> Element<'a, Message> {
         let tokens: [(&'static str, Color, bool); 14] = [
             ("background", theme_cfg.background, false),
@@ -112,38 +112,46 @@ impl SettingsView {
     pub(super) fn view_debug_typography<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
     ) -> Element<'a, Message> {
         let scale_col = column![
             text(font, "Heading 20px — Primary text")
-                .size(20)
+                .size(font.px(20.0))
                 .color(theme_cfg.text),
             text(font, "Subheading 16px — Primary text")
-                .size(16)
+                .size(font.px(16.0))
                 .color(theme_cfg.text),
             text(font, "Body 13px — Default readable copy")
-                .size(13)
+                .size(font.px(13.0))
                 .color(theme_cfg.text),
             text(font, "Label 12px — Muted secondary text")
-                .size(12)
+                .size(font.px(12.0))
                 .color(theme_cfg.text_muted),
             text(font, "Caption 11px — Subtle metadata")
-                .size(11)
+                .size(font.px(11.0))
                 .color(theme_cfg.text_muted),
             text(font, "Micro 10px — Compact badges & hints")
-                .size(10)
+                .size(font.px(10.0))
                 .color(theme_cfg.text_muted),
         ]
         .spacing(SPACE_SM);
 
         let semantic_row = row![
-            text(font, "primary").size(12).color(theme_cfg.primary),
-            text(font, "accent").size(12).color(theme_cfg.accent),
-            text(font, "success").size(12).color(theme_cfg.success),
-            text(font, "danger").size(12).color(theme_cfg.danger),
-            text(font, "text").size(12).color(theme_cfg.text),
+            text(font, "primary")
+                .size(font.px(12.0))
+                .color(theme_cfg.primary),
+            text(font, "accent")
+                .size(font.px(12.0))
+                .color(theme_cfg.accent),
+            text(font, "success")
+                .size(font.px(12.0))
+                .color(theme_cfg.success),
+            text(font, "danger")
+                .size(font.px(12.0))
+                .color(theme_cfg.danger),
+            text(font, "text").size(font.px(12.0)).color(theme_cfg.text),
             text(font, "text_muted")
-                .size(12)
+                .size(font.px(12.0))
                 .color(theme_cfg.text_muted),
         ]
         .spacing(SPACE_LG)
@@ -162,17 +170,21 @@ impl SettingsView {
             let border_color = theme_cfg.border;
             let surface = theme_cfg.surface;
             radius_row = radius_row.push(
-                container(text(font, label).size(11).color(theme_cfg.text_muted))
-                    .padding([6, 12])
-                    .style(move |_| container::Style {
-                        background: Some(iced::Background::Color(surface)),
-                        border: Border {
-                            radius,
-                            color: border_color,
-                            width: 1.0,
-                        },
-                        ..Default::default()
-                    }),
+                container(
+                    text(font, label)
+                        .size(font.px(11.0))
+                        .color(theme_cfg.text_muted),
+                )
+                .padding([6, 12])
+                .style(move |_| container::Style {
+                    background: Some(iced::Background::Color(surface)),
+                    border: Border {
+                        radius,
+                        color: border_color,
+                        width: 1.0,
+                    },
+                    ..Default::default()
+                }),
             );
         }
 
@@ -189,25 +201,41 @@ impl SettingsView {
     pub(super) fn view_debug_buttons<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
     ) -> Element<'a, Message> {
         let buttons_row = row![
-            button(text(font, "Primary").size(12).color(theme_cfg.background),)
-                .padding(BUTTON_PADDING_MD)
-                .style(styles::primary_button(theme_cfg))
-                .on_press(Message::DebugNoop),
-            button(text(font, "Ghost").size(12).color(theme_cfg.text))
-                .padding(BUTTON_PADDING_MD)
-                .style(styles::ghost_button(theme_cfg, false))
-                .on_press(Message::DebugNoop),
-            button(text(font, "Ghost active").size(12).color(theme_cfg.primary),)
-                .padding(BUTTON_PADDING_MD)
-                .style(styles::ghost_button(theme_cfg, true))
-                .on_press(Message::DebugNoop),
-            button(text(font, "Danger").size(12).color(theme_cfg.danger))
-                .padding(BUTTON_PADDING_MD)
-                .style(styles::danger_button(theme_cfg))
-                .on_press(Message::DebugNoop),
+            button(
+                text(font, "Primary")
+                    .size(font.px(12.0))
+                    .color(theme_cfg.background),
+            )
+            .padding(BUTTON_PADDING_MD)
+            .style(styles::primary_button(theme_cfg))
+            .on_press(Message::DebugNoop),
+            button(
+                text(font, "Ghost")
+                    .size(font.px(12.0))
+                    .color(theme_cfg.text),
+            )
+            .padding(BUTTON_PADDING_MD)
+            .style(styles::ghost_button(theme_cfg, false))
+            .on_press(Message::DebugNoop),
+            button(
+                text(font, "Ghost active")
+                    .size(font.px(12.0))
+                    .color(theme_cfg.primary),
+            )
+            .padding(BUTTON_PADDING_MD)
+            .style(styles::ghost_button(theme_cfg, true))
+            .on_press(Message::DebugNoop),
+            button(
+                text(font, "Danger")
+                    .size(font.px(12.0))
+                    .color(theme_cfg.danger),
+            )
+            .padding(BUTTON_PADDING_MD)
+            .style(styles::danger_button(theme_cfg))
+            .on_press(Message::DebugNoop),
             button(icons::icon(icons::SHUFFLE_SVG, 15.0, theme_cfg.text_muted))
                 .padding(BUTTON_PADDING_SM)
                 .style(styles::icon_control_button(theme_cfg))
@@ -289,7 +317,7 @@ impl SettingsView {
     pub(super) fn view_debug_controls<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
     ) -> Element<'a, Message> {
         let toggler_row = row![
             toggler(self.debug_state.toggler)
@@ -305,7 +333,7 @@ impl SettingsView {
                     "Toggler (off)"
                 },
             )
-            .size(12)
+            .size(font.px(12.0))
             .color(theme_cfg.text),
         ]
         .align_y(Alignment::Center);
@@ -319,7 +347,7 @@ impl SettingsView {
                         self.debug_state.slider_val * 100.0
                     ),
                 )
-                .size(11)
+                .size(font.px(11.0))
                 .color(theme_cfg.text_muted),
                 slider(
                     0.0..=1.0,
@@ -333,7 +361,7 @@ impl SettingsView {
             .spacing(FORM_FIELD_SPACING),
             column![
                 text(font, "Seek slider")
-                    .size(11)
+                    .size(font.px(11.0))
                     .color(theme_cfg.text_muted),
                 slider(
                     0.0..=1.0,
@@ -347,7 +375,7 @@ impl SettingsView {
             .spacing(FORM_FIELD_SPACING),
             column![
                 text(font, "Volume slider")
-                    .size(11)
+                    .size(font.px(11.0))
                     .color(theme_cfg.text_muted),
                 slider(
                     0.0..=1.0,
@@ -373,7 +401,7 @@ impl SettingsView {
             text_input("Sample text input...", &self.debug_state.input_val)
                 .on_input(Message::DebugInputChanged)
                 .padding(INPUT_PADDING)
-                .size(12)
+                .size(font.px(12.0))
                 .width(Length::Fixed(SETTING_DROPDOWN_WIDTH))
                 .style(styles::search_input_style(theme_cfg)),
             pick_list(
@@ -383,7 +411,7 @@ impl SettingsView {
             )
             .on_select(Message::DebugPickSelected)
             .padding(INPUT_PADDING)
-            .text_size(12)
+            .text_size(font.px(12.0))
             .width(Length::Fixed(180.0))
             .style(styles::pick_list_style(theme_cfg))
             .menu_style(styles::menu_style(theme_cfg)),
@@ -404,7 +432,7 @@ impl SettingsView {
     pub(super) fn view_debug_feedback<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
     ) -> Element<'a, Message> {
         let metrics_row = row![
             component::metric_box(theme_cfg, font, "Metric A", "1,234".to_string()),
@@ -430,9 +458,9 @@ impl SettingsView {
                     Marquee::new(
                         "Marquee sample — Scrolling long track or album metadata smoothly"
                     )
-                    .size(12)
+                    .size(font.px(12.0))
                     .color(theme_cfg.text)
-                    .font(font),
+                    .font(font.family),
                 )
                 .width(Length::Fixed(240.0)),
             ]
@@ -470,7 +498,7 @@ impl SettingsView {
     pub(super) fn view_debug_icons<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
     ) -> Element<'a, Message> {
         const COLS: usize = 8;
         let all_icons: [(&'static str, &'static str); 44] = [
@@ -527,7 +555,9 @@ impl SettingsView {
                 r = r.push(
                     column![
                         icons::icon(svg, 18.0, theme_cfg.text),
-                        text(font, label).size(10).color(theme_cfg.text_muted),
+                        text(font, label)
+                            .size(font.px(10.0))
+                            .color(theme_cfg.text_muted),
                     ]
                     .spacing(SPACE_SM)
                     .align_x(Alignment::Center)
@@ -562,7 +592,7 @@ pub(super) fn format_color_hex(c: Color) -> String {
 
 pub(super) fn debug_color_tile<'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: font::Font,
     name: &'static str,
     color: Color,
     is_fallback: bool,
@@ -588,8 +618,10 @@ pub(super) fn debug_color_tile<'a>(
                 ..Default::default()
             }),
             column![
-                text(font, name).size(11).color(theme_cfg.text),
-                text(font, subtitle).size(10).color(theme_cfg.text_muted),
+                text(font, name).size(font.px(11.0)).color(theme_cfg.text),
+                text(font, subtitle)
+                    .size(font.px(10.0))
+                    .color(theme_cfg.text_muted),
             ]
             .spacing(2),
         ]

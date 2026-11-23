@@ -103,7 +103,7 @@ impl PlaylistsView {
     pub(super) fn view_detail<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         dragging_detail: Option<(i64, usize)>,
         playlists_fmt: &'a layout::PlaylistsFormatConfig,
     ) -> Element<'a, Message> {
@@ -112,7 +112,7 @@ impl PlaylistsView {
         let header: Element<'a, Message> = if self.renaming {
             row![
                 text_input("Playlist name...", &self.rename_input)
-                    .size(13)
+                    .size(font.px(13.0))
                     .padding([6, 10])
                     .style(styles::search_input_style(theme_cfg))
                     .on_input(Message::RenamePlaylistNameChanged)
@@ -122,7 +122,7 @@ impl PlaylistsView {
                     ))
                     .width(Length::Fixed(280.0)),
                 Space::new().width(8),
-                button(text(font, "Save").size(12).color(theme_cfg.text))
+                button(text(font, "Save").size(font.px(12.0)).color(theme_cfg.text))
                     .padding([6, 12])
                     .style(styles::ghost_button(theme_cfg, false))
                     .on_press(Message::RenamePlaylistSubmitted(
@@ -130,20 +130,24 @@ impl PlaylistsView {
                         self.rename_input.clone()
                     )),
                 Space::new().width(4),
-                button(text(font, "Cancel").size(12).color(theme_cfg.text_muted))
-                    .padding([6, 12])
-                    .style(styles::ghost_button(theme_cfg, false))
-                    .on_press(Message::RenamePlaylistCancelled),
+                button(
+                    text(font, "Cancel")
+                        .size(font.px(12.0))
+                        .color(theme_cfg.text_muted)
+                )
+                .padding([6, 12])
+                .style(styles::ghost_button(theme_cfg, false))
+                .on_press(Message::RenamePlaylistCancelled),
             ]
             .align_y(Alignment::Center)
             .boxed()
         } else {
             column![
                 text(font, self.detail_name.as_str())
-                    .size(15)
+                    .size(font.px(15.0))
                     .color(theme_cfg.text),
                 text(font, self.detail_tracks_str.as_str())
-                    .size(11)
+                    .size(font.px(11.0))
                     .color(theme_cfg.text_muted),
             ]
             .spacing(2)
@@ -348,11 +352,12 @@ impl PlaylistsView {
     pub(crate) fn view_queues<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: impl Into<font::Font>,
         store: &'a QueueStore,
         dragging_track: Option<(u64, usize)>,
         queue_fmt: &'a layout::QueueFormatConfig,
     ) -> Element<'a, Message> {
+        let font = font.into();
         if store.is_empty() {
             return component::empty_state(
                 theme_cfg,

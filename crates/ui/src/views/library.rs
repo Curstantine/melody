@@ -309,18 +309,19 @@ impl LibraryView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: impl Into<font::Font>,
         current_track_id: Option<i64>,
         is_playing: bool,
         format_cfg: &'a layout::LibraryFormatConfig,
     ) -> Element<'a, Message> {
+        let font = font.into();
         // 1. Search Bar & View Mode Toolbar
         let search_input = text_input(
             "Search tracks... (album:\"…\" artist:… genre:… year:… composer:… label:… track:… disc:…)",
             &self.search_query,
         )
-        .font(font)
-        .size(12)
+        .font(font.family)
+        .size(font.px(12.0))
         .on_input(Message::SearchInputChanged)
         .padding([4, 8])
         .style(styles::search_input_style(theme_cfg))
@@ -352,14 +353,14 @@ impl LibraryView {
                     SortDirection::Descending => icons::CHEVRON_DOWN_SVG,
                 };
                 row![
-                    text(font, label).size(12),
+                    text(font, label).size(font.px(12.0)),
                     Space::new().width(4),
                     icons::icon(sort_icon_svg, 12.0, theme_cfg.primary),
                 ]
                 .align_y(Alignment::Center)
                 .boxed()
             } else {
-                text(font, label).size(12).boxed()
+                text(font, label).size(font.px(12.0)).boxed()
             };
 
             button(content)
@@ -369,30 +370,35 @@ impl LibraryView {
                 .on_press(Message::SortChanged(field))
         };
 
-        let mut table_header =
-            row![
-                container(text(font, "#").size(12).color(theme_cfg.text_muted),)
-                    .width(36)
-                    .center_x(36),
-            ]
-            .spacing(8)
-            .align_y(Alignment::Center)
-            .padding(iced::Padding {
-                top: 2.0,
-                right: 16.0,
-                bottom: 2.0,
-                left: 0.0,
-            });
+        let mut table_header = row![container(
+            text(font, "#")
+                .size(font.px(12.0))
+                .color(theme_cfg.text_muted),
+        )
+        .width(36)
+        .center_x(36),]
+        .spacing(8)
+        .align_y(Alignment::Center)
+        .padding(iced::Padding {
+            top: 2.0,
+            right: 16.0,
+            bottom: 2.0,
+            left: 0.0,
+        });
 
         for col in &format_cfg.columns {
             let width = col.width.to_iced_length();
             let btn: Element<'a, Message> = if let Some(field) = col.sort_field {
                 header_btn(&col.header, field, width).boxed()
             } else {
-                container(text(font, &col.header).size(12).color(theme_cfg.text_muted))
-                    .width(width)
-                    .padding([2, 0])
-                    .boxed()
+                container(
+                    text(font, &col.header)
+                        .size(font.px(12.0))
+                        .color(theme_cfg.text_muted),
+                )
+                .width(width)
+                .padding([2, 0])
+                .boxed()
             };
             table_header = table_header.push(btn);
         }
@@ -446,12 +452,12 @@ impl LibraryView {
                 } else {
                     let index_element: Element<'a, Message> = if let Some(r) = rendered {
                         text(font, r.display_index.as_str())
-                            .size(12)
+                            .size(font.px(12.0))
                             .color(theme_cfg.text_muted)
                             .boxed()
                     } else {
                         text(font, format!("{}", display_index))
-                            .size(12)
+                            .size(font.px(12.0))
                             .color(theme_cfg.text_muted)
                             .boxed()
                     };
@@ -484,7 +490,7 @@ impl LibraryView {
                     } else {
                         theme_cfg.text_muted
                     };
-                    let text_size = if is_primary_col { 13 } else { 12 };
+                    let text_size = font.px(if is_primary_col { 13.0 } else { 12.0 });
                     let width = col.width.to_iced_length();
 
                     let col_text: Element<'a, Message> =

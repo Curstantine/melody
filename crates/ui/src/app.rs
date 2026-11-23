@@ -643,6 +643,7 @@ impl App {
             | Message::QueuesPersisted => self.handle_queue_message(message),
 
             Message::SelectLyricsFont(_)
+            | Message::SetUiFontSize(_)
             | Message::SetLyricsFontSize(_)
             | Message::SelectSettingsTab(_)
             | Message::SetDebugSubpage(_)
@@ -706,7 +707,7 @@ impl App {
         {
             let titlebar = crate::views::TitlebarView::view(
                 theme_cfg,
-                self.fonts.primary_font(),
+                self.fonts.ui_font(),
                 self.title(window),
                 self.is_maximized,
                 self.is_window_focused,
@@ -744,7 +745,7 @@ impl App {
                 menu,
                 &self.playlists.playlists,
                 theme_cfg,
-                self.fonts.primary_font(),
+                self.fonts.ui_font(),
                 self.window_size,
                 Message::ContextMenu,
             ));

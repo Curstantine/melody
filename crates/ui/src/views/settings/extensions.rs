@@ -15,7 +15,7 @@ impl SettingsView {
     pub(super) fn view_extensions<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
         let header = component::settings_header(
@@ -89,13 +89,13 @@ impl SettingsView {
             let empty_box = container(
                 column![
                     text(font, "No extensions discovered.")
-                        .size(13)
+                        .size(font.px(13.0))
                         .color(theme_cfg.text_muted),
                     text(
                         font,
                         "Click 'Install archive (.zip / .mext)' or 'Install from folder' to add a WebAssembly extension.",
                     )
-                    .size(11)
+                    .size(font.px(11.0))
                     .color(theme_cfg.text_muted),
                 ]
                 .spacing(FORM_FIELD_SPACING)
@@ -132,7 +132,7 @@ impl SettingsView {
     fn view_extension_card<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         ext: &'a ExtensionSnapshot,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
@@ -151,7 +151,9 @@ impl SettingsView {
         meta_parts.push_str(" • ");
         meta_parts.push_str(ext_id);
 
-        let mut left_meta = row![text(font, meta_parts).size(11).color(theme_cfg.text_muted)];
+        let mut left_meta = row![text(font, meta_parts)
+            .size(font.px(11.0))
+            .color(theme_cfg.text_muted)];
         if ext.origin == ExtensionOrigin::User {
             left_meta = left_meta.push(pill_badge(
                 theme_cfg,
@@ -196,7 +198,7 @@ impl SettingsView {
         if !ext.manifest.description.trim().is_empty() {
             card_col = card_col.push(
                 text(font, ext.manifest.description.as_str())
-                    .size(12)
+                    .size(font.px(12.0))
                     .color(theme_cfg.text_muted)
                     .boxed(),
             );
@@ -251,7 +253,7 @@ impl SettingsView {
     fn view_extension_setting<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         ext: &'a ExtensionSnapshot,
         option: &'a SettingOption,
         saved_value: Option<&'a SettingValue>,
@@ -297,10 +299,10 @@ impl SettingsView {
 
                 let mut field = column![
                     text(font, option.label.as_str())
-                        .size(12)
+                        .size(font.px(12.0))
                         .color(theme_cfg.text_muted),
                     text_input(ph, current)
-                        .size(12)
+                        .size(font.px(12.0))
                         .padding(INPUT_PADDING)
                         .style(styles::search_input_style(theme_cfg))
                         .on_input(move |val| Message::ExtensionSettingChanged {
@@ -316,7 +318,7 @@ impl SettingsView {
                 if !desc.is_empty() {
                     field = field.push(
                         text(font, desc)
-                            .size(11)
+                            .size(font.px(11.0))
                             .color(theme_cfg.text_muted)
                             .boxed(),
                     );
@@ -355,7 +357,7 @@ impl SettingsView {
                     desc,
                     row![
                         text(font, display_val)
-                            .size(12)
+                            .size(font.px(12.0))
                             .color(theme_cfg.primary)
                             .width(Length::Fixed(52.0)),
                         Space::new().width(SPACE_SM),
@@ -409,9 +411,9 @@ impl SettingsView {
                     value: SettingValue::String(choice.value),
                     save_immediately: true,
                 })
-                .font(font)
+                .font(font.family)
                 .padding(INPUT_PADDING)
-                .text_size(12)
+                .text_size(font.px(12.0))
                 .handle(pick_list::Handle::Arrow {
                     size: Some(11.0.into()),
                 })
@@ -438,7 +440,9 @@ impl SettingsView {
                     row![
                         icons::icon(icons::REFRESH_SVG, 12.0, theme_cfg.primary),
                         Space::new().width(SPACE_MD),
-                        text(font, btn_text).size(11).color(theme_cfg.primary),
+                        text(font, btn_text)
+                            .size(font.px(11.0))
+                            .color(theme_cfg.primary),
                     ]
                     .align_y(Alignment::Center),
                 )
@@ -461,7 +465,7 @@ impl SettingsView {
 
 fn view_permissions_row<'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: font::Font,
     ext: &'a ExtensionSnapshot,
 ) -> Element<'a, Message> {
     let mut badges = row![].spacing(CHIP_ROW_SPACING);
@@ -491,7 +495,7 @@ fn view_permissions_row<'a>(
 
     row![
         text(font, "Permissions")
-            .size(11)
+            .size(font.px(11.0))
             .color(theme_cfg.text_muted),
         badges.wrap(),
     ]
@@ -502,7 +506,7 @@ fn view_permissions_row<'a>(
 
 fn action_button<'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: font::Font,
     icon_svg: &'static str,
     label: &'static str,
     color: Color,
@@ -512,7 +516,7 @@ fn action_button<'a>(
         row![
             icons::icon(icon_svg, 13.0, color),
             Space::new().width(SPACE_MD),
-            text(font, label).size(12).color(color),
+            text(font, label).size(font.px(12.0)).color(color),
         ]
         .align_y(Alignment::Center),
     )
@@ -524,11 +528,11 @@ fn action_button<'a>(
 
 fn pill_badge<'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: font::Font,
     label: impl Into<String>,
     color: Color,
 ) -> Element<'a, Message> {
-    container(text(font, label.into()).size(10).color(color))
+    container(text(font, label.into()).size(font.px(10.0)).color(color))
         .padding([2, 6])
         .style(move |_| container::Style {
             background: Some(iced::Background::Color(theme_cfg.surface)),
@@ -544,11 +548,11 @@ fn pill_badge<'a>(
 
 fn status_banner<'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: font::Font,
     color: Color,
     msg: &'a str,
 ) -> Element<'a, Message> {
-    container(text(font, msg).size(12).color(color))
+    container(text(font, msg).size(font.px(12.0)).color(color))
         .padding(BANNER_PADDING)
         .width(Length::Fill)
         .style(move |_| container::Style {

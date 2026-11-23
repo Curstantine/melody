@@ -121,12 +121,12 @@ fn truncate_str(s: &str, max_len: usize) -> String {
 
 fn menu_header<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: font::Font,
     label: &str,
 ) -> Element<'a, M> {
     container(
         text(font, truncate_str(label, 26))
-            .size(11)
+            .size(font.px(11.0))
             .wrapping(iced::widget::text::Wrapping::None)
             .color(theme_cfg.text_muted),
     )
@@ -143,7 +143,7 @@ fn menu_separator<'a, M: 'a>(theme_cfg: &'a ThemeConfig) -> Element<'a, M> {
 
 fn menu_item<'a, M: Clone + 'static>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: font::Font,
     icon_svg: &'static str,
     label: impl Into<String>,
     on_press: M,
@@ -160,7 +160,7 @@ fn menu_item<'a, M: Clone + 'static>(
         icons::icon(icon_svg, 12.0, icon_color),
         Space::new().width(6),
         text(font, label.into())
-            .size(12)
+            .size(font.px(12.0))
             .wrapping(iced::widget::text::Wrapping::None),
     ]
     .align_y(Alignment::Center)
@@ -185,10 +185,11 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
     menu: &'a ContextMenuState,
     playlists: &'a [PlaylistSummary],
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<font::Font>,
     window_size: Size,
     on_action: impl Fn(ContextMenuAction) -> M + Copy + 'a,
 ) -> Element<'a, M> {
+    let font = font.into();
     // 1. Full-screen transparent backdrop to catch clicks outside the menu
     let backdrop = mouse_area(
         container(Space::new())
@@ -634,7 +635,7 @@ pub fn render_context_menu<'a, M: Clone + 'static>(
                 sub_items = sub_items.push(
                     container(
                         text(font, "No playlists yet")
-                            .size(11)
+                            .size(font.px(11.0))
                             .wrapping(iced::widget::text::Wrapping::None)
                             .color(theme_cfg.text_muted),
                     )

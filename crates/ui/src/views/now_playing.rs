@@ -185,7 +185,7 @@ impl NowPlayingView {
     ) -> Element<'a, Message> {
         let content: Element<'a, Message> = match current_track {
             Some(track) => {
-                let font = fonts.primary_font();
+                let ui_font = fonts.ui_font();
                 let lyrics_font = fonts.lyrics_font();
                 let base_size = u32::from(fonts.lyrics_size);
                 let inactive_size = base_size.saturating_sub(1).max(10);
@@ -244,15 +244,15 @@ impl NowPlayingView {
                                 .boxed()
                         } else {
                             column![
-                                text(fonts.primary_font(), "No lyrics found for this track.")
-                                    .size(14)
+                                text(ui_font, "No lyrics found for this track.")
+                                    .size(ui_font.px(14.0))
                                     .color(theme_cfg.text),
                                 Space::new().height(4),
                                 text(
-                                    font,
+                                    ui_font,
                                     "Place a .lrc file in the same directory or embed lyrics in the audio file."
                                 )
-                                .size(12)
+                                .size(ui_font.px(12.0))
                                 .color(theme_cfg.text_muted),
                             ]
                             .boxed()
@@ -294,8 +294,8 @@ impl NowPlayingView {
                     };
                     let needs_scroll = available_for_card < INFO_BOX_SCROLL_THRESHOLD;
 
-                    let title = text(fonts.primary_font(), &track.title)
-                        .size(17)
+                    let title = text(ui_font, &track.title)
+                        .size(ui_font.px(17.0))
                         .color(theme_cfg.text)
                         .align_y(Alignment::Center);
 
@@ -304,27 +304,27 @@ impl NowPlayingView {
                     } else {
                         track.album.as_str()
                     };
-                    let artist_album_text = text(fonts.primary_font(), artist_album_str)
-                        .size(13)
+                    let artist_album_text = text(ui_font, artist_album_str)
+                        .size(ui_font.px(13.0))
                         .color(theme_cfg.text_muted);
 
-                    let details_row = text(fonts.primary_font(), self.cached.details_row.as_str())
-                        .size(11)
+                    let details_row = text(ui_font, self.cached.details_row.as_str())
+                        .size(ui_font.px(11.0))
                         .color(theme_cfg.text_muted);
 
                     // Optional tags (Album Artist, Composer, Label)
                     let mut extra_tags = column![].spacing(2);
                     if let Some(ref alb_artist) = self.cached.album_artist_tag {
                         extra_tags = extra_tags.push(
-                            text(fonts.primary_font(), alb_artist.as_str())
-                                .size(11)
+                            text(ui_font, alb_artist.as_str())
+                                .size(ui_font.px(11.0))
                                 .color(theme_cfg.text_muted),
                         );
                     }
                     if let Some(ref comp) = self.cached.composer_tag {
                         extra_tags = extra_tags.push(
-                            text(fonts.primary_font(), comp.as_str())
-                                .size(11)
+                            text(ui_font, comp.as_str())
+                                .size(ui_font.px(11.0))
                                 .color(theme_cfg.text_muted),
                         );
                     }
@@ -340,8 +340,8 @@ impl NowPlayingView {
                         up_next_tags = up_next_tags.push(
                             row![
                                 icons::icon(repeat_svg, 10.0, theme_cfg.primary),
-                                text(fonts.primary_font(), repeat_mode.label())
-                                    .size(10)
+                                text(ui_font, repeat_mode.label())
+                                    .size(ui_font.px(10.0))
                                     .color(theme_cfg.primary),
                             ]
                             .spacing(3)
@@ -352,8 +352,8 @@ impl NowPlayingView {
                         up_next_tags = up_next_tags.push(
                             row![
                                 icons::icon(icons::SHUFFLE_SVG, 10.0, theme_cfg.primary),
-                                text(fonts.primary_font(), "Shuffle")
-                                    .size(10)
+                                text(ui_font, "Shuffle")
+                                    .size(ui_font.px(10.0))
                                     .color(theme_cfg.primary),
                             ]
                             .spacing(3)
@@ -362,8 +362,8 @@ impl NowPlayingView {
                     }
 
                     let up_next_header = row![
-                        text(fonts.primary_font(), "Up next")
-                            .size(11)
+                        text(ui_font, "Up next")
+                            .size(ui_font.px(11.0))
                             .color(theme_cfg.primary),
                         Space::new().width(Length::Fill),
                         up_next_tags,
@@ -383,18 +383,18 @@ impl NowPlayingView {
                             };
 
                             let next_info = column![
-                                text(fonts.primary_font(), next_title)
-                                    .size(12)
+                                text(ui_font, next_title)
+                                    .size(ui_font.px(12.0))
                                     .color(theme_cfg.text),
-                                text(fonts.primary_font(), next_subtitle)
-                                    .size(11)
+                                text(ui_font, next_subtitle)
+                                    .size(ui_font.px(11.0))
                                     .color(theme_cfg.text_muted),
                             ]
                             .spacing(2)
                             .width(Length::Fill);
 
-                            let duration_tag = text(fonts.primary_font(), next_duration)
-                                .size(11)
+                            let duration_tag = text(ui_font, next_duration)
+                                .size(ui_font.px(11.0))
                                 .color(theme_cfg.text_muted);
 
                             button(
@@ -408,8 +408,8 @@ impl NowPlayingView {
                             .width(Length::Fill)
                             .boxed()
                         }
-                        None => text(fonts.primary_font(), "No upcoming tracks")
-                            .size(11)
+                        None => text(ui_font, "No upcoming tracks")
+                            .size(ui_font.px(11.0))
                             .color(theme_cfg.text_muted)
                             .boxed(),
                     };
@@ -417,20 +417,20 @@ impl NowPlayingView {
                     // Technical Details Section ("Properties", size 11, without icon)
                     let tech_info_section: Element<'a, Message> =
                         if !self.cached.tech_properties.is_empty() {
-                            let mut prop_col = column![text(fonts.primary_font(), "Properties")
-                                .size(11)
+                            let mut prop_col = column![text(ui_font, "Properties")
+                                .size(ui_font.px(11.0))
                                 .color(theme_cfg.primary),]
                             .spacing(4);
 
                             for (label, val) in &self.cached.tech_properties {
                                 prop_col = prop_col.push(
                                     row![
-                                        text(fonts.primary_font(), *label)
-                                            .size(11)
+                                        text(ui_font, *label)
+                                            .size(ui_font.px(11.0))
                                             .color(theme_cfg.text_muted)
                                             .width(80),
-                                        text(fonts.primary_font(), val.as_str())
-                                            .size(11)
+                                        text(ui_font, val.as_str())
+                                            .size(ui_font.px(11.0))
                                             .color(theme_cfg.text),
                                     ]
                                     .align_y(Alignment::Center)

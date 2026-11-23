@@ -711,9 +711,10 @@ impl AlbumsView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: impl Into<font::Font>,
         format_cfg: &'a layout::AlbumsFormatConfig,
     ) -> Element<'a, Message> {
+        let font = font.into();
         if self.albums.is_empty() {
             return component::empty_state(
                 theme_cfg,
@@ -777,7 +778,7 @@ impl AlbumsView {
     fn view_tiles<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         format_cfg: &'a layout::AlbumsFormatConfig,
     ) -> Element<'a, Message> {
         let per_row = self.items_per_row();
@@ -892,7 +893,7 @@ impl AlbumsView {
     fn view_list<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         format_cfg: &'a layout::AlbumsFormatConfig,
     ) -> Element<'a, Message> {
         let total_rows = self.albums.len();

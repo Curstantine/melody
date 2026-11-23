@@ -11,12 +11,12 @@ impl SettingsView {
     pub(super) fn view_update_section<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
     ) -> Element<'a, Message> {
         let current_version = env!("CARGO_PKG_VERSION");
         let ver_label = || {
             text(font, format!("v{current_version}"))
-                .size(10)
+                .size(font.px(10.0))
                 .color(theme_cfg.text_muted)
         };
 
@@ -43,7 +43,7 @@ impl SettingsView {
                             spinner,
                             Space::new().width(SPACE_MD),
                             text(font, format!("Downloading {}%...", percent.clamp(&0, &100)))
-                                .size(12)
+                                .size(font.px(12.0))
                                 .color(theme_cfg.text_muted),
                         ]
                         .align_y(Alignment::Center),
@@ -77,7 +77,7 @@ impl SettingsView {
                     spinner,
                     Space::new().width(SPACE_SM),
                     text(font, "Checking for updates...")
-                        .size(11)
+                        .size(font.px(11.0))
                         .line_height(1.0)
                         .color(theme_cfg.text_muted),
                     Space::new().width(Length::Fill),
@@ -97,7 +97,7 @@ impl SettingsView {
             updater::UpdateStatus::Failed(_) => {
                 let error_row = row![
                     text(font, "Update check failed")
-                        .size(11)
+                        .size(font.px(11.0))
                         .color(theme_cfg.danger),
                     Space::new().width(Length::Fill),
                     ver_label(),
@@ -127,7 +127,7 @@ impl SettingsView {
 
 fn primary_action_button<'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: font::Font,
     icon_svg: &'static str,
     label: &'static str,
     on_press: Message,
@@ -137,7 +137,9 @@ fn primary_action_button<'a>(
             row![
                 icons::icon(icon_svg, 13.0, theme_cfg.background),
                 Space::new().width(SPACE_MD),
-                text(font, label).size(12).color(theme_cfg.background),
+                text(font, label)
+                    .size(font.px(12.0))
+                    .color(theme_cfg.background),
             ]
             .align_y(Alignment::Center),
         )
@@ -153,7 +155,7 @@ fn primary_action_button<'a>(
 
 fn update_info_row<'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: font::Font,
     info: &'a updater::UpdateInfo,
     current_version: &str,
 ) -> Element<'a, Message> {
@@ -166,7 +168,7 @@ fn update_info_row<'a>(
         ),
         Space::new().width(Length::Fill),
         text(font, format!("v{current_version}"))
-            .size(10)
+            .size(font.px(10.0))
             .color(theme_cfg.text_muted),
     ]
     .align_y(Alignment::Center)
@@ -174,14 +176,14 @@ fn update_info_row<'a>(
 }
 
 fn release_notes_link<'a>(
-    font: iced::Font,
+    font: font::Font,
     label: String,
     color: Color,
     release_url: String,
 ) -> Element<'a, Message> {
     button(
         row![
-            text(font, label).size(11).color(color),
+            text(font, label).size(font.px(11.0)).color(color),
             Space::new().width(SPACE_SM),
             icons::icon(icons::EXTERNAL_LINK_SVG, 10.0, color),
         ]

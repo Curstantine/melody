@@ -11,7 +11,7 @@ impl SettingsView {
     pub(super) fn view_appearance<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
         let header = component::settings_header(theme_cfg, font, "Appearance & interface", Some("Customize color palette, typography font family, default display modes, and layout density"));
@@ -63,12 +63,14 @@ impl SettingsView {
 
         let titlebar_toggle = row![
             column![
-                text(font, "Custom titlebar").size(13).color(theme_cfg.text),
+                text(font, "Custom titlebar")
+                    .size(font.px(13.0))
+                    .color(theme_cfg.text),
                 text(
                     font,
                     "Merge navigation bar and window controls into a single custom titlebar"
                 )
-                .size(11)
+                .size(font.px(11.0))
                 .color(theme_cfg.text_muted),
             ]
             .spacing(2)
@@ -86,7 +88,7 @@ impl SettingsView {
                 icons::icon(icons::REFRESH_SVG, 13.0, theme_cfg.text),
                 Space::new().width(SPACE_MD),
                 text(font, "Reload themes & layouts from disk")
-                    .size(12)
+                    .size(font.px(12.0))
                     .color(theme_cfg.text),
             ]
             .align_y(Alignment::Center),
@@ -100,7 +102,7 @@ impl SettingsView {
                 icons::icon(icons::OPEN_SVG, 13.0, theme_cfg.text),
                 Space::new().width(SPACE_MD),
                 text(font, "Open config folder")
-                    .size(12)
+                    .size(font.px(12.0))
                     .color(theme_cfg.text),
             ]
             .align_y(Alignment::Center),
@@ -116,14 +118,14 @@ impl SettingsView {
             column![
                 column![
                     text(font, "Color palette")
-                        .size(12)
+                        .size(font.px(12.0))
                         .color(theme_cfg.text_muted),
                     theme_buttons,
                 ]
                 .spacing(CARD_SPACING),
                 column![
                     text(font, "Layout preset")
-                        .size(12)
+                        .size(font.px(12.0))
                         .color(theme_cfg.text_muted),
                     layout_buttons,
                 ]
@@ -158,9 +160,9 @@ impl SettingsView {
         )
         .on_select(Message::SelectFont)
         .placeholder("Select a system font...")
-        .font(font)
+        .font(font.family)
         .padding(INPUT_PADDING)
-        .text_size(12)
+        .text_size(font.px(12.0))
         .handle(pick_list::Handle::Arrow {
             size: Some(11.0.into()),
         })
@@ -168,37 +170,79 @@ impl SettingsView {
         .style(styles::pick_list_style(theme_cfg))
         .menu_style(styles::menu_style(theme_cfg));
 
-        let active_iced_font = font;
+        let ui_size_presets: [u16; 4] = [10, 12, 14, 16];
+        let ui_size_preset_buttons = {
+            let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
+            for &size in &ui_size_presets {
+                let is_sel = ctx.ui_font_size == size;
+                let btn = component::chip(
+                    theme_cfg,
+                    font,
+                    format!("{} px", size),
+                    is_sel,
+                    Message::SetUiFontSize(size),
+                );
+                r = r.push(btn);
+            }
+            r
+        };
+
+        let ui_font_size_row = component::settings_row(
+            theme_cfg,
+            font,
+            "UI font size",
+            "Base text size used across the user interface",
+            row![
+                text(font, format!("{} px", ctx.ui_font_size))
+                    .size(font.px(12.0))
+                    .color(theme_cfg.primary)
+                    .width(Length::Fixed(55.0)),
+                Space::new().width(SPACE_SM),
+                slider(
+                    f32::from(font::MIN_UI_FONT_SIZE)..=f32::from(font::MAX_UI_FONT_SIZE),
+                    ctx.ui_font_size as f32,
+                    |val| Message::SetUiFontSize(val.round() as u16),
+                )
+                .on_release(Message::SaveConfig)
+                .style(styles::settings_slider_style(theme_cfg))
+                .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
+                Space::new().width(SPACE_LG),
+                ui_size_preset_buttons,
+            ]
+            .align_y(Alignment::Center),
+        );
+
+        let active_iced_font = font.family;
 
         let sample_text_box = container(
             column![
                 text(font, "Multilingual glyph rendering preview")
-                    .size(11)
+                    .size(font.px(11.0))
                     .color(theme_cfg.primary),
                 Space::new().height(SPACE_SM),
                 text(
                     font,
                     "English: The quick brown fox jumps over the lazy dog."
                 )
-                .size(12)
+                .size(font.px(12.0))
                 .color(theme_cfg.text)
                 .font(active_iced_font),
                 text(
                     font,
                     "日本語: あのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら"
                 )
-                .size(12)
+                .size(font.px(12.0))
                 .color(theme_cfg.text)
                 .font(active_iced_font),
                 text(font, "中文: 落霞与孤齐飞，秋水共长天一色")
-                    .size(12)
+                    .size(font.px(12.0))
                     .color(theme_cfg.text)
                     .font(active_iced_font),
                 text(
                     font,
                     "한국어: 별 하나에 추억과 별 하나에 사랑과 쓸쓸함과 동경"
                 )
-                .size(12)
+                .size(font.px(12.0))
                 .color(theme_cfg.text)
                 .font(active_iced_font),
             ]
@@ -228,6 +272,7 @@ impl SettingsView {
                     "Font family used in the user interface",
                     container(font_selector).width(Length::Fixed(SETTING_DROPDOWN_WIDTH)),
                 ),
+                ui_font_size_row,
                 sample_text_box,
             ]
             .spacing(SECTION_SPACING)
@@ -303,7 +348,7 @@ impl SettingsView {
             "Artwork card width for the album catalog grid",
             row![
                 text(font, format!("{} px", ctx.album_tile_width))
-                    .size(12)
+                    .size(font.px(12.0))
                     .color(theme_cfg.primary)
                     .width(Length::Fixed(55.0)),
                 Space::new().width(SPACE_SM),
@@ -366,7 +411,7 @@ impl SettingsView {
             "Avatar card width for the artist catalog grid",
             row![
                 text(font, format!("{} px", ctx.artist_tile_width))
-                    .size(12)
+                    .size(font.px(12.0))
                     .color(theme_cfg.primary)
                     .width(Length::Fixed(55.0)),
                 Space::new().width(SPACE_SM),
@@ -410,9 +455,9 @@ impl SettingsView {
         )
         .on_select(Message::SelectLyricsFont)
         .placeholder("Select a system font...")
-        .font(font)
+        .font(font.family)
         .padding(INPUT_PADDING)
-        .text_size(12)
+        .text_size(font.px(12.0))
         .handle(pick_list::Handle::Arrow {
             size: Some(11.0.into()),
         })
@@ -456,7 +501,7 @@ impl SettingsView {
                     "Base text size for synced and plain lyrics in Now Playing",
                     row![
                         text(font, format!("{} px", ctx.lyrics_font_size))
-                            .size(12)
+                            .size(font.px(12.0))
                             .color(theme_cfg.primary)
                             .width(Length::Fixed(55.0)),
                         Space::new().width(SPACE_SM),
@@ -489,7 +534,9 @@ impl SettingsView {
                     row![
                         icons::icon(icons::OPEN_SVG, 14.0, theme_cfg.text),
                         Space::new().width(SPACE_MD),
-                        text(font, "Open gallery").size(12).color(theme_cfg.text),
+                        text(font, "Open gallery")
+                            .size(font.px(12.0))
+                            .color(theme_cfg.text),
                     ]
                     .align_y(Alignment::Center),
                 )

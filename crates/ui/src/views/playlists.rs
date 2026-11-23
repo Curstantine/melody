@@ -312,13 +312,14 @@ impl PlaylistsView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: impl Into<font::Font>,
         store: &'a QueueStore,
         dragging_track: Option<(u64, usize)>,
         dragging_detail: Option<(i64, usize)>,
         playlists_fmt: &'a layout::PlaylistsFormatConfig,
         queue_fmt: &'a layout::QueueFormatConfig,
     ) -> Element<'a, Message> {
+        let font = font.into();
         let toolbar = self.view_toolbar(theme_cfg, font, store);
         let content: Element<'a, Message> = match self.section {
             PlaylistSection::Playlists => {
@@ -349,7 +350,7 @@ impl PlaylistsView {
     fn view_toolbar<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         store: &'a QueueStore,
     ) -> Element<'a, Message> {
         let section_chip = |label: &'static str, section: PlaylistSection, icon: &'static str| {
@@ -593,7 +594,7 @@ mod tests {
         // Open-playlist context: clickable row.
         let _ = TrackRow {
             theme: &theme_cfg,
-            font: iced::Font::DEFAULT,
+            font: font::Font::DEFAULT,
             index: 0,
             title: "One".into(),
             artist: "Artist".into(),
@@ -623,7 +624,7 @@ mod tests {
         // Open-playlist context: unmatched (unclickable) entry.
         let _ = TrackRow {
             theme: &theme_cfg,
-            font: iced::Font::DEFAULT,
+            font: font::Font::DEFAULT,
             index: 1,
             title: "Missing".into(),
             artist: "Artist".into(),
@@ -650,7 +651,7 @@ mod tests {
         // Queue context.
         let _ = TrackRow {
             theme: &theme_cfg,
-            font: iced::Font::DEFAULT,
+            font: font::Font::DEFAULT,
             index: 2,
             title: "Three".into(),
             artist: "Artist".into(),

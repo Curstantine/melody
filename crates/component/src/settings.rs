@@ -12,14 +12,20 @@ use crate::{border_vert, text};
 /// A section header for settings pages with an optional muted description.
 pub fn settings_header<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<font::Font>,
     title: &'static str,
     description: Option<&'static str>,
 ) -> Element<'a, M> {
-    let mut header = column![text(font, title).size(20).color(theme_cfg.text),];
+    let font = font.into();
+    let mut header = column![text(font, title).size(font.px(20.0)).color(theme_cfg.text),];
 
     if let Some(x) = description {
-        header = header.push(text(font, x).size(12).color(theme_cfg.text_muted).boxed());
+        header = header.push(
+            text(font, x)
+                .size(font.px(12.0))
+                .color(theme_cfg.text_muted)
+                .boxed(),
+        );
     }
 
     header.spacing(4).boxed()
@@ -28,12 +34,15 @@ pub fn settings_header<'a, M: 'a>(
 /// A card container with a primary colored title header.
 pub fn settings_card<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<font::Font>,
     title: impl Into<Cow<'a, str>>,
     content: Element<'a, M>,
 ) -> Element<'a, M> {
+    let font = font.into();
     column![
-        text(font, title).size(11).color(theme_cfg.primary),
+        text(font, title)
+            .size(font.px(11.0))
+            .color(theme_cfg.primary),
         Space::new().height(4),
         border_vert(1.0, theme_cfg.border),
         Space::new().height(12),
@@ -45,14 +54,17 @@ pub fn settings_card<'a, M: 'a>(
 /// A metric card displaying a prominent value and muted label.
 pub fn metric_box<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<font::Font>,
     label: &'static str,
     value: String,
 ) -> Element<'a, M> {
+    let font = font.into();
     container(
         column![
-            text(font, value).size(16).color(theme_cfg.text),
-            text(font, label).size(11).color(theme_cfg.text_muted),
+            text(font, value).size(font.px(16.0)).color(theme_cfg.text),
+            text(font, label)
+                .size(font.px(11.0))
+                .color(theme_cfg.text_muted),
         ]
         .spacing(2)
         .padding([8, 12]),
@@ -72,7 +84,7 @@ pub fn metric_box<'a, M: 'a>(
 
 fn settings_row_with_color<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: font::Font,
     title: impl Into<Cow<'a, str>>,
     title_color: Color,
     subtitle: impl Into<Cow<'a, str>>,
@@ -80,8 +92,10 @@ fn settings_row_with_color<'a, M: 'a>(
 ) -> Element<'a, M> {
     row![
         column![
-            text(font, title).size(12).color(title_color),
-            text(font, subtitle).size(11).color(theme_cfg.text_muted),
+            text(font, title).size(font.px(12.0)).color(title_color),
+            text(font, subtitle)
+                .size(font.px(11.0))
+                .color(theme_cfg.text_muted),
         ]
         .spacing(4)
         .width(Length::Fill),
@@ -95,14 +109,14 @@ fn settings_row_with_color<'a, M: 'a>(
 /// A settings row with a title and subtitle on the left and a control widget on the right.
 pub fn settings_row<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<font::Font>,
     title: impl Into<Cow<'a, str>>,
     subtitle: impl Into<Cow<'a, str>>,
     control: impl Widget<M, iced::Theme, iced::Renderer> + 'a,
 ) -> Element<'a, M> {
     settings_row_with_color(
         theme_cfg,
-        font,
+        font.into(),
         title,
         theme_cfg.text_muted,
         subtitle,
@@ -113,10 +127,17 @@ pub fn settings_row<'a, M: 'a>(
 /// A destructive settings row whose title uses the theme's danger color.
 pub fn settings_danger_row<'a, M: 'a>(
     theme_cfg: &'a ThemeConfig,
-    font: iced::Font,
+    font: impl Into<font::Font>,
     title: impl Into<Cow<'a, str>>,
     subtitle: impl Into<Cow<'a, str>>,
     control: impl Widget<M, iced::Theme, iced::Renderer> + 'a,
 ) -> Element<'a, M> {
-    settings_row_with_color(theme_cfg, font, title, theme_cfg.danger, subtitle, control)
+    settings_row_with_color(
+        theme_cfg,
+        font.into(),
+        title,
+        theme_cfg.danger,
+        subtitle,
+        control,
+    )
 }

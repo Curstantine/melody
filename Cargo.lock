@@ -926,6 +926,7 @@ dependencies = [
 name = "component"
 version = "0.5.7"
 dependencies = [
+ "font",
  "iced",
  "model",
  "theme",

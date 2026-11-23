@@ -11,7 +11,7 @@ impl SettingsView {
     pub(super) fn view_playback<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         ctx: &SettingsContext<'a>,
     ) -> Element<'a, Message> {
         let header = component::settings_header(
@@ -48,9 +48,9 @@ impl SettingsView {
                 Message::SetOutputDevice(Some(selected))
             }
         })
-        .font(font)
+        .font(font.family)
         .padding(INPUT_PADDING)
-        .text_size(12)
+        .text_size(font.px(12.0))
         .handle(pick_list::Handle::Arrow {
             size: Some(11.0.into()),
         })
@@ -129,9 +129,9 @@ impl SettingsView {
             |mode: &model::RepeatMode| mode.label().to_string(),
         )
         .on_select(Message::SetRepeatMode)
-        .font(font)
+        .font(font.family)
         .padding(INPUT_PADDING)
-        .text_size(12)
+        .text_size(font.px(12.0))
         .handle(pick_list::Handle::Arrow {
             size: Some(11.0.into()),
         })
@@ -174,9 +174,9 @@ impl SettingsView {
             |filter: &audio::ResamplingFilter| filter.label().to_string(),
         )
         .on_select(Message::SetResamplingFilter)
-        .font(font)
+        .font(font.family)
         .padding(INPUT_PADDING)
-        .text_size(12)
+        .text_size(font.px(12.0))
         .handle(pick_list::Handle::Arrow {
             size: Some(11.0.into()),
         })
@@ -201,9 +201,9 @@ impl SettingsView {
             },
         )
         .on_select(Message::SetResamplingQuality)
-        .font(font)
+        .font(font.family)
         .padding(INPUT_PADDING)
-        .text_size(12)
+        .text_size(font.px(12.0))
         .handle(pick_list::Handle::Arrow {
             size: Some(11.0.into()),
         })

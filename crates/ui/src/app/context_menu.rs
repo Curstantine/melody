@@ -526,24 +526,26 @@ impl App {
         )
         .on_press(Message::CancelDuplicatePrompt);
 
-        let font = self.fonts.primary_font();
+        let font = self.fonts.ui_font();
         let dialog_content = column![
             row![
                 icons::icon(icons::DISC_SVG, 16.0, theme_cfg.primary),
                 Space::new().width(8),
-                component::text(font, header).size(14).color(theme_cfg.text),
+                component::text(font, header)
+                    .size(font.px(14.0))
+                    .color(theme_cfg.text),
             ]
             .align_y(Alignment::Center),
             Space::new().height(12),
             component::text(font, message_text)
-                .size(12)
+                .size(font.px(12.0))
                 .color(theme_cfg.text_muted),
             Space::new().height(20),
             row![
                 Space::new().width(Length::Fill),
                 button(
                     component::text(font, "Cancel")
-                        .size(12)
+                        .size(font.px(12.0))
                         .color(theme_cfg.text_muted)
                 )
                 .padding([6, 14])
@@ -552,7 +554,7 @@ impl App {
                 Space::new().width(8),
                 button(
                     component::text(font, "Add anyway")
-                        .size(12)
+                        .size(font.px(12.0))
                         .color(Color::WHITE)
                 )
                 .padding([6, 14])

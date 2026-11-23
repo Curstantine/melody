@@ -12,12 +12,15 @@ impl SettingsView {
     pub(super) fn view_sidebar<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: impl Into<font::Font>,
     ) -> Element<'a, Message> {
+        let font = font.into();
         let sidebar_title = column![
-            text(font, "Preferences").size(11).color(theme_cfg.primary),
+            text(font, "Preferences")
+                .size(font.px(11.0))
+                .color(theme_cfg.primary),
             text(font, "System configuration")
-                .size(11)
+                .size(font.px(11.0))
                 .color(theme_cfg.text_muted),
         ]
         .spacing(SIDEBAR_HEADER_SPACING)
@@ -39,8 +42,10 @@ impl SettingsView {
                     icons::icon(icon_svg, 16.0, color),
                     Space::new().width(SPACE_LG),
                     column![
-                        text(font, title).size(13).color(color),
-                        text(font, subtitle).size(10).color(theme_cfg.text_muted),
+                        text(font, title).size(font.px(13.0)).color(color),
+                        text(font, subtitle)
+                            .size(font.px(10.0))
+                            .color(theme_cfg.text_muted),
                     ]
                     .spacing(SIDEBAR_ITEM_SPACING),
                 ]

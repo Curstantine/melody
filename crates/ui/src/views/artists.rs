@@ -415,9 +415,10 @@ impl ArtistsView {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: impl Into<font::Font>,
         format_cfg: &'a layout::ArtistsFormatConfig,
     ) -> Element<'a, Message> {
+        let font = font.into();
         if self.artists.is_empty() {
             return component::empty_state(
                 theme_cfg,
@@ -478,7 +479,7 @@ impl ArtistsView {
     fn view_tiles<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         format_cfg: &'a layout::ArtistsFormatConfig,
     ) -> Element<'a, Message> {
         let per_row = self.items_per_row();
@@ -594,7 +595,7 @@ impl ArtistsView {
     fn view_list<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: font::Font,
         format_cfg: &'a layout::ArtistsFormatConfig,
     ) -> Element<'a, Message> {
         let total_rows = self.artists.len();

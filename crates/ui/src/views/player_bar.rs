@@ -85,10 +85,11 @@ impl PlayerBar {
     pub fn view_track_info<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: impl Into<font::Font>,
         current_track: Option<&'a Track>,
         current_cover: Option<&'a image::Handle>,
     ) -> Element<'a, Message> {
+        let font = font.into();
         let bar_fg = theme_cfg.player_bar_text_color();
         let bar_muted = iced::Color { a: 0.6, ..bar_fg };
 
@@ -105,17 +106,19 @@ impl PlayerBar {
         let track_details = match current_track {
             Some(track) => column![
                 component::Marquee::new(&track.title)
-                    .size(13.0)
+                    .size(font.px(13.0))
                     .color(bar_fg)
-                    .font(font),
+                    .font(font.family),
                 component::Marquee::new(&self.artist_album)
-                    .size(11.0)
+                    .size(font.px(11.0))
                     .color(bar_muted)
-                    .font(font),
+                    .font(font.family),
             ],
             None => column![
-                text(font, "No track playing").size(13).color(bar_fg),
-                text(font, "Melody").size(11).color(bar_muted),
+                text(font, "No track playing")
+                    .size(font.px(13.0))
+                    .color(bar_fg),
+                text(font, "Melody").size(font.px(11.0)).color(bar_muted),
             ],
         }
         .spacing(2)
@@ -179,10 +182,11 @@ impl PlayerBar {
     pub fn view_seek_bar<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: impl Into<font::Font>,
         position_ms: u64,
         duration_ms: u64,
     ) -> Element<'a, Message> {
+        let font = font.into();
         let bar_fg = theme_cfg.player_bar_text_color();
         let bar_muted = iced::Color { a: 0.6, ..bar_fg };
 
@@ -204,7 +208,7 @@ impl PlayerBar {
                 "0:00 / 0:00"
             },
         )
-        .size(10)
+        .size(font.px(10.0))
         .color(bar_muted);
 
         let seek_range_max = if duration_ms > 0 {
@@ -233,9 +237,10 @@ impl PlayerBar {
     pub fn view_volume<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: impl Into<font::Font>,
         volume: f32,
     ) -> Element<'a, Message> {
+        let font = font.into();
         let bar_fg = theme_cfg.player_bar_text_color();
         let bar_muted = iced::Color { a: 0.6, ..bar_fg };
 
@@ -271,7 +276,7 @@ impl PlayerBar {
                     "100%"
                 },
             )
-            .size(11)
+            .size(font.px(11.0))
             .color(bar_muted)
             .width(32),
         ]
@@ -329,7 +334,7 @@ impl PlayerBar {
     pub fn view<'a>(
         &'a self,
         theme_cfg: &'a ThemeConfig,
-        font: iced::Font,
+        font: impl Into<font::Font>,
         current_track: Option<&'a Track>,
         current_cover: Option<&'a image::Handle>,
         is_playing: bool,
@@ -339,6 +344,7 @@ impl PlayerBar {
         is_shuffle: bool,
         repeat_mode: model::RepeatMode,
     ) -> Element<'a, Message> {
+        let font = font.into();
         let bar_fg = theme_cfg.player_bar_text_color();
         let bar_muted = iced::Color { a: 0.6, ..bar_fg };
 
@@ -366,7 +372,7 @@ impl PlayerBar {
                 "0:00 / 0:00"
             },
         )
-        .size(10)
+        .size(font.px(10.0))
         .align_x(Alignment::End)
         .color(bar_muted);
 
