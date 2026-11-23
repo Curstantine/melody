@@ -196,7 +196,7 @@ pub fn validate_settings_schema(options: &[SettingOption]) -> Result<(), String>
                     ));
                 }
             }
-            SettingKind::Toggle { .. } | SettingKind::Text { .. } | SettingKind::Secret { .. } => {}
+            SettingKind::Toggle { .. } | SettingKind::Text { .. } => {}
         }
     }
     Ok(())
@@ -228,7 +228,7 @@ pub fn merge_settings_with_schema(
 fn value_matches_kind(val: &SettingValue, kind: &SettingKind) -> bool {
     match kind {
         SettingKind::Toggle { .. } => matches!(val, SettingValue::Bool(_)),
-        SettingKind::Text { .. } | SettingKind::Secret { .. } | SettingKind::Select { .. } => {
+        SettingKind::Text { .. } | SettingKind::Select { .. } => {
             matches!(val, SettingValue::String(_))
         }
         SettingKind::Number { .. } => {

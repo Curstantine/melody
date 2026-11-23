@@ -326,47 +326,6 @@ impl SettingsView {
                 field.boxed()
             }
 
-            SettingKind::Secret {
-                default,
-                placeholder,
-            } => {
-                let current = saved_value
-                    .and_then(SettingValue::as_str)
-                    .unwrap_or(default.as_str());
-                let ph = placeholder.as_deref().unwrap_or("");
-                let ext_id_owned = ext_id.clone();
-                let key_owned = key.clone();
-
-                let mut field = column![
-                    text(font, option.label.as_str())
-                        .size(12)
-                        .color(theme_cfg.text_muted),
-                    text_input(ph, current)
-                        .secure(true)
-                        .size(12)
-                        .padding(INPUT_PADDING)
-                        .style(styles::search_input_style(theme_cfg))
-                        .on_input(move |val| Message::ExtensionSettingChanged {
-                            extension_id: ext_id_owned.clone(),
-                            key: key_owned.clone(),
-                            value: SettingValue::String(val),
-                            save_immediately: false,
-                        })
-                        .width(Length::Fill),
-                ]
-                .spacing(FORM_FIELD_SPACING);
-
-                if !desc.is_empty() {
-                    field = field.push(
-                        text(font, desc)
-                            .size(11)
-                            .color(theme_cfg.text_muted)
-                            .boxed(),
-                    );
-                }
-                field.boxed()
-            }
-
             SettingKind::Number {
                 default,
                 min,

@@ -27,12 +27,6 @@ pub enum SettingKind {
         #[serde(default)]
         placeholder: Option<String>,
     },
-    Secret {
-        #[serde(default)]
-        default: String,
-        #[serde(default)]
-        placeholder: Option<String>,
-    },
     Number {
         default: f64,
         min: f64,
@@ -56,9 +50,7 @@ impl SettingKind {
     pub fn default_value(&self) -> Option<SettingValue> {
         match self {
             Self::Toggle { default } => Some(SettingValue::Bool(*default)),
-            Self::Text { default, .. } | Self::Secret { default, .. } => {
-                Some(SettingValue::String(default.clone()))
-            }
+            Self::Text { default, .. } => Some(SettingValue::String(default.clone())),
             Self::Number { default, step, .. } => {
                 if step.fract() == 0.0 && default.fract() == 0.0 {
                     Some(SettingValue::Integer(*default as i64))

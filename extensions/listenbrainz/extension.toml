@@ -11,7 +11,7 @@ permissions = ["playback-events", "network", "settings"]
 key = "user_token"
 label = "User token"
 description = "Obtain your user token from your profile at https://listenbrainz.org/profile/"
-type = "secret"
+type = "text"
 default = ""
 placeholder = "Enter ListenBrainz user token..."
 

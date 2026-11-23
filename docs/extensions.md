@@ -44,7 +44,7 @@ allowed_hosts = ["api.example.com", "*.example.org"]
 key = "api_token"
 label = "API token"
 description = "Token used to authenticate outbound requests"
-type = "secret"
+type = "text"
 default = ""
 placeholder = "Enter API token..."
 ```
@@ -93,7 +93,6 @@ Supported option `type` values:
 
 - **`toggle`**: Boolean switch (`default = true | false`).
 - **`text`**: Single-line text input (`default`, optional `placeholder`).
-- **`secret`**: Masked password/token input (`default`, optional `placeholder`).
 - **`number`**: Slider with numeric readout (`default`, `min`, `max`, optional `step` defaulting to `1.0`, optional `unit`).
 - **`select`**: Dropdown menu (`default`, `options = [{ value = "...", label = "..." }]`).
 - **`action`**: Button (`button_label`) that calls `Extension::on_action(action_id, settings)` and displays the returned `Ok(msg)` / `Err(msg)` banner inside the extension's card.

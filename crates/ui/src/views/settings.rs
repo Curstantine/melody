@@ -229,15 +229,6 @@ mod tests {
                 },
             },
             SettingOption {
-                key: "api_secret".to_string(),
-                label: "Secret token".to_string(),
-                description: Some("API secret".to_string()),
-                kind: SettingKind::Secret {
-                    default: String::new(),
-                    placeholder: Some("Enter token...".to_string()),
-                },
-            },
-            SettingOption {
                 key: "threshold".to_string(),
                 label: "Scrobble threshold".to_string(),
                 description: None,
