@@ -225,7 +225,7 @@ impl PlayerBar {
         .on_release(Message::SeekFinished)
         .style(styles::seek_slider_style(theme_cfg))
         .width(Length::Fill)
-        .height(8);
+        .height(12);
 
         row![seek_bar, Space::new().width(8), time_info]
             .spacing(4)
@@ -422,7 +422,7 @@ impl PlayerBar {
         .on_release(Message::SeekFinished)
         .style(styles::seek_slider_style(theme_cfg))
         .width(Length::Fill)
-        .height(8);
+        .height(12);
 
         let top_right_timing = row![Space::new().width(Length::Fill), time_info]
             .padding(iced::Padding {
@@ -433,7 +433,11 @@ impl PlayerBar {
             })
             .width(Length::Fill);
 
-        let bar_stack = stack![sides_row, center_controls, top_right_timing, seek_bar]
+        // Shift the 12px slider up by 5px so its 2px rail sits flush at y=0
+        // with no background gap above it, while preserving a 12px vertical hit area.
+        let seek_bar_layer = component::offset_y(-5.0, seek_bar.boxed());
+
+        let bar_stack = stack![sides_row, center_controls, top_right_timing, seek_bar_layer]
             .width(Length::Fill)
             .height(72);
 

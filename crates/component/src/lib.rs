@@ -15,6 +15,7 @@ pub mod context_menu;
 pub mod hover_stack;
 pub mod icons;
 pub mod marquee;
+pub mod offset;
 pub mod settings;
 pub mod spinner;
 pub mod styles;
@@ -31,6 +32,7 @@ pub use crate::{
     },
     hover_stack::{hover_stack, HoverStack},
     marquee::Marquee,
+    offset::{offset_y, VerticalOffset},
     settings::{metric_box, settings_card, settings_danger_row, settings_header, settings_row},
     spinner::Spinner,
 };
