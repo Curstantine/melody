@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fs, path::Path};
 
-use melody_extension_sdk::{ExtensionConfigEntry, SettingValue};
+use melody_extension_sdk::ExtensionConfigEntry;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
@@ -126,142 +126,6 @@ impl Default for AppConfig {
     }
 }
 
-/// Migrates legacy `[scrobble]` TOML fields into `extensions["melody.listenbrainz"]`
-/// and `extensions["melody.lastfm"]` when `extensions` is empty.
-fn migrate_legacy_scrobble(content: &str, extensions: &mut BTreeMap<String, ExtensionConfigEntry>) {
-    if !extensions.is_empty() {
-        return;
-    }
-    let Ok(root) = toml::from_str::<toml::Table>(content) else {
-        return;
-    };
-    let Some(scrobble) = root.get("scrobble").and_then(|v| v.as_table()) else {
-        return;
-    };
-
-    let submit_now_playing = scrobble
-        .get("submit_now_playing")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(true);
-    let scrobble_percent = scrobble
-        .get("scrobble_percent")
-        .and_then(|v| v.as_integer())
-        .unwrap_or(50);
-
-    let lb_enabled = scrobble
-        .get("listenbrainz_enabled")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let lb_token = scrobble
-        .get("listenbrainz_token")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let lb_url = scrobble
-        .get("listenbrainz_api_url")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
-    if lb_enabled || !lb_token.is_empty() || !lb_url.is_empty() {
-        let mut settings = BTreeMap::new();
-        if !lb_token.is_empty() {
-            settings.insert(
-                "user_token".to_string(),
-                SettingValue::String(lb_token.to_string()),
-            );
-        }
-        if !lb_url.is_empty() {
-            settings.insert(
-                "api_url".to_string(),
-                SettingValue::String(lb_url.to_string()),
-            );
-        }
-        settings.insert(
-            "submit_now_playing".to_string(),
-            SettingValue::Bool(submit_now_playing),
-        );
-        settings.insert(
-            "scrobble_percent".to_string(),
-            SettingValue::Integer(scrobble_percent),
-        );
-        extensions.insert(
-            "melody.listenbrainz".to_string(),
-            ExtensionConfigEntry {
-                enabled: lb_enabled,
-                settings,
-            },
-        );
-    }
-
-    let lfm_enabled = scrobble
-        .get("lastfm_enabled")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let lfm_key = scrobble
-        .get("lastfm_api_key")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let lfm_secret = scrobble
-        .get("lastfm_api_secret")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let lfm_sk = scrobble
-        .get("lastfm_session_key")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let lfm_url = scrobble
-        .get("lastfm_api_url")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
-    if lfm_enabled
-        || !lfm_key.is_empty()
-        || !lfm_secret.is_empty()
-        || !lfm_sk.is_empty()
-        || !lfm_url.is_empty()
-    {
-        let mut settings = BTreeMap::new();
-        if !lfm_key.is_empty() {
-            settings.insert(
-                "api_key".to_string(),
-                SettingValue::String(lfm_key.to_string()),
-            );
-        }
-        if !lfm_secret.is_empty() {
-            settings.insert(
-                "api_secret".to_string(),
-                SettingValue::String(lfm_secret.to_string()),
-            );
-        }
-        if !lfm_sk.is_empty() {
-            settings.insert(
-                "session_key".to_string(),
-                SettingValue::String(lfm_sk.to_string()),
-            );
-        }
-        if !lfm_url.is_empty() {
-            settings.insert(
-                "api_url".to_string(),
-                SettingValue::String(lfm_url.to_string()),
-            );
-        }
-        settings.insert(
-            "submit_now_playing".to_string(),
-            SettingValue::Bool(submit_now_playing),
-        );
-        settings.insert(
-            "scrobble_percent".to_string(),
-            SettingValue::Integer(scrobble_percent),
-        );
-        extensions.insert(
-            "melody.lastfm".to_string(),
-            ExtensionConfigEntry {
-                enabled: lfm_enabled,
-                settings,
-            },
-        );
-    }
-}
-
 impl AppConfig {
     pub fn load() -> Self {
         let path = path::config_file();
@@ -303,7 +167,6 @@ impl AppConfig {
                 Ok(mut config) => {
                     info!("Successfully loaded settings from {:?}", path);
                     config.tab_order = sanitize_tab_order(&config.tab_order);
-                    migrate_legacy_scrobble(&content, &mut config.extensions);
                     config
                 }
                 Err(err) => {

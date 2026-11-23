@@ -99,17 +99,7 @@ impl AppState {
 
         match fs::read_to_string(path) {
             Ok(content) => match toml::from_str::<Self>(&content) {
-                Ok(mut state) => {
-                    // Migrate legacy `is_repeat = true` when `repeat_mode` is absent
-                    if state.repeat_mode == RepeatMode::Off {
-                        if let Ok(table) = toml::from_str::<toml::Table>(&content) {
-                            if !table.contains_key("repeat_mode")
-                                && table.get("is_repeat").and_then(|v| v.as_bool()) == Some(true)
-                            {
-                                state.repeat_mode = RepeatMode::One;
-                            }
-                        }
-                    }
+                Ok(state) => {
                     info!("Successfully loaded state from {:?}", path);
                     state
                 }

@@ -106,64 +106,6 @@ mod tests {
     }
 
     #[test]
-    fn test_legacy_scrobble_migrates_to_extensions() {
-        let temp_dir = std::env::temp_dir();
-        let temp_file = temp_dir.join(format!(
-            "melody_test_legacy_scrobble_{}.toml",
-            std::process::id()
-        ));
-        let legacy_toml = r#"
-[scrobble]
-listenbrainz_enabled = true
-listenbrainz_token = "lb_tok"
-listenbrainz_api_url = "https://lb.example/1/submit-listens"
-lastfm_enabled = true
-lastfm_api_key = "lfm_key"
-lastfm_api_secret = "lfm_sec"
-lastfm_session_key = "lfm_sk"
-submit_now_playing = false
-scrobble_percent = 80
-"#;
-        std::fs::write(&temp_file, legacy_toml).unwrap();
-        let loaded = AppConfig::load_from_path(&temp_file);
-        let _ = std::fs::remove_file(temp_file);
-
-        let lb = loaded
-            .extensions
-            .get("melody.listenbrainz")
-            .expect("migrated listenbrainz");
-        assert!(lb.enabled);
-        assert_eq!(
-            lb.settings.get("user_token"),
-            Some(&SettingValue::String("lb_tok".to_string()))
-        );
-        assert_eq!(
-            lb.settings.get("scrobble_percent"),
-            Some(&SettingValue::Integer(80))
-        );
-
-        let lfm = loaded
-            .extensions
-            .get("melody.lastfm")
-            .expect("migrated lastfm");
-        assert!(lfm.enabled);
-        assert_eq!(
-            lfm.settings.get("api_key"),
-            Some(&SettingValue::String("lfm_key".to_string()))
-        );
-        assert_eq!(
-            lfm.settings.get("submit_now_playing"),
-            Some(&SettingValue::Bool(false))
-        );
-    }
-
-    #[test]
-    fn test_legacy_settings_tab_scrobbling_deserializes_to_extensions() {
-        let state: AppState = toml::from_str("settings_tab = \"Scrobbling\"\n").unwrap();
-        assert_eq!(state.settings_tab, SettingsTab::Extensions);
-    }
-
-    #[test]
     fn test_missing_config_returns_defaults() {
         let non_existent = PathBuf::from("/non/existent/path/melody_config.toml");
         let loaded = AppConfig::load_from_path(&non_existent);
@@ -297,20 +239,5 @@ window_height = 900.0
             toml::from_str(toml).expect("Failed to parse state with width and height");
         assert_eq!(state.window_width, 1440.0);
         assert_eq!(state.window_height, 900.0);
-    }
-
-    #[test]
-    fn test_legacy_is_repeat_migrates_to_repeat_one() {
-        let temp_dir = std::env::temp_dir();
-        let temp_file = temp_dir.join(format!(
-            "melody_test_legacy_repeat_{}.toml",
-            std::process::id()
-        ));
-        std::fs::write(&temp_file, "is_repeat = true\n").expect("Write legacy state");
-
-        let loaded = AppState::load_from_path(&temp_file);
-        assert_eq!(loaded.repeat_mode, model::RepeatMode::One);
-
-        let _ = std::fs::remove_file(temp_file);
     }
 }

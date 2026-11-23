@@ -38,6 +38,5 @@ pub enum SettingsTab {
     Appearance,
     Playback,
     Library,
-    #[serde(alias = "Scrobbling")]
     Extensions,
 }
