@@ -185,12 +185,35 @@ impl App {
                     entry.settings.clone()
                 };
                 self.settings.extension_action_status.remove(&id);
+                let track_meta = enabled
+                    .then(|| {
+                        self.current_track.as_ref().map(|t| plugin::TrackMetadata {
+                            title: t.title.clone(),
+                            artist: t.artist.clone(),
+                            album: t.album.clone(),
+                            duration_ms: t.duration_ms,
+                            file_path: t.file_path.clone(),
+                        })
+                    })
+                    .flatten();
+                let is_playing = self.is_playing;
+                let position_ms = self.position_ms;
                 let pm = self.plugin_manager.clone();
                 let sync_task = Task::perform(
                     async move {
                         tokio::task::spawn_blocking(move || {
-                            pm.set_extension_enabled(&id, enabled, &saved)
-                                .unwrap_or_else(|_| pm.snapshots())
+                            let res = pm.set_extension_enabled(&id, enabled, &saved);
+                            if res.is_ok() && enabled {
+                                if let Some(ref meta) = track_meta {
+                                    pm.sync_playback_state_for_extension(
+                                        &id,
+                                        meta,
+                                        is_playing,
+                                        position_ms,
+                                    );
+                                }
+                            }
+                            res.unwrap_or_else(|_| pm.snapshots())
                         })
                         .await
                         .unwrap_or_default()

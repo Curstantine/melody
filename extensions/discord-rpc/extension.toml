@@ -1,0 +1,54 @@
+id = "melody.discord-rpc"
+name = "Discord Rich Presence"
+version = "0.1.0"
+description = "Display your currently playing track as a Discord Rich Presence activity."
+authors = ["Melody"]
+entry = "extension.wasm"
+api_version = 1
+permissions = ["playback-events", "local-ipc", "settings"]
+allowed_ipc = [
+  "discord-ipc-*",
+  "app/com.discordapp.Discord/discord-ipc-*",
+  "snap.discord/discord-ipc-*",
+  ".flatpak/com.discordapp.Discord/xdg-run/discord-ipc-*",
+]
+
+[[settings]]
+key = "status_display"
+label = "Status display text"
+description = "Field shown in your compact Discord status line"
+type = "select"
+default = "name"
+options = [
+  { value = "name", label = "App name" },
+  { value = "details", label = "Track title" },
+  { value = "state", label = "Artist" },
+]
+
+[[settings]]
+key = "show_timestamps"
+label = "Show elapsed time"
+description = "Display track progress and remaining duration in Discord"
+type = "toggle"
+default = true
+
+[[settings]]
+key = "show_album"
+label = "Show album name"
+description = "Display the album name when hovering over the activity artwork"
+type = "toggle"
+default = true
+
+[[settings]]
+key = "show_when_paused"
+label = "Show when paused"
+description = "Keep displaying the track as paused instead of clearing your status"
+type = "toggle"
+default = false
+
+[[settings]]
+key = "test_connection"
+label = "Connection"
+description = "Verify connection to the local Discord desktop client"
+type = "action"
+button_label = "Test connection"

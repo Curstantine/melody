@@ -22,6 +22,7 @@ members = [
     "crates/extension-sdk",
     "extensions/lastfm",
     "extensions/listenbrainz",
+    "extensions/discord-rpc",
 ]
 
 [workspace.package]

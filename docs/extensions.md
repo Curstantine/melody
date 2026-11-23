@@ -63,6 +63,7 @@ placeholder = "Enter API token..."
 | `api_version` | No | Host ABI version (currently `1`). |
 | `permissions` | No | Explicit list of capabilities requested by this extension. |
 | `allowed_hosts` | No | Optional hostname allowlist (exact or `*.suffix`) enforced on `network` HTTP requests. |
+| `allowed_ipc` | No | Named pipe / Unix socket allowlist (single-segment `*` wildcard); required when `"local-ipc"` is declared. |
 | `settings` | No | Array of `[[settings]]` option tables rendered in **Settings -> Extensions**. |
 
 ---
@@ -78,6 +79,7 @@ Extensions run inside an isolated [`wasmi`](https://github.com/wasmi-labs/wasmi)
 | `"settings"` | Expose options and action buttons under **Settings -> Extensions** (`[[settings]]` and `settings_schema()`). | UI hides custom options unless declared. |
 | `"network"` | Make outbound HTTP/HTTPS requests via `melody_extension_sdk::host::http_request`. | Host linker refuses to link `host_http_request` and installer rejects modules importing it unless declared. Optional `allowed_hosts` restricts target domains. |
 | `"player-control"` | Send `ExtensionPlayerAction` commands (`play`, `pause`, `next`, `previous`, `seek_offset_ms`, `set_position_ms`, `set_volume`, `set_shuffle`, `set_repeat`) via `host::dispatch_player_action`. | Host linker refuses to link `host_dispatch_player_action` and installer rejects modules importing it unless declared. |
+| `"local-ipc"` | Connect to local named pipes or Unix domain sockets via `melody_extension_sdk::host::ipc_connect` / `ipc_write` / `ipc_read` / `ipc_close` and read `host::pid()`. | Host linker refuses to link `host_ipc_*` and `host_pid`, and installer rejects modules importing them unless declared. Requires `allowed_ipc` patterns in `extension.toml`. |
 
 Newly installed extensions always start **disabled** so you can inspect their declared permissions before toggling them on.
 

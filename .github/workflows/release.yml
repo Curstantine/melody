@@ -87,6 +87,7 @@ jobs:
         env:
           MELODY_LASTFM_API_KEY: ${{ secrets.MELODY_LASTFM_API_KEY }}
           MELODY_LASTFM_API_SECRET: ${{ secrets.MELODY_LASTFM_API_SECRET }}
+          MELODY_DISCORD_CLIENT_ID: ${{ secrets.MELODY_DISCORD_CLIENT_ID }}
         run: bash scripts/build-extensions.sh
 
       # --- Package Linux Artifacts (AppImage installer + portable tar.gz) ---

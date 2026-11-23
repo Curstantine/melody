@@ -143,6 +143,7 @@ fn invalid_discovered(
             api_version: melody_extension_sdk::ABI_VERSION,
             permissions: Vec::new(),
             allowed_hosts: Vec::new(),
+            allowed_ipc: Vec::new(),
             settings: Vec::new(),
         },
         origin,

@@ -39,6 +39,44 @@ mod imp {
         }
     }
 
+    mod ffi_local_ipc {
+        #[link(wasm_import_module = "melody")]
+        extern "C" {
+            pub(super) fn host_pid() -> u32;
+            pub(super) fn host_ipc_connect(names_ptr: u32, names_len: u32) -> u32;
+            pub(super) fn host_ipc_write(handle: u32, data_ptr: u32, data_len: u32) -> u32;
+            pub(super) fn host_ipc_read(handle: u32, max_len: u32) -> u32;
+            pub(super) fn host_ipc_close(handle: u32) -> i32;
+        }
+    }
+
+    fn take_raw_response_bytes(resp_len: u32) -> Result<Vec<u8>, String> {
+        if resp_len == 0 {
+            return Err("Host response buffer was empty".to_string());
+        }
+        let mut buf = vec![0u8; resp_len as usize];
+        let rc = unsafe { ffi_core::host_take_response(buf.as_mut_ptr() as u32, resp_len) };
+        if rc != 0 {
+            return Err(format!("Failed to take host response (code {rc})"));
+        }
+        Ok(buf)
+    }
+
+    fn take_json_response<T: serde::de::DeserializeOwned>(resp_len: u32) -> Result<T, String> {
+        let buf = take_raw_response_bytes(resp_len)?;
+        serde_json::from_slice::<Result<T, String>>(&buf)
+            .map_err(|e| format!("deserialize host response: {e}"))?
+    }
+
+    fn take_raw_response(resp_len: u32) -> Result<Vec<u8>, String> {
+        let buf = take_raw_response_bytes(resp_len)?;
+        match buf.split_first() {
+            Some((0, payload)) => Ok(payload.to_vec()),
+            Some((1, err_bytes)) => Err(String::from_utf8_lossy(err_bytes).into_owned()),
+            _ => Err("Invalid raw host response framing".to_string()),
+        }
+    }
+
     pub fn log(level: LogLevel, message: &str) {
         let bytes = message.as_bytes();
         unsafe {
@@ -50,21 +88,16 @@ mod imp {
         unsafe { ffi_core::host_now_unix_ms() }
     }
 
+    pub fn pid() -> u32 {
+        unsafe { ffi_local_ipc::host_pid() }
+    }
+
     pub fn http_request(req: &HttpRequest) -> Result<HttpResponse, String> {
         let payload = serde_json::to_vec(req).map_err(|e| format!("serialize request: {e}"))?;
         let resp_len = unsafe {
             ffi_network::host_http_request(payload.as_ptr() as u32, payload.len() as u32)
         };
-        if resp_len == 0 {
-            return Err("Host HTTP response buffer was empty".to_string());
-        }
-        let mut buf = vec![0u8; resp_len as usize];
-        let rc = unsafe { ffi_core::host_take_response(buf.as_mut_ptr() as u32, resp_len) };
-        if rc != 0 {
-            return Err(format!("Failed to take host response (code {rc})"));
-        }
-        serde_json::from_slice::<Result<HttpResponse, String>>(&buf)
-            .map_err(|e| format!("deserialize host response: {e}"))?
+        take_json_response(resp_len)
     }
 
     pub fn browser_auth(req: &BrowserAuthRequest) -> Result<BrowserAuthResponse, String> {
@@ -73,16 +106,7 @@ mod imp {
         let resp_len = unsafe {
             ffi_network::host_browser_auth(payload.as_ptr() as u32, payload.len() as u32)
         };
-        if resp_len == 0 {
-            return Err("Host browser auth response buffer was empty".to_string());
-        }
-        let mut buf = vec![0u8; resp_len as usize];
-        let rc = unsafe { ffi_core::host_take_response(buf.as_mut_ptr() as u32, resp_len) };
-        if rc != 0 {
-            return Err(format!("Failed to take host response (code {rc})"));
-        }
-        serde_json::from_slice::<Result<BrowserAuthResponse, String>>(&buf)
-            .map_err(|e| format!("deserialize host auth response: {e}"))?
+        take_json_response(resp_len)
     }
 
     pub fn set_setting(key: String, value: SettingValue) -> Result<(), String> {
@@ -112,6 +136,33 @@ mod imp {
             Err("Host rejected player action".to_string())
         }
     }
+
+    pub fn ipc_connect(candidates: &[&str]) -> Result<u32, String> {
+        let payload =
+            serde_json::to_vec(candidates).map_err(|e| format!("serialize ipc names: {e}"))?;
+        let resp_len = unsafe {
+            ffi_local_ipc::host_ipc_connect(payload.as_ptr() as u32, payload.len() as u32)
+        };
+        take_json_response(resp_len)
+    }
+
+    pub fn ipc_write(handle: u32, data: &[u8]) -> Result<(), String> {
+        let resp_len = unsafe {
+            ffi_local_ipc::host_ipc_write(handle, data.as_ptr() as u32, data.len() as u32)
+        };
+        take_json_response(resp_len)
+    }
+
+    pub fn ipc_read(handle: u32, max_len: u32) -> Result<Vec<u8>, String> {
+        let resp_len = unsafe { ffi_local_ipc::host_ipc_read(handle, max_len) };
+        take_raw_response(resp_len)
+    }
+
+    pub fn ipc_close(handle: u32) {
+        unsafe {
+            ffi_local_ipc::host_ipc_close(handle);
+        }
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -121,6 +172,14 @@ mod imp {
 
     use super::*;
 
+    /// Mockable local IPC transport trait for native unit tests.
+    pub trait MockIpcTransport {
+        fn connect(&mut self, candidates: &[String]) -> Result<u32, String>;
+        fn write(&mut self, handle: u32, data: &[u8]) -> Result<(), String>;
+        fn read(&mut self, handle: u32, max_len: u32) -> Result<Vec<u8>, String>;
+        fn close(&mut self, _handle: u32) {}
+    }
+
     type MockHttpFn = Box<dyn FnMut(&HttpRequest) -> Result<HttpResponse, String>>;
     type MockBrowserAuthFn =
         Box<dyn FnMut(&BrowserAuthRequest) -> Result<BrowserAuthResponse, String>>;
@@ -128,6 +187,7 @@ mod imp {
     std::thread_local! {
         static MOCK_HTTP: RefCell<Option<MockHttpFn>> = RefCell::new(None);
         static MOCK_BROWSER_AUTH: RefCell<Option<MockBrowserAuthFn>> = RefCell::new(None);
+        static MOCK_IPC: RefCell<Option<Box<dyn MockIpcTransport>>> = RefCell::new(None);
         static MOCK_NOW_MS: Cell<Option<u64>> = const { Cell::new(None) };
         static MOCK_ACTIONS: RefCell<Vec<ExtensionPlayerAction>> = const { RefCell::new(Vec::new()) };
         static MOCK_SETTING_UPDATES: RefCell<Vec<SettingUpdate>> = const { RefCell::new(Vec::new()) };
@@ -151,6 +211,13 @@ mod imp {
         });
     }
 
+    /// Registers a thread-local local IPC mock transport for native unit testing.
+    pub fn set_mock_ipc_transport(transport: impl MockIpcTransport + 'static) {
+        MOCK_IPC.with(|cell| {
+            *cell.borrow_mut() = Some(Box::new(transport));
+        });
+    }
+
     /// Overrides [`now_unix_ms`] on the current thread for deterministic unit tests.
     pub fn set_mock_now_unix_ms(ms: Option<u64>) {
         MOCK_NOW_MS.with(|cell| cell.set(ms));
@@ -170,6 +237,7 @@ mod imp {
     pub fn clear_mocks() {
         MOCK_HTTP.with(|cell| *cell.borrow_mut() = None);
         MOCK_BROWSER_AUTH.with(|cell| *cell.borrow_mut() = None);
+        MOCK_IPC.with(|cell| *cell.borrow_mut() = None);
         MOCK_NOW_MS.with(|cell| cell.set(None));
         MOCK_ACTIONS.with(|cell| cell.borrow_mut().clear());
         MOCK_SETTING_UPDATES.with(|cell| cell.borrow_mut().clear());
@@ -185,6 +253,10 @@ mod imp {
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)
             .unwrap_or(0)
+    }
+
+    pub fn pid() -> u32 {
+        std::process::id()
     }
 
     pub fn http_request(req: &HttpRequest) -> Result<HttpResponse, String> {
@@ -216,12 +288,51 @@ mod imp {
         MOCK_ACTIONS.with(|cell| cell.borrow_mut().push(action.clone()));
         Ok(())
     }
+
+    pub fn ipc_connect(candidates: &[&str]) -> Result<u32, String> {
+        let owned: Vec<String> = candidates.iter().map(|s| (*s).to_string()).collect();
+        MOCK_IPC.with(|cell| {
+            if let Some(transport) = cell.borrow_mut().as_mut() {
+                transport.connect(&owned)
+            } else {
+                Err("No mock IPC transport registered on host target".to_string())
+            }
+        })
+    }
+
+    pub fn ipc_write(handle: u32, data: &[u8]) -> Result<(), String> {
+        MOCK_IPC.with(|cell| {
+            if let Some(transport) = cell.borrow_mut().as_mut() {
+                transport.write(handle, data)
+            } else {
+                Err("No mock IPC transport registered on host target".to_string())
+            }
+        })
+    }
+
+    pub fn ipc_read(handle: u32, max_len: u32) -> Result<Vec<u8>, String> {
+        MOCK_IPC.with(|cell| {
+            if let Some(transport) = cell.borrow_mut().as_mut() {
+                transport.read(handle, max_len)
+            } else {
+                Err("No mock IPC transport registered on host target".to_string())
+            }
+        })
+    }
+
+    pub fn ipc_close(handle: u32) {
+        MOCK_IPC.with(|cell| {
+            if let Some(transport) = cell.borrow_mut().as_mut() {
+                transport.close(handle);
+            }
+        });
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use imp::{
-    clear_mocks, set_mock_browser_auth_handler, set_mock_http_handler, set_mock_now_unix_ms,
-    take_mock_player_actions, take_mock_setting_updates,
+    clear_mocks, set_mock_browser_auth_handler, set_mock_http_handler, set_mock_ipc_transport,
+    set_mock_now_unix_ms, take_mock_player_actions, take_mock_setting_updates, MockIpcTransport,
 };
 
 /// Emits a structured log message to Melody's host logger.
@@ -255,6 +366,11 @@ pub fn now_unix_secs() -> u64 {
     imp::now_unix_ms() / 1000
 }
 
+/// Host process ID (requires `local-ipc` permission; useful for local IPC protocols).
+pub fn pid() -> u32 {
+    imp::pid()
+}
+
 /// Sends an outbound HTTP request through the host (requires `network` permission).
 pub fn http_request(req: &HttpRequest) -> Result<HttpResponse, String> {
     imp::http_request(req)
@@ -274,4 +390,25 @@ pub fn set_setting(key: impl Into<String>, value: SettingValue) -> Result<(), St
 /// Dispatches a player control command to Melody (requires `player-control` permission).
 pub fn dispatch_player_action(action: &ExtensionPlayerAction) -> Result<(), String> {
     imp::dispatch_player_action(action)
+}
+
+/// Connects to the first available local named pipe or Unix domain socket matching `candidates`
+/// (requires `local-ipc` permission and `allowed_ipc` manifest allowlist).
+pub fn ipc_connect(candidates: &[&str]) -> Result<u32, String> {
+    imp::ipc_connect(candidates)
+}
+
+/// Writes raw bytes to an open local IPC handle (requires `local-ipc` permission).
+pub fn ipc_write(handle: u32, data: &[u8]) -> Result<(), String> {
+    imp::ipc_write(handle, data)
+}
+
+/// Reads up to `max_len` bytes from an open local IPC handle (requires `local-ipc` permission).
+pub fn ipc_read(handle: u32, max_len: u32) -> Result<Vec<u8>, String> {
+    imp::ipc_read(handle, max_len)
+}
+
+/// Closes an open local IPC handle (requires `local-ipc` permission).
+pub fn ipc_close(handle: u32) {
+    imp::ipc_close(handle);
 }

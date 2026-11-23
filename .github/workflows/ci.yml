@@ -63,9 +63,10 @@ jobs:
 
       - name: Build bundled WASM extensions
         run: |
-          cargo build -p melody-ext-lastfm -p melody-ext-listenbrainz --target wasm32-unknown-unknown --release
+          cargo build -p melody-ext-lastfm -p melody-ext-listenbrainz -p melody-ext-discord-rpc --target wasm32-unknown-unknown --release
           cp target/wasm32-unknown-unknown/release/melody_ext_lastfm.wasm extensions/lastfm/extension.wasm
           cp target/wasm32-unknown-unknown/release/melody_ext_listenbrainz.wasm extensions/listenbrainz/extension.wasm
+          cp target/wasm32-unknown-unknown/release/melody_ext_discord_rpc.wasm extensions/discord-rpc/extension.wasm
         shell: bash
 
       - name: Build workspace
