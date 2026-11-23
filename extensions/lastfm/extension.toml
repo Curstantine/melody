@@ -1,6 +1,6 @@
 id = "melody.lastfm"
 name = "Last.fm Scrobbler"
-version = "0.1.0"
+version = "0.1.1"
 description = "Scrobble tracks and broadcast Now Playing updates to Last.fm."
 authors = ["Melody"]
 entry = "extension.wasm"

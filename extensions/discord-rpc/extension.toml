@@ -1,6 +1,6 @@
 id = "melody.discord-rpc"
 name = "Discord Rich Presence"
-version = "0.1.0"
+version = "0.1.1"
 description = "Display your currently playing track as a Discord Rich Presence activity."
 authors = ["Melody"]
 entry = "extension.wasm"
