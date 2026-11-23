@@ -269,7 +269,7 @@ impl PlaylistsView {
                 .align_y(Alignment::End)
                 .padding(6);
 
-            let cover_block = iced::widget::stack([icon, actions.boxed()]);
+            let cover_block = component::hover_stack(icon, actions.boxed());
 
             let card_content = column![cover_block, meta_btn].width(PLAYLIST_TILE_SIZE);
 

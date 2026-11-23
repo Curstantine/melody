@@ -8,7 +8,7 @@ use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length, Pa
 
 use theme::ThemeConfig;
 
-use crate::{button, icons, styles, text};
+use crate::{button, hover_stack, icons, styles, text};
 
 /// Fixed pixel height of a single catalog list row, shared by Albums and Artists.
 pub const CATALOG_LIST_ROW_HEIGHT: f32 = 56.0;
@@ -263,7 +263,7 @@ impl<'a, M: Clone + 'static> CatalogTile<'a, M> {
             .align_y(Alignment::End)
             .padding(6);
 
-        let cover_block = iced::widget::stack([leading, actions.boxed()]);
+        let cover_block = hover_stack(leading, actions.boxed());
 
         let card_content = column![cover_block, meta_btn]
             .width(tile_w)

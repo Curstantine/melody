@@ -12,6 +12,7 @@ use theme::ThemeConfig;
 pub mod button;
 pub mod catalog;
 pub mod context_menu;
+pub mod hover_stack;
 pub mod icons;
 pub mod marquee;
 pub mod settings;
@@ -28,6 +29,7 @@ pub use crate::{
         render_context_menu, ContextMenuAction, ContextMenuState, ContextMenuSubmenu,
         ContextMenuTarget, TrackMenuContext,
     },
+    hover_stack::{hover_stack, HoverStack},
     marquee::Marquee,
     settings::{metric_box, settings_card, settings_danger_row, settings_header, settings_row},
     spinner::Spinner,
