@@ -479,15 +479,27 @@ pub fn catalog_cover_art<'a, M: Clone + 'static>(
 
     match cover {
         Some(handle) => {
+            // Inset the artwork inside the 1px border and disable quad snapping on
+            // the overlay: iced_wgpu's image shader anti-aliases ~0.5-1px wider
+            // than the quad shader, so a full-bleed image would otherwise peek
+            // past the darkened overlay at the four rounded corners.
+            let inner_radius = Radius {
+                top_left: (radius.top_left - 1.0).max(0.0),
+                top_right: (radius.top_right - 1.0).max(0.0),
+                bottom_right: (radius.bottom_right - 1.0).max(0.0),
+                bottom_left: (radius.bottom_left - 1.0).max(0.0),
+            };
+
             let image_layer = container(
                 image(handle.clone())
-                    .width(Length::Fixed(size))
-                    .height(Length::Fixed(size))
+                    .width(Length::Fill)
+                    .height(Length::Fill)
                     .content_fit(ContentFit::Cover)
-                    .border_radius(radius),
+                    .border_radius(inner_radius),
             )
             .width(size)
             .height(size)
+            .padding(1)
             .center_x(size)
             .center_y(size)
             .clip(true)
@@ -514,8 +526,10 @@ pub fn catalog_cover_art<'a, M: Clone + 'static>(
                         background: Some(Background::Color(bg)),
                         border: Border {
                             radius,
-                            ..Default::default()
+                            color: border_color,
+                            width: 1.0,
                         },
+                        snap: false,
                         ..Default::default()
                     }
                 })
