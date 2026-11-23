@@ -1,6 +1,6 @@
 id = "melody.listenbrainz"
 name = "ListenBrainz Scrobbler"
-version = "0.1.0"
+version = "0.1.1"
 description = "Scrobble tracks and broadcast real-time Now Playing updates to ListenBrainz."
 authors = ["Melody"]
 entry = "extension.wasm"
