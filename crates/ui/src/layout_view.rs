@@ -558,7 +558,7 @@ impl App {
                 artist_tile_width: self.artists.tile_width,
                 lyrics_font: self.fonts.lyrics.as_deref(),
                 lyrics_font_size: self.fonts.lyrics_size,
-                primary_font: self.fonts.primary.as_deref(),
+                primary_font: self.fonts.ui.as_deref(),
                 ui_font_size: self.fonts.ui_size,
                 total_tracks: self.library_counts.tracks,
                 total_albums: self.library_counts.albums,

@@ -130,7 +130,7 @@ impl From<Font> for iced::Font {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct FontConfig {
     #[serde(default, rename = "primary_font")]
-    pub primary: Option<String>,
+    pub ui: Option<String>,
     #[serde(default, rename = "lyrics_font")]
     pub lyrics: Option<String>,
     #[serde(default = "default_ui_font_size", rename = "ui_font_size")]
@@ -139,7 +139,7 @@ pub struct FontConfig {
     pub lyrics_size: u16,
 
     #[serde(skip)]
-    primary_iced: iced::Font,
+    ui_iced: iced::Font,
     #[serde(skip)]
     lyrics_iced: Option<iced::Font>,
 }
@@ -147,7 +147,7 @@ pub struct FontConfig {
 #[derive(Deserialize)]
 struct RawFontConfig {
     #[serde(default, rename = "primary_font")]
-    primary: Option<String>,
+    ui: Option<String>,
     #[serde(default, rename = "lyrics_font")]
     lyrics: Option<String>,
     #[serde(default = "default_ui_font_size", rename = "ui_font_size")]
@@ -162,12 +162,7 @@ impl<'de> Deserialize<'de> for FontConfig {
         D: Deserializer<'de>,
     {
         let raw = RawFontConfig::deserialize(deserializer)?;
-        Ok(Self::new(
-            raw.primary,
-            raw.lyrics,
-            raw.ui_size,
-            raw.lyrics_size,
-        ))
+        Ok(Self::new(raw.ui, raw.lyrics, raw.ui_size, raw.lyrics_size))
     }
 }
 
@@ -178,29 +173,24 @@ impl Default for FontConfig {
 }
 
 impl FontConfig {
-    pub fn new(
-        primary: Option<String>,
-        lyrics: Option<String>,
-        ui_size: u16,
-        lyrics_size: u16,
-    ) -> Self {
-        let primary_iced = font_from_family_name(primary.as_deref());
+    pub fn new(ui: Option<String>, lyrics: Option<String>, ui_size: u16, lyrics_size: u16) -> Self {
+        let ui_iced = font_from_family_name(ui.as_deref());
         let lyrics_iced = lyrics
             .as_deref()
             .map(|name| font_from_family_name(Some(name)));
         Self {
-            primary,
+            ui,
             lyrics,
             ui_size: ui_size.clamp(MIN_UI_FONT_SIZE, MAX_UI_FONT_SIZE),
             lyrics_size: lyrics_size.clamp(11, 28),
-            primary_iced,
+            ui_iced,
             lyrics_iced,
         }
     }
 
-    pub fn set_primary(&mut self, font: Option<String>) {
-        self.primary_iced = font_from_family_name(font.as_deref());
-        self.primary = font;
+    pub fn set_ui(&mut self, font: Option<String>) {
+        self.ui_iced = font_from_family_name(font.as_deref());
+        self.ui = font;
     }
 
     pub fn set_lyrics(&mut self, font: Option<String>) {
@@ -218,19 +208,14 @@ impl FontConfig {
         self.lyrics_size = size.clamp(11, 28);
     }
 
-    /// Cached [`iced::Font`] for general UI text.
-    pub fn primary_font(&self) -> iced::Font {
-        self.primary_iced
-    }
-
     /// Bundled UI font family and base UI font size.
     pub fn ui_font(&self) -> Font {
-        Font::new(self.primary_iced, self.ui_size)
+        Font::new(self.ui_iced, self.ui_size)
     }
 
-    /// Cached [`iced::Font`] for lyrics, falling back to `primary_font()`.
+    /// Cached [`iced::Font`] for lyrics, falling back to `ui_font().family`.
     pub fn lyrics_font(&self) -> iced::Font {
-        self.lyrics_iced.unwrap_or(self.primary_iced)
+        self.lyrics_iced.unwrap_or(self.ui_iced)
     }
 }
 
@@ -241,18 +226,17 @@ mod tests {
     #[test]
     fn test_font_config_defaults_and_updates() {
         let mut cfg = FontConfig::default();
-        assert_eq!(cfg.primary, None);
+        assert_eq!(cfg.ui, None);
         assert_eq!(cfg.lyrics, None);
         assert_eq!(cfg.ui_size, DEFAULT_UI_FONT_SIZE);
         assert_eq!(cfg.lyrics_size, DEFAULT_LYRICS_FONT_SIZE);
-        assert_eq!(cfg.primary_font(), iced::Font::DEFAULT);
         assert_eq!(cfg.ui_font(), Font::DEFAULT);
         assert_eq!(cfg.lyrics_font(), iced::Font::DEFAULT);
 
-        cfg.set_primary(Some("Inter".to_string()));
-        assert_eq!(cfg.primary.as_deref(), Some("Inter"));
-        assert_eq!(cfg.primary_font(), font_from_family_name(Some("Inter")));
-        assert_eq!(cfg.lyrics_font(), cfg.primary_font());
+        cfg.set_ui(Some("Inter".to_string()));
+        assert_eq!(cfg.ui.as_deref(), Some("Inter"));
+        assert_eq!(cfg.ui_font().family, font_from_family_name(Some("Inter")));
+        assert_eq!(cfg.lyrics_font(), cfg.ui_font().family);
 
         cfg.set_lyrics(Some("Noto Serif".to_string()));
         assert_eq!(cfg.lyrics.as_deref(), Some("Noto Serif"));

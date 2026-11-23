@@ -31,7 +31,7 @@ mod tests {
         );
         assert_eq!(cfg.theme_name, theme::DEFAULT_THEME_NAME);
         assert_eq!(cfg.layout_name, layout::DEFAULT_LAYOUT_NAME);
-        assert_eq!(cfg.fonts.primary, None);
+        assert_eq!(cfg.fonts.ui, None);
         assert_eq!(cfg.page_size, 50);
         assert_eq!(cfg.album_tile_width, 140);
         assert_eq!(cfg.artist_tile_width, 140);

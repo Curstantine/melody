@@ -174,7 +174,7 @@ impl App {
                 } else {
                     Some(font_name.trim().to_string())
                 };
-                self.fonts.set_primary(font_opt);
+                self.fonts.set_ui(font_opt);
                 self.save_config_task()
             }
 

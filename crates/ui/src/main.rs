@@ -70,7 +70,7 @@ fn main() -> iced::Result {
     .theme(App::theme)
     .subscription(App::subscription);
 
-    if let Some(ref font_name) = config.fonts.primary {
+    if let Some(ref font_name) = config.fonts.ui {
         info!("Setting default font from saved config to: {font_name}");
         builder = builder.default_font(font::font_from_family_name(Some(font_name)));
     }

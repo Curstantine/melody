@@ -217,7 +217,7 @@ impl NowPlayingView {
                                 inactive_size
                             };
                             let lyric_btn = button(
-                                text(fonts.primary_font(), display_text)
+                                text(fonts.ui_font().family, display_text)
                                     .size(line_size)
                                     .color(line_color)
                                     .font(lyrics_font),
@@ -230,14 +230,14 @@ impl NowPlayingView {
                         }
                         col.boxed()
                     }
-                    Some(ParsedLyrics::Plain(lyr)) => text(fonts.primary_font(), lyr)
+                    Some(ParsedLyrics::Plain(lyr)) => text(fonts.ui_font().family, lyr)
                         .size(base_size)
                         .color(theme_cfg.text)
                         .font(lyrics_font)
                         .boxed(),
                     None => {
                         if let Some(ref lyr) = self.current_lyrics {
-                            text(fonts.primary_font(), lyr)
+                            text(fonts.ui_font().family, lyr)
                                 .size(base_size)
                                 .color(theme_cfg.text)
                                 .font(lyrics_font)
@@ -538,7 +538,7 @@ impl NowPlayingView {
             }
             None => container(component::empty_state(
                 theme_cfg,
-                fonts.primary_font(),
+                fonts.ui_font().family,
                 "No track playing",
                 "Select a song from the library to view track details and lyrics",
             ))
