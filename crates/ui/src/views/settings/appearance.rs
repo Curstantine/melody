@@ -170,23 +170,6 @@ impl SettingsView {
         .style(styles::pick_list_style(theme_cfg))
         .menu_style(styles::menu_style(theme_cfg));
 
-        let ui_size_presets: [u16; 4] = [10, 12, 14, 16];
-        let ui_size_preset_buttons = {
-            let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
-            for &size in &ui_size_presets {
-                let is_sel = ctx.ui_font_size == size;
-                let btn = component::chip(
-                    theme_cfg,
-                    font,
-                    format!("{} px", size),
-                    is_sel,
-                    Message::SetUiFontSize(size),
-                );
-                r = r.push(btn);
-            }
-            r
-        };
-
         let ui_font_size_row = component::settings_row(
             theme_cfg,
             font,
@@ -206,8 +189,6 @@ impl SettingsView {
                 .on_release(Message::SaveConfig)
                 .style(styles::settings_slider_style(theme_cfg))
                 .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
-                Space::new().width(SPACE_LG),
-                ui_size_preset_buttons,
             ]
             .align_y(Alignment::Center),
         );
@@ -465,23 +446,6 @@ impl SettingsView {
         .style(styles::pick_list_style(theme_cfg))
         .menu_style(styles::menu_style(theme_cfg));
 
-        let lyrics_size_presets: [u16; 4] = [13, 15, 18, 22];
-        let lyrics_size_preset_buttons = {
-            let mut r = row![].spacing(CHIP_ROW_SPACING).align_y(Alignment::Center);
-            for &size in &lyrics_size_presets {
-                let is_sel = ctx.lyrics_font_size == size;
-                let btn = component::chip(
-                    theme_cfg,
-                    font,
-                    format!("{} px", size),
-                    is_sel,
-                    Message::SetLyricsFontSize(size),
-                );
-                r = r.push(btn);
-            }
-            r
-        };
-
         let now_playing_card = component::settings_card(
             theme_cfg,
             font,
@@ -511,8 +475,6 @@ impl SettingsView {
                         .on_release(Message::SaveConfig)
                         .style(styles::settings_slider_style(theme_cfg))
                         .width(Length::Fixed(SETTING_SLIDER_WIDTH)),
-                        Space::new().width(SPACE_LG),
-                        lyrics_size_preset_buttons,
                     ]
                     .align_y(Alignment::Center),
                 ),
