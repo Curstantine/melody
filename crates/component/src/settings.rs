@@ -87,7 +87,7 @@ fn settings_row_with_color<'a, M: 'a>(
         .width(Length::Fill),
         control.boxed(),
     ]
-    .spacing(1)
+    .spacing(4)
     .align_y(Alignment::Center)
     .boxed()
 }

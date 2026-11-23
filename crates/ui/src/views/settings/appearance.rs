@@ -224,8 +224,8 @@ impl SettingsView {
                 component::settings_row(
                     theme_cfg,
                     font,
-                    "Select font family",
-                    "System font family used for UI text rendering and catalog metadata",
+                    "UI font",
+                    "Font family used in the user interface",
                     container(font_selector).width(Length::Fixed(SETTING_DROPDOWN_WIDTH)),
                 ),
                 sample_text_box,
