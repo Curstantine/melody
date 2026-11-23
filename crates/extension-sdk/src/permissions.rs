@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 pub enum ExtensionPermission {
     PlaybackEvents,
     Lyrics,
-    Settings,
     Network,
     PlayerControl,
     LocalIpc,
@@ -22,7 +21,6 @@ impl ExtensionPermission {
         match self {
             Self::PlaybackEvents => "Playback events",
             Self::Lyrics => "Lyrics provider",
-            Self::Settings => "Settings UI",
             Self::Network => "Network access",
             Self::PlayerControl => "Player control",
             Self::LocalIpc => "Local IPC",
@@ -34,7 +32,6 @@ impl ExtensionPermission {
         match self {
             Self::PlaybackEvents => "Receive track metadata and playback state updates",
             Self::Lyrics => "Supply lyrics for currently playing tracks",
-            Self::Settings => "Display custom options and actions in Settings",
             Self::Network => "Send outbound HTTP/HTTPS network requests",
             Self::PlayerControl => "Control playback, seek position, volume, shuffle, and repeat",
             Self::LocalIpc => "Connect to local named pipes or Unix domain sockets",

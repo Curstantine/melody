@@ -281,7 +281,6 @@ mod tests {
                 permissions: vec![
                     ExtensionPermission::PlaybackEvents,
                     ExtensionPermission::Network,
-                    ExtensionPermission::Settings,
                 ],
                 allowed_hosts: vec!["example.org".to_string()],
                 allowed_ipc: Vec::new(),

@@ -226,13 +226,7 @@ impl PluginManager {
         ) {
             Ok((handle, runtime_schema)) => {
                 let effective_schema =
-                    if !disc.manifest.has_permission(ExtensionPermission::Settings) {
-                        Vec::new()
-                    } else if let Some(schema) = runtime_schema {
-                        schema
-                    } else {
-                        disc.manifest.settings.clone()
-                    };
+                    runtime_schema.unwrap_or_else(|| disc.manifest.settings.clone());
 
                 info!(
                     "Started extension '{}' ({})",
@@ -615,11 +609,7 @@ impl PluginManager {
 }
 
 fn default_schema_for_manifest(manifest: &ExtensionManifest) -> Vec<SettingOption> {
-    if manifest.has_permission(ExtensionPermission::Settings) {
-        manifest.settings.clone()
-    } else {
-        Vec::new()
-    }
+    manifest.settings.clone()
 }
 
 #[cfg(test)]
@@ -849,7 +839,6 @@ permissions = ["player-control"]
 id = "com.example.local"
 name = "Local Ext"
 version = "0.1.0"
-permissions = ["settings"]
 
 [[settings]]
 key = "flag"

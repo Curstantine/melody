@@ -5,7 +5,7 @@ description = "Display your currently playing track as a Discord Rich Presence a
 authors = ["Melody"]
 entry = "extension.wasm"
 api_version = 1
-permissions = ["playback-events", "local-ipc", "settings"]
+permissions = ["playback-events", "local-ipc"]
 allowed_ipc = [
   "discord-ipc-*",
   "app/com.discordapp.Discord/discord-ipc-*",

@@ -5,7 +5,7 @@ description = "Scrobble tracks and broadcast real-time Now Playing updates to Li
 authors = ["Melody"]
 entry = "extension.wasm"
 api_version = 1
-permissions = ["playback-events", "network", "settings"]
+permissions = ["playback-events", "network"]
 
 [[settings]]
 key = "user_token"

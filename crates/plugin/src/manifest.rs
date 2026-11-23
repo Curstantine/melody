@@ -283,7 +283,7 @@ name = "Demo Extension"
 version = "1.2.3"
 description = "Demo"
 authors = ["Alice"]
-permissions = ["playback-events", "settings", "playback-events"]
+permissions = ["playback-events", "network", "playback-events"]
 
 [[settings]]
 key = "enabled_extra"
@@ -320,7 +320,7 @@ options = [
             manifest.permissions,
             vec![
                 ExtensionPermission::PlaybackEvents,
-                ExtensionPermission::Settings
+                ExtensionPermission::Network
             ]
         );
         assert_eq!(manifest.settings.len(), 3);

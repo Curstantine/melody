@@ -214,9 +214,7 @@ impl SettingsView {
             ));
         }
 
-        if ext.manifest.has_permission(ExtensionPermission::Settings)
-            && !ext.settings_schema.is_empty()
-        {
+        if !ext.settings_schema.is_empty() {
             let saved_settings = ctx
                 .extensions_config
                 .get(ext_id)
@@ -484,9 +482,6 @@ fn view_permissions_row<'a>(
                     perm.label(),
                     ext.manifest.allowed_hosts.join(", ")
                 )
-            } else if *perm == ExtensionPermission::LocalIpc && !ext.manifest.allowed_ipc.is_empty()
-            {
-                format!("{} ({})", perm.label(), ext.manifest.allowed_ipc.join(", "))
             } else {
                 perm.label().to_string()
             };

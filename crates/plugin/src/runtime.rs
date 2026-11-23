@@ -61,20 +61,12 @@ pub fn audit_module_imports(
         }
 
         match field_name {
-            "host_log" | "host_now_unix_ms" | "host_take_response" => {}
+            "host_log" | "host_now_unix_ms" | "host_take_response" | "host_set_setting" => {}
             "host_http_request" | "host_browser_auth" => {
                 if !granted.contains(&ExtensionPermission::Network) {
                     return Err(format!(
                         "Module imports 'melody::{field_name}' without declaring the 'network' permission"
                     ));
-                }
-            }
-            "host_set_setting" => {
-                if !granted.contains(&ExtensionPermission::Settings) {
-                    return Err(
-                        "Module imports 'melody::host_set_setting' without declaring the 'settings' permission"
-                            .to_string(),
-                    );
                 }
             }
             "host_dispatch_player_action" => {
@@ -574,34 +566,25 @@ fn build_linker(
             .map_err(|e| format!("Failed to link host_browser_auth: {e}"))?;
     }
 
-    if granted.contains(&ExtensionPermission::Settings) {
-        linker
-            .func_wrap(
-                "melody",
-                "host_set_setting",
-                |mut caller: Caller<'_, HostState>, ptr: u32, len: u32| -> i32 {
-                    if !caller
-                        .data()
-                        .permissions
-                        .contains(&ExtensionPermission::Settings)
-                    {
-                        return -1;
-                    }
-                    let Ok(bytes) = read_guest_bytes(&caller, ptr, len, 64 * 1024) else {
-                        return -1;
-                    };
-                    let Ok(update) = serde_json::from_slice::<SettingUpdate>(&bytes) else {
-                        return -1;
-                    };
-                    caller
-                        .data_mut()
-                        .pending_setting_updates
-                        .insert(update.key, update.value);
-                    0
-                },
-            )
-            .map_err(|e| format!("Failed to link host_set_setting: {e}"))?;
-    }
+    linker
+        .func_wrap(
+            "melody",
+            "host_set_setting",
+            |mut caller: Caller<'_, HostState>, ptr: u32, len: u32| -> i32 {
+                let Ok(bytes) = read_guest_bytes(&caller, ptr, len, 64 * 1024) else {
+                    return -1;
+                };
+                let Ok(update) = serde_json::from_slice::<SettingUpdate>(&bytes) else {
+                    return -1;
+                };
+                caller
+                    .data_mut()
+                    .pending_setting_updates
+                    .insert(update.key, update.value);
+                0
+            },
+        )
+        .map_err(|e| format!("Failed to link host_set_setting: {e}"))?;
 
     if granted.contains(&ExtensionPermission::PlayerControl) {
         linker
@@ -888,7 +871,7 @@ pub struct WasmExtensionHandle {
 impl WasmExtensionHandle {
     /// Compiles `wasm_bytes`, audits imports against `manifest.permissions`, spawns a dedicated
     /// worker thread, initializes the extension with `initial_settings`, and queries any dynamic
-    /// settings schema if the `settings` permission is granted.
+    /// settings schema.
     pub fn spawn(
         engine: &Engine,
         manifest: ExtensionManifest,
@@ -966,32 +949,27 @@ impl WasmExtensionHandle {
                     }
                 }
 
-                let schema = if manifest.has_permission(ExtensionPermission::Settings) {
-                    match bindings.invoke(&mut store, &ExtensionRequest::GetSettingsSchema) {
-                        Ok(ExtensionResponse::SettingsSchema { options })
-                            if !options.is_empty() =>
-                        {
-                            if let Err(e) = crate::manifest::validate_settings_schema(&options) {
-                                let _ = init_tx
-                                    .send(Err(format!("Invalid runtime settings schema: {e}")));
-                                return;
-                            }
-                            Some(options)
-                        }
-                        Ok(ExtensionResponse::SettingsSchema { .. }) => None,
-                        Ok(ExtensionResponse::Err { message }) => {
-                            let _ = init_tx
-                                .send(Err(format!("Extension GetSettingsSchema error: {message}")));
+                let schema = match bindings.invoke(&mut store, &ExtensionRequest::GetSettingsSchema)
+                {
+                    Ok(ExtensionResponse::SettingsSchema { options }) if !options.is_empty() => {
+                        if let Err(e) = crate::manifest::validate_settings_schema(&options) {
+                            let _ =
+                                init_tx.send(Err(format!("Invalid runtime settings schema: {e}")));
                             return;
                         }
-                        Ok(_) => None,
-                        Err(e) => {
-                            let _ = init_tx.send(Err(e));
-                            return;
-                        }
+                        Some(options)
                     }
-                } else {
-                    None
+                    Ok(ExtensionResponse::SettingsSchema { .. }) => None,
+                    Ok(ExtensionResponse::Err { message }) => {
+                        let _ = init_tx
+                            .send(Err(format!("Extension GetSettingsSchema error: {message}")));
+                        return;
+                    }
+                    Ok(_) => None,
+                    Err(e) => {
+                        let _ = init_tx.send(Err(e));
+                        return;
+                    }
                 };
 
                 let _ = init_tx.send(Ok(schema));

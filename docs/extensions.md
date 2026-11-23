@@ -37,7 +37,7 @@ authors = ["Your Name"]
 repository = "https://github.com/example/my-extension"
 entry = "extension.wasm"
 api_version = 1
-permissions = ["playback-events", "network", "settings"]
+permissions = ["playback-events", "network"]
 allowed_hosts = ["api.example.com", "*.example.org"]
 
 [[settings]]
@@ -76,7 +76,6 @@ Extensions run inside an isolated [`wasmi`](https://github.com/wasmi-labs/wasmi)
 | :--- | :--- | :--- |
 | `"playback-events"` | Receive `on_track_change`, `on_playback_end`, `on_playback_status_change`, `on_position_change` (throttled to 1 Hz), `on_seeked`, `on_volume_change`, `on_repeat_change`, and `on_shuffle_change`. | Events are only dispatched if declared. |
 | `"lyrics"` | Receive `fetch_lyrics` requests for tracks lacking local sidecar or embedded lyrics. | Queried only if declared. |
-| `"settings"` | Expose options and action buttons under **Settings -> Extensions** (`[[settings]]` and `settings_schema()`). | UI hides custom options unless declared. |
 | `"network"` | Make outbound HTTP/HTTPS requests via `melody_extension_sdk::host::http_request`. | Host linker refuses to link `host_http_request` and installer rejects modules importing it unless declared. Optional `allowed_hosts` restricts target domains. |
 | `"player-control"` | Send `ExtensionPlayerAction` commands (`play`, `pause`, `next`, `previous`, `seek_offset_ms`, `set_position_ms`, `set_volume`, `set_shuffle`, `set_repeat`) via `host::dispatch_player_action`. | Host linker refuses to link `host_dispatch_player_action` and installer rejects modules importing it unless declared. |
 | `"local-ipc"` | Connect to local named pipes or Unix domain sockets via `melody_extension_sdk::host::ipc_connect` / `ipc_write` / `ipc_read` / `ipc_close` and read `host::pid()`. | Host linker refuses to link `host_ipc_*` and `host_pid`, and installer rejects modules importing them unless declared. Requires `allowed_ipc` patterns in `extension.toml`. |
@@ -87,7 +86,7 @@ Newly installed extensions always start **disabled** so you can inspect their de
 
 ## 4. Settings Schema Options
 
-When `"settings"` is declared, options can be defined statically in `extension.toml` (`[[settings]]`) and/or returned dynamically at startup from `Extension::settings_schema(&self)`.
+Options can be defined statically in `extension.toml` (`[[settings]]`) and/or returned dynamically at startup from `Extension::settings_schema(&self)`.
 
 Supported option `type` values:
 

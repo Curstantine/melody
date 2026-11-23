@@ -5,7 +5,7 @@ description = "Scrobble tracks and broadcast Now Playing updates to Last.fm."
 authors = ["Melody"]
 entry = "extension.wasm"
 api_version = 1
-permissions = ["playback-events", "network", "settings"]
+permissions = ["playback-events", "network"]
 
 [[settings]]
 key = "authorize"
