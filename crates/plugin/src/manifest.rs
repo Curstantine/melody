@@ -57,6 +57,8 @@ pub struct ExtensionManifest {
     #[serde(default)]
     pub allowed_hosts: Vec<String>,
     #[serde(default)]
+    pub allowed_ipc: Vec<String>,
+    #[serde(default)]
     pub settings: Vec<SettingOption>,
 }
 
@@ -120,6 +122,16 @@ impl ExtensionManifest {
         }
 
         validate_settings_schema(&self.settings)?;
+
+        for pat in &self.allowed_ipc {
+            crate::local_ipc::validate_ipc_pattern(pat)?;
+        }
+        if self.has_permission(ExtensionPermission::LocalIpc) && self.allowed_ipc.is_empty() {
+            return Err(
+                "Extension declaring 'local-ipc' permission must specify at least one 'allowed_ipc' pattern"
+                    .to_string(),
+            );
+        }
 
         Ok(wasm_path)
     }
@@ -376,5 +388,63 @@ type = "text"
         .unwrap();
 
         assert!(validate_settings_schema(&manifest.settings).is_err());
+    }
+
+    #[test]
+    fn test_manifest_validation_enforces_allowed_ipc() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("melody_manifest_ipc_test_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        std::fs::write(temp_dir.join("extension.wasm"), b"fake").unwrap();
+
+        let empty_ipc = ExtensionManifest::from_toml_str(
+            r#"
+id = "ipc.empty"
+name = "IPC Empty"
+version = "0.1.0"
+permissions = ["local-ipc"]
+"#,
+        )
+        .unwrap();
+        assert!(empty_ipc.validate(&temp_dir).is_err());
+
+        let wildcard_ipc = ExtensionManifest::from_toml_str(
+            r#"
+id = "ipc.star"
+name = "IPC Star"
+version = "0.1.0"
+permissions = ["local-ipc"]
+allowed_ipc = ["*"]
+"#,
+        )
+        .unwrap();
+        assert!(wildcard_ipc.validate(&temp_dir).is_err());
+
+        let traversal_ipc = ExtensionManifest::from_toml_str(
+            r#"
+id = "ipc.trav"
+name = "IPC Trav"
+version = "0.1.0"
+permissions = ["local-ipc"]
+allowed_ipc = ["../a*"]
+"#,
+        )
+        .unwrap();
+        assert!(traversal_ipc.validate(&temp_dir).is_err());
+
+        let valid_ipc = ExtensionManifest::from_toml_str(
+            r#"
+id = "ipc.ok"
+name = "IPC OK"
+version = "0.1.0"
+permissions = ["local-ipc"]
+allowed_ipc = ["app/com.example.App/ipc-*"]
+"#,
+        )
+        .unwrap();
+        assert!(valid_ipc.validate(&temp_dir).is_ok());
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

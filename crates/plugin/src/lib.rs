@@ -1,4 +1,5 @@
 pub mod installer;
+mod local_ipc;
 pub mod manager;
 pub mod manifest;
 pub mod runtime;

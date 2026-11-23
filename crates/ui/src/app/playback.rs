@@ -178,6 +178,19 @@ impl App {
                         self.audio_controller.seek(Duration::from_millis(0));
                         self.position_ms = 0;
                         self.audio_controller.play();
+                        if let Some(track) = &self.current_track {
+                            let meta = TrackMetadata {
+                                title: track.title.clone(),
+                                artist: track.artist.clone(),
+                                album: track.album.clone(),
+                                duration_ms: track.duration_ms,
+                                file_path: track.file_path.clone(),
+                            };
+                            self.media_controls.on_track_change(&meta);
+                            self.plugin_manager.on_track_change(&meta);
+                        }
+                        self.media_controls.on_seeked(0);
+                        self.plugin_manager.on_seeked(0);
                         self.queue_next_gapless_track();
                         return Task::none();
                     }
@@ -522,6 +535,8 @@ impl App {
                 if self.position_ms > 3000 {
                     self.audio_controller.seek(Duration::from_millis(0));
                     self.position_ms = 0;
+                    self.media_controls.on_seeked(0);
+                    self.plugin_manager.on_seeked(0);
                     return Task::none();
                 }
 

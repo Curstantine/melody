@@ -3113,6 +3113,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "melody-ext-discord-rpc"
+version = "0.1.0"
+dependencies = [
+ "melody-extension-sdk",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "melody-ext-lastfm"
 version = "0.1.0"
 dependencies = [
@@ -4141,6 +4150,7 @@ dependencies = [
  "url",
  "walkdir",
  "wasmi",
+ "windows",
  "zip",
 ]
 

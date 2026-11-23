@@ -74,11 +74,12 @@ mod tests {
             ExtensionPermission::Settings,
             ExtensionPermission::Network,
             ExtensionPermission::PlayerControl,
+            ExtensionPermission::LocalIpc,
         ];
         let json = serde_json::to_string(&perms).expect("serialize permissions");
         assert_eq!(
             json,
-            r#"["playback-events","lyrics","settings","network","player-control"]"#
+            r#"["playback-events","lyrics","settings","network","player-control","local-ipc"]"#
         );
         for p in perms {
             assert!(!p.label().is_empty());

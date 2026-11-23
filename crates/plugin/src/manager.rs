@@ -485,6 +485,44 @@ impl PluginManager {
             .collect()
     }
 
+    /// Replays the current track, position, and play/pause state to a single running extension
+    /// if it declares `playback-events` (used when an extension is enabled mid-playback).
+    pub fn sync_playback_state_for_extension(
+        &self,
+        id: &str,
+        track: &TrackMetadata,
+        is_playing: bool,
+        position_ms: u64,
+    ) {
+        let handle = {
+            let Ok(reg) = self.extensions.read() else {
+                return;
+            };
+            reg.entries.get(id).and_then(|m| {
+                if m.snapshot
+                    .manifest
+                    .has_permission(ExtensionPermission::PlaybackEvents)
+                {
+                    m.handle.clone()
+                } else {
+                    None
+                }
+            })
+        };
+
+        if let Some(handle) = handle {
+            let info = TrackInfo {
+                title: track.title.clone(),
+                artist: track.artist.clone(),
+                album: track.album.clone(),
+                duration_ms: track.duration_ms,
+            };
+            handle.send_event(ExtensionRequest::OnTrackChange { track: info });
+            handle.send_event(ExtensionRequest::OnPositionChange { position_ms });
+            handle.send_event(ExtensionRequest::OnPlaybackStatusChange { is_playing });
+        }
+    }
+
     pub fn on_track_change(&self, track: &TrackMetadata) {
         let info = TrackInfo {
             title: track.title.clone(),
@@ -676,6 +714,26 @@ mod tests {
         let err = audit_module_imports(&ctrl_mod, &[ExtensionPermission::Network]).unwrap_err();
         assert!(err.contains("player-control"));
         assert!(audit_module_imports(&ctrl_mod, &[ExtensionPermission::PlayerControl]).is_ok());
+
+        let ipc_wasm = minimal_wat_module(
+            Some(r#"(import "melody" "host_ipc_connect" (func (param i32 i32) (result i32)))"#),
+            false,
+        );
+        let ipc_mod = wasmi::Module::new(&engine, &ipc_wasm).unwrap();
+        let err =
+            audit_module_imports(&ipc_mod, &[ExtensionPermission::PlaybackEvents]).unwrap_err();
+        assert!(err.contains("local-ipc"));
+        assert!(audit_module_imports(&ipc_mod, &[ExtensionPermission::LocalIpc]).is_ok());
+
+        let pid_wasm = minimal_wat_module(
+            Some(r#"(import "melody" "host_pid" (func (result i32)))"#),
+            false,
+        );
+        let pid_mod = wasmi::Module::new(&engine, &pid_wasm).unwrap();
+        let err =
+            audit_module_imports(&pid_mod, &[ExtensionPermission::PlaybackEvents]).unwrap_err();
+        assert!(err.contains("local-ipc"));
+        assert!(audit_module_imports(&pid_mod, &[ExtensionPermission::LocalIpc]).is_ok());
     }
 
     #[test]
@@ -860,9 +918,9 @@ version = "0.2.0"
             .join("extensions");
         let user_dir = temp_dir("real_wasm_user");
 
-        // Verify compiled bundled WASM modules exist and do NOT import player-control
+        // Verify compiled bundled WASM modules exist and do NOT import disallowed host functions
         let engine = create_engine();
-        for ext_name in ["lastfm", "listenbrainz"] {
+        for ext_name in ["lastfm", "listenbrainz", "discord-rpc"] {
             let wasm_path = extensions_dir.join(ext_name).join("extension.wasm");
             if !wasm_path.is_file() {
                 eprintln!(
@@ -893,6 +951,17 @@ version = "0.2.0"
                     .any(|i| i == "melody::host_dispatch_player_action"),
                 "Unused player_control import leaked into {ext_name}"
             );
+            if ext_name != "discord-rpc" {
+                assert!(
+                    !imports.iter().any(|i| i == "melody::host_ipc_connect"),
+                    "Unused local_ipc import leaked into {ext_name}"
+                );
+            } else {
+                assert!(
+                    !imports.iter().any(|i| i == "melody::host_http_request"),
+                    "Unused http_request import leaked into {ext_name}"
+                );
+            }
         }
 
         let (tx, _rx) = crossbeam_channel::unbounded();
@@ -913,9 +982,16 @@ version = "0.2.0"
                 settings: BTreeMap::new(),
             },
         );
+        configs.insert(
+            "melody.discord-rpc".to_string(),
+            ExtensionConfigEntry {
+                enabled: true,
+                settings: BTreeMap::new(),
+            },
+        );
 
         let snapshots = manager.discover_and_sync(&configs);
-        assert!(snapshots.len() >= 2);
+        assert!(snapshots.len() >= 3);
 
         let lb = snapshots
             .iter()
@@ -930,6 +1006,13 @@ version = "0.2.0"
             .expect("lastfm snapshot");
         assert_eq!(lfm.status, ExtensionStatus::Running);
 
+        let drpc = snapshots
+            .iter()
+            .find(|s| s.manifest.id == "melody.discord-rpc")
+            .expect("discord-rpc snapshot");
+        assert_eq!(drpc.status, ExtensionStatus::Running);
+        assert!(!drpc.settings_schema.is_empty());
+
         // Trigger action with empty token/api_key: executes real WASM validation and returns Err
         let lb_err = manager
             .trigger_extension_action("melody.listenbrainz", "test_connection", &BTreeMap::new())
@@ -943,6 +1026,26 @@ version = "0.2.0"
             lfm_err.contains("not connected") || lfm_err.contains("not bundled"),
             "unexpected lastfm validation error: {lfm_err}"
         );
+
+        match manager.trigger_extension_action(
+            "melody.discord-rpc",
+            "test_connection",
+            &BTreeMap::new(),
+        ) {
+            Ok(outcome) => {
+                assert!(
+                    outcome.message.contains("Connected to Discord"),
+                    "unexpected discord-rpc success message: {}",
+                    outcome.message
+                );
+            }
+            Err(drpc_err) => {
+                assert!(
+                    drpc_err.contains("not bundled") || drpc_err.contains("Discord"),
+                    "unexpected discord-rpc validation error: {drpc_err}"
+                );
+            }
+        }
 
         // Send playback hooks cleanly
         manager.on_track_change(&TrackMetadata {

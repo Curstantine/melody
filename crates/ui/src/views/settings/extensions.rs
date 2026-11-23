@@ -525,6 +525,9 @@ fn view_permissions_row<'a>(
                     perm.label(),
                     ext.manifest.allowed_hosts.join(", ")
                 )
+            } else if *perm == ExtensionPermission::LocalIpc && !ext.manifest.allowed_ipc.is_empty()
+            {
+                format!("{} ({})", perm.label(), ext.manifest.allowed_ipc.join(", "))
             } else {
                 perm.label().to_string()
             };

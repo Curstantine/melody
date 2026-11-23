@@ -85,6 +85,14 @@ pub fn audit_module_imports(
                     );
                 }
             }
+            "host_pid" | "host_ipc_connect" | "host_ipc_write" | "host_ipc_read"
+            | "host_ipc_close" => {
+                if !granted.contains(&ExtensionPermission::LocalIpc) {
+                    return Err(format!(
+                        "Module imports 'melody::{field_name}' without declaring the 'local-ipc' permission"
+                    ));
+                }
+            }
             other => {
                 return Err(format!("Unknown host import 'melody::{other}'"));
             }
@@ -104,9 +112,11 @@ struct HostState {
     extension_id: String,
     permissions: HashSet<ExtensionPermission>,
     allowed_hosts: Vec<String>,
+    allowed_ipc: Vec<String>,
     action_tx: Sender<PlayerAction>,
     response_buf: Vec<u8>,
     pending_setting_updates: BTreeMap<String, SettingValue>,
+    local_ipc: crate::local_ipc::LocalIpcRegistry,
     limiter: StoreLimits,
 }
 
@@ -122,9 +132,11 @@ impl HostState {
             extension_id: manifest.id.clone(),
             permissions: manifest.permissions.iter().copied().collect(),
             allowed_hosts: manifest.allowed_hosts.clone(),
+            allowed_ipc: manifest.allowed_ipc.clone(),
             action_tx,
             response_buf: Vec::new(),
             pending_setting_updates: BTreeMap::new(),
+            local_ipc: crate::local_ipc::LocalIpcRegistry::default(),
             limiter,
         }
     }
@@ -619,6 +631,127 @@ fn build_linker(
                 },
             )
             .map_err(|e| format!("Failed to link host_dispatch_player_action: {e}"))?;
+    }
+
+    if granted.contains(&ExtensionPermission::LocalIpc) {
+        linker
+            .func_wrap(
+                "melody",
+                "host_pid",
+                |_caller: Caller<'_, HostState>| -> u32 { std::process::id() },
+            )
+            .map_err(|e| format!("Failed to link host_pid: {e}"))?;
+
+        linker
+            .func_wrap(
+                "melody",
+                "host_ipc_connect",
+                |mut caller: Caller<'_, HostState>, ptr: u32, len: u32| -> u32 {
+                    let result: Result<u32, String> = if !caller
+                        .data()
+                        .permissions
+                        .contains(&ExtensionPermission::LocalIpc)
+                    {
+                        Err("Permission 'local-ipc' denied".to_string())
+                    } else {
+                        match read_guest_bytes(&caller, ptr, len, 16 * 1024) {
+                            Ok(bytes) => match serde_json::from_slice::<Vec<String>>(&bytes) {
+                                Ok(candidates) => {
+                                    let allowed = caller.data().allowed_ipc.clone();
+                                    caller.data_mut().local_ipc.connect(&candidates, &allowed)
+                                }
+                                Err(e) => Err(format!("Invalid IPC candidate list JSON: {e}")),
+                            },
+                            Err(e) => Err(e),
+                        }
+                    };
+                    let encoded = serde_json::to_vec(&result)
+                        .unwrap_or_else(|_| br#"{"Err":"Serialize IPC connect failed"}"#.to_vec());
+                    let resp_len = encoded.len() as u32;
+                    caller.data_mut().response_buf = encoded;
+                    resp_len
+                },
+            )
+            .map_err(|e| format!("Failed to link host_ipc_connect: {e}"))?;
+
+        linker
+            .func_wrap(
+                "melody",
+                "host_ipc_write",
+                |mut caller: Caller<'_, HostState>, handle: u32, ptr: u32, len: u32| -> u32 {
+                    let result: Result<(), String> = if !caller
+                        .data()
+                        .permissions
+                        .contains(&ExtensionPermission::LocalIpc)
+                    {
+                        Err("Permission 'local-ipc' denied".to_string())
+                    } else {
+                        match read_guest_bytes(&caller, ptr, len, 1024 * 1024) {
+                            Ok(bytes) => caller.data_mut().local_ipc.write(handle, &bytes),
+                            Err(e) => Err(e),
+                        }
+                    };
+                    let encoded = serde_json::to_vec(&result)
+                        .unwrap_or_else(|_| br#"{"Err":"Serialize IPC write failed"}"#.to_vec());
+                    let resp_len = encoded.len() as u32;
+                    caller.data_mut().response_buf = encoded;
+                    resp_len
+                },
+            )
+            .map_err(|e| format!("Failed to link host_ipc_write: {e}"))?;
+
+        linker
+            .func_wrap(
+                "melody",
+                "host_ipc_read",
+                |mut caller: Caller<'_, HostState>, handle: u32, max_len: u32| -> u32 {
+                    let result: Result<Vec<u8>, String> = if !caller
+                        .data()
+                        .permissions
+                        .contains(&ExtensionPermission::LocalIpc)
+                    {
+                        Err("Permission 'local-ipc' denied".to_string())
+                    } else {
+                        caller.data_mut().local_ipc.read(handle, max_len)
+                    };
+                    let encoded = match result {
+                        Ok(bytes) => {
+                            let mut out = Vec::with_capacity(1 + bytes.len());
+                            out.push(0);
+                            out.extend_from_slice(&bytes);
+                            out
+                        }
+                        Err(err) => {
+                            let mut out = Vec::with_capacity(1 + err.len());
+                            out.push(1);
+                            out.extend_from_slice(err.as_bytes());
+                            out
+                        }
+                    };
+                    let resp_len = encoded.len() as u32;
+                    caller.data_mut().response_buf = encoded;
+                    resp_len
+                },
+            )
+            .map_err(|e| format!("Failed to link host_ipc_read: {e}"))?;
+
+        linker
+            .func_wrap(
+                "melody",
+                "host_ipc_close",
+                |mut caller: Caller<'_, HostState>, handle: u32| -> i32 {
+                    if !caller
+                        .data()
+                        .permissions
+                        .contains(&ExtensionPermission::LocalIpc)
+                    {
+                        return -1;
+                    }
+                    caller.data_mut().local_ipc.close(handle);
+                    0
+                },
+            )
+            .map_err(|e| format!("Failed to link host_ipc_close: {e}"))?;
     }
 
     Ok(linker)
