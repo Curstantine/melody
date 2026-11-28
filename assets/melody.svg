@@ -27,7 +27,17 @@
     </linearGradient>
   </defs>
 
-  <!-- Background squircle with drop shadow applied -->
+  <!-- Background squircle shadow (separate from gradient to avoid filter banding) -->
+  <rect
+        x="16"
+        y="16"
+        width="224"
+        height="224"
+        rx="52"
+        ry="52"
+        fill="#161616"
+        filter="url(#backdropShadow)"
+    />
   <rect
         x="16"
         y="16"
@@ -36,7 +46,6 @@
         rx="52"
         ry="52"
         fill="url(#bgGrad)"
-        filter="url(#backdropShadow)"
     />
 
   <!-- Music Note Motif (scaled and centered from Boxicons music) -->
